@@ -68,8 +68,16 @@ void MainGame::initSystems()
 	initShaders();
 
 	_agentSpriteBatch.init();
+	_hudSpriteBatch.init();
+
+	_spriteFont = new Kengine::SpriteFont("Fonts/chintzy.ttf", 64);
 
 	_camera.init(_screenWidth, _screenHeight);
+	
+	_hudCamera.init(_screenWidth, _screenHeight);
+	
+	glm::vec2 offSetCameraPosition = glm::vec2(_screenWidth / 2, _screenHeight / 2);
+	_hudCamera.setPosition(offSetCameraPosition);
 }
 
 void MainGame::initLevel()
@@ -164,8 +172,9 @@ void MainGame::gameLoop()
 		}
 
 		_camera.setPosition(_player->getPosition());
-		
 		_camera.update();
+
+		_hudCamera.update();
 
 		drawGame();
 
@@ -346,6 +355,40 @@ void MainGame::checkVictory()
 	}
 }
 
+void MainGame::drawHud()
+{
+	char buffer[256];
+
+	glm::mat4 projectionMatrix = _hudCamera.getCameraMatrix();
+	GLint pUniform = _textureProgram.getUniformLocation("transformationMatrix");
+	glUniformMatrix4fv(pUniform, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+	_hudSpriteBatch.begin();
+
+	sprintf_s(buffer, "Num Humans %d", _humans.size());
+
+	_spriteFont->draw(_hudSpriteBatch, 
+					  buffer, 
+					  glm::vec2(0, 0), 
+					  glm::vec2(0.5f), 
+					  0.0f, 
+					  Kengine::ColorRGBA8(255, 255, 255, 255),
+					  Kengine::Justification::LEFT);
+
+	sprintf_s(buffer, "Num Zombies %d", _zombies.size());
+
+	_spriteFont->draw(_hudSpriteBatch, 
+					  buffer, 
+					  glm::vec2(0, 36), 
+					  glm::vec2(0.5f), 
+					  0.0f, 
+					  Kengine::ColorRGBA8(255, 255, 255, 255),
+					  Kengine::Justification::LEFT);
+	
+	_hudSpriteBatch.end();
+	_hudSpriteBatch.renderBatch();
+}
+
 void MainGame::processInput() {
     SDL_Event evnt;
 
@@ -443,6 +486,8 @@ void MainGame::drawGame() {
 	_agentSpriteBatch.end();
 
 	_agentSpriteBatch.renderBatch();
+
+	drawHud();
 
 	// Unbind the shader
 	_textureProgram.unuse();

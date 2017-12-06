@@ -4,6 +4,8 @@
 #include <Kengine/GLSLProgram.h>
 #include <Kengine/Camera2D.h>
 #include <Kengine/InputManager.h>
+#include <Kengine/SpriteBatch.h>
+#include <Kengine/SpriteFont.h>
 
 #include "Player.h"
 #include "Level.h"
@@ -50,14 +52,20 @@ private:
 	/// Renders the game
     void drawGame();
 
+	/// Draws the HUD
+	void drawHud();
+
 private:
     /// Member Variables
     Kengine::Window _window; ///< The game window
 	Kengine::GLSLProgram _textureProgram; ///< The shader program
 	Kengine::InputManager _inputManager; ///< Handles input
-    Kengine::Camera2D _camera; ///< Main Camera
+    
+	Kengine::Camera2D _camera; ///< Main Camera
+    Kengine::Camera2D _hudCamera; ///< HUD Camera
 
 	Kengine::SpriteBatch _agentSpriteBatch;
+	Kengine::SpriteBatch _hudSpriteBatch;
 
 	std::vector<Level*> _levels;
 
@@ -74,6 +82,8 @@ private:
 
 	int _numHumansKilled; /// Humans killed by player
 	int _numZombiesKilled; /// Zombies killed by player
+
+	Kengine::SpriteFont* _spriteFont;
 
 	GameState _gameState;
 };
