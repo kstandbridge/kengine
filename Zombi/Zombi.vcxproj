@@ -168,8 +168,12 @@
     <ClInclude Include="Zombie.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Levels\levelSmall.txt" />
     <None Include="Resources\Shaders\fragmentShader.fs" />
     <None Include="Resources\Shaders\vertexShader.vs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Levels\levelBig.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

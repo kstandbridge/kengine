@@ -75,7 +75,7 @@ void MainGame::initSystems()
 void MainGame::initLevel()
 {
 	// Level 1
-	_levels.push_back(new Level("Levels/Level1.txt"));
+	_levels.push_back(new Level("Levels/LevelBig.txt"));
 	_currentLevel = 0;
 
 	_player = new Player();
@@ -414,16 +414,24 @@ void MainGame::drawGame() {
 
 	_agentSpriteBatch.begin();
 
+	const glm::vec2 agentDims(AGENT_RADIUS * 2.0f);
+
 	// Draw the humans
 	for (auto i = 0; i < _humans.size(); i++)
 	{
-		_humans[i]->draw(_agentSpriteBatch);
+		if(_camera.isBoxInView(_humans[i]->getPosition(), agentDims))
+		{
+			_humans[i]->draw(_agentSpriteBatch);
+		}
 	}
 
 	// Draw the zombies
 	for (auto i = 0; i < _zombies.size(); i++)
 	{
-		_zombies[i]->draw(_agentSpriteBatch);
+		if(_camera.isBoxInView(_zombies[i]->getPosition(), agentDims))
+		{
+			_zombies[i]->draw(_agentSpriteBatch);
+		}
 	}
 
 	// Draw the bullets

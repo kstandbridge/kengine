@@ -16,6 +16,9 @@
     <Filter Include="Resource Files\Shaders">
       <UniqueIdentifier>{5a11389a-2211-41cf-a573-c5ed710f67de}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\Levels">
+      <UniqueIdentifier>{06d01f77-7c95-4a7a-8d08-a53fa6ad3a08}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -79,5 +82,13 @@
     <None Include="Resources\Shaders\vertexShader.vs">
       <Filter>Resource Files\Shaders</Filter>
     </None>
+    <None Include="Levels\levelSmall.txt">
+      <Filter>Resource Files\Levels</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Levels\levelBig.txt">
+      <Filter>Resource Files\Levels</Filter>
+    </Text>
   </ItemGroup>
 </Project>
