@@ -35,13 +35,14 @@ void Human::init(float speed, glm::vec2 pos)
 
 void Human::update(const std::vector<std::string>& levelData, 
 				   std::vector<Human*>& humans,
-				   std::vector<Zombie*>& zombies)
+				   std::vector<Zombie*>& zombies,
+				   float deltaTime)
 {
 
 	static std::mt19937 randomEngine(time(nullptr));
 	static std::uniform_real_distribution<float> randRotate(-40.0f, 40.0f);
 
-	_position += _direction * _speed;
+	_position += _direction * _speed * deltaTime;
 
 	if(_frames == 150)
 	{
