@@ -7,14 +7,14 @@
 #include <string>
 
 MainGame::MainGame()
-	: _screenWidth{1024},
-	  _screenHeight{768},
-	  _gameState{GameState::PLAY},
+	: m_screenWidth{1024},
+	  m_screenHeight{768},
+	  m_gameState{GameState::PLAY},
 	  _maxFPS(60.0f), 
-	  _fps{0},
+	  m_fps{0},
 	  _time{0}
 {
-	_camera.init(_screenWidth, _screenHeight);
+	m_camera.init(m_screenWidth, m_screenHeight);
 }
 
 MainGame::~MainGame()
@@ -32,7 +32,7 @@ void MainGame::initSystems()
 {
 	Kengine::init();
 
-	_window.create("Game Engine", _screenWidth, _screenHeight, 0);
+	m_window.create("Game Engine", m_screenWidth, m_screenHeight, 0);
 
 	initShaders();
 
@@ -51,21 +51,21 @@ void MainGame::initShaders()
 
 void MainGame::gameLoop()
 {
-	while(_gameState != GameState::EXIT)
+	while(m_gameState != GameState::EXIT)
 	{
 		_fpsLimiter.begin();
 
 		processInput();
 		_time += 0.05f;
 
-		_camera.update();
+		m_camera.update();
 
-		for(int i = 0; i < _bullets.size();)
+		for(int i = 0; i < m_bullets.size();)
 		{
-			if(_bullets[i].update())
+			if(m_bullets[i].update())
 			{
-				_bullets[i] = _bullets.back();
-				_bullets.pop_back();
+				m_bullets[i] = m_bullets.back();
+				m_bullets.pop_back();
 			}
 			else
 			{
@@ -75,14 +75,14 @@ void MainGame::gameLoop()
 
 		drawGame();
 
-		_fps = _fpsLimiter.end();
+		m_fps = _fpsLimiter.end();
 
 		// Print only once every 10 frames
 		static int frameCounter = 0;
 		frameCounter++;
 		if(frameCounter == 10000)
 		{
-			std::cout << _fps << std::endl;
+			std::cout << m_fps << std::endl;
 			frameCounter = 0;
 		}
 	}
@@ -100,60 +100,60 @@ void MainGame::processInput()
 		switch(evnt.type)
 		{
 			case SDL_QUIT:
-				_gameState = GameState::EXIT;
+				m_gameState = GameState::EXIT;
 				break;
 			case SDL_MOUSEMOTION:
-				_inputManager.setMouseCoords(evnt.motion.x, evnt.motion.y);
+				m_inputManager.setMouseCoords(evnt.motion.x, evnt.motion.y);
 				break;
 			case SDL_KEYDOWN:
-				_inputManager.pressKey(evnt.key.keysym.sym);
+				m_inputManager.pressKey(evnt.key.keysym.sym);
 				break;
 			case SDL_KEYUP:
-				_inputManager.releaseKey(evnt.key.keysym.sym);
+				m_inputManager.releaseKey(evnt.key.keysym.sym);
 				break;
 			case SDL_MOUSEBUTTONDOWN:
-				_inputManager.pressKey(evnt.button.button);
+				m_inputManager.pressKey(evnt.button.button);
 				break;
 			case SDL_MOUSEBUTTONUP:
-				_inputManager.releaseKey(evnt.button.button);
+				m_inputManager.releaseKey(evnt.button.button);
 				break;
 		}
 	}
 
-	if(_inputManager.isKeyDown(SDLK_w))
+	if(m_inputManager.isKeyDown(SDLK_w))
 	{
-		_camera.setPosition(_camera.getPosition() + glm::vec2(0.0f, CAMERA_SPEED));
+		m_camera.setPosition(m_camera.getPosition() + glm::vec2(0.0f, CAMERA_SPEED));
 	}
 	
-	if(_inputManager.isKeyDown(SDLK_s))
+	if(m_inputManager.isKeyDown(SDLK_s))
 	{
-		_camera.setPosition(_camera.getPosition() + glm::vec2(0.0f, -CAMERA_SPEED));
+		m_camera.setPosition(m_camera.getPosition() + glm::vec2(0.0f, -CAMERA_SPEED));
 	}
 	
-	if(_inputManager.isKeyDown(SDLK_a))
+	if(m_inputManager.isKeyDown(SDLK_a))
 	{
-		_camera.setPosition(_camera.getPosition() + glm::vec2(-CAMERA_SPEED, 0.0f));
+		m_camera.setPosition(m_camera.getPosition() + glm::vec2(-CAMERA_SPEED, 0.0f));
 	}
 	
-	if(_inputManager.isKeyDown(SDLK_d))
+	if(m_inputManager.isKeyDown(SDLK_d))
 	{
-		_camera.setPosition(_camera.getPosition() + glm::vec2(CAMERA_SPEED, 0.0f));
+		m_camera.setPosition(m_camera.getPosition() + glm::vec2(CAMERA_SPEED, 0.0f));
 	}
 	
-	if(_inputManager.isKeyDown(SDLK_q))
+	if(m_inputManager.isKeyDown(SDLK_q))
 	{
-		_camera.setScale(_camera.getScale() * (1 + SCALE_SPEED));
+		m_camera.setScale(m_camera.getScale() * (1 + SCALE_SPEED));
 	}
 	
-	if(_inputManager.isKeyDown(SDLK_e))
+	if(m_inputManager.isKeyDown(SDLK_e))
 	{
-		_camera.setScale(_camera.getScale() * (1 - SCALE_SPEED));
+		m_camera.setScale(m_camera.getScale() * (1 - SCALE_SPEED));
 	}
 
-	if(_inputManager.isKeyDown(SDL_BUTTON_LEFT))
+	if(m_inputManager.isKeyDown(SDL_BUTTON_LEFT))
 	{
-		glm::vec2 mouseCoords = _inputManager.getMouseCoords();
-		mouseCoords = _camera.convertScreenToWorld(mouseCoords);
+		glm::vec2 mouseCoords = m_inputManager.getMouseCoords();
+		mouseCoords = m_camera.convertScreenToWorld(mouseCoords);
 		
 		std::cout << mouseCoords.x << ", " << mouseCoords.y << std::endl;
 
@@ -161,7 +161,7 @@ void MainGame::processInput()
 		glm::vec2 direction = mouseCoords - playerPosition;
 		direction = glm::normalize(direction);
 
-		_bullets.emplace_back(Bullet(playerPosition, direction, 5.00f, 1000));
+		m_bullets.emplace_back(Bullet(playerPosition, direction, 5.00f, 1000));
 	}
 }
 
@@ -185,7 +185,7 @@ void MainGame::drawGame()
 
 	// Set the camera matrix
 	GLuint pLocation = _colorProgram.getUniformLocation("P");
-	glm::mat4 cameraMatrix = _camera.getCameraMatrix();
+	glm::mat4 cameraMatrix = m_camera.getCameraMatrix();
 
 	// Upload to GPU?
 	glUniformMatrix4fv(pLocation, 1, GL_FALSE, &(cameraMatrix[0][0]));
@@ -204,9 +204,9 @@ void MainGame::drawGame()
 
 	_spriteBatch.draw(pos, uv, texture.id, 0.0f, color);
 
-	for(int i = 0; i < _bullets.size(); i++)
+	for(int i = 0; i < m_bullets.size(); i++)
 	{
-		_bullets[i].draw(_spriteBatch);
+		m_bullets[i].draw(_spriteBatch);
 	}
 
 	_spriteBatch.end();
@@ -219,5 +219,5 @@ void MainGame::drawGame()
 	// Disable the shader
 	_colorProgram.unuse();
 
-	_window.swapBuffer();
+	m_window.swapBuffer();
 }

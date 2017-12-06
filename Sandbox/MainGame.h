@@ -36,23 +36,23 @@ private:
 	void processInput();
 	void drawGame();
 
-	Kengine::Window _window;
-	int _screenWidth;
-	int _screenHeight;
-	GameState _gameState;
+	Kengine::Window m_window;
+	int m_screenWidth;
+	int m_screenHeight;
+	GameState m_gameState;
 
 	Kengine::GLSLProgram _colorProgram;
-	Kengine::Camera2D _camera;
+	Kengine::Camera2D m_camera;
 
 	Kengine::SpriteBatch _spriteBatch;
 
-	Kengine::InputManager _inputManager;
+	Kengine::InputManager m_inputManager;
 	Kengine::FpsLimiter _fpsLimiter;
 
-	std::vector<Bullet> _bullets;
+	std::vector<Bullet> m_bullets;
 
 	float _maxFPS;
-	float _fps;
+	float m_fps;
 	float _time;
 };
 

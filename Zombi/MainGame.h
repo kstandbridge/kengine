@@ -57,34 +57,35 @@ private:
 
 private:
     /// Member Variables
-    Kengine::Window _window; ///< The game window
-	Kengine::GLSLProgram _textureProgram; ///< The shader program
-	Kengine::InputManager _inputManager; ///< Handles input
+    Kengine::Window m_window; ///< The game window
+	Kengine::GLSLProgram m_textureProgram; ///< The shader program
+	Kengine::InputManager m_inputManager; ///< Handles input
     
-	Kengine::Camera2D _camera; ///< Main Camera
-    Kengine::Camera2D _hudCamera; ///< HUD Camera
+	Kengine::Camera2D m_camera; ///< Main Camera
+    Kengine::Camera2D m_hudCamera; ///< HUD Camera
 
-	Kengine::SpriteBatch _agentSpriteBatch;
-	Kengine::SpriteBatch _hudSpriteBatch;
+	Kengine::SpriteBatch m_agentSpriteBatch;
+	Kengine::SpriteBatch m_hudSpriteBatch;
 
-	std::vector<Level*> _levels;
+	std::vector<Level*> m_levels;
 
-	int _screenWidth, _screenHeight;
+	int m_screenWidth = 1024;
+	int m_screenHeight = 768;
 
-	float _fps;
+	float m_fps = 0;
 
-	int _currentLevel;
+	int m_currentLevel;
 
-	Player* _player;
-	std::vector<Human*> _humans;
-	std::vector<Zombie*> _zombies;
-	std::vector<Bullet> _bullets;
+	Player* m_player = nullptr;
+	std::vector<Human*> m_humans;
+	std::vector<Zombie*> m_zombies;
+	std::vector<Bullet> m_bullets;
 
-	int _numHumansKilled; /// Humans killed by player
-	int _numZombiesKilled; /// Zombies killed by player
+	int m_numHumansKilled = 0; /// Humans killed by player
+	int m_numZombiesKilled = 0; /// Zombies killed by player
 
-	Kengine::SpriteFont* _spriteFont;
+	Kengine::SpriteFont* m_spriteFont = nullptr;
 
-	GameState _gameState;
+	GameState m_gameState = GameState::PLAY;
 };
 
