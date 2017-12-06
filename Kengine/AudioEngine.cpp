@@ -50,6 +50,10 @@ namespace Kengine
 
 	void AudioEngine::init()
 	{
+		if(m_isInitialized)
+		{
+			fatalError("Tried to initizlize Audio Engine twice!\n");
+		}
 		/// Parameter can be a bitwise combination of
 		/// MIX_INIT_FAC, MIX_INIT_MOD, MIX_INIT_MP3, MIX_INIT_OGG
 		if(Mix_Init(MIX_INIT_MP3 | MIX_INIT_OGG) == -1)
@@ -70,6 +74,20 @@ namespace Kengine
 		if(m_isInitialized)
 		{
 			m_isInitialized = false;
+
+			for(auto& it : m_effectMap)
+			{
+				Mix_FreeChunk(it.second);
+			}
+			m_effectMap.clear();
+
+			for (auto& it : m_musicMap)
+			{
+				Mix_FreeMusic(it.second);
+			}
+			m_musicMap.clear();
+			
+			Mix_CloseAudio();
 			Mix_Quit();
 		}
 	}
