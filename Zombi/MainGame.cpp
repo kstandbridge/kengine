@@ -3,16 +3,19 @@
 #include <Kengine/Kengine.h>
 #include <Kengine/Timing.h>
 #include <Kengine/KengineErrors.h>
+#include <Kengine/ResourceManager.h>
 
 #include <random>
 #include <ctime>
 #include <algorithm>
 
 #include <SDL/SDL.h>
+#include <glm/gtx/rotate_vector.hpp>
 
 #include "Gun.h";
 #include "Zombie.h";
 #include <iostream>
+
 
 const float HUMAN_SPEED = 1.0f;
 const float ZOMBIE_SPEED = 1.3f;
@@ -71,9 +74,12 @@ void MainGame::initSystems()
 	m_camera.init(m_screenWidth, m_screenHeight);
 	
 	m_hudCamera.init(m_screenWidth, m_screenHeight);
-	
 	glm::vec2 offSetCameraPosition = glm::vec2(m_screenWidth / 2, m_screenHeight / 2);
 	m_hudCamera.setPosition(offSetCameraPosition);
+
+	m_bloodParticleBatch = new Kengine::ParticleBatch2D();
+	m_bloodParticleBatch->init(1000, 0.05f, Kengine::ResourceManager::getTexture("Textures/particle.png"));
+	m_particleEngine.addParticleBatch(m_bloodParticleBatch);
 }
 
 void MainGame::initLevel()
@@ -164,9 +170,12 @@ void MainGame::gameLoop()
 			float deltaTime = std::min(totalDeltaTime, MAX_DELTA_TIME);
 			updateAgents(deltaTime);
 			updateBullets(deltaTime);
+			m_particleEngine.update(deltaTime);
 			totalDeltaTime -= deltaTime;
 			i++;
 		}
+
+		
 
 		m_camera.setPosition(m_player->getPosition());
 		m_camera.update();
@@ -273,6 +282,8 @@ void MainGame::updateBullets(float deltaTime)
 			// Check collision
 			if(m_bullets[i].collideWithAgent(m_zombies[j]))
 			{
+				// Add blood
+				addBlood(m_bullets[i].getPosition(), 5);
 				// Damage zombie, and kill it if its out of health
 				if(m_zombies[j]->applyDamage(m_bullets[i].getDamage()))
 				{
@@ -308,6 +319,9 @@ void MainGame::updateBullets(float deltaTime)
 				// Check collision
 				if(m_bullets[i].collideWithAgent(m_humans[j]))
 				{
+					// Add blood
+					addBlood(m_bullets[i].getPosition(), 5);
+
 					// Damage zombie, and kill it if its out of health
 					if(m_humans[j]->applyDamage(m_bullets[i].getDamage()))
 					{
@@ -384,6 +398,23 @@ void MainGame::drawHud()
 	
 	m_hudSpriteBatch.end();
 	m_hudSpriteBatch.renderBatch();
+}
+
+void MainGame::addBlood(const glm::vec2& position, int numParticles)
+{
+	static std::mt19937 randEngine(time(nullptr));
+	static std::uniform_real_distribution<float> randAngle(0.0f, 360.0f);
+
+	glm::vec2 vel(2.0f, 0.0f);
+	Kengine::ColorRGBA8 color(255, 0, 0, 255);
+
+	for (int i = 0; i < numParticles; i++)
+	{
+		m_bloodParticleBatch->addParticle(position, 
+										  glm::rotate(vel, randAngle(randEngine)), 
+										  color, 
+										  20.0f);
+	}
 }
 
 void MainGame::processInput() {
@@ -483,6 +514,8 @@ void MainGame::drawGame() {
 	m_agentSpriteBatch.end();
 
 	m_agentSpriteBatch.renderBatch();
+
+	m_particleEngine.draw(&m_agentSpriteBatch);
 
 	drawHud();
 

@@ -7,6 +7,8 @@
 #include <Kengine/SpriteBatch.h>
 #include <Kengine/SpriteFont.h>
 #include <Kengine/AudioEngine.h>
+#include <Kengine/ParticleEngine2D.h>
+#include <Kengine/ParticleBatch2D.h>
 
 #include "Player.h"
 #include "Level.h"
@@ -56,7 +58,9 @@ private:
 	/// Draws the HUD
 	void drawHud();
 
-private:
+	/// Adds blood to the particle engine
+	void addBlood(const glm::vec2& position, int numParticles);
+
     /// Member Variables
     Kengine::Window m_window; ///< The game window
 	Kengine::GLSLProgram m_textureProgram; ///< The shader program
@@ -67,6 +71,9 @@ private:
 
 	Kengine::SpriteBatch m_agentSpriteBatch;
 	Kengine::SpriteBatch m_hudSpriteBatch;
+
+	Kengine::ParticleEngine2D m_particleEngine;
+	Kengine::ParticleBatch2D* m_bloodParticleBatch;
 
 	std::vector<Level*> m_levels;
 
