@@ -6,6 +6,7 @@
 #include <Kengine/InputManager.h>
 #include <Kengine/SpriteBatch.h>
 #include <Kengine/SpriteFont.h>
+#include <Kengine/AudioEngine.h>
 
 #include "Player.h"
 #include "Level.h"
@@ -85,6 +86,8 @@ private:
 	int m_numZombiesKilled = 0; /// Zombies killed by player
 
 	Kengine::SpriteFont* m_spriteFont = nullptr;
+
+	Kengine::AudioEngine m_audioEngine;
 
 	GameState m_gameState = GameState::PLAY;
 };

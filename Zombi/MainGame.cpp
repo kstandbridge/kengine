@@ -2,7 +2,7 @@
 
 #include <Kengine/Kengine.h>
 #include <Kengine/Timing.h>
-#include <Kengine/Errors.h>
+#include <Kengine/KengineErrors.h>
 
 #include <random>
 #include <ctime>
@@ -46,14 +46,17 @@ void MainGame::run()
 	initSystems();
 	initLevel();
 
+	Kengine::Music music = m_audioEngine.loadMusic("Sound/XYZ.ogg");
+	music.play(-1);
+	
 	gameLoop();
-
-
 }
 
 void MainGame::initSystems()
 {
 	Kengine::init();
+
+	m_audioEngine.init();
 
 	m_window.create("Zombi", m_screenWidth, m_screenHeight, 0);
 	glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
@@ -76,7 +79,8 @@ void MainGame::initSystems()
 void MainGame::initLevel()
 {
 	// Level 1
-	m_levels.push_back(new Level("Levels/LevelBig.txt"));
+	m_levels.push_back(new Level("Levels/LevelSmall.txt"));
+//	m_levels.push_back(new Level("Levels/LevelBig.txt"));
 	m_currentLevel = 0;
 
 	m_player = new Player();
@@ -107,9 +111,9 @@ void MainGame::initLevel()
 
 	// Set up the player guns
 	const float BULLET_SPEED = 20.0f;
-	m_player->addGun(new Gun("Magnum", 10, 1, 5.0f, 30, BULLET_SPEED));
-	m_player->addGun(new Gun("Shotgun", 30, 12, 20.0f, 4, BULLET_SPEED));
-	m_player->addGun(new Gun("MP5", 2, 1, 10.0f, 20, BULLET_SPEED));
+	m_player->addGun(new Gun("Magnum", 10, 1, 5.0f, 30, BULLET_SPEED, m_audioEngine.loadSoundEffect("Sound/shots/pistol.wav")));
+	m_player->addGun(new Gun("Shotgun", 30, 12, 20.0f, 4, BULLET_SPEED, m_audioEngine.loadSoundEffect("Sound/shots/shotgun.wav")));
+	m_player->addGun(new Gun("MP5", 2, 1, 10.0f, 20, BULLET_SPEED, m_audioEngine.loadSoundEffect("Sound/shots/cg1.wav")));
 }
 
 void MainGame::initShaders()

@@ -1,5 +1,5 @@
 #include "Window.h"
-#include "Errors.h"
+#include "KengineErrors.h"
 
 namespace Kengine
 {

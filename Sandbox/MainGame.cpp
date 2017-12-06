@@ -1,6 +1,6 @@
 #include "MainGame.h"
 
-#include <Kengine/Errors.h>
+#include <Kengine/KengineErrors.h>
 #include "Kengine/ResourceManager.h"
 
 #include <iostream>

@@ -160,9 +160,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AudioEngine.cpp" />
     <ClCompile Include="Kengine.cpp" />
     <ClCompile Include="Camera2D.cpp" />
-    <ClCompile Include="Errors.cpp" />
+    <ClCompile Include="KengineErrors.cpp" />
     <ClCompile Include="GLSLProgram.cpp" />
     <ClCompile Include="ImageLoader.cpp" />
     <ClCompile Include="InputManager.cpp" />
@@ -177,9 +178,10 @@
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AudioEngine.h" />
     <ClInclude Include="Kengine.h" />
     <ClInclude Include="Camera2D.h" />
-    <ClInclude Include="Errors.h" />
+    <ClInclude Include="KengineErrors.h" />
     <ClInclude Include="GLSLProgram.h" />
     <ClInclude Include="GLTexture.h" />
     <ClInclude Include="ImageLoader.h" />
