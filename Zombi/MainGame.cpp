@@ -127,7 +127,7 @@ void MainGame::gameLoop()
 	const int MAX_PHYSICIS_STEPS = 6;
 
 	Kengine::FpsLimiter fpsLimiter;
-	fpsLimiter.setMaxFPS(60.0f);
+	fpsLimiter.setMaxFPS(1200.0f);
 
 	const float CAMERA_SCALE = 1.0f / 2.0f;
 	_camera.setScale(CAMERA_SCALE);
