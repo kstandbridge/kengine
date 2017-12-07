@@ -28,17 +28,17 @@ MainGame::MainGame()
 
 MainGame::~MainGame() 
 {
-	for(int i = 0; i < m_levels.size(); i++)
+	for(size_t i = 0; i < m_levels.size(); i++)
 	{
 		delete m_levels[i];
 	}
 
-	for(int i = 0; i < m_humans.size(); i++)
+	for(size_t i = 0; i < m_humans.size(); i++)
 	{
 		delete m_humans[i];
 	}
 
-	for(int i = 0; i < m_zombies.size(); i++)
+	for(size_t i = 0; i < m_zombies.size(); i++)
 	{
 		delete m_zombies[i];
 	}
@@ -107,7 +107,7 @@ void MainGame::initLevel()
 	std::uniform_int_distribution<int> randY(2, m_levels[m_currentLevel]->getHeight() - 2);
 
 	// Add all the random humans
-	for(int i = 0; i < m_levels[m_currentLevel]->getNumHumans(); i++)
+	for(auto i = 0; i < m_levels[m_currentLevel]->getNumHumans(); i++)
 	{
 		m_humans.push_back(new Human);
 		glm::vec2 pos(randX(randomEngine) * TILE_WIDTH, randY(randomEngine) * TILE_WIDTH);
@@ -116,7 +116,7 @@ void MainGame::initLevel()
 
 	// Add the zombies
 	const std::vector<glm::ivec2> zombiePositions = m_levels[m_currentLevel]->getZombiStartPositions();
-	for(int i = 0; i < zombiePositions.size(); i++)
+	for(size_t i = 0; i < zombiePositions.size(); i++)
 	{
 		m_zombies.push_back(new Zombie);
 		m_zombies.back()->init(ZOMBIE_SPEED, zombiePositions[i]);
@@ -199,7 +199,7 @@ void MainGame::gameLoop()
 void MainGame::updateAgents(float deltaTime)
 {
 	// Update all humans
-	for(int i = 0; i < m_humans.size(); i++)
+	for(size_t i = 0; i < m_humans.size(); i++)
 	{
 		m_humans[i]->update(m_levels[m_currentLevel]->getLevelData(),
 						   m_humans,
@@ -208,7 +208,7 @@ void MainGame::updateAgents(float deltaTime)
 	}
 
 	// Update zombies
-		for(int i = 0; i < m_zombies.size(); i++)
+	for(size_t i = 0; i < m_zombies.size(); i++)
 	{
 		m_zombies[i]->update(m_levels[m_currentLevel]->getLevelData(),
 						   m_humans,
@@ -217,16 +217,16 @@ void MainGame::updateAgents(float deltaTime)
 	}
 
 	// Update Zombie collisions
-	for(int i = 0; i < m_zombies.size(); i++)
+	for(size_t i = 0; i < m_zombies.size(); i++)
 	{
 		// Collide with other zombies
-		for(int j = i + 1 ; j < m_zombies.size(); j++)
+		for(size_t j = i + 1 ; j < m_zombies.size(); j++)
 		{
 			m_zombies[i]->collideWithAgent(m_zombies[j]);
 		}
 
 		// Collide with humans
-		for(int j = 1 ; j < m_humans.size(); j++)
+		for(size_t j = 1 ; j < m_humans.size(); j++)
 		{
 			if(m_zombies[i]->collideWithAgent(m_humans[j]))
 			{
@@ -249,10 +249,10 @@ void MainGame::updateAgents(float deltaTime)
 	}
 
 	// Update Human collisions
-	for(int i = 0; i < m_humans.size(); i++)
+	for(size_t i = 0; i < m_humans.size(); i++)
 	{
 		// Collide with other humans
-		for(int j = i + 1 ; j < m_humans.size(); j++)
+		for(size_t j = i + 1 ; j < m_humans.size(); j++)
 		{
 			m_humans[i]->collideWithAgent(m_humans[j]);
 		}
@@ -263,7 +263,7 @@ void MainGame::updateAgents(float deltaTime)
 void MainGame::updateBullets(float deltaTime)
 {
 	// Update and collide with world
-	for(int i = 0; i < m_bullets.size();)
+	for(size_t i = 0; i < m_bullets.size();)
 	{
 		// If update returns true, the bullet collided with a wall
 		if(m_bullets[i].update(m_levels[m_currentLevel]->getLevelData(), deltaTime))
@@ -280,11 +280,11 @@ void MainGame::updateBullets(float deltaTime)
 	bool wasBulletRemoved;
 
 	// Collide with humans and zombies
-	for(int i = 0; i < m_bullets.size(); i++)
+	for(size_t i = 0; i < m_bullets.size(); i++)
 	{
 		wasBulletRemoved = false;
 		// Loop through zombies
-		for(int j = 0; j < m_zombies.size();)
+		for(size_t j = 0; j < m_zombies.size();)
 		{
 			// Check collision
 			if(m_bullets[i].collideWithAgent(m_zombies[j]))
@@ -321,7 +321,7 @@ void MainGame::updateBullets(float deltaTime)
 		// Loop through humans
 		if(wasBulletRemoved == false)
 		{
-			for(int j = 1; j < m_humans.size();)
+			for(size_t j = 1; j < m_humans.size();)
 			{
 				// Check collision
 				if(m_bullets[i].collideWithAgent(m_humans[j]))
@@ -453,16 +453,17 @@ void MainGame::processInput() {
 	}
 
 	
+	const float SCALE_SPEED = 0.01f;
 
-//	if(_inputManager.isKeyDown(SDLK_q))
-//	{
-//		_camera.setScale(_camera.getScale() * (1 + SCALE_SPEED));
-//	}
-//	
-//	if(_inputManager.isKeyDown(SDLK_e))
-//	{
-//		_camera.setScale(_camera.getScale() * (1 - SCALE_SPEED));
-//	}
+	if(m_inputManager.isKeyDown(SDLK_q))
+	{
+		m_camera.setScale(m_camera.getScale() * (1 + SCALE_SPEED));
+	}
+	
+	if(m_inputManager.isKeyDown(SDLK_e))
+	{
+		m_camera.setScale(m_camera.getScale() * (1 - SCALE_SPEED));
+	}
 
 }
 
@@ -495,7 +496,7 @@ void MainGame::drawGame() {
 	const glm::vec2 agentDims(AGENT_RADIUS * 2.0f);
 
 	// Draw the humans
-	for (auto i = 0; i < m_humans.size(); i++)
+	for(size_t i = 0; i < m_humans.size(); i++)
 	{
 		if(m_camera.isBoxInView(m_humans[i]->getPosition(), agentDims))
 		{
@@ -504,7 +505,7 @@ void MainGame::drawGame() {
 	}
 
 	// Draw the zombies
-	for (auto i = 0; i < m_zombies.size(); i++)
+	for(size_t i = 0; i < m_zombies.size(); i++)
 	{
 		if(m_camera.isBoxInView(m_zombies[i]->getPosition(), agentDims))
 		{
@@ -513,7 +514,7 @@ void MainGame::drawGame() {
 	}
 
 	// Draw the bullets
-	for(int i = 0; i < m_bullets.size(); i++)
+	for(size_t i = 0; i < m_bullets.size(); i++)
 	{
 		m_bullets[i].draw(m_agentSpriteBatch);
 	}

@@ -27,7 +27,7 @@ namespace Kengine
 
 	void ParticleBatch2D::update(float deltaTime)
 	{
-		for(int i = 0; i < m_maxParticles; i++)
+		for(auto i = 0; i < m_maxParticles; i++)
 		{
 			if(m_particles[i].life > 0.0f)
 			{
@@ -41,7 +41,7 @@ namespace Kengine
 	void ParticleBatch2D::draw(SpriteBatch* spriteBatch)
 	{
 		glm::vec4 uvRect(0.0f, 0.0f, 1.0f, 1.0f);
-		for(int i = 0; i < m_maxParticles; i++)
+		for(auto i = 0; i < m_maxParticles; i++)
 		{
 			auto& p = m_particles[i];
 			if(m_particles[i].life > 0.0f)
@@ -69,7 +69,7 @@ namespace Kengine
 
 	int ParticleBatch2D::findFreeParticle()
 	{
-		for(int i = m_lastFreeParticle; i < m_maxParticles; i++)
+		for(auto i = m_lastFreeParticle; i < m_maxParticles; i++)
 		{
 			if(m_particles[i].life <= 0.0f)
 			{
@@ -78,7 +78,7 @@ namespace Kengine
 			}
 		}
 
-		for(int i = 0; i < m_lastFreeParticle; i++)
+		for(auto i = 0; i < m_lastFreeParticle; i++)
 		{
 			if(m_particles[i].life <= 0.0f)
 			{

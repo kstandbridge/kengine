@@ -35,9 +35,9 @@ Level::Level(const std::string& fileName)
 	whiteColor.b = 255;
 	whiteColor.a = 255;
 
-	for(int y = 0; y < _levelData.size(); y++)
+	for(size_t y = 0; y < _levelData.size(); y++)
 	{
-		for(int x = 0; x < _levelData[y].size(); x++)
+		for(size_t x = 0; x < _levelData[y].size(); x++)
 		{
 			char tile = _levelData[y][x];
 

@@ -101,7 +101,7 @@ namespace Kengine
 	{
 		glUseProgram(_programID);
 		// enable all the attributes added with addAttribute
-		for(int i = 0; i < _numAttributes; i++)
+		for(auto i = 0; i < _numAttributes; i++)
 		{
 			glEnableVertexAttribArray(i);
 		}
@@ -110,7 +110,7 @@ namespace Kengine
 	void GLSLProgram::unuse()
 	{
 		glUseProgram(0);
-		for(int i = 0; i < _numAttributes; i++)
+		for(auto i = 0; i < _numAttributes; i++)
 		{
 			glDisableVertexAttribArray(i);
 		}

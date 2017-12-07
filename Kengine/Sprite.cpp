@@ -59,7 +59,7 @@ namespace Kengine
 		vertexData[5].setPosition(x + width, y + height);
 		vertexData[5].setUV(1.0f, 1.0f);
 
-		for(int i = 0; i < 6; i++)
+		for(size_t i = 0; i < 6; i++)
 		{
 			vertexData[i].setColor(255, 0, 255, 255);
 		}

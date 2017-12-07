@@ -22,23 +22,23 @@ bool Agent::collideWithLevel(const std::vector<std::string>& levelData)
 	// Check the four corners
 	checkTilePosition(levelData,
 					  collideTilePositions,
-					  _position.x,
-					  _position.y);
+					  m_position.x,
+					  m_position.y);
 	
 	checkTilePosition(levelData,
 					  collideTilePositions,
-					  _position.x + AGENT_WIDTH,
-					  _position.y);
+					  m_position.x + AGENT_WIDTH,
+					  m_position.y);
 
 	checkTilePosition(levelData,
 					  collideTilePositions,
-					  _position.x,
-					  _position.y + AGENT_WIDTH);
+					  m_position.x,
+					  m_position.y + AGENT_WIDTH);
 
 	checkTilePosition(levelData,
 					  collideTilePositions,
-					  _position.x + AGENT_WIDTH,
-					  _position.y + AGENT_WIDTH);
+					  m_position.x + AGENT_WIDTH,
+					  m_position.y + AGENT_WIDTH);
 
 	if(collideTilePositions.size() == 0)
 	{
@@ -46,7 +46,7 @@ bool Agent::collideWithLevel(const std::vector<std::string>& levelData)
 	}
 
 	// Do the collision
-	for(int i = 0; i < collideTilePositions.size(); i++)
+	for(size_t i = 0; i < collideTilePositions.size(); i++)
 	{
 		collideWithTile(collideTilePositions[i]);
 	}
@@ -58,7 +58,7 @@ bool Agent::collideWithAgent(Agent* agent)
 {
 	const float MIN_DISTANCE = AGENT_RADIUS * 2;
 
-	glm::vec2 centerPosA = _position + glm::vec2(AGENT_RADIUS);
+	glm::vec2 centerPosA = m_position + glm::vec2(AGENT_RADIUS);
 	glm::vec2 centerPosB = agent->getPosition() + glm::vec2(AGENT_RADIUS);
 
 	glm::vec2 distVec = centerPosA - centerPosB;
@@ -69,8 +69,8 @@ bool Agent::collideWithAgent(Agent* agent)
 	if(collisionDepth > 0)
 	{
 		glm::vec2 collisionDepthVec = glm::normalize(distVec) * collisionDepth;
-		_position += collisionDepthVec / 2.0f;
-		agent->_position -= collisionDepthVec / 2.0f;
+		m_position += collisionDepthVec / 2.0f;
+		agent->m_position -= collisionDepthVec / 2.0f;
 		return true;
 	}
 	return false;
@@ -78,22 +78,20 @@ bool Agent::collideWithAgent(Agent* agent)
 
 void Agent::draw(Kengine::SpriteBatch& spiteBatch)
 {
-	static int textureID = Kengine::ResourceManager::getTexture("Textures/circle.png").id;
-
 	const glm::vec4 uvRect(0.0f, 0.0f, 1.0f, 1.0f);
 
 	glm::vec4 destRect;
-	destRect.x = _position.x;
-	destRect.y = _position.y;
+	destRect.x = m_position.x;
+	destRect.y = m_position.y;
 	destRect.z = AGENT_WIDTH;
 	destRect.w = AGENT_WIDTH;
-	spiteBatch.draw(destRect, uvRect, textureID, 0.0f, _color);
+	spiteBatch.draw(destRect, uvRect, m_textureId, 0.0f, m_color, m_direction);
 }
 
 bool Agent::applyDamage(float damage)
 {
-	_health -= damage;
-	if(_health <= 0)
+	m_health -= damage;
+	if(m_health <= 0)
 	{
 		return true;
 	}
@@ -127,7 +125,7 @@ void Agent::collideWithTile(glm::vec2 tilePos)
 	const float TILE_RADIUS = (float)TILE_WIDTH / 2;
 	const float MIN_DISTANCE = AGENT_RADIUS + TILE_RADIUS;
 
-	glm::vec2 centerPlayerPos = _position + glm::vec2(AGENT_RADIUS);
+	glm::vec2 centerPlayerPos = m_position + glm::vec2(AGENT_RADIUS);
 	glm::vec2 distVec = centerPlayerPos - tilePos;
 
 	float xDepth = MIN_DISTANCE - abs(distVec.x);
@@ -139,11 +137,11 @@ void Agent::collideWithTile(glm::vec2 tilePos)
 		{
 			if(distVec.x < 0)
 			{
-				_position.x -= xDepth;
+				m_position.x -= xDepth;
 			}
 			else
 			{
-				_position.x += xDepth;
+				m_position.x += xDepth;
 			}
 			
 		} 
@@ -151,11 +149,11 @@ void Agent::collideWithTile(glm::vec2 tilePos)
 		{
 			if(distVec.y < 0)
 			{
-				_position.y -= yDepth;
+				m_position.y -= yDepth;
 			}
 			else
 			{
-				_position.y += yDepth;
+				m_position.y += yDepth;
 			}
 		}
 	}

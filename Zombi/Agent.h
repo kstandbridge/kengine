@@ -29,7 +29,7 @@ public:
 	// Return true if we died
 	bool applyDamage(float damage);
 
-	glm::vec2 getPosition() const { return _position; }
+	glm::vec2 getPosition() const { return m_position; }
 
 protected:
 
@@ -40,9 +40,11 @@ protected:
 
 	void collideWithTile(glm::vec2 tilePos);
 
-	glm::vec2 _position;
-	Kengine::ColorRGBA8 _color;
-	float _speed;
-	float _health;
+	glm::vec2 m_position;
+	glm::vec2 m_direction = glm::vec2(1.0f, 0.0f);
+	Kengine::ColorRGBA8 m_color;
+	float m_speed;
+	float m_health;
+	GLuint m_textureId;
 };
 

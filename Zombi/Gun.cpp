@@ -40,7 +40,7 @@ void Gun::fire(const glm::vec2& position, const glm::vec2& direction, std::vecto
 
 	m_fireEffect.play();
 	
-	for(int i = 0; i < _bulletsPerShot; i++)
+	for(size_t i = 0; i < _bulletsPerShot; i++)
 	{
 		glm::vec2 rand = glm::rotate(direction, randRotate(randomEngine) * (float)(3.14 / 180));
 //		auto rand = glm::rotate(direction, randRotate(randomEngine));

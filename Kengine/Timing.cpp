@@ -46,8 +46,7 @@ namespace Kengine
 
 		static float prevTicks = SDL_GetTicks();
 
-		float currentTicks;
-		currentTicks = SDL_GetTicks();
+		float currentTicks = SDL_GetTicks();
 	
 		_frameTime = currentTicks - prevTicks;
 		frameTimes[currentFrame % NUM_SAMPLES] = _frameTime;
@@ -67,7 +66,7 @@ namespace Kengine
 		}
 
 		float frameTimeAverage = 0;
-		for(int i = 0; i < count; i++)
+		for(auto i = 0; i < count; i++)
 		{
 			frameTimeAverage += frameTimes[i];
 		}

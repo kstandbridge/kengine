@@ -2,6 +2,7 @@
 #include "Gun.h"
 
 #include <SDL/SDL.h>
+#include <Kengine/ResourceManager.h>
 
 
 Player::Player()
@@ -16,17 +17,16 @@ Player::~Player()
 
 void Player::init(float speed, glm::vec2 pos, Kengine::InputManager* inputManager, Kengine::Camera2D* camera, std::vector<Bullet>* bullets)
 {
-	_speed = speed;
-	_position = pos;
+	m_speed = speed;
+	m_position = pos;
 	_inputManager = inputManager;
 	_camera = camera;
 	_bullets = bullets;
 
-	_color.r = 0;
-	_color.g = 0;
-	_color.b = 185;
-	_color.a = 255;
-	_health = 150;
+	m_color = Kengine::ColorRGBA8(255, 255, 255, 255);
+	m_health = 150;
+
+	m_textureId = Kengine::ResourceManager::getTexture("Textures/player.png").id;
 }
 
 void Player::addGun(Gun* gun)
@@ -47,20 +47,20 @@ void Player::update(const std::vector<std::string>& levelData,
 {
 	if(_inputManager->isKeyDown(SDLK_w))
 	{
-		_position.y += _speed * deltaTime;
+		m_position.y += m_speed * deltaTime;
 	}
 	else if(_inputManager->isKeyDown(SDLK_s))
 	{
-		_position.y -= _speed * deltaTime;
+		m_position.y -= m_speed * deltaTime;
 	}
 
 	if(_inputManager->isKeyDown(SDLK_a))
 	{
-		_position.x -= _speed * deltaTime;
+		m_position.x -= m_speed * deltaTime;
 	}
 	else if(_inputManager->isKeyDown(SDLK_d))
 	{
-		_position.x += _speed * deltaTime;
+		m_position.x += m_speed * deltaTime;
 	}
 
 	if(_inputManager->isKeyDown(SDLK_1) && _guns.size() >= 0)
@@ -76,20 +76,22 @@ void Player::update(const std::vector<std::string>& levelData,
 		_currentGunIndex = 2;
 	}
 
+	glm::vec2 mouseCoords = _inputManager->getMouseCoords();
+	mouseCoords = _camera->convertScreenToWorld(mouseCoords);
+
+	glm::vec2 centerPosition = m_position + glm::vec2(AGENT_RADIUS);
+
+	m_direction = glm::normalize(mouseCoords - centerPosition);
+
 	if(_currentGunIndex != -1)
 	{
-		glm::vec2 mouseCoords = _inputManager->getMouseCoords();
-		mouseCoords = _camera->convertScreenToWorld(mouseCoords);
 
-		glm::vec2 centerPosition = _position + glm::vec2(AGENT_RADIUS);
-
-		glm::vec2 direction = glm::normalize(mouseCoords - centerPosition);
 
 		if(_currentGunIndex == 2)
 		{
 			_guns[_currentGunIndex]->update(_inputManager->isKeyDown(SDL_BUTTON_LEFT),
 									    centerPosition,
-									    direction,
+									    m_direction,
 									    *_bullets,
 										deltaTime);
 		} 
@@ -97,7 +99,7 @@ void Player::update(const std::vector<std::string>& levelData,
 		{
 			_guns[_currentGunIndex]->update(_inputManager->isKeyPressed(SDL_BUTTON_LEFT),
 									    centerPosition,
-									    direction,
+									    m_direction,
 									    *_bullets,
 										deltaTime);
 		}

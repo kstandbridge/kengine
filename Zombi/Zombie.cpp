@@ -1,6 +1,7 @@
 #include "Zombie.h"
-
 #include "Human.h"
+
+#include <Kengine/ResourceManager.h>
 
 Zombie::Zombie()
 {
@@ -13,10 +14,12 @@ Zombie::~Zombie()
 
 void Zombie::init(float speed, glm::vec2 pos)
 {
-	_speed = speed;
-	_position = pos;
-	_health = 50;
-	_color = Kengine::ColorRGBA8(0, 160, 0, 255);
+	m_speed = speed;
+	m_position = pos;
+	m_health = 50;
+	m_color = Kengine::ColorRGBA8(255, 255, 255, 255);
+
+	m_textureId = Kengine::ResourceManager::getTexture("Textures/zombie.png").id;
 }
 
 void Zombie::update(const std::vector<std::string>& levelData, 
@@ -28,8 +31,8 @@ void Zombie::update(const std::vector<std::string>& levelData,
 
 	if(closestHuman != nullptr)
 	{
-		glm::vec2 distVec = glm::normalize(closestHuman->getPosition() - _position);
-		_position += distVec * _speed * deltaTime;
+		m_direction = glm::normalize(closestHuman->getPosition() - m_position);
+		m_position += m_direction * m_speed * deltaTime;
 	}
 
 	collideWithLevel(levelData);
@@ -40,9 +43,9 @@ Human* Zombie::getNearestHuman(std::vector<Human*>& humans)
 	Human* closestHuman = nullptr;
 	float smallestDistance = 99999.0f;
 
-	for(int i = 0; i < humans.size(); i++)
+	for(size_t i = 0; i < humans.size(); i++)
 	{
-		glm::vec2 distVec = humans[i]->getPosition() - _position;
+		glm::vec2 distVec = humans[i]->getPosition() - m_position;
 		float distance = glm::length(distVec);
 
 		if(distance < smallestDistance)
