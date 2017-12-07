@@ -78,7 +78,14 @@ void MainGame::initSystems()
 	m_hudCamera.setPosition(offSetCameraPosition);
 
 	m_bloodParticleBatch = new Kengine::ParticleBatch2D();
-	m_bloodParticleBatch->init(1000, 0.05f, Kengine::ResourceManager::getTexture("Textures/particle.png"));
+	m_bloodParticleBatch->init(1000, 
+							   0.05f,
+							   Kengine::ResourceManager::getTexture("Textures/particle.png"),
+							   [](Kengine::Particle2D& particle, float deltaTime)
+							   {
+							   		particle.position += particle.velocity * deltaTime;
+									particle.color.a = (GLubyte)(particle.life * 255.0f);
+							   });
 	m_particleEngine.addParticleBatch(m_bloodParticleBatch);
 }
 
