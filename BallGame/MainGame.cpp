@@ -62,86 +62,77 @@ void MainGame::run()
 
 void MainGame::init()
 {
-    Kengine::init();
+	Kengine::init();
 
-    m_screenWidth = 1024;
-    m_screenHeight = 768;
+	m_screenWidth = 1024;
+	m_screenHeight = 768;
 
-    m_window.create("Ball Game", m_screenWidth, m_screenHeight, 0);
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    m_camera.init(m_screenWidth, m_screenHeight);
-    // Point the camera to the center of the screen
-    m_camera.setPosition(glm::vec2(m_screenWidth / 2.0f, m_screenHeight / 2.0f));
-    
-    m_spriteBatch.init();
-    // Initialize sprite font
-    m_spriteFont = std::make_unique<Kengine::SpriteFont>("Fonts/chintzy.ttf", 40);
+	m_window.create("Ball Game", m_screenWidth, m_screenHeight, 0);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	m_camera.init(m_screenWidth, m_screenHeight);
+	// Point the camera to the center of the screen
+	m_camera.setPosition(glm::vec2(m_screenWidth / 2.0f, m_screenHeight / 2.0f));
 
-    // Compile our texture shader
-    m_textureProgram.compileShaders("Shaders/textureShading.vert", "Shaders/textureShading.frag");
-    m_textureProgram.addAttribute("vertexPosition");
-    m_textureProgram.addAttribute("vertexColor");
-    m_textureProgram.addAttribute("vertexUV");
-    m_textureProgram.linkShaders();
+	m_spriteBatch.init();
+	// Initialize sprite font
+	m_spriteFont = std::make_unique<Kengine::SpriteFont>("Fonts/chintzy.ttf", 40);
 
-    m_fpsLimiter.setMaxFPS(60.0f);
+	// Compile our texture shader
+	m_textureProgram.compileShaders("Shaders/textureShading.vert", "Shaders/textureShading.frag");
+	m_textureProgram.addAttribute("vertexPosition");
+	m_textureProgram.addAttribute("vertexColor");
+	m_textureProgram.addAttribute("vertexUV");
+	m_textureProgram.linkShaders();
+
+	m_fpsLimiter.setMaxFPS(60.0f);
 }
 
-struct BallSpawn {
-    BallSpawn(const Kengine::ColorRGBA8& colr,
-              float rad, float m, float minSpeed,
-              float maxSpeed, float prob) :
-              color(colr),
-              radius(rad),
-              mass(m),
-              randSpeed(minSpeed, maxSpeed),
-              probability(prob) {
-        // Empty
-    }
-    Kengine::ColorRGBA8 color;
-    float radius;
-    float mass;
-    float probability;
-    std::uniform_real_distribution<float> randSpeed;
+struct BallSpawn
+{
+	BallSpawn(const Kengine::ColorRGBA8& colr,
+	          float rad,
+	          float m,
+	          float minSpeed,
+	          float maxSpeed,
+	          float prob)
+		: color(colr),
+		  radius(rad),
+		  mass(m),
+		  probability(prob),
+		  randSpeed(minSpeed, maxSpeed)
+	{
+		// Empty
+	}
+
+	Kengine::ColorRGBA8 color;
+	float radius;
+	float mass;
+	float probability;
+	std::uniform_real_distribution<float> randSpeed;
 };
 
 void MainGame::initBalls()
 {
+#define ADD_BALL(p, ...) \
+	totalProbability += p; \
+	possibleBalls.emplace_back(__VA_ARGS__);
+
 	// Number of balls to spawn
-	const int NUM_BALLS = 100;
+	const int NUM_BALLS = 1000;
 
 	// Random engine stuff
-    std::mt19937 randomEngine((unsigned int)time(nullptr));
-    std::uniform_real_distribution<float> randX(0.0f, (float)m_screenWidth);
-    std::uniform_real_distribution<float> randY(0.0f, (float)m_screenHeight);
-    std::uniform_real_distribution<float> randDir(-1.0f, 1.0f);
+	std::mt19937 randomEngine((unsigned int)time(nullptr));
+	std::uniform_real_distribution<float> randX(0.0f, (float)m_screenWidth);
+	std::uniform_real_distribution<float> randY(0.0f, (float)m_screenHeight);
+	std::uniform_real_distribution<float> randDir(-1.0f, 1.0f);
 
-    // Add all possible balls
-    std::vector <BallSpawn> possibleBalls;
-    float totalProbability = 0.0f;
+	// Add all possible balls
+	std::vector<BallSpawn> possibleBalls;
+	float totalProbability = 0.0f;
 
-	// TODO: Improve with macro
-	totalProbability += 20.0f;
-	possibleBalls.emplace_back(Kengine::ColorRGBA8(255, 255, 255, 255),
-	                           20.0f,
-	                           1.0f,
-	                           0.1f,
-	                           7.0f,
-	                           totalProbability);
-	totalProbability += 10.0f;
-	possibleBalls.emplace_back(Kengine::ColorRGBA8(0, 0, 255, 255),
-	                           30.0f,
-	                           2.0f,
-	                           0.1f,
-	                           3.0f,
-	                           totalProbability);
-	totalProbability += 1.0f;
-	possibleBalls.emplace_back(Kengine::ColorRGBA8(255, 0, 0, 255),
-	                           50.0f,
-	                           4.0f,
-	                           0.1f,
-	                           1.0f,
-	                           totalProbability);
+	ADD_BALL(20.0f, Kengine::ColorRGBA8(255, 255, 255, 255), 2.0f, 1.0f, 0.1f, 7.0f, totalProbability);
+	ADD_BALL(10.0f, Kengine::ColorRGBA8(0, 0, 255, 255), 3.0f, 2.0f, 0.1f, 3.0f, totalProbability);
+	ADD_BALL(1.0f, Kengine::ColorRGBA8(255, 0, 0, 255), 5.0f, 4.0f, 0.1f, 1.0f, totalProbability);
 
 	// Random probability for ball spwan
 	std::uniform_real_distribution<float> spawn(0.0f, totalProbability);
@@ -150,35 +141,45 @@ void MainGame::initBalls()
 	// extra allocations.
 	m_balls.reserve(NUM_BALLS);
 
-	    // Set up ball to spawn with default value
-    BallSpawn* ballToSpawn = &possibleBalls[0];
-    for (int i = 0; i < NUM_BALLS; i++) {
-        // Get the ball spawn roll
-        float spawnVal = spawn(randomEngine);
-        // Figure out which ball we picked
-        for (size_t j = 0; j < possibleBalls.size(); j++) {
-            if (spawnVal <= possibleBalls[j].probability) {
-                ballToSpawn = &possibleBalls[j];
-                break;
-            }
-        }
+	// Set up ball to spawn with default value
+	BallSpawn* ballToSpawn = &possibleBalls[0];
+	for (int i = 0; i < NUM_BALLS; i++)
+	{
+		// Get the ball spawn roll
+		float spawnVal = spawn(randomEngine);
+		// Figure out which ball we picked
+		for (size_t j = 0; j < possibleBalls.size(); j++)
+		{
+			if (spawnVal <= possibleBalls[j].probability)
+			{
+				ballToSpawn = &possibleBalls[j];
+				break;
+			}
+		}
 
-        // Get random starting position
-        glm::vec2 pos(randX(randomEngine), randY(randomEngine));
+		// Get random starting position
+		glm::vec2 pos(randX(randomEngine), randY(randomEngine));
 
-        // Hacky way to get a random direction
-        glm::vec2 direction(randDir(randomEngine), randDir(randomEngine));
-        if (direction.x != 0.0f || direction.y != 0.0f) { // The chances of direction == 0 are astronomically low
-            direction = glm::normalize(direction);
-        } else {
-            direction = glm::vec2(1.0f, 0.0f); // default direction
-        }
+		// Hacky way to get a random direction
+		glm::vec2 direction(randDir(randomEngine), randDir(randomEngine));
+		if (direction.x != 0.0f || direction.y != 0.0f)
+		{
+			// The chances of direction == 0 are astronomically low
+			direction = normalize(direction);
+		}
+		else
+		{
+			direction = glm::vec2(1.0f, 0.0f); // default direction
+		}
 
-        // Add ball
-        m_balls.emplace_back(ballToSpawn->radius, ballToSpawn->mass, pos, direction * ballToSpawn->randSpeed(randomEngine),
-                             Kengine::ResourceManager::getTexture("Textures/circle.png").id,
-                             ballToSpawn->color);
-    }
+		// Add ball
+		m_balls.emplace_back(ballToSpawn->radius,
+		                     ballToSpawn->mass,
+		                     pos,
+		                     direction * ballToSpawn->randSpeed(randomEngine),
+		                     Kengine::ResourceManager::getTexture("Textures/circle.png").id,
+		                     ballToSpawn->color);
+	}
 }
 
 void MainGame::update(float deltaTime)
@@ -186,11 +187,12 @@ void MainGame::update(float deltaTime)
 	m_ballController.updateBalls(m_balls, deltaTime, m_screenWidth, m_screenHeight);
 }
 
-void MainGame::draw() {
-    // Set the base depth to 1.0
-    glClearDepth(1.0);
-    // Clear the color and depth buffer
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+void MainGame::draw()
+{
+	// Set the base depth to 1.0
+	glClearDepth(1.0);
+	// Clear the color and depth buffer
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Bind the shader
 	m_textureProgram.use();
