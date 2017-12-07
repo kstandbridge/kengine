@@ -60,7 +60,7 @@ void MainGame::gameLoop()
 
 		m_camera.update();
 
-		for(int i = 0; i < m_bullets.size();)
+		for(size_t i = 0; i < m_bullets.size();)
 		{
 			if(m_bullets[i].update())
 			{
@@ -103,7 +103,7 @@ void MainGame::processInput()
 				m_gameState = GameState::EXIT;
 				break;
 			case SDL_MOUSEMOTION:
-				m_inputManager.setMouseCoords(evnt.motion.x, evnt.motion.y);
+				m_inputManager.setMouseCoords((float)evnt.motion.x, (float)evnt.motion.y);
 				break;
 			case SDL_KEYDOWN:
 				m_inputManager.pressKey(evnt.key.keysym.sym);
@@ -204,7 +204,7 @@ void MainGame::drawGame()
 
 	_spriteBatch.draw(pos, uv, texture.id, 0.0f, color);
 
-	for(int i = 0; i < m_bullets.size(); i++)
+	for(size_t i = 0; i < m_bullets.size(); i++)
 	{
 		m_bullets[i].draw(_spriteBatch);
 	}
