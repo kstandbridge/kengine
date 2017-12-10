@@ -20,7 +20,7 @@ const float MAX_DELTA_TIME = 1.0f; // Maximum size of deltaTime
 
 MainGame::~MainGame()
 {
-	for (int i = 0; i < m_ballRenderers.size(); i++)
+	for (size_t i = 0; i < m_ballRenderers.size(); i++)
 	{
 		delete m_ballRenderers[i];
 	}

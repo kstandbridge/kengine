@@ -128,7 +128,7 @@ void BallController::onMouseMove(std::vector<Ball>& balls,
 
 void BallController::updateCollision(Grid* grid)
 {
-	for (int i = 0; i < grid->m_cells.size(); i++)
+	for (size_t i = 0; i < grid->m_cells.size(); i++)
 	{
 		int x = i % grid->m_numXCells;
 		int y = i / grid->m_numXCells;
@@ -136,7 +136,7 @@ void BallController::updateCollision(Grid* grid)
 		Cell& cell = grid->m_cells[i];
 
 		// Loop through all balls in a cell
-		for (int j = 0; j < cell.balls.size(); j++)
+		for (size_t j = 0; j < cell.balls.size(); j++)
 		{
 			Ball* ball = cell.balls[j];
 			// Update with the residing cell
@@ -168,7 +168,7 @@ void BallController::updateCollision(Grid* grid)
 
 void BallController::checkCollision(Ball* ball, std::vector<Ball*>& ballsToCheck, int startingIndex)
 {
-	for (int i = startingIndex; i < ballsToCheck.size(); i++)
+	for (size_t i = startingIndex; i < ballsToCheck.size(); i++)
 	{
 		checkCollision(*ball, *ballsToCheck[i]);
 	}

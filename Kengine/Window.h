@@ -22,8 +22,8 @@ namespace Kengine
 
 		void swapBuffer();
 
-		int getScreenWidth() { return _screenWidth; }
-		int getScreenHeight() { return _screenHeight; }
+		int getScreenWidth() const { return _screenWidth; }
+		int getScreenHeight() const { return _screenHeight; }
 	private:
 		SDL_Window* _sdlWindow;
 		int _screenWidth, _screenHeight;
