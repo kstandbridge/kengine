@@ -20,7 +20,10 @@ const float MAX_DELTA_TIME = 1.0f; // Maximum size of deltaTime
 
 MainGame::~MainGame()
 {
-	// Empty
+	for (int i = 0; i < m_ballRenderers.size(); i++)
+	{
+		delete m_ballRenderers[i];
+	}
 }
 
 void MainGame::run()
@@ -91,6 +94,16 @@ void MainGame::init()
 	m_textureProgram.linkShaders();
 
 	m_fpsLimiter.setMaxFPS(60.0f);
+
+	initRenderers();
+}
+
+void MainGame::initRenderers()
+{
+	m_ballRenderers.push_back(new BallRenderer);
+	m_ballRenderers.push_back(new MomentumBallRenderer);
+	m_ballRenderers.push_back(new VelocityBallRenderer(m_screenWidth, m_screenHeight));
+	m_ballRenderers.push_back(new TrippyBallRenderer(m_screenWidth, m_screenHeight));
 }
 
 struct BallSpawn
@@ -141,9 +154,19 @@ void MainGame::initBalls()
 	std::vector<BallSpawn> possibleBalls;
 	float totalProbability = 0.0f;
 
+	// Random values for ball types
+	std::uniform_real_distribution<float> r1(2.0f, 6.0f);
+	std::uniform_int_distribution<int> r2(0, 255);
+
 	ADD_BALL(20.0f, Kengine::ColorRGBA8(255, 255, 255, 255), 1.0f, 1.0f, 0.1f, 7.0f, totalProbability);
 	ADD_BALL(10.0f, Kengine::ColorRGBA8(0, 0, 255, 255), 2.0f, 2.0f, 0.1f, 3.0f, totalProbability);
 	ADD_BALL(1.0f, Kengine::ColorRGBA8(255, 0, 0, 255), 3.0f, 4.0f, 0.1f, 1.0f, totalProbability);
+
+	for(int i = 0; i < 10000; i++)
+	{
+		ADD_BALL(1.0f, Kengine::ColorRGBA8(r2(randomEngine), r2(randomEngine), r2(randomEngine), 255), 
+				 r1(randomEngine), r1(randomEngine), 0.0f, 0.0f, totalProbability);
+	}
 
 	// Random probability for ball spwan
 	std::uniform_real_distribution<float> spawn(0.0f, totalProbability);
@@ -207,32 +230,23 @@ void MainGame::draw()
 	// Clear the color and depth buffer
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// Bind the shader
-	m_textureProgram.use();
-
 	// Draw code goes here
 	glActiveTexture(GL_TEXTURE0);
+
+	// Grab the camera matrix
+	glm::mat4 projectionMatrix = m_camera.getCameraMatrix();
+
+	m_ballRenderers[m_currentRenderer]->renderBalls(m_spriteBatch, m_balls, projectionMatrix);
+	
+	// Bind the shader
+	m_textureProgram.use();
 
 	// Make sure the shader uses texture 0
 	GLint textureUniform = m_textureProgram.getUniformLocation("mySampler");
 	glUniform1i(textureUniform, 0);
 
-	// Grab the camera matrix
-	glm::mat4 projectionMatrix = m_camera.getCameraMatrix();
 	GLint pUniform = m_textureProgram.getUniformLocation("P");
 	glUniformMatrix4fv(pUniform, 1, GL_FALSE, &projectionMatrix[0][0]);
-
-	// Draw the level
-	m_spriteBatch.begin();
-
-	for (auto& ball : m_balls)
-	{
-		m_ballRenderer.renderBall(m_spriteBatch, ball);
-	}
-
-	m_spriteBatch.end();
-
-	m_spriteBatch.renderBatch();
 
 	drawHud();
 
@@ -264,6 +278,9 @@ void MainGame::drawHud()
 
 void MainGame::processInput()
 {
+	// Update input manager
+	m_inputManager.update();
+
 	SDL_Event evnt;
 	while (SDL_PollEvent(&evnt))
 	{
@@ -318,5 +335,13 @@ void MainGame::processInput()
 	else if (m_inputManager.isKeyPressed(SDLK_SPACE))
 	{
 		m_ballController.setGravityDirection(GravityDirection::NONE);
+	}
+
+	// Switch renderes
+	if (m_inputManager.isKeyPressed(SDLK_1))
+	{
+		m_currentRenderer++;
+		if(m_currentRenderer >= m_ballRenderers.size())
+			m_currentRenderer = 0;
 	}
 }
