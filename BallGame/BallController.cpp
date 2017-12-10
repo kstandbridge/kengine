@@ -1,6 +1,9 @@
 ﻿#include "BallController.h"
 
+#include "Grid.h"
+
 void BallController::updateBalls(std::vector<Ball>& balls,
+                                 Grid* grid,
                                  float deltaTime,
                                  int maxX,
                                  int maxY)
@@ -42,7 +45,7 @@ void BallController::updateBalls(std::vector<Ball>& balls,
 		if (ball.position.x < ball.radius)
 		{
 			ball.position.x = ball.radius;
-			if (ball.velocity.x < 0)
+			if (ball.velocity.x < ball.radius)
 				ball.velocity.x *= -1;
 		}
 		else if (ball.position.x + ball.radius >= maxX)
@@ -64,13 +67,19 @@ void BallController::updateBalls(std::vector<Ball>& balls,
 				ball.velocity.y *= -1;
 		}
 
-		// Check collisions
-		for (int j = 0; j < balls.size(); ++j)
+		// Check to see if the ball moved
+		Cell* newCell = grid->getCell(ball.position);
+		if (newCell != ball.ownerCell)
 		{
-			if(i == j) continue;
-			checkCollision(ball, balls[j]);
+			// Need to shift the ball
+			grid->removeBallFromCell(&balls[i]);
+			grid->addBall(&balls[i], newCell);
 		}
 	}
+
+	// Updates all collisions using the spatial partitioning
+	updateCollision(grid);
+
 	// Update our grabbed ball
 	if (m_grabbedBall != -1)
 	{
@@ -84,7 +93,7 @@ void BallController::onMouseDown(std::vector<Ball>& balls,
                                  float mouseX,
                                  float mouseY)
 {
-	for (int i = 0; i < balls.size(); ++i)
+	for (size_t i = 0; i < balls.size(); ++i)
 	{
 		// Check if the mouse is hovering over a call
 		if (isMouseOnBall(balls[i], mouseX, mouseY))
@@ -117,12 +126,59 @@ void BallController::onMouseMove(std::vector<Ball>& balls,
 	}
 }
 
+void BallController::updateCollision(Grid* grid)
+{
+	for (int i = 0; i < grid->m_cells.size(); i++)
+	{
+		int x = i % grid->m_numXCells;
+		int y = i / grid->m_numXCells;
+
+		Cell& cell = grid->m_cells[i];
+
+		// Loop through all balls in a cell
+		for (int j = 0; j < cell.balls.size(); j++)
+		{
+			Ball* ball = cell.balls[j];
+			// Update with the residing cell
+			checkCollision(cell.balls[j], cell.balls, j + 1);
+			// Update collision with neighbor cells
+			if(x > 0)
+			{
+				/// Left
+				checkCollision(ball, grid->getCell(x - 1, y)->balls, 0);
+				if(y > 0)
+				{
+					/// Top Left
+					checkCollision(ball, grid->getCell(x - 1, y - 1)->balls, 0);
+				}
+				if(y < grid->m_numYCells - 1)
+				{
+					/// Bottom Left
+					checkCollision(ball, grid->getCell(x - 1, y + 1)->balls, 0);
+				}
+			}
+			/// Up cell
+			if(y > 0)
+			{
+				checkCollision(ball, grid->getCell(x, y - 1)->balls, 0);
+			}
+		}
+	}
+}
+
+void BallController::checkCollision(Ball* ball, std::vector<Ball*>& ballsToCheck, int startingIndex)
+{
+	for (int i = startingIndex; i < ballsToCheck.size(); i++)
+	{
+		checkCollision(*ball, *ballsToCheck[i]);
+	}
+}
+
 void BallController::checkCollision(Ball& b1,
                                     Ball& b2)
 {
 	// We add radius since position is the top left corner
-	glm::vec2 distVec = (b2.position + b2.radius) -
-			(b1.position + b1.radius);
+	glm::vec2 distVec = b2.position - b1.position;
 	glm::vec2 distDir = normalize(distVec);
 	float dist = length(distVec);
 	float totalRadius = b1.radius + b2.radius;
@@ -142,13 +198,14 @@ void BallController::checkCollision(Ball& b1,
 		}
 
 		// Calculate deflection
-		float aci = glm::dot(b1.velocity, distDir) / b2.mass;
-		float bci = glm::dot(b2.velocity, distDir) / b1.mass;
+		float aci = dot(b1.velocity, distDir);
+		float bci = dot(b2.velocity, distDir);
 
-		float massRatio = b1.mass / b2.mass;
+		float acf = (aci * (b1.mass - b2.mass) + 2 * b2.mass * bci) / (b1.mass + b2.mass);
+		float bcf = (bci * (b2.mass - b1.mass) + 2 * b1.mass * aci) / (b1.mass + b2.mass);
 
-		b1.velocity += (bci - aci) * distDir * (1.0f / massRatio);
-		b2.velocity += (aci - bci) * distDir * massRatio;
+		b1.velocity += (acf - aci) * distDir;
+		b2.velocity += (bcf - bci) * distDir;
 	}
 }
 
@@ -156,8 +213,8 @@ bool BallController::isMouseOnBall(Ball& b,
                                    float mouseX,
                                    float mouseY)
 {
-	return (mouseX > b.position.x && mouseX < b.position.x + b.radius * 2.0f &&
-		mouseY >= b.position.y && mouseY < b.position.y + b.radius * 2.0f);
+	return mouseX >= b.position.x - b.radius && mouseX < b.position.x + b.radius &&
+			mouseY >= b.position.y - b.radius && mouseY < b.position.y + b.radius;
 }
 
 glm::vec2 BallController::getGravityAccel()

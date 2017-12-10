@@ -91,7 +91,6 @@ void MainGame::initSystems()
 
 void MainGame::initLevel()
 {
-	// Level 1
 	m_levels.push_back(new Level("Levels/LevelSmall.txt"));
 //	m_levels.push_back(new Level("Levels/LevelBig.txt"));
 	m_currentLevel = 0;
@@ -145,7 +144,7 @@ void MainGame::gameLoop()
 	const int MAX_PHYSICIS_STEPS = 6;
 
 	Kengine::FpsLimiter fpsLimiter;
-	fpsLimiter.setMaxFPS(1200.0f);
+	fpsLimiter.setMaxFPS(120.0f);
 
 	const float CAMERA_SCALE = 1.0f / 2.0f;
 	m_camera.setScale(CAMERA_SCALE);

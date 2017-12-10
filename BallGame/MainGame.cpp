@@ -1,4 +1,5 @@
 ﻿#include "MainGame.h"
+#include "Grid.h"
 
 #include <Kengine/Kengine.h>
 #include <Kengine/ResourceManager.h>
@@ -16,6 +17,11 @@ const int MAX_PHYSICS_STEPS = 6; // Max number of physics steps per frame
 const float MS_PER_SECOND = 1000; // Number of milliseconds in a second
 const float DESIRED_FRAMETIME = MS_PER_SECOND / DESIRED_FPS; // The desired frame time per frame
 const float MAX_DELTA_TIME = 1.0f; // Maximum size of deltaTime
+
+MainGame::~MainGame()
+{
+	// Empty
+}
 
 void MainGame::run()
 {
@@ -113,12 +119,17 @@ struct BallSpawn
 
 void MainGame::initBalls()
 {
+	// Initialize the grid
+	m_grid = std::make_unique<Grid>(m_screenWidth,
+	                                m_screenHeight,
+	                                CELL_SIZE);
+
 #define ADD_BALL(p, ...) \
 	totalProbability += p; \
 	possibleBalls.emplace_back(__VA_ARGS__);
 
 	// Number of balls to spawn
-	const int NUM_BALLS = 1000;
+	const int NUM_BALLS = 10000;
 
 	// Random engine stuff
 	std::mt19937 randomEngine((unsigned int)time(nullptr));
@@ -130,9 +141,9 @@ void MainGame::initBalls()
 	std::vector<BallSpawn> possibleBalls;
 	float totalProbability = 0.0f;
 
-	ADD_BALL(20.0f, Kengine::ColorRGBA8(255, 255, 255, 255), 2.0f, 1.0f, 0.1f, 7.0f, totalProbability);
-	ADD_BALL(10.0f, Kengine::ColorRGBA8(0, 0, 255, 255), 3.0f, 2.0f, 0.1f, 3.0f, totalProbability);
-	ADD_BALL(1.0f, Kengine::ColorRGBA8(255, 0, 0, 255), 5.0f, 4.0f, 0.1f, 1.0f, totalProbability);
+	ADD_BALL(20.0f, Kengine::ColorRGBA8(255, 255, 255, 255), 1.0f, 1.0f, 0.1f, 7.0f, totalProbability);
+	ADD_BALL(10.0f, Kengine::ColorRGBA8(0, 0, 255, 255), 2.0f, 2.0f, 0.1f, 3.0f, totalProbability);
+	ADD_BALL(1.0f, Kengine::ColorRGBA8(255, 0, 0, 255), 3.0f, 4.0f, 0.1f, 1.0f, totalProbability);
 
 	// Random probability for ball spwan
 	std::uniform_real_distribution<float> spawn(0.0f, totalProbability);
@@ -143,7 +154,7 @@ void MainGame::initBalls()
 
 	// Set up ball to spawn with default value
 	BallSpawn* ballToSpawn = &possibleBalls[0];
-	for (int i = 0; i < NUM_BALLS; i++)
+	for (size_t i = 0; i < NUM_BALLS; i++)
 	{
 		// Get the ball spawn roll
 		float spawnVal = spawn(randomEngine);
@@ -179,12 +190,14 @@ void MainGame::initBalls()
 		                     direction * ballToSpawn->randSpeed(randomEngine),
 		                     Kengine::ResourceManager::getTexture("Textures/circle.png").id,
 		                     ballToSpawn->color);
+		// Add the ball to the grid. IF YOU EVER CALL EMPLACE BACK AFTER INIT BALLS, m_grid will have DANGLING POINTERS!
+		m_grid->addBall(&m_balls.back());
 	}
 }
 
 void MainGame::update(float deltaTime)
 {
-	m_ballController.updateBalls(m_balls, deltaTime, m_screenWidth, m_screenHeight);
+	m_ballController.updateBalls(m_balls, m_grid.get(), deltaTime, m_screenWidth, m_screenHeight);
 }
 
 void MainGame::draw()

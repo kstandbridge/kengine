@@ -1,20 +1,27 @@
 ﻿#pragma once
 #include <vector>
-#include <BallGame/Ball.h>
+
+#include "Ball.h"
 
 enum class GravityDirection { NONE, LEFT, UP, RIGHT, DOWN };
+
+class Grid;
 
 class BallController
 {
 public:
 	/// Updates the balls
-	void updateBalls(std::vector<Ball>& balls, float deltaTime, int maxX, int maxY);
+	void updateBalls(std::vector<Ball>& balls, Grid* grid, float deltaTime, int maxX, int maxY);
 	/// Some simple event functions
 	void onMouseDown(std::vector<Ball>& balls, float mouseX, float mouseY);
 	void onMouseUp(std::vector<Ball>& balls);
 	void onMouseMove(std::vector<Ball>& balls, float mouseX, float mouseY);
 	void setGravityDirection(GravityDirection dir) { m_gravityDirection = dir; }
 private:
+	/// Updates collision
+	void updateCollision(Grid* grid);
+	/// Checks collision between a ball and a vector of balls, starting at a specific index
+	void checkCollision(Ball* ball, std::vector<Ball*>& ballsToCheck, int startingIndex);
 	/// Checks collision between two balls
 	void checkCollision(Ball& b1, Ball& b2);
 	/// Returns true if the mouse is hovering over a ball

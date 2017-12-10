@@ -46,7 +46,7 @@ void Human::update(const std::vector<std::string>& levelData,
 
 	m_position += m_direction * m_speed * deltaTime;
 
-	if(_frames == 150)
+	if(_frames == 250)
 	{
 		m_direction = glm::rotate(m_direction, randRotate(randomEngine));
 		_frames = 0;
