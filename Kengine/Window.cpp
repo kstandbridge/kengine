@@ -17,6 +17,9 @@ namespace Kengine
 	{
 		Uint32 flags = SDL_WINDOW_OPENGL;
 
+		_screenWidth = screenWidth;
+		_screenHeight = screenHeight;
+
 		if(currentFlags & INVISIBLE) flags |= SDL_WINDOW_HIDDEN;
 		if(currentFlags & FULL_SCREEN) flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		if(currentFlags & BORDERLESS) flags |= SDL_WINDOW_BORDERLESS;
