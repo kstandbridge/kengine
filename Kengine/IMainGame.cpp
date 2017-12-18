@@ -105,7 +105,7 @@ namespace Kengine
 		switch (evnt.type)
 		{
 			case SDL_QUIT:
-				m_isRunning = false;
+				exitGame();
 				break;
 			case SDL_MOUSEMOTION:
 				m_inputManager.setMouseCoords((float)evnt.motion.x, (float)evnt.motion.y);
