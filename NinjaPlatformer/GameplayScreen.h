@@ -42,6 +42,7 @@ private:
 
 	Kengine::SpriteBatch m_spriteBatch;
 	Kengine::GLSLProgram m_textureProgram;
+	Kengine::GLSLProgram m_lightProgram;
 	Kengine::Camera2D m_camera;
 	Kengine::GLTexture m_texture;
 	Kengine::Window* m_window;

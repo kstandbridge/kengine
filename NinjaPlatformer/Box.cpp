@@ -43,14 +43,14 @@ void Box::init(b2World* world,
 void Box::draw(Kengine::SpriteBatch& spriteBatch)
 {
 	glm::vec4 destRect;
-		destRect.x = m_body->GetPosition().x - m_dimensions.x / 2.0f;
-		destRect.y = m_body->GetPosition().y - m_dimensions.y / 2.0f;
-		destRect.z = m_dimensions.x;
-		destRect.w = m_dimensions.y;
-		spriteBatch.draw(destRect,
-		                 m_uvRect,
-		                 m_texture.id,
-		                 0.0f,
-		                 m_color,
-		                 m_body->GetAngle());
+	destRect.x = m_body->GetPosition().x - m_dimensions.x / 2.0f;
+	destRect.y = m_body->GetPosition().y - m_dimensions.y / 2.0f;
+	destRect.z = m_dimensions.x;
+	destRect.w = m_dimensions.y;
+	spriteBatch.draw(destRect,
+	                 m_uvRect,
+	                 m_texture.id,
+	                 0.0f,
+	                 m_color,
+	                 m_body->GetAngle());
 }

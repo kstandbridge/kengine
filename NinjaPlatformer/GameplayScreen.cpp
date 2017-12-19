@@ -7,6 +7,7 @@
 
 #include "GameplayScreen.h"
 #include "Box.h"
+#include "Light.h"
 
 GameplayScreen::GameplayScreen(Kengine::Window* window)
 	: m_window{window}
@@ -82,12 +83,20 @@ void GameplayScreen::onEntry()
 	// Initialize spritebatch
 	m_spriteBatch.init();
 
-	// Compile our color shader
+	// Shader init
+	// Compile our texture shader
 	m_textureProgram.compileShaders("Shaders/vertexShader.vs", "Shaders/fragmentShader.fs");
 	m_textureProgram.addAttribute("vertexPosition");
 	m_textureProgram.addAttribute("vertexColor");
 	m_textureProgram.addAttribute("vertexUV");
+
 	m_textureProgram.linkShaders();
+	// Conmpile our light shader
+	m_lightProgram.compileShaders("Shaders/lightShading.vs", "Shaders/lightShading.fs");
+	m_lightProgram.addAttribute("vertexPosition");
+	m_lightProgram.addAttribute("vertexColor");
+	m_lightProgram.addAttribute("vertexUV");
+	m_lightProgram.linkShaders();
 
 	// Init camera
 	m_camera.init(m_window->getScreenWidth(), m_window->getScreenHeight());
@@ -130,7 +139,7 @@ void GameplayScreen::draw()
 
 	// Camera matrix
 	glm::mat4 projectionMatrix = m_camera.getCameraMatrix();
-	GLint pUniform = m_textureProgram.getUniformLocation("transformationMatrix");
+	GLint pUniform = m_textureProgram.getUniformLocation("P");
 	glUniformMatrix4fv(pUniform, 1, GL_FALSE, &projectionMatrix[0][0]);
 
 	m_spriteBatch.begin();
@@ -165,6 +174,38 @@ void GameplayScreen::draw()
 		m_debugRenderer.end();
 		m_debugRenderer.render(projectionMatrix, 2.0f);
 	}
+
+	// Render some test lights
+	Light playerLight;
+	playerLight.color = Kengine::ColorRGBA8(255, 255, 255, 128);
+	playerLight.position = m_player.getPosition();
+	playerLight.size = 30.0f;
+	
+	Light mouseLight;
+	mouseLight.color = Kengine::ColorRGBA8(255, 0, 255, 150);
+	mouseLight.position = m_camera.convertScreenToWorld(m_game->inputManager.getMouseCoords());
+	mouseLight.size = 45.0f;
+	
+	m_lightProgram.use();
+	pUniform = m_textureProgram.getUniformLocation("P");
+	glUniformMatrix4fv(pUniform, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+	// Additive blending
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	
+	m_spriteBatch.begin();
+
+	playerLight.draw(m_spriteBatch);
+	mouseLight.draw(m_spriteBatch);
+
+	m_spriteBatch.end();
+	m_spriteBatch.renderBatch();
+
+	m_lightProgram.unuse();
+
+	// Reset to regular alpha blending
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 }
 
 void GameplayScreen::checkInput()
