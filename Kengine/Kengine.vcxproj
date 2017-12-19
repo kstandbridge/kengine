@@ -161,6 +161,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AudioEngine.cpp" />
+    <ClCompile Include="DebugRenderer.cpp" />
     <ClCompile Include="Kengine.cpp" />
     <ClCompile Include="Camera2D.cpp" />
     <ClCompile Include="KengineErrors.cpp" />
@@ -183,6 +184,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AudioEngine.h" />
+    <ClInclude Include="DebugRenderer.h" />
     <ClInclude Include="IGameScreen.h" />
     <ClInclude Include="Kengine.h" />
     <ClInclude Include="Camera2D.h" />

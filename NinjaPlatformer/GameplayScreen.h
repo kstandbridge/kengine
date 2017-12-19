@@ -7,6 +7,7 @@
 #include <Kengine/Camera2D.h>
 #include <Kengine/GLTexture.h>
 #include <Kengine/Window.h>
+#include <Kengine/DebugRenderer.h>
 
 
 #include <vector>
@@ -43,6 +44,9 @@ private:
 	Kengine::Camera2D m_camera;
 	Kengine::GLTexture m_texture;
 	Kengine::Window* m_window;
+	Kengine::DebugRenderer m_debugRenderer;
+
+	bool m_renderDebug = true;
 
 	Player m_player;
 	std::vector<Box> m_boxes;

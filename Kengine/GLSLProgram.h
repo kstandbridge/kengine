@@ -14,6 +14,8 @@ namespace Kengine
 		~GLSLProgram();
 
 		void compileShaders(const std::string& vertexShaderFilePath, const std::string& fragmentShaderFilePath);
+		
+		void compileShadersFromSource(const char* vertexSource, const char* fragmentSource);
 
 		void linkShaders();
 
@@ -23,11 +25,13 @@ namespace Kengine
 
 		void use();
 		void unuse();
+
+		void dispose();
 	private:
 
 		int _numAttributes;
 
-		void compileShader(const std::string& filePath, GLuint id);
+		void compileShader(const char* source, const std::string& name, GLuint id);
 
 		GLuint _programID;
 

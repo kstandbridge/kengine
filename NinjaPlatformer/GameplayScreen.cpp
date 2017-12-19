@@ -40,6 +40,8 @@ void GameplayScreen::onEntry()
 	b2Vec2 gravity{0.0f, -25.0f};
 	m_world = std::make_unique<b2World>(gravity);
 
+	m_debugRenderer.init();
+
 	// Make the ground
 	b2BodyDef groundBodyDef;
 	groundBodyDef.position.Set(0.0f, -25.0f);
@@ -97,6 +99,7 @@ void GameplayScreen::onEntry()
 
 void GameplayScreen::onExit()
 {
+	m_debugRenderer.dispose();
 }
 
 void GameplayScreen::update()
@@ -139,6 +142,36 @@ void GameplayScreen::draw()
 	m_spriteBatch.end();
 	m_spriteBatch.renderBatch();
 	m_textureProgram.unuse();
+
+	// Debug rendering
+	if(m_renderDebug)
+	{
+		glm::vec4 destRect;
+		for (auto& b : m_boxes)
+		{
+//			destRect.x = b.getBody()->GetPosition().x - b.getDimensions().x / 2.0f;
+//			destRect.y = b.getBody()->GetPosition().y - b.getDimensions().y / 2.0f;
+//			destRect.z = b.getDimensions().x;
+//			destRect.w = b.getDimensions().y;
+//			m_debugRenderer.drawBox(destRect, Kengine::ColorRGBA8(255, 255, 255, 255), b.getBody()->GetAngle());
+
+			m_debugRenderer.drawCircle(glm::vec2(b.getBody()->GetPosition().x, b.getBody()->GetPosition().y), 
+									   Kengine::ColorRGBA8(255, 255, 255, 255),
+									   b.getDimensions().x / 2.0f);
+		}
+		
+		// Render player
+		auto& b = m_player.getBox();
+		destRect.x = b.getBody()->GetPosition().x - b.getDimensions().x / 2.0f;
+		destRect.y = b.getBody()->GetPosition().y - b.getDimensions().y / 2.0f;
+		destRect.z = b.getDimensions().x;
+		destRect.w = b.getDimensions().y;
+
+		m_debugRenderer.drawBox(destRect, Kengine::ColorRGBA8(255, 255, 255, 255), b.getBody()->GetAngle());
+
+		m_debugRenderer.end();
+		m_debugRenderer.render(projectionMatrix, 2.0f);
+	}
 }
 
 void GameplayScreen::checkInput()

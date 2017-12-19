@@ -1,5 +1,6 @@
 #include "GLSLProgram.h"
 #include "KengineErrors.h"
+#include "IOManager.h"
 
 #include <fstream>
 #include <vector>
@@ -18,6 +19,17 @@ namespace Kengine
 
 	void GLSLProgram::compileShaders(const std::string& vertexShaderFilePath, const std::string& fragmentShaderFilePath)
 	{
+		std::string vertSource;
+		std::string fragSource;
+
+		IOManager::readFileToBuffer(vertexShaderFilePath, vertSource);
+		IOManager::readFileToBuffer(fragmentShaderFilePath, fragSource);
+
+		compileShadersFromSource(vertSource.c_str(), fragSource.c_str());
+	}
+
+	void GLSLProgram::compileShadersFromSource(const char* vertexSource, const char* fragmentSource)
+	{
 		//Vertex and fragment shaders are successfully compiled.
 		//Now time to link them together into a program.
 		//Get a program object.
@@ -34,8 +46,8 @@ namespace Kengine
 			fatalError("Fragment shader failed to be created!");
 		}
 
-		compileShader(vertexShaderFilePath, _vertexShaderID);
-		compileShader(fragmentShaderFilePath, _fragmentShaderID);
+		compileShader(vertexSource, "Vertex Shader", _vertexShaderID);
+		compileShader(fragmentSource, "Fragment Shader", _fragmentShaderID);
 	}
 
 	void GLSLProgram::linkShaders()
@@ -116,26 +128,17 @@ namespace Kengine
 		}
 	}
 
-	void GLSLProgram::compileShader(const std::string& filePath, GLuint id)
+	void GLSLProgram::dispose()
 	{
-		std::ifstream vertexFile(filePath);
-		if(vertexFile.fail())
+		if(_programID)
 		{
-			perror(filePath.c_str());
-			fatalError("Failed to open " + filePath);
+			glDeleteProgram(_programID);
 		}
+	}
 
-		std::string fileContents = "";
-		std::string line;
-		while(std::getline(vertexFile, line))
-		{
-			fileContents += line + "\n";
-		}
-
-		vertexFile.close();
-
-		const char* contentsPtr = fileContents.c_str();
-		glShaderSource(id, 1, &contentsPtr, nullptr);
+	void GLSLProgram::compileShader(const char* source, const std::string& name, GLuint id)
+	{
+		glShaderSource(id, 1, &source, nullptr);
 
 		glCompileShader(id);
 		GLint success = 0;
@@ -155,7 +158,7 @@ namespace Kengine
 			glDeleteShader(id); // Don't leak the shader.
 
 			std::printf("%s\n", &(errorLog[0]));
-			fatalError("Shader " + filePath + "failed to compile!");
+			fatalError("Shader " + name + "failed to compile!");
 		}
 	}
 }
