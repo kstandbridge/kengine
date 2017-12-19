@@ -7,7 +7,11 @@
 
 #include "GameplayScreen.h"
 #include "Box.h"
+
 #include "Light.h"
+
+#include <CEGUI/CEGUI.h>
+#include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
 
 GameplayScreen::GameplayScreen(Kengine::Window* window)
 	: m_window{window}
@@ -108,6 +112,10 @@ void GameplayScreen::onEntry()
 				  glm::vec2(2.0f), 
 				  glm::vec2(1.0f, 1.8f), 
 				  Kengine::ColorRGBA8(255, 255, 255, 255));
+
+	// TEMPORARY UI
+	CEGUI::OpenGL3Renderer& myRenderer = CEGUI::OpenGL3Renderer::bootstrapSystem();
+	
 }
 
 void GameplayScreen::onExit()
