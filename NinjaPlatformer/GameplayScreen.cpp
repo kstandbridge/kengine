@@ -60,7 +60,7 @@ void GameplayScreen::onEntry()
 	std::uniform_real_distribution<float> yPos(-10.0f, 15.0f);
 	std::uniform_real_distribution<float> size(0.5f, 2.5f);
 	std::uniform_int_distribution<int> color(0, 255);
-	int numBoxes = 75;
+	int numBoxes = 10;
 	for (int i = 0; i < numBoxes; i++)
 	{
 		Box newBox;

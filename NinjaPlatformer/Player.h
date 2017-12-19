@@ -4,7 +4,9 @@
 #include <Kengine/SpriteBatch.h>
 #include <Kengine/GLTexture.h>
 #include <Kengine/InputManager.h>
+#include <Kengine/TileSheet.h>
 
+enum class PlayerMoveState { STANDING, RUNNING, PUNCHING, IN_AIR };
 
 class Player
 {
@@ -26,6 +28,11 @@ public:
 private:
 	glm::vec2 m_drawDims;
 	Kengine::ColorRGBA8 m_color;
-	Kengine::GLTexture m_texture;
+	Kengine::TileSheet m_texture;
 	Capsule m_capsule;
+	PlayerMoveState m_moveState = PlayerMoveState::STANDING;
+	float m_animTime = 0.0f;
+	int m_direction = 1; // 1 or -1
+	bool m_onGround = false;
+	bool m_isPunching = false;
 };
