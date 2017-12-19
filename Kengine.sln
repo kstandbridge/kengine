@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27004.2010
+VisualStudioVersion = 15.0.27130.2010
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Sandbox", "Sandbox\Sandbox.vcxproj", "{ECC420C7-1A57-4D68-9B29-96E5D53950EC}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -26,10 +26,7 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NinjaPlatformer", "NinjaPlatformer\NinjaPlatformer.vcxproj", "{1DADB760-477B-4DA4-A65C-4F86D77809CD}"
 	ProjectSection(ProjectDependencies) = postProject
 		{0EE2E206-82AE-42D7-93CA-283CE2B07FED} = {0EE2E206-82AE-42D7-93CA-283CE2B07FED}
-		{C269163A-0797-4EEA-B1A6-4F1B3C90C250} = {C269163A-0797-4EEA-B1A6-4F1B3C90C250}
 	EndProjectSection
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Box2D", "Box2D\Box2D.vcxproj", "{C269163A-0797-4EEA-B1A6-4F1B3C90C250}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -79,14 +76,6 @@ Global
 		{1DADB760-477B-4DA4-A65C-4F86D77809CD}.Release|x64.Build.0 = Release|x64
 		{1DADB760-477B-4DA4-A65C-4F86D77809CD}.Release|x86.ActiveCfg = Release|Win32
 		{1DADB760-477B-4DA4-A65C-4F86D77809CD}.Release|x86.Build.0 = Release|Win32
-		{C269163A-0797-4EEA-B1A6-4F1B3C90C250}.Debug|x64.ActiveCfg = Debug|x64
-		{C269163A-0797-4EEA-B1A6-4F1B3C90C250}.Debug|x64.Build.0 = Debug|x64
-		{C269163A-0797-4EEA-B1A6-4F1B3C90C250}.Debug|x86.ActiveCfg = Debug|Win32
-		{C269163A-0797-4EEA-B1A6-4F1B3C90C250}.Debug|x86.Build.0 = Debug|Win32
-		{C269163A-0797-4EEA-B1A6-4F1B3C90C250}.Release|x64.ActiveCfg = Release|x64
-		{C269163A-0797-4EEA-B1A6-4F1B3C90C250}.Release|x64.Build.0 = Release|x64
-		{C269163A-0797-4EEA-B1A6-4F1B3C90C250}.Release|x86.ActiveCfg = Release|Win32
-		{C269163A-0797-4EEA-B1A6-4F1B3C90C250}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
