@@ -37,7 +37,7 @@ void GameplayScreen::destory()
 
 void GameplayScreen::onEntry()
 {
-	b2Vec2 gravity{0.0f, -9.8f};
+	b2Vec2 gravity{0.0f, -25.0f};
 	m_world = std::make_unique<b2World>(gravity);
 
 	// Make the ground
@@ -48,6 +48,9 @@ void GameplayScreen::onEntry()
 	b2PolygonShape groundBox;
 	groundBox.SetAsBox(50.0f, 10.0f);
 	groundBody->CreateFixture(&groundBox, 0.0f);
+
+	// Load the texture
+	m_texture = Kengine::ResourceManager::getTexture("Assets/bricks_top.png");
 
 	// Make a bunch of boxes
 	std::mt19937 randGenerator;
@@ -68,7 +71,9 @@ void GameplayScreen::onEntry()
 		newBox.init(m_world.get(),
 		            glm::vec2(xPos(randGenerator), yPos(randGenerator)),
 		            glm::vec2(dimension, dimension),
-					randColor);
+					m_texture,
+					randColor,
+					false);
 		m_boxes.push_back(newBox);
 	}
 
@@ -82,12 +87,12 @@ void GameplayScreen::onEntry()
 	m_textureProgram.addAttribute("vertexUV");
 	m_textureProgram.linkShaders();
 
-	// Load the texture
-	m_texture = Kengine::ResourceManager::getTexture("Assets/bricks_top.png");
-
 	// Init camera
 	m_camera.init(m_window->getScreenWidth(), m_window->getScreenHeight());
 	m_camera.setScale(16.0f);
+
+	// Init player
+	m_player.init(m_world.get(), glm::vec2(0.0f, 30.0f), glm::vec2(1.0f, 2.0f), Kengine::ColorRGBA8(255, 255, 255, 255));
 }
 
 void GameplayScreen::onExit()
@@ -98,6 +103,7 @@ void GameplayScreen::update()
 {
 	m_camera.update();
 	checkInput();
+	m_player.update(m_game->inputManager);
 
 	// Update the physics simulation
 	m_world->Step(1.0f / 60.0f, 6, 2);
@@ -125,18 +131,10 @@ void GameplayScreen::draw()
 	// Draw all the boxes
 	for (auto& b : m_boxes)
 	{
-		glm::vec4 destRect;
-		destRect.x = b.getBody()->GetPosition().x - b.getDimensions().x / 2.0f;
-		destRect.y = b.getBody()->GetPosition().y - b.getDimensions().y / 2.0f;
-		destRect.z = b.getDimensions().x;
-		destRect.w = b.getDimensions().y;
-		m_spriteBatch.draw(destRect,
-		                   glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
-		                   m_texture.id,
-		                   0.0f,
-		                   b.getColor(),
-		                   b.getBody()->GetAngle());
+		b.draw(m_spriteBatch);
 	}
+
+	m_player.draw(m_spriteBatch);
 
 	m_spriteBatch.end();
 	m_spriteBatch.renderBatch();

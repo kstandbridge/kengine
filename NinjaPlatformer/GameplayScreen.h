@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Box2D/Box2D.h>
-
 #include <Kengine/IGameScreen.h>
 #include <Kengine/SpriteBatch.h>
 #include <Kengine/GLSLProgram.h>
@@ -12,7 +11,7 @@
 
 #include <vector>
 
-#include "Box.h"
+#include "Player.h"
 
 class GameplayScreen : public Kengine::IGameScreen
 {
@@ -45,6 +44,7 @@ private:
 	Kengine::GLTexture m_texture;
 	Kengine::Window* m_window;
 
+	Player m_player;
 	std::vector<Box> m_boxes;
 	std::unique_ptr<b2World> m_world;
 };
