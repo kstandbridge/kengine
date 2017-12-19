@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "Player.h"
+#include "Box.h"
 
 class GameplayScreen : public Kengine::IGameScreen
 {
@@ -46,7 +47,7 @@ private:
 	Kengine::Window* m_window;
 	Kengine::DebugRenderer m_debugRenderer;
 
-	bool m_renderDebug = true;
+	bool m_renderDebug = false;
 
 	Player m_player;
 	std::vector<Box> m_boxes;

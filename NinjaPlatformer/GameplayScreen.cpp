@@ -91,10 +91,14 @@ void GameplayScreen::onEntry()
 
 	// Init camera
 	m_camera.init(m_window->getScreenWidth(), m_window->getScreenHeight());
-	m_camera.setScale(16.0f);
+	m_camera.setScale(24.0f);
 
 	// Init player
-	m_player.init(m_world.get(), glm::vec2(0.0f, 30.0f), glm::vec2(1.0f, 2.0f), Kengine::ColorRGBA8(255, 255, 255, 255));
+	m_player.init(m_world.get(), 
+				  glm::vec2(0.0f, 30.0f),
+				  glm::vec2(2.0f), 
+				  glm::vec2(1.0f, 1.8f), 
+				  Kengine::ColorRGBA8(255, 255, 255, 255));
 }
 
 void GameplayScreen::onExit()
@@ -149,26 +153,15 @@ void GameplayScreen::draw()
 		glm::vec4 destRect;
 		for (auto& b : m_boxes)
 		{
-//			destRect.x = b.getBody()->GetPosition().x - b.getDimensions().x / 2.0f;
-//			destRect.y = b.getBody()->GetPosition().y - b.getDimensions().y / 2.0f;
-//			destRect.z = b.getDimensions().x;
-//			destRect.w = b.getDimensions().y;
-//			m_debugRenderer.drawBox(destRect, Kengine::ColorRGBA8(255, 255, 255, 255), b.getBody()->GetAngle());
-
-			m_debugRenderer.drawCircle(glm::vec2(b.getBody()->GetPosition().x, b.getBody()->GetPosition().y), 
-									   Kengine::ColorRGBA8(255, 255, 255, 255),
-									   b.getDimensions().x / 2.0f);
+			destRect.x = b.getBody()->GetPosition().x - b.getDimensions().x / 2.0f;
+			destRect.y = b.getBody()->GetPosition().y - b.getDimensions().y / 2.0f;
+			destRect.z = b.getDimensions().x;
+			destRect.w = b.getDimensions().y;
+			m_debugRenderer.drawBox(destRect, Kengine::ColorRGBA8(255, 255, 255, 255), b.getBody()->GetAngle());
 		}
 		
 		// Render player
-		auto& b = m_player.getBox();
-		destRect.x = b.getBody()->GetPosition().x - b.getDimensions().x / 2.0f;
-		destRect.y = b.getBody()->GetPosition().y - b.getDimensions().y / 2.0f;
-		destRect.z = b.getDimensions().x;
-		destRect.w = b.getDimensions().y;
-
-		m_debugRenderer.drawBox(destRect, Kengine::ColorRGBA8(255, 255, 255, 255), b.getBody()->GetAngle());
-
+		m_player.drawDebug(m_debugRenderer);
 		m_debugRenderer.end();
 		m_debugRenderer.render(projectionMatrix, 2.0f);
 	}
