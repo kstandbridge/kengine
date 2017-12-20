@@ -150,7 +150,7 @@ namespace Kengine
 
 	bool IMainGame::initSystems()
 	{
-		m_window.create("Default", 1024, 768, 0);
+		m_window.create("Default", 1280, 900, 0);
 		return true;
 	}
 }

@@ -8,7 +8,7 @@
 #include <Kengine/GLTexture.h>
 #include <Kengine/Window.h>
 #include <Kengine/DebugRenderer.h>
-
+#include <Kengine/GUI.h>
 
 #include <vector>
 
@@ -47,6 +47,7 @@ private:
 	Kengine::GLTexture m_texture;
 	Kengine::Window* m_window;
 	Kengine::DebugRenderer m_debugRenderer;
+	Kengine::GUI m_gui;
 
 	bool m_renderDebug = false;
 

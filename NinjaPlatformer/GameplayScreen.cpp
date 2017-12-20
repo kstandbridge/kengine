@@ -10,9 +10,6 @@
 
 #include "Light.h"
 
-#include <CEGUI/CEGUI.h>
-#include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
-
 GameplayScreen::GameplayScreen(Kengine::Window* window)
 	: m_window{window}
 {
@@ -42,6 +39,7 @@ void GameplayScreen::destory()
 
 void GameplayScreen::onEntry()
 {
+
 	b2Vec2 gravity{0.0f, -25.0f};
 	m_world = std::make_unique<b2World>(gravity);
 
@@ -93,9 +91,9 @@ void GameplayScreen::onEntry()
 	m_textureProgram.addAttribute("vertexPosition");
 	m_textureProgram.addAttribute("vertexColor");
 	m_textureProgram.addAttribute("vertexUV");
-
 	m_textureProgram.linkShaders();
-	// Conmpile our light shader
+
+	// Compile our light shader
 	m_lightProgram.compileShaders("Shaders/lightShading.vs", "Shaders/lightShading.fs");
 	m_lightProgram.addAttribute("vertexPosition");
 	m_lightProgram.addAttribute("vertexColor");
@@ -113,9 +111,17 @@ void GameplayScreen::onEntry()
 				  glm::vec2(1.0f, 1.8f), 
 				  Kengine::ColorRGBA8(255, 255, 255, 255));
 
-	// TEMPORARY UI
-	CEGUI::OpenGL3Renderer& myRenderer = CEGUI::OpenGL3Renderer::bootstrapSystem();
+	// Init the GUI
+	m_gui.init("GUI");
+	m_gui.loadScheme("AlfiskoSkin.scheme");
+	m_gui.loadScheme("TaharezLook.scheme");
+	m_gui.setFont("DejaVuSans-10");
 	
+	CEGUI::PushButton* testButton = static_cast<CEGUI::PushButton*>(m_gui.createWidget("AlfiskoSkin/Button",
+	                                                                                   glm::vec4(0.5f, 0.5f, 0.1f, 0.05f),
+	                                                                                   glm::vec4(0.0f),
+	                                                                                   "TestButton"));
+	testButton->setText("Hello World!");
 }
 
 void GameplayScreen::onExit()
@@ -214,6 +220,7 @@ void GameplayScreen::draw()
 	// Reset to regular alpha blending
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	m_gui.draw();
 }
 
 void GameplayScreen::checkInput()
