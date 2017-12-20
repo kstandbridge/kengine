@@ -105,7 +105,7 @@
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
-      <Command>xcopy /y /d  "$(SolutionDir)deps\bin\Debug\*.dll" "$(TargetDir)"</Command>
+      <Command>xcopy /y /d  "$(SolutionDir)deps\bin\Debug\*.*" "$(TargetDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -144,7 +144,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /y /d  "$(SolutionDir)deps\bin\Release\*.dll" "$(TargetDir)"</Command>
+      <Command>xcopy /y /d  "$(SolutionDir)deps\bin\Release\*.*" "$(TargetDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
