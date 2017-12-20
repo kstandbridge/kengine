@@ -22,6 +22,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BallGame", "BallGame\BallGame.vcxproj", "{1FB46987-441A-4362-BBBD-0D48A628878C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{0EE2E206-82AE-42D7-93CA-283CE2B07FED} = {0EE2E206-82AE-42D7-93CA-283CE2B07FED}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NinjaPlatformer", "NinjaPlatformer\NinjaPlatformer.vcxproj", "{1DADB760-477B-4DA4-A65C-4F86D77809CD}"
 	ProjectSection(ProjectDependencies) = postProject
