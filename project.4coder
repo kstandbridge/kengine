@@ -1,0 +1,30 @@
+version(1);
+
+project_name = "kengine";
+
+patterns =
+{
+    "*.c",
+    "*.cpp",
+    "*.jai",
+    "*.odin",
+    "*.zig",
+    "*.h",
+    "*.inc",
+    "*.bat",
+    "*.sh",
+    "*.4coder",
+    "*.txt",
+};
+
+blacklist_patterns =
+{
+    ".*",
+};
+
+load_paths =
+{
+    {
+        { {"."}, .recursive = true, .relative = true }, .os = "win"
+    },
+};
