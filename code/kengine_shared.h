@@ -128,7 +128,7 @@ typedef struct format_string_tokenizer
     char *Tail;
 } format_string_tokenizer;
 
-internal format_string_token
+inline format_string_token
 GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
 {
     format_string_token Result;
@@ -195,7 +195,7 @@ FormatStringParseU64Interal(format_string_tokenizer *Tokenizer, u64 Value)
     }
 }
 
-internal string
+inline string
 FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
 {
     string Result;
@@ -280,6 +280,57 @@ FormatString(memory_arena *Arena, char *Format, ...)
     va_start(ArgList, Format);
     string Result = FormatStringInternal(Arena, Format, ArgList);
     va_end(ArgList);
+    
+    return Result;
+}
+
+inline u32
+GetNullTerminiatedStringLength(char *NullTerminiatedString)
+{
+    u32 Count = 0;
+    
+    if(NullTerminiatedString)
+    {
+        while(*NullTerminiatedString++)
+        {
+            ++Count;
+        }
+    }
+    
+    return Count;
+}
+
+inline string
+String(char *NullTerminatedString)
+{
+    string Result;
+    
+    Result.Data = (u8 *)NullTerminatedString;
+    Result.Length = GetNullTerminiatedStringLength(NullTerminatedString);
+    
+    return Result;
+}
+
+
+inline b32
+StringsAreEqual(string A, string B)
+{
+    b32 Result = (A.Length == B.Length);
+    
+    if(Result)
+    {
+        Result = true;
+        for(u32 Index = 0;
+            Index < A.Length;
+            ++Index)
+        {
+            if(A.Data[Index] != B.Data[Index])
+            {
+                Result = false;
+                break;
+            }
+        }
+    }
     
     return Result;
 }

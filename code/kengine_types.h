@@ -98,7 +98,5 @@ typedef struct string
     u8 *Data;
 } string;
 
-
-
 #define KENGINE_TYPES_H
 #endif //KENGINE_TYPES_H

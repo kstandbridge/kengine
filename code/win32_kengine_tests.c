@@ -14,37 +14,43 @@ ConsoleOut(Arena, "%s(%d): failed assert!\n", \
 __FILE__, __LINE__);        \
 }
 
-internal s32
+inline void
+RunStringsAreEqualTests(memory_arena *Arena)
+{
+    ASSERT(StringsAreEqual(String("Foo"), String("Foo")));
+    ASSERT(!StringsAreEqual(String("Bar"), String("Foo")));
+    ASSERT(StringsAreEqual(String("Foo bar Bas"), String("Foo bar Bas")));
+    ASSERT(!StringsAreEqual(String("Foo bar Bas"), String("Bas bar Foo")));
+    ASSERT(!StringsAreEqual(String("Foo bar Bas"), String("")));
+    ASSERT(!StringsAreEqual(String(""), String("Bas bar Foo")));
+}
+
+internal b32
 RunAllTests(memory_arena *Arena)
 {
-    s32 Test = 42;
-    ASSERT(Test == 41);
+    RunStringsAreEqualTests(Arena);
     
-    
-    
-    s32 Result = (FailedTests == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
+    b32 Result = (FailedTests == 0);
     return Result;
 }
 
 s32 __stdcall
 mainCRTStartup()
 {
+    
 #if KENGINE_INTERNAL
     LPVOID BaseAddress = (LPVOID)Terabytes(2);
 #else
     LPVOID BaseAddress = 0;
 #endif
-    
     memory_index TotalMemorySize = Megabytes(8);
     void *MemoryBlock = VirtualAlloc(BaseAddress, TotalMemorySize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     memory_arena ArenaInternal;
     memory_arena *Arena = &ArenaInternal;;
     InitializeArena(Arena, TotalMemorySize, MemoryBlock);
     
-    //ConsoleOut(&Arena, "Before %d mid %d after", 24, 42);
-    //ConsoleOut(Arena, "Before %s foo %d bar %i end", "insert me", 123, 456);
-    
-    s32 Result = RunAllTests(Arena);
+    b32 Result = RunAllTests(Arena);
+    ConsoleOut(Arena, "Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);
     
     if(MemoryBlock)
     {
