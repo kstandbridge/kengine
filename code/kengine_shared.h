@@ -123,6 +123,7 @@ typedef enum format_string_token_type
     FormatStringToken_StringOfCharacters,
     
     FormatStringToken_PrecisionSpecifier,
+    FormatStringToken_PrecisionArgSpecifier,
     FormatStringToken_LongSpecifier,
     
     FormatStringToken_EndOfStream,
@@ -164,6 +165,7 @@ GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
         case 's': { Result.Type = FormatStringToken_StringOfCharacters; } break;
         
         case '.': { Result.Type = FormatStringToken_PrecisionSpecifier; } break;
+        case '*': { Result.Type = FormatStringToken_PrecisionArgSpecifier; } break;
         case 'l': { Result.Type = FormatStringToken_LongSpecifier; } break;
         
         default:
@@ -223,7 +225,6 @@ FormatStringParseF64Interal(format_string_tokenizer *Tokenizer, f64 Value, u32 P
         *Tokenizer->Tail++ = '-';
         Value = -Value;;
     }
-    
     
     u64 IntegerPart = (u64)Value;
     Value -= (f64)IntegerPart;
@@ -311,11 +312,25 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
             case FormatStringToken_StringOfCharacters:
             {
                 char *At = va_arg(ArgList, char *);
-                while(At[0] != '\0')
+                if(PrecisionSpecified)
                 {
-                    *Tokenizer.Tail++ = *At++;
+                    while(At[0] != '\0' && Precision--)
+                    {
+                        *Tokenizer.Tail++ = *At++;
+                    }
                 }
-                
+                else
+                {
+                    while(At[0] != '\0')
+                    {
+                        *Tokenizer.Tail++ = *At++;
+                    }
+                }
+            } break;
+            
+            case FormatStringToken_PrecisionArgSpecifier:
+            {
+                Precision = va_arg(ArgList, s32);
             } break;
             
             case FormatStringToken_PrecisionSpecifier:

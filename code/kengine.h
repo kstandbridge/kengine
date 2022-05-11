@@ -2,9 +2,6 @@
 
 /* TODO(kstandbridge): 
 
-- Format string precision on string
-- Format string precision on float with specified param
-- Format string precision on string with specified param
 - Format string o	Unsigned octal
 - Format string x	Unsigned hexadecimal integer
 - Format string X	Unsigned hexadecimal integer (uppercase)

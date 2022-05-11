@@ -94,6 +94,16 @@ RunFormatStringDecimalFloatingPoint(memory_arena *Arena)
         string B = FormatString(Arena, "before %f after", Tau32);
         ASSERT(StringsAreEqual(A, B));
     }
+    {
+        string A = String("before 3.141 after");
+        string B = FormatString(Arena, "before %.3f after", Pi32);
+        ASSERT(StringsAreEqual(A, B));
+    }
+    {
+        string A = String("before 3.141 after");
+        string B = FormatString(Arena, "before %.*f after", 3, Pi32);
+        ASSERT(StringsAreEqual(A, B));
+    }
     
     // NOTE(kstandbridge): Intentionally checking string length 
     // as precision is not accurate with currently implementation 
@@ -126,6 +136,16 @@ RunFormatStringStringOfCharactersTests(memory_arena *Arena)
         string A = String("11 11 11 foo 22 22 22 bar 33 33 33 bas 44 44 44");
         string B = FormatString(Arena, "11 11 11 %s 22 22 22 %s 33 33 33 %s 44 44 44", "bas", "bar", "foo");
         ASSERT(!StringsAreEqual(A, B));
+    }
+    {
+        string A = String("before foo after");
+        string B = FormatString(Arena, "before %.3s after", "foobar");
+        ASSERT(StringsAreEqual(A, B));
+    }
+    {
+        string A = String("before foo after");
+        string B = FormatString(Arena, "before %.*s after", 3, "foobar");
+        ASSERT(StringsAreEqual(A, B));
     }
 }
 

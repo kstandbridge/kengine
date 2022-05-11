@@ -10,7 +10,7 @@ set CommonCompilerFlags=-wd4100 %CommonCompilerFlags%
 REM local variable is initialized but not referenced
 set CommonCompilerFlags=-wd4189 %CommonCompilerFlags%
 
-set CommonLinkerFlags=-STACK:0x100000,0x100000 -incremental:no -opt:ref kernel32.lib
+set CommonLinkerFlags=-STACK:0x100000,0x100000 -incremental:no -opt:ref /NODEFAULTLIB kernel32.lib
 
 IF NOT EXIST data mkdir data
 IF NOT EXIST ..\build mkdir ..\build
@@ -22,7 +22,7 @@ echo WAITING FOR PDB > lock.tmp
 
 
 REM Unit tests
-cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_tests.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
+cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_tests.c /link /SUBSYSTEM:console %CommonLinkerFlags%
 set LastError=%ERRORLEVEL%
 win32_kengine_tests.exe
 
