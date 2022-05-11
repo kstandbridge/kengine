@@ -102,13 +102,28 @@ IsWhitespace(char C)
     return(Result);
 }
 
+
+inline b32
+IsNumber(char C)
+{
+    b32 Result = ((C >= '0') && (C <= '9'));
+    
+    return Result;
+}
+
+
 typedef enum format_string_token_type
 {
     FormatStringToken_Unknown,
     
     FormatStringToken_Specifier,
     FormatStringToken_SignedDecimalInteger,
+    FormatStringToken_UnsignedDecimalInteger,
+    FormatStringToken_DecimalFloatingPoint,
     FormatStringToken_StringOfCharacters,
+    
+    FormatStringToken_PrecisionSpecifier,
+    FormatStringToken_LongSpecifier,
     
     FormatStringToken_EndOfStream,
 } format_string_token_type;
@@ -144,7 +159,12 @@ GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
         case '%': { Result.Type = FormatStringToken_Specifier; } break;
         case 'd':
         case 'i': { Result.Type = FormatStringToken_SignedDecimalInteger; } break;
+        case 'u': { Result.Type = FormatStringToken_UnsignedDecimalInteger; } break;
+        case 'f': { Result.Type = FormatStringToken_DecimalFloatingPoint; } break;
         case 's': { Result.Type = FormatStringToken_StringOfCharacters; } break;
+        
+        case '.': { Result.Type = FormatStringToken_PrecisionSpecifier; } break;
+        case 'l': { Result.Type = FormatStringToken_LongSpecifier; } break;
         
         default:
         {
@@ -168,10 +188,10 @@ GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
 #define ReadVarArgSignedInteger(Length, ArgList) ((Length) == 8) ? va_arg(ArgList, s64) : (s64)va_arg(ArgList, s32)
 #define ReadVarArgFloat(Length, ArgList) va_arg(ArgList, f64)
 
+global char Digits[] = "0123456789";
 inline void
-FormatStringParseU64Interal(format_string_tokenizer *Tokenizer, u64 Value)
+FormatStringParseU64Internal(format_string_tokenizer *Tokenizer, u64 Value)
 {
-    local_persist char Digits[] = "0123456789";
     u32 Base = 10;
     
     char *Start = Tokenizer->Tail;
@@ -195,6 +215,35 @@ FormatStringParseU64Interal(format_string_tokenizer *Tokenizer, u64 Value)
     }
 }
 
+inline void
+FormatStringParseF64Interal(format_string_tokenizer *Tokenizer, f64 Value, u32 Precision)
+{
+    if(Value < 0)
+    {
+        *Tokenizer->Tail++ = '-';
+        Value = -Value;;
+    }
+    
+    
+    u64 IntegerPart = (u64)Value;
+    Value -= (f64)IntegerPart;
+    FormatStringParseU64Internal(Tokenizer, IntegerPart);
+    
+    *Tokenizer->Tail++ = '.';
+    
+    // TODO(kstandbridge): Note that this is NOT an accurate way to do this!
+    for(u32 PrecisionIndex = 0;
+        PrecisionIndex < Precision;
+        ++PrecisionIndex)
+    {
+        Value *= 10.0f;
+        u32 Integer = (u32)Value;
+        Value -= (f32)Integer;
+        char Digit = Digits[Integer];
+        *Tokenizer->Tail++ = Digit;
+    }
+}
+
 inline string
 FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
 {
@@ -209,7 +258,10 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
     Tokenizer.Tail = (char *)Result.Data;
     
     b32 Parsing = true;
-    
+    u32 IntegerLength = 4;
+    u32 FloatLength = 8;
+    s32 Precision = 6;
+    b32 PrecisionSpecified = false;
     while(Parsing)
     {
         format_string_token Token = GetNextFormatStringTokenInternal(&Tokenizer);
@@ -222,6 +274,9 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
             
             case FormatStringToken_Specifier:
             {
+                IntegerLength = 4;
+                Precision = 6;
+                PrecisionSpecified = false;
                 if(Tokenizer.At[0] == '%')
                 {
                     *Tokenizer.Tail++ = '%';
@@ -231,9 +286,6 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
             
             case FormatStringToken_SignedDecimalInteger:
             {
-                // NOTE(kstandbridge): Signed decimal integer
-                
-                u32 IntegerLength = 4;
                 s64 Value = ReadVarArgSignedInteger(IntegerLength, ArgList);
                 b32 IsNegative = (Value < 0);
                 if(IsNegative)
@@ -241,7 +293,19 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                     Value = -Value;
                     *Tokenizer.Tail++ = '-';
                 }
-                FormatStringParseU64Interal(&Tokenizer, Value);
+                FormatStringParseU64Internal(&Tokenizer, Value);
+            } break;
+            
+            case FormatStringToken_UnsignedDecimalInteger:
+            {
+                u64 Value = ReadVarArgUnsignedInteger(IntegerLength, ArgList);
+                FormatStringParseU64Internal(&Tokenizer, Value);
+            } break;
+            
+            case FormatStringToken_DecimalFloatingPoint:
+            {
+                f64 Value = ReadVarArgFloat(FloatLength, ArgList);
+                FormatStringParseF64Interal(&Tokenizer, Value, Precision);
             } break;
             
             case FormatStringToken_StringOfCharacters:
@@ -253,6 +317,32 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                 }
                 
             } break;
+            
+            case FormatStringToken_PrecisionSpecifier:
+            {
+                // TODO(kstandbridge): * means read from the argument
+                // TODO(kstandbridge): a number is the specified
+                PrecisionSpecified = true;
+                format_string_token PrecisionToken = GetNextFormatStringTokenInternal(&Tokenizer);
+                
+                Precision = 0;
+                
+                while(IsNumber(*PrecisionToken.Text))
+                {
+                    Precision *= 10;
+                    Precision += (*PrecisionToken.Text - '0');
+                    ++PrecisionToken.Text;
+                }
+                --Tokenizer.At;
+                
+                break;
+            }
+            
+            case FormatStringToken_LongSpecifier:
+            {
+                IntegerLength = 8;
+                break;
+            }
             
             case FormatStringToken_Unknown:
             default:
@@ -285,13 +375,13 @@ FormatString(memory_arena *Arena, char *Format, ...)
 }
 
 inline u32
-GetNullTerminiatedStringLength(char *NullTerminiatedString)
+GetNullTerminiatedStringLength(char *Str)
 {
     u32 Count = 0;
     
-    if(NullTerminiatedString)
+    if(Str)
     {
-        while(*NullTerminiatedString++)
+        while(*Str++)
         {
             ++Count;
         }
@@ -300,17 +390,17 @@ GetNullTerminiatedStringLength(char *NullTerminiatedString)
     return Count;
 }
 
+#define String(Str) StringInternal(GetNullTerminiatedStringLength(Str), (u8 *)Str)
 inline string
-String(char *NullTerminatedString)
+StringInternal(umm Length, u8 *Data)
 {
     string Result;
     
-    Result.Data = (u8 *)NullTerminatedString;
-    Result.Length = GetNullTerminiatedStringLength(NullTerminatedString);
+    Result.Length = Length;
+    Result.Data = Data;
     
     return Result;
 }
-
 
 inline b32
 StringsAreEqual(string A, string B)

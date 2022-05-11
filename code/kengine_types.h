@@ -54,6 +54,17 @@ typedef double f64;
 #define true 1
 #define false 0
 
+#define U8Max 255
+#define U16Max 65535
+#define S32Min ((s32)0x80000000)
+#define S32Max ((s32)0x7fffffff)
+#define S64Max ((s64)0x7fffffffffffffff)
+#define U32Min 0
+#define U32Max ((u32)-1)
+#define U64Max ((u64)-1)
+#define F32Max FLT_MAX
+#define F32Min -FLT_MAX
+
 #define internal static
 #define local_persist static
 #define global static

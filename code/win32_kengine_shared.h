@@ -22,10 +22,10 @@ ConsoleOut(memory_arena *Arena, char *Format, ...)
     va_list ArgList;
     
     va_start(ArgList, Format);
-    string String = FormatStringInternal(Arena, Format, ArgList);
+    string Str = FormatStringInternal(Arena, Format, ArgList);
     va_end(ArgList);
     
-    b32 Result = ConsoleOutInternal(String.Data, String.Length);
+    b32 Result = ConsoleOutInternal(Str.Data, Str.Length);
     return Result;
 }
 
