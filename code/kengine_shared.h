@@ -62,21 +62,6 @@ PushSizeInternal(memory_arena *Arena, memory_index SizeInit, memory_index Alignm
     return(Result);
 }
 
-
-#define PushString(Arena, Str) PushStringInternal(Arena, GetNullTerminiatedStringLength(Str), (u8 *)Str)
-inline string
-PushStringInternal(memory_arena *Arena, umm Length, u8 *Data)
-{
-    string Result;
-    
-    Result.Length = Length;
-    Result.Data = PushCopy(Arena, Result.Length, Data);
-    
-    return Result;
-}
-
-
-
 inline u8 *
 BeginPushSize(memory_arena *Arena)
 {
@@ -133,6 +118,95 @@ IsAlpha(char C)
     return Result;
 }
 
+inline u32
+GetNullTerminiatedStringLength(char *Str)
+{
+    u32 Count = 0;
+    
+    if(Str)
+    {
+        while(*Str++)
+        {
+            ++Count;
+        }
+    }
+    
+    return Count;
+}
+
+inline char
+ToLowercase(char Char)
+{
+    char Result = Char;
+    
+    if((Result >= 'A') && (Result <= 'Z'))
+    {
+        Result += 'a' - 'A';
+    }
+    
+    return(Result);
+}
+
+inline char
+ToUppercase(char Char)
+{
+    char Result = Char;
+    
+    if((Result >= 'a') && (Result <= 'z'))
+    {
+        Result += 'A' - 'a';
+    }
+    
+    return(Result);
+}
+
+inline b32
+StringsAreEqual(string A, string B)
+{
+    b32 Result = (A.Length == B.Length);
+    
+    if(Result)
+    {
+        Result = true;
+        for(u32 Index = 0;
+            Index < A.Length;
+            ++Index)
+        {
+            if(A.Data[Index] != B.Data[Index])
+            {
+                Result = false;
+                break;
+            }
+        }
+    }
+    
+    return Result;
+}
+
+#define String(Str) StringInternal(GetNullTerminiatedStringLength(Str), (u8 *)Str)
+inline string
+StringInternal(umm Length, u8 *Data)
+{
+    string Result;
+    
+    Result.Length = Length;
+    Result.Data = Data;
+    
+    return Result;
+}
+
+#define PushString(Arena, Str) PushStringInternal(Arena, GetNullTerminiatedStringLength(Str), (u8 *)Str)
+inline string
+PushStringInternal(memory_arena *Arena, umm Length, u8 *Data)
+{
+    string Result;
+    
+    Result.Length = Length;
+    Result.Data = PushCopy(Arena, Result.Length, Data);
+    
+    return Result;
+}
+
 typedef enum format_string_token_type
 {
     FormatStringToken_Unknown,
@@ -155,8 +229,7 @@ typedef struct format_string_token
 {
     format_string_token_type Type;
     
-    size_t TextLength;
-    char *Text;
+    string Str;
 } format_string_token;
 
 typedef struct format_string_tokenizer
@@ -172,8 +245,7 @@ GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
     format_string_token Result;
     ZeroStruct(Result);
     
-    Result.TextLength = 1;
-    Result.Text = Tokenizer->At;
+    Result.Str = StringInternal(1, (u8 *)Tokenizer->At);
     char C = Tokenizer->At[0];
     ++Tokenizer->At;
     switch(C)
@@ -200,7 +272,7 @@ GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
                 ++Tokenizer->At;
             }
             
-            Result.TextLength = Tokenizer->At - Result.Text;
+            Result.Str.Length = Tokenizer->At - (char *)Result.Str.Data;
             
             Result.Type = FormatStringToken_Unknown;
         } break;
@@ -327,11 +399,11 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                                 
                                 Precision = 0;
                                 
-                                while(IsNumber(*PrecisionToken.Text))
+                                while(IsNumber(*PrecisionToken.Str.Data))
                                 {
                                     Precision *= 10;
-                                    Precision += (*PrecisionToken.Text - '0');
-                                    ++PrecisionToken.Text;
+                                    Precision += (*PrecisionToken.Str.Data - '0');
+                                    ++PrecisionToken.Str.Data;
                                 }
                                 --Tokenizer.At;
                                 
@@ -434,10 +506,10 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
             case FormatStringToken_Unknown:
             default:
             {
-                while(Token.TextLength)
+                while(Token.Str.Length)
                 {
-                    *Tokenizer.Tail++ = *Token.Text++;
-                    --Token.TextLength;
+                    *Tokenizer.Tail++ = *Token.Str.Data++;
+                    --Token.Str.Length;
                 }
             } break;
         }
@@ -457,83 +529,6 @@ FormatString(memory_arena *Arena, char *Format, ...)
     va_start(ArgList, Format);
     string Result = FormatStringInternal(Arena, Format, ArgList);
     va_end(ArgList);
-    
-    return Result;
-}
-
-inline u32
-GetNullTerminiatedStringLength(char *Str)
-{
-    u32 Count = 0;
-    
-    if(Str)
-    {
-        while(*Str++)
-        {
-            ++Count;
-        }
-    }
-    
-    return Count;
-}
-
-inline char
-ToLowercase(char Char)
-{
-    char Result = Char;
-    
-    if((Result >= 'A') && (Result <= 'Z'))
-    {
-        Result += 'a' - 'A';
-    }
-    
-    return(Result);
-}
-
-inline char
-ToUppercase(char Char)
-{
-    char Result = Char;
-    
-    if((Result >= 'a') && (Result <= 'z'))
-    {
-        Result += 'A' - 'a';
-    }
-    
-    return(Result);
-}
-
-#define String(Str) StringInternal(GetNullTerminiatedStringLength(Str), (u8 *)Str)
-inline string
-StringInternal(umm Length, u8 *Data)
-{
-    string Result;
-    
-    Result.Length = Length;
-    Result.Data = Data;
-    
-    return Result;
-}
-
-inline b32
-StringsAreEqual(string A, string B)
-{
-    b32 Result = (A.Length == B.Length);
-    
-    if(Result)
-    {
-        Result = true;
-        for(u32 Index = 0;
-            Index < A.Length;
-            ++Index)
-        {
-            if(A.Data[Index] != B.Data[Index])
-            {
-                Result = false;
-                break;
-            }
-        }
-    }
     
     return Result;
 }

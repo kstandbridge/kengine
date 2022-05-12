@@ -2,7 +2,6 @@
 
 /* TODO(kstandbridge): 
 
-- Format string token to use string
 - introspect math support
 - Format string c	Character
 - Format string o	Unsigned octal
