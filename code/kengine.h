@@ -2,6 +2,7 @@
 
 /* TODO(kstandbridge): 
 
+- introspect math support
 - Format string o	Unsigned octal
 - Format string x	Unsigned hexadecimal integer
 - Format string X	Unsigned hexadecimal integer (uppercase)

@@ -150,6 +150,32 @@ RunFormatStringStringOfCharactersTests(memory_arena *Arena)
 }
 
 inline void
+RunFormatStringStringTypeTests(memory_arena *Arena)
+{
+    {
+        string A = String("before bar after");
+        string B = FormatString(Arena, "before %S after", String("bar"));
+        ASSERT(StringsAreEqual(A, B));
+    }
+    {
+        string A = String("foo 1234 bar 5678 bas");
+        string B = FormatString(Arena, "foo %S bar %S bas", String("1234"), String("5678"));
+        ASSERT(StringsAreEqual(A, B));
+    }
+    {
+        string A = String("before foo after");
+        string B = FormatString(Arena, "before %S after", String("bar"));
+        ASSERT(!StringsAreEqual(A, B));
+    }
+    {
+        string A = String("before foo after");
+        string B = FormatString(Arena, "before %.3S after", String("foobar"));
+        ASSERT(StringsAreEqual(A, B));
+    }
+    
+}
+
+inline void
 RunFormatStringPercentTests(memory_arena *Arena)
 {
     {
@@ -172,34 +198,21 @@ RunAllTests(memory_arena *Arena)
     RunFormatStringUnsignedDecimalIntegerTests(Arena);
     RunFormatStringDecimalFloatingPoint(Arena);
     RunFormatStringStringOfCharactersTests(Arena);
+    RunFormatStringStringTypeTests(Arena);
     RunFormatStringPercentTests(Arena);
     
-    b32 Result = (FailedTests != 0);
+    b32 Result = (FailedTests == 0);
     return Result;
 }
 
 s32 __stdcall
 mainCRTStartup()
 {
-    
-#if KENGINE_INTERNAL
-    LPVOID BaseAddress = (LPVOID)Terabytes(2);
-#else
-    LPVOID BaseAddress = 0;
-#endif
-    memory_index TotalMemorySize = Megabytes(8);
-    void *MemoryBlock = VirtualAlloc(BaseAddress, TotalMemorySize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-    memory_arena ArenaInternal;
-    memory_arena *Arena = &ArenaInternal;;
-    InitializeArena(Arena, TotalMemorySize, MemoryBlock);
+    memory_arena ArenaInternal = AllocateArena(Megabytes(8));
+    memory_arena *Arena = &ArenaInternal;
     
     b32 Result = RunAllTests(Arena);
     ConsoleOut(Arena, "Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);
-    
-    if(MemoryBlock)
-    {
-        VirtualFree(MemoryBlock, 0, MEM_RELEASE);
-    }
     
     ExitProcess(Result);
 }

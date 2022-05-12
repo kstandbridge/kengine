@@ -14,7 +14,7 @@ void *memset(void *_Dst, int _Val, size_t _Size)
     return(_Dst);
 }
 
-
+#define introspect(...)
 #include "kengine_types.h"
 
 #define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))

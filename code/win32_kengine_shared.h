@@ -3,16 +3,16 @@
 #include <Windows.h>
 
 internal b32
-ConsoleOutInternal(u8 *Data, umm Length)
+ConsoleOutInternal(string Str)
 {
     DWORD Result = 0;
     
     HANDLE OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     Assert(OutputHandle != INVALID_HANDLE_VALUE);
     
-    WriteFile(OutputHandle, Data, (DWORD)Length, &Result, 0);
+    WriteFile(OutputHandle, Str.Data, (DWORD)Str.Length, &Result, 0);
     
-    Assert(Result == Length);
+    Assert(Result == Str.Length);
     return Result;
 }
 
@@ -25,9 +25,54 @@ ConsoleOut(memory_arena *Arena, char *Format, ...)
     string Str = FormatStringInternal(Arena, Format, ArgList);
     va_end(ArgList);
     
-    b32 Result = ConsoleOutInternal(Str.Data, Str.Length);
+    b32 Result = ConsoleOutInternal(Str);
     return Result;
 }
+
+inline memory_arena
+AllocateArena(memory_index TotalMemorySize)
+{
+    memory_arena Result;
+    
+#if KENGINE_INTERNAL
+    LPVOID BaseAddress = (LPVOID)Terabytes(2);
+#else
+    LPVOID BaseAddress = 0;
+#endif
+    
+    void *MemoryBlock = VirtualAlloc(BaseAddress, TotalMemorySize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    InitializeArena(&Result, TotalMemorySize, MemoryBlock);
+    
+    return Result;
+}
+
+inline string
+ReadEntireFile(memory_arena *Arena, char *FilePath)
+{
+    string Result;
+    ZeroStruct(Result);
+    
+    HANDLE FileHandle = CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    Assert(FileHandle != INVALID_HANDLE_VALUE);
+    
+    LARGE_INTEGER FileSize;
+    b32 ReadResult = GetFileSizeEx(FileHandle, &FileSize);
+    Assert(ReadResult);
+    
+    Result.Length = (memory_index)FileSize.QuadPart;
+    Result.Data = PushSize(Arena, Result.Length);
+    Assert(Result.Data);
+    
+    DWORD BytesRead;
+    ReadResult = ReadFile(FileHandle, Result.Data, (DWORD)Result.Length, &BytesRead, 0);
+    Assert(ReadResult);
+    Assert(BytesRead == Result.Length);
+    
+    CloseHandle(FileHandle);
+    
+    return Result;
+}
+
 
 #define WIN32_KENGINE_SHARED_H
 #endif //WIN32_KENGINE_SHARED_H

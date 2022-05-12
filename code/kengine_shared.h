@@ -102,7 +102,6 @@ IsWhitespace(char C)
     return(Result);
 }
 
-
 inline b32
 IsNumber(char C)
 {
@@ -111,6 +110,14 @@ IsNumber(char C)
     return Result;
 }
 
+inline b32
+IsAlpha(char C)
+{
+    b32 Result = (((C >= 'a') && (C <= 'z')) ||
+                  ((C >= 'A') && (C <= 'Z')));
+    
+    return Result;
+}
 
 typedef enum format_string_token_type
 {
@@ -121,6 +128,7 @@ typedef enum format_string_token_type
     FormatStringToken_UnsignedDecimalInteger,
     FormatStringToken_DecimalFloatingPoint,
     FormatStringToken_StringOfCharacters,
+    FormatStringToken_StringType,
     
     FormatStringToken_PrecisionSpecifier,
     FormatStringToken_PrecisionArgSpecifier,
@@ -163,6 +171,7 @@ GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
         case 'u': { Result.Type = FormatStringToken_UnsignedDecimalInteger; } break;
         case 'f': { Result.Type = FormatStringToken_DecimalFloatingPoint; } break;
         case 's': { Result.Type = FormatStringToken_StringOfCharacters; } break;
+        case 'S': { Result.Type = FormatStringToken_StringType; } break;
         
         case '.': { Result.Type = FormatStringToken_PrecisionSpecifier; } break;
         case '*': { Result.Type = FormatStringToken_PrecisionArgSpecifier; } break;
@@ -259,10 +268,6 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
     Tokenizer.Tail = (char *)Result.Data;
     
     b32 Parsing = true;
-    u32 IntegerLength = 4;
-    u32 FloatLength = 8;
-    s32 Precision = 6;
-    b32 PrecisionSpecified = false;
     while(Parsing)
     {
         format_string_token Token = GetNextFormatStringTokenInternal(&Tokenizer);
@@ -275,89 +280,142 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
             
             case FormatStringToken_Specifier:
             {
-                IntegerLength = 4;
-                Precision = 6;
-                PrecisionSpecified = false;
                 if(Tokenizer.At[0] == '%')
                 {
                     *Tokenizer.Tail++ = '%';
                     ++Tokenizer.At;
                 }
-            } break;
-            
-            case FormatStringToken_SignedDecimalInteger:
-            {
-                s64 Value = ReadVarArgSignedInteger(IntegerLength, ArgList);
-                b32 IsNegative = (Value < 0);
-                if(IsNegative)
-                {
-                    Value = -Value;
-                    *Tokenizer.Tail++ = '-';
-                }
-                FormatStringParseU64Internal(&Tokenizer, Value);
-            } break;
-            
-            case FormatStringToken_UnsignedDecimalInteger:
-            {
-                u64 Value = ReadVarArgUnsignedInteger(IntegerLength, ArgList);
-                FormatStringParseU64Internal(&Tokenizer, Value);
-            } break;
-            
-            case FormatStringToken_DecimalFloatingPoint:
-            {
-                f64 Value = ReadVarArgFloat(FloatLength, ArgList);
-                FormatStringParseF64Interal(&Tokenizer, Value, Precision);
-            } break;
-            
-            case FormatStringToken_StringOfCharacters:
-            {
-                char *At = va_arg(ArgList, char *);
-                if(PrecisionSpecified)
-                {
-                    while(At[0] != '\0' && Precision--)
-                    {
-                        *Tokenizer.Tail++ = *At++;
-                    }
-                }
                 else
-                {
-                    while(At[0] != '\0')
+                {                
+                    b32 ParsingParam = true;
+                    u32 IntegerLength = 4;
+                    u32 FloatLength = 8;
+                    s32 Precision = 6;
+                    b32 PrecisionSpecified = false;
+                    while(ParsingParam)
                     {
-                        *Tokenizer.Tail++ = *At++;
+                        
+                        format_string_token ParamToken = GetNextFormatStringTokenInternal(&Tokenizer);
+                        switch(ParamToken.Type)
+                        {
+                            
+                            case FormatStringToken_PrecisionArgSpecifier:
+                            {
+                                Precision = va_arg(ArgList, s32);
+                            } break;
+                            
+                            case FormatStringToken_PrecisionSpecifier:
+                            {
+                                // TODO(kstandbridge): * means read from the argument
+                                // TODO(kstandbridge): a number is the specified
+                                PrecisionSpecified = true;
+                                format_string_token PrecisionToken = GetNextFormatStringTokenInternal(&Tokenizer);
+                                
+                                Precision = 0;
+                                
+                                while(IsNumber(*PrecisionToken.Text))
+                                {
+                                    Precision *= 10;
+                                    Precision += (*PrecisionToken.Text - '0');
+                                    ++PrecisionToken.Text;
+                                }
+                                --Tokenizer.At;
+                                
+                                break;
+                            }
+                            
+                            case FormatStringToken_LongSpecifier:
+                            {
+                                IntegerLength = 8;
+                                break;
+                            }
+                            
+                            case FormatStringToken_SignedDecimalInteger:
+                            {
+                                ParsingParam = false;
+                                
+                                s64 Value = ReadVarArgSignedInteger(IntegerLength, ArgList);
+                                b32 IsNegative = (Value < 0);
+                                if(IsNegative)
+                                {
+                                    Value = -Value;
+                                    *Tokenizer.Tail++ = '-';
+                                }
+                                FormatStringParseU64Internal(&Tokenizer, Value);
+                            } break;
+                            
+                            case FormatStringToken_UnsignedDecimalInteger:
+                            {
+                                ParsingParam = false;
+                                
+                                u64 Value = ReadVarArgUnsignedInteger(IntegerLength, ArgList);
+                                FormatStringParseU64Internal(&Tokenizer, Value);
+                            } break;
+                            
+                            case FormatStringToken_DecimalFloatingPoint:
+                            {
+                                ParsingParam = false;
+                                
+                                f64 Value = ReadVarArgFloat(FloatLength, ArgList);
+                                FormatStringParseF64Interal(&Tokenizer, Value, Precision);
+                            } break;
+                            
+                            case FormatStringToken_StringOfCharacters:
+                            {
+                                ParsingParam = false;
+                                
+                                char *At = va_arg(ArgList, char *);
+                                if(PrecisionSpecified)
+                                {
+                                    while(At[0] != '\0' && Precision--)
+                                    {
+                                        *Tokenizer.Tail++ = *At++;
+                                    }
+                                }
+                                else
+                                {
+                                    while(At[0] != '\0')
+                                    {
+                                        *Tokenizer.Tail++ = *At++;
+                                    }
+                                }
+                            } break;
+                            
+                            case FormatStringToken_StringType:
+                            {
+                                ParsingParam = false;
+                                
+                                string Str = va_arg(ArgList, string);
+                                
+                                for(u32 Index = 0;
+                                    Index < Str.Length;
+                                    ++Index)
+                                {
+                                    if(PrecisionSpecified)
+                                    {
+                                        if(Precision-- == 0)
+                                        {
+                                            break;
+                                        }
+                                    }
+                                    *Tokenizer.Tail++ = Str.Data[Index];
+                                }
+                                
+                            } break;
+                            
+                            case FormatStringToken_Unknown:
+                            default:
+                            {
+                                __debugbreak();
+                            } break;
+                            
+                        }
                     }
+                    
+                    
                 }
+                
             } break;
-            
-            case FormatStringToken_PrecisionArgSpecifier:
-            {
-                Precision = va_arg(ArgList, s32);
-            } break;
-            
-            case FormatStringToken_PrecisionSpecifier:
-            {
-                // TODO(kstandbridge): * means read from the argument
-                // TODO(kstandbridge): a number is the specified
-                PrecisionSpecified = true;
-                format_string_token PrecisionToken = GetNextFormatStringTokenInternal(&Tokenizer);
-                
-                Precision = 0;
-                
-                while(IsNumber(*PrecisionToken.Text))
-                {
-                    Precision *= 10;
-                    Precision += (*PrecisionToken.Text - '0');
-                    ++PrecisionToken.Text;
-                }
-                --Tokenizer.At;
-                
-                break;
-            }
-            
-            case FormatStringToken_LongSpecifier:
-            {
-                IntegerLength = 8;
-                break;
-            }
             
             case FormatStringToken_Unknown:
             default:

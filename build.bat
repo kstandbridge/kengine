@@ -20,6 +20,11 @@ del *.pdb > NUL 2> NUL
 
 echo WAITING FOR PDB > lock.tmp
 
+REM Preprocessor
+cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_preprocessor.c /link /SUBSYSTEM:console %CommonLinkerFlags%
+pushd ..\kengine\code
+..\..\build\win32_kengine_preprocessor.exe > kengine_generated.c
+popd
 
 REM Unit tests
 cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_tests.c /link /SUBSYSTEM:console %CommonLinkerFlags%
