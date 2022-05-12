@@ -1,6 +1,6 @@
 #ifndef KENGINE_MATH_H
 
-introspect(ctor, set1, math)
+introspect(ctor, set1, math);
 typedef struct v2
 {
     f32 X;

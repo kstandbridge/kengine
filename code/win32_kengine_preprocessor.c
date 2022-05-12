@@ -165,6 +165,141 @@ RequireCToken(c_tokenizer *Tokenizer, c_token_type DesiredType)
     return Result;
 }
 
+typedef enum generate_method_op
+{
+    GenerateMethod_Ctor,
+    GenerateMethod_Set1,
+    GenerateMethod_MathAdd,
+    GenerateMethod_MathSubtract,
+    GenerateMethod_MathMultiply,
+    GenerateMethod_MathDivide,
+} generate_method_op;
+
+inline void
+GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op, string SnakeStruct, string UpperCamelStruct)
+{
+    char *Start = Tokenizer->At;;
+    
+    switch(Op)
+    {
+        case GenerateMethod_Ctor:
+        {
+            ConsoleOut(Tokenizer->Arena, "inline %S\n%S(", SnakeStruct, UpperCamelStruct);
+        } break;
+        case GenerateMethod_Set1:
+        {
+            ConsoleOut(Tokenizer->Arena, "inline %S\n%SSet1(", SnakeStruct, UpperCamelStruct);
+        } break;
+        case GenerateMethod_MathAdd:
+        {
+            ConsoleOut(Tokenizer->Arena, "inline %S\n%SAdd(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+        } break;
+        case GenerateMethod_MathSubtract:
+        {
+            ConsoleOut(Tokenizer->Arena, "inline %S\n%SSubtract(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+        } break;
+        case GenerateMethod_MathMultiply:
+        {
+            ConsoleOut(Tokenizer->Arena, "inline %S\n%SMultiply(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+        } break;
+        case GenerateMethod_MathDivide:
+        {
+            ConsoleOut(Tokenizer->Arena, "inline %S\n%SDivide(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+        } break;
+        InvalidDefaultCase;
+    }
+    b32 FirstParam = true;
+    for(;;)
+    {
+        c_token Token = GetNextCTokenInternal(Tokenizer);
+        if((Token.Type == CToken_EndOfStream) ||
+           (Token.Type == CToken_CloseBrace))
+        {
+            ConsoleOut(Tokenizer->Arena, ")\n{\n    %S Result;\n\n", SnakeStruct);
+            break;
+        }
+        else if(Token.Type == CToken_Identifier)
+        {
+            string Type = Token.Str;
+            Token = GetNextCTokenInternal(Tokenizer);
+            
+            switch(Op)
+            {
+                case GenerateMethod_Ctor:
+                {
+                    if(!FirstParam)
+                    {
+                        ConsoleOut(Tokenizer->Arena, ", ");
+                    }
+                    FirstParam = false;
+                    ConsoleOut(Tokenizer->Arena, "%S %S", Type, Token.Str);
+                } break;
+                case GenerateMethod_Set1:
+                {
+                    if(FirstParam)
+                    {
+                        FirstParam = false;
+                        ConsoleOut(Tokenizer->Arena, "%S Value", Type);
+                    }
+                } break;
+                case GenerateMethod_MathAdd:
+                case GenerateMethod_MathSubtract:
+                case GenerateMethod_MathMultiply:
+                case GenerateMethod_MathDivide:
+                {
+                } break;
+                InvalidDefaultCase;
+            }
+        }
+    }
+    
+    Tokenizer->At = Start;
+    
+    for(;;)
+    {
+        c_token Token = GetNextCTokenInternal(Tokenizer);
+        if((Token.Type == CToken_EndOfStream) ||
+           (Token.Type == CToken_CloseBrace))
+        {
+            ConsoleOut(Tokenizer->Arena, "\n    return Result;\n}\n\n");
+            break;
+        }
+        else if(Token.Type == CToken_Identifier)
+        {
+            Token = GetNextCTokenInternal(Tokenizer);
+            string Var = Token.Str;
+            switch(Op)
+            {
+                case GenerateMethod_Ctor:
+                {
+                    ConsoleOut(Tokenizer->Arena, "    Result.%S = %S;\n", Var, Var);
+                } break;
+                case GenerateMethod_Set1:
+                {
+                    ConsoleOut(Tokenizer->Arena, "    Result.%S = Value;\n", Var);
+                } break;
+                case GenerateMethod_MathAdd:
+                {
+                    ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S + B.%S;\n", Var, Var, Var);
+                } break;
+                case GenerateMethod_MathSubtract:
+                {
+                    ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S - B.%S;\n", Var, Var, Var);
+                } break;
+                case GenerateMethod_MathMultiply:
+                {
+                    ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S * B.%S;\n", Var, Var, Var);
+                } break;
+                case GenerateMethod_MathDivide:
+                {
+                    ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S / B.%S;\n", Var, Var, Var);
+                } break;
+                InvalidDefaultCase;
+            }
+        }
+    }
+}
+
 inline void
 ParseIntrospectable(c_tokenizer *Tokenizer)
 {
@@ -198,121 +333,59 @@ ParseIntrospectable(c_tokenizer *Tokenizer)
             }
         }
         
-        char *Start = 0;
-        string StructName;
-        Token = GetNextCTokenInternal(Tokenizer);
-        Assert(StringsAreEqual(String("typedef"), Token.Str));
-        Token = GetNextCTokenInternal(Tokenizer);
-        Assert(StringsAreEqual(String("struct"), Token.Str));
-        Token = GetNextCTokenInternal(Tokenizer);
-        StructName = Token.Str;
-        // TODO(kstandbridge): UpperCamelCase function?
-        string StructUpperCamelCase = PushStringInternal(Tokenizer->Arena, Token.Str.Length, Token.Str.Data);
-        StructUpperCamelCase.Data[0] = ToUppercase(StructUpperCamelCase.Data[0]);
-        if(RequireCToken(Tokenizer, CToken_OpenBrace))
+        if(RequireCToken(Tokenizer, CToken_Semicolon))
         {
-            Start = Tokenizer->At;
-            
-            if(IsCtor)
+            char *Start = 0;
+            string StructName;
+            Token = GetNextCTokenInternal(Tokenizer);
+            Assert(StringsAreEqual(String("typedef"), Token.Str));
+            Token = GetNextCTokenInternal(Tokenizer);
+            Assert(StringsAreEqual(String("struct"), Token.Str));
+            Token = GetNextCTokenInternal(Tokenizer);
+            StructName = Token.Str;
+            // TODO(kstandbridge): UpperCamelCase function?
+            string UpperCamelStruct = PushStringInternal(Tokenizer->Arena, Token.Str.Length, Token.Str.Data);
+            UpperCamelStruct.Data[0] = ToUppercase(UpperCamelStruct.Data[0]);
+            if(RequireCToken(Tokenizer, CToken_OpenBrace))
             {
-                ConsoleOut(Tokenizer->Arena, "inline %S\n%S(", StructName, StructUpperCamelCase);
-                b32 FirstParam = true;
-                for(;;)
+                Start = Tokenizer->At;
+                
+                if(IsCtor)
                 {
-                    Token = GetNextCTokenInternal(Tokenizer);
-                    if((Token.Type == CToken_EndOfStream) ||
-                       (Token.Type == CToken_CloseBrace))
-                    {
-                        ConsoleOut(Tokenizer->Arena, ")\n{\n    %S Result;\n\n", StructName);
-                        break;
-                    }
-                    else if(Token.Type == CToken_Identifier)
-                    {
-                        if(!FirstParam)
-                        {
-                            ConsoleOut(Tokenizer->Arena, ", ");
-                            FirstParam = false;
-                        }
-                        string Type = Token.Str;
-                        Token = GetNextCTokenInternal(Tokenizer);
-                        ConsoleOut(Tokenizer->Arena, "%S %S", Type, Token.Str);
-                    }
+                    GenerateMethod(Tokenizer, GenerateMethod_Ctor, StructName, UpperCamelStruct);
                 }
                 
-                Tokenizer->At = Start;
-                
-                for(;;)
+                if(IsSet1)
                 {
-                    Token = GetNextCTokenInternal(Tokenizer);
-                    if((Token.Type == CToken_EndOfStream) ||
-                       (Token.Type == CToken_CloseBrace))
-                    {
-                        ConsoleOut(Tokenizer->Arena, "\n    return Result;\n}\n\n");
-                        break;
-                    }
-                    else if(Token.Type == CToken_Identifier)
-                    {
-                        Token = GetNextCTokenInternal(Tokenizer);
-                        ConsoleOut(Tokenizer->Arena, "    Result.%S = %S;\n", Token.Str, Token.Str);
-                    }
+                    Tokenizer->At = Start;
+                    GenerateMethod(Tokenizer, GenerateMethod_Set1, StructName, UpperCamelStruct);
+                }
+                
+                if(IsMath)
+                {
+                    Tokenizer->At = Start;
+                    GenerateMethod(Tokenizer, GenerateMethod_MathAdd, StructName, UpperCamelStruct);
+                    
+                    Tokenizer->At = Start;
+                    GenerateMethod(Tokenizer, GenerateMethod_MathSubtract, StructName, UpperCamelStruct);
+                    
+                    Tokenizer->At = Start;
+                    GenerateMethod(Tokenizer, GenerateMethod_MathMultiply, StructName, UpperCamelStruct);
+                    
+                    Tokenizer->At = Start;
+                    GenerateMethod(Tokenizer, GenerateMethod_MathDivide, StructName, UpperCamelStruct);
                 }
                 
             }
-            
-            if(IsSet1)
+            else
             {
-                Tokenizer->At = Start;
-                
-                ConsoleOut(Tokenizer->Arena, "inline %S\n%SSet1(", StructName, StructUpperCamelCase);
-                b32 FirstParam = true;
-                for(;;)
-                {
-                    Token = GetNextCTokenInternal(Tokenizer);
-                    if((Token.Type == CToken_EndOfStream) ||
-                       (Token.Type == CToken_CloseBrace))
-                    {
-                        ConsoleOut(Tokenizer->Arena, ")\n{\n    %S Result;\n\n", StructName);
-                        break;
-                    }
-                    else if(Token.Type == CToken_Identifier)
-                    {
-                        if(FirstParam)
-                        {
-                            FirstParam = false;
-                            string Type = Token.Str;
-                            Token = GetNextCTokenInternal(Tokenizer);
-                            ConsoleOut(Tokenizer->Arena, "%S Value", Type);
-                        }
-                    }
-                }
-                
-                Tokenizer->At = Start;
-                
-                for(;;)
-                {
-                    Token = GetNextCTokenInternal(Tokenizer);
-                    if((Token.Type == CToken_EndOfStream) ||
-                       (Token.Type == CToken_CloseBrace))
-                    {
-                        ConsoleOut(Tokenizer->Arena, "\n    return Result;\n}\n\n");
-                        break;
-                    }
-                    else if(Token.Type == CToken_Identifier)
-                    {
-                        Token = GetNextCTokenInternal(Tokenizer);
-                        ConsoleOut(Tokenizer->Arena, "    Result.%S = Value;\n", Token.Str);
-                    }
-                }
-                
+                // TODO(kstandbridge): Error missing open brace on introspect
             }
-            
         }
         else
         {
-            // TODO(kstandbridge): Error missing open brace on introspect
+            // TODO(kstandbridge): Error missing semicolon on introspect
         }
-        
-        
     }
     else
     {

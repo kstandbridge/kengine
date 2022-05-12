@@ -1,6 +1,7 @@
 #include "kengine_platform.h"
 #include "kengine_math.h"
 #include "kengine_shared.h"
+#include "kengine_generated.c"
 #include "win32_kengine_shared.h"
 
 global s32 TotalTests;
@@ -190,6 +191,41 @@ RunFormatStringPercentTests(memory_arena *Arena)
     }
 }
 
+inline void
+RunV2Tests(memory_arena *Arena)
+{
+    {
+        v2 A = V2(2.3f, 4.5f);
+        ASSERT(A.X == 2.3f);
+        ASSERT(A.Y == 4.5f);
+    }
+    {
+        v2 A = V2Set1(3.14f);
+        ASSERT(A.X == 3.14f);
+        ASSERT(A.Y == 3.14f);
+    }
+    {
+        v2 C = V2Add(V2Set1(3.0f), V2Set1(2.0f));
+        ASSERT(C.X == 5.0f);
+        ASSERT(C.Y == 5.0f);
+    }
+    {
+        v2 C = V2Subtract(V2Set1(3.0f), V2Set1(2.0f));
+        ASSERT(C.X == 1.0f);
+        ASSERT(C.Y == 1.0f);
+    }
+    {
+        v2 C = V2Multiply(V2Set1(3.0f), V2Set1(2.0f));
+        ASSERT(C.X == 6.0f);
+        ASSERT(C.Y == 6.0f);
+    }
+    {
+        v2 C = V2Divide(V2Set1(3.0f), V2Set1(2.0f));
+        ASSERT(C.X == 1.5f);
+        ASSERT(C.Y == 1.5f);
+    }
+}
+
 internal b32
 RunAllTests(memory_arena *Arena)
 {
@@ -200,6 +236,7 @@ RunAllTests(memory_arena *Arena)
     RunFormatStringStringOfCharactersTests(Arena);
     RunFormatStringStringTypeTests(Arena);
     RunFormatStringPercentTests(Arena);
+    RunV2Tests(Arena);
     
     b32 Result = (FailedTests == 0);
     return Result;
