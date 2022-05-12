@@ -206,13 +206,16 @@ ParseIntrospectable(c_tokenizer *Tokenizer)
         Assert(StringsAreEqual(String("struct"), Token.Str));
         Token = GetNextCTokenInternal(Tokenizer);
         StructName = Token.Str;
+        // TODO(kstandbridge): UpperCamelCase function?
+        string StructUpperCamelCase = PushStringInternal(Tokenizer->Arena, Token.Str.Length, Token.Str.Data);
+        StructUpperCamelCase.Data[0] = ToUppercase(StructUpperCamelCase.Data[0]);
         if(RequireCToken(Tokenizer, CToken_OpenBrace))
         {
             Start = Tokenizer->At;
             
             if(IsCtor)
             {
-                ConsoleOut(Tokenizer->Arena, "inline %S\n%S(", StructName, StructName);
+                ConsoleOut(Tokenizer->Arena, "inline %S\n%S(", StructName, StructUpperCamelCase);
                 b32 FirstParam = true;
                 for(;;)
                 {
@@ -260,7 +263,7 @@ ParseIntrospectable(c_tokenizer *Tokenizer)
             {
                 Tokenizer->At = Start;
                 
-                ConsoleOut(Tokenizer->Arena, "inline %S\n%SSet1(", StructName, StructName);
+                ConsoleOut(Tokenizer->Arena, "inline %S\n%SSet1(", StructName, StructUpperCamelCase);
                 b32 FirstParam = true;
                 for(;;)
                 {
@@ -341,7 +344,6 @@ mainCRTStartup()
         {
             case CToken_EndOfStream:
             {
-                
                 Parsing = false;
             } break;
             

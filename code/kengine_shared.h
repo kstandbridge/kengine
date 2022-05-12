@@ -63,6 +63,20 @@ PushSizeInternal(memory_arena *Arena, memory_index SizeInit, memory_index Alignm
 }
 
 
+#define PushString(Arena, Str) PushStringInternal(Arena, GetNullTerminiatedStringLength(Str), (u8 *)Str)
+inline string
+PushStringInternal(memory_arena *Arena, umm Length, u8 *Data)
+{
+    string Result;
+    
+    Result.Length = Length;
+    Result.Data = PushCopy(Arena, Result.Length, Data);
+    
+    return Result;
+}
+
+
+
 inline u8 *
 BeginPushSize(memory_arena *Arena)
 {
@@ -461,6 +475,32 @@ GetNullTerminiatedStringLength(char *Str)
     }
     
     return Count;
+}
+
+inline char
+ToLowercase(char Char)
+{
+    char Result = Char;
+    
+    if((Result >= 'A') && (Result <= 'Z'))
+    {
+        Result += 'a' - 'A';
+    }
+    
+    return(Result);
+}
+
+inline char
+ToUppercase(char Char)
+{
+    char Result = Char;
+    
+    if((Result >= 'a') && (Result <= 'z'))
+    {
+        Result += 'A' - 'a';
+    }
+    
+    return(Result);
 }
 
 #define String(Str) StringInternal(GetNullTerminiatedStringLength(Str), (u8 *)Str)
