@@ -1,5 +1,7 @@
 @echo off
 
+SETLOCAL EnableDelayedExpansion
+
 ctime -begin kengine.ctm
 
 set CommonCompilerFlags=-diagnostics:column -WL -nologo -fp:fast -fp:except- -Gm- -GR- -EHa- -Zo -Oi -WX -W4 -FC -Z7 -GS- -Gs9999999
@@ -10,7 +12,7 @@ set CommonCompilerFlags=-wd4100 %CommonCompilerFlags%
 REM local variable is initialized but not referenced
 set CommonCompilerFlags=-wd4189 %CommonCompilerFlags%
 
-set CommonLinkerFlags=-STACK:0x100000,0x100000 -incremental:no -opt:ref /NODEFAULTLIB kernel32.lib
+set CommonLinkerFlags=-STACK:0x100000,0x100000 -incremental:no -opt:ref kernel32.lib
 
 IF NOT EXIST data mkdir data
 IF NOT EXIST ..\build mkdir ..\build
@@ -21,18 +23,29 @@ del *.pdb > NUL 2> NUL
 echo WAITING FOR PDB > lock.tmp
 
 REM Preprocessor
-cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_preprocessor.c /link /SUBSYSTEM:console %CommonLinkerFlags%
+cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_preprocessor.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
+if !ERRORLEVEL! neq 0 ( goto cleanup )
 pushd ..\kengine\code
 ..\..\build\win32_kengine_preprocessor.exe > kengine_generated.c
 popd
 
 REM Unit tests
-cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_tests.c /link /SUBSYSTEM:console %CommonLinkerFlags%
-set LastError=%ERRORLEVEL%
+cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_tests.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
+if !ERRORLEVEL! neq 0 ( goto cleanup )
 win32_kengine_tests.exe
 
+REM App
+cl %CommonCompilerFlags% ..\kengine\code\kengine.c -LD /link %CommonLinkerFlags% -PDB:kengine_%random%.pdb -EXPORT:AppUpdateAndRender
+if !ERRORLEVEL! neq 0 ( goto cleanup )
+
+REM Win32 platform
+cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine.c /link /NODEFAULTLIB /SUBSYSTEM:windows %CommonLinkerFlags% Gdi32.lib User32.lib Winmm.lib
+if !ERRORLEVEL! neq 0 ( goto cleanup )
+
+:cleanup
 del lock.tmp
 
 popd
 
+set LastError=%ERRORLEVEL%
 ctime -end kengine.ctm %LastError%

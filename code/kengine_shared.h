@@ -392,8 +392,6 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                             
                             case FormatStringToken_PrecisionSpecifier:
                             {
-                                // TODO(kstandbridge): * means read from the argument
-                                // TODO(kstandbridge): a number is the specified
                                 PrecisionSpecified = true;
                                 format_string_token PrecisionToken = GetNextFormatStringTokenInternal(&Tokenizer);
                                 

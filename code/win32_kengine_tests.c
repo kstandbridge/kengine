@@ -1,7 +1,8 @@
 #include "kengine_platform.h"
+#include "kengine_intrinsics.h"
+#include "kengine_generated.c"
 #include "kengine_math.h"
 #include "kengine_shared.h"
-#include "kengine_generated.c"
 #include "win32_kengine_shared.h"
 
 global s32 TotalTests;
@@ -245,6 +246,26 @@ RunAllTests(memory_arena *Arena)
 s32 __stdcall
 mainCRTStartup()
 {
+#if 0    
+    char Numbers[] = "0123456789";
+    double Value = 0.1234567890123456789f;
+    
+    for(s32 Index = 0;
+        Index < 20;
+        ++Index)
+    {
+        int Integar = (int)Value;
+        Value -= Integar;
+        
+        char Output[2];
+        Output[0] = Numbers[Integar];
+        Output[1] = '\0';
+        OutputDebugStringA(Output);
+        
+        Value *= 10;
+    }
+#endif
+    
     memory_arena ArenaInternal = AllocateArena(Megabytes(8));
     memory_arena *Arena = &ArenaInternal;
     

@@ -30,5 +30,49 @@ ZeroSize(memory_index Size, void *Ptr)
 }
 
 
+#define BITMAP_BYTES_PER_PIXEL 4
+typedef struct app_offscreen_buffer
+{
+    // NOTE(kstandbridge): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
+    void *Memory;
+    s32 Width;
+    s32 Height;
+    s32 Pitch;
+} app_offscreen_buffer;
+
+//
+// NOTE(kstandbridge): Platform api
+//
+
+typedef struct debug_entire_file
+{
+    u32 ContentsSize;
+    void *Contents;
+} debug_entire_file;
+typedef debug_entire_file debug_read_entire_file(char *FileName);
+
+typedef loaded_bitmap debug_get_glyph_for_codepoint(memory_arena *Arena, u32 Codepoint);
+
+typedef struct platform_api
+{
+    debug_read_entire_file *DEBUGReadEntireFile;
+    debug_get_glyph_for_codepoint *DEBUGGetGlyphForCodepoint;
+} platform_api;
+
+//
+// NOTE(kstandbridge): App api
+//
+
+typedef struct app_memory
+{
+    u64 StorageSize;
+    void *Storage;
+    
+    platform_api PlatformAPI;
+} app_memory;
+
+typedef void app_update_and_render(app_memory *Memory, app_offscreen_buffer *Buffer, f32 DeltaTime);
+
+
 #define KENGINE_PLATFORM_H
 #endif //KENGINE_PLATFORM_H

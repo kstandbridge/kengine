@@ -109,6 +109,48 @@ typedef struct string
     u8 *Data;
 } string;
 
+introspect(ctor, set1, math);
+typedef struct v2
+{
+    f32 X;
+    f32 Y;
+} v2;
+
+introspect(ctor, set1, math);
+typedef struct v3
+{
+    f32 X;
+    f32 Y;
+    f32 Z;
+} v3;
+
+introspect(ctor, set1, math);
+typedef struct v4
+{
+    f32 R;
+    f32 G;
+    f32 B;
+    f32 A;
+} v4;
+
+typedef struct rectangle2i
+{
+    s32 MinX;
+    s32 MinY;
+    s32 MaxX;
+    s32 MaxY;
+} rectangle2i;
+
+typedef struct loaded_bitmap
+{
+    void *Memory;
+    v2 AlignPercentage;
+    s32 Width;
+    s32 Height;
+    f32 WidthOverHeight;
+    
+    s32 Pitch;
+} loaded_bitmap;
 
 
 #define KENGINE_TYPES_H
