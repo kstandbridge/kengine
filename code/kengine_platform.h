@@ -43,13 +43,7 @@ typedef struct app_offscreen_buffer
 //
 // NOTE(kstandbridge): Platform api
 //
-
-typedef struct debug_entire_file
-{
-    u32 ContentsSize;
-    void *Contents;
-} debug_entire_file;
-typedef debug_entire_file debug_read_entire_file(char *FileName);
+typedef string debug_read_entire_file(memory_arena *Arena, char *FilePath);
 
 typedef loaded_bitmap debug_get_glyph_for_codepoint(memory_arena *Arena, u32 Codepoint);
 

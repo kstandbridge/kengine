@@ -61,7 +61,8 @@ DEBUGGetGlyphForCodepoint(memory_arena *Arena, u32 CodePoint)
     {
         FontDeviceContext = CreateCompatibleDC(GetDC(0));
         
-        BITMAPINFO Info = {0};
+        BITMAPINFO Info;
+        ZeroStruct(Info);
         Info.bmiHeader.biSize = sizeof(Info.bmiHeader);
         Info.bmiHeader.biWidth = MAX_FONT_WIDTH;
         Info.bmiHeader.biHeight = MAX_FONT_HEIGHT;
@@ -245,41 +246,6 @@ DEBUGGetGlyphForCodepoint(memory_arena *Arena, u32 CodePoint)
     return Result;
 }
 
-internal debug_entire_file
-DEBUGReadEntireFile(char *FileName)
-{
-    debug_entire_file Result = {0};
-    
-    HANDLE FileHandle = CreateFileA(FileName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
-    if(FileHandle != INVALID_HANDLE_VALUE)
-    {
-        DWORD FileSize = GetFileSize(FileHandle, 0);
-        
-        Result.ContentsSize = FileSize;
-        Result.Contents = VirtualAlloc(0, Result.ContentsSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-        
-        DWORD BytesRead;
-        if(ReadFile(FileHandle, Result.Contents, FileSize, &BytesRead, 0))
-        {
-            Assert(FileSize == BytesRead);
-        }
-        else
-        {
-            // TODO(kstandbridge): Log failed to read file
-            Win32DisplayLastError();
-        }
-    }
-    else
-    {
-        // TODO(kstandbridge): Log error opening file
-        Win32DisplayLastError();
-    }
-    
-    CloseHandle(FileHandle);
-    
-    return Result;
-}
-
 internal LRESULT CALLBACK
 Win32MainWindowCallback(HWND Window,
                         UINT Message,
@@ -338,7 +304,8 @@ Win32MainWindowCallback(HWND Window,
 internal void
 Win32ProcessPendingMessages()
 {
-    MSG Msg = {0};
+    MSG Msg;
+    ZeroStruct(Msg);
     while (PeekMessageA(&Msg, 0, 0, 0, PM_REMOVE))
     {
         switch(Msg.message)
@@ -404,7 +371,8 @@ Win32UnloadAppCode(app_code *AppCode)
 internal app_code
 Win32LoadAppCode(char *SourceDLLName, char *TempDLLName, char *LockName)
 {
-    app_code Result = {0};
+    app_code Result;
+    ZeroStruct(Result);
     
     WIN32_FILE_ATTRIBUTE_DATA Ignored;
     if(!GetFileAttributesExA(LockName, GetFileExInfoStandard, &Ignored))
@@ -473,7 +441,8 @@ WinMainCRTStartup()
 #endif
             
             app_code AppCode = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
-            app_memory AppMemory = {0};
+            app_memory AppMemory;
+            ZeroStruct(AppMemory);
             AppMemory.StorageSize = Megabytes(256);
             AppMemory.Storage = VirtualAlloc(BaseAddress, (size_t)AppMemory.StorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             AppMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGReadEntireFile;
@@ -520,7 +489,8 @@ WinMainCRTStartup()
                 
                 // NOTE(kstandbridge): Render
                 
-                app_offscreen_buffer AppBuffer = {0};
+                app_offscreen_buffer AppBuffer;
+                ZeroStruct(AppBuffer);
                 AppBuffer.Memory = GlobalBackbuffer.Memory;
                 AppBuffer.Width = GlobalBackbuffer.Width;
                 AppBuffer.Height = GlobalBackbuffer.Height;

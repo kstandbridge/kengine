@@ -163,13 +163,13 @@ ToUppercase(char Char)
 inline b32
 StringsAreEqual(string A, string B)
 {
-    b32 Result = (A.Length == B.Length);
+    b32 Result = (A.Size == B.Size);
     
     if(Result)
     {
         Result = true;
         for(u32 Index = 0;
-            Index < A.Length;
+            Index < A.Size;
             ++Index)
         {
             if(A.Data[Index] != B.Data[Index])
@@ -189,7 +189,7 @@ StringInternal(umm Length, u8 *Data)
 {
     string Result;
     
-    Result.Length = Length;
+    Result.Size = Length;
     Result.Data = Data;
     
     return Result;
@@ -201,8 +201,8 @@ PushStringInternal(memory_arena *Arena, umm Length, u8 *Data)
 {
     string Result;
     
-    Result.Length = Length;
-    Result.Data = PushCopy(Arena, Result.Length, Data);
+    Result.Size = Length;
+    Result.Data = PushCopy(Arena, Result.Size, Data);
     
     return Result;
 }
@@ -272,7 +272,7 @@ GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
                 ++Tokenizer->At;
             }
             
-            Result.Str.Length = Tokenizer->At - (char *)Result.Str.Data;
+            Result.Str.Size = Tokenizer->At - (char *)Result.Str.Data;
             
             Result.Type = FormatStringToken_Unknown;
         } break;
@@ -472,7 +472,7 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                                 string Str = va_arg(ArgList, string);
                                 
                                 for(u32 Index = 0;
-                                    Index < Str.Length;
+                                    Index < Str.Size;
                                     ++Index)
                                 {
                                     if(PrecisionSpecified)
@@ -504,18 +504,18 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
             case FormatStringToken_Unknown:
             default:
             {
-                while(Token.Str.Length)
+                while(Token.Str.Size)
                 {
                     *Tokenizer.Tail++ = *Token.Str.Data++;
-                    --Token.Str.Length;
+                    --Token.Str.Size;
                 }
             } break;
         }
     }
     va_end(ArgList);
     
-    Result.Length = Tokenizer.Tail - (char *)Result.Data;
-    EndPushSize(Arena, Result.Length);
+    Result.Size = Tokenizer.Tail - (char *)Result.Data;
+    EndPushSize(Arena, Result.Size);
     return Result;
 }
 

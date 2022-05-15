@@ -21,6 +21,7 @@
 
 #if COMPILER_MSVC
 #include <intrin.h>
+//#include <immintrin.h>
 #elif COMPILER_LLVM
 #include <x86intrin.h>
 #else
@@ -105,7 +106,7 @@ typedef struct temporary_memory
 
 typedef struct string
 {
-    umm Length;
+    umm Size;
     u8 *Data;
 } string;
 

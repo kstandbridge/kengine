@@ -112,12 +112,12 @@ RunFormatStringDecimalFloatingPoint(memory_arena *Arena)
     {
         string A = String("before 6.28318530717958647692 after");
         string B = FormatString(Arena, "before %.20f after", Tau32);
-        ASSERT(A.Length == B.Length);
+        ASSERT(A.Size == B.Size);
     }
     {
         string A = String("before 3.14159265359 after");
         string B = FormatString(Arena, "before %.11f after", Pi32);
-        ASSERT(A.Length == B.Length);
+        ASSERT(A.Size == B.Size);
     }
 }
 

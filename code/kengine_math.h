@@ -65,7 +65,7 @@ LengthSq(v2 A)
 
 
 inline f32
-Length(v2 A)
+LengthV2(v2 A)
 {
     f32 Result = SquareRoot(LengthSq(A));
     return Result;

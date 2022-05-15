@@ -2,6 +2,15 @@
 
 /* TODO(kstandbridge): 
 
+- Task pool
+- meta linked list
+- meta double linked list
+- meta free list
+- Software render push system
+- Software render split screen to tasks
+- UI push system
+- UI render system
+- UI handle interaction
 - Format string c	Character
 - Format string o	Unsigned octal
 - Format string x	Unsigned hexadecimal integer

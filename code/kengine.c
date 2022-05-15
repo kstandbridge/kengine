@@ -50,8 +50,8 @@ DrawBitmap(app_offscreen_buffer *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color
     Color.G *= Color.A;
     Color.B *= Color.A;
     
-    f32 XAxisLength = Length(XAxis);
-    f32 YAxisLength = Length(YAxis);
+    f32 XAxisLength = LengthV2(XAxis);
+    f32 YAxisLength = LengthV2(YAxis);
     
     //v2 NyAxix = V2Multiply(V2Set1(YAxisLength / XAxisLength), XAxis);
     //v2 NyAxis = V2Multiply(V2Set1(XAxisLength / YAxisLength), YAxis);
@@ -389,16 +389,16 @@ DrawBitmap(app_offscreen_buffer *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color
 }
 
 internal loaded_bitmap
-LoadBMP(char *FileName)
+LoadBMP(memory_arena *Arena, char *FileName)
 {
     loaded_bitmap Result;
     ZeroStruct(Result);
     
-    debug_entire_file ReadResult = Platform.DEBUGReadEntireFile(FileName);
-    if(ReadResult.ContentsSize != 0)
+    string ReadResult = Platform.DEBUGReadEntireFile(Arena, FileName);
+    if(ReadResult.Size != 0)
     {
-        bitmap_header *Header = (bitmap_header *)ReadResult.Contents;
-        u32 *Pixels = (u32 *)((u8 *)ReadResult.Contents + Header->BitmapOffset);
+        bitmap_header *Header = (bitmap_header *)ReadResult.Data;
+        u32 *Pixels = (u32 *)((u8 *)ReadResult.Data + Header->BitmapOffset);
         
         Result.Memory = Pixels;
         Result.Width = Header->Width;
@@ -473,16 +473,16 @@ LoadBMP(char *FileName)
 }
 
 internal void
-DEBUGWriteLine(app_state *AppState, app_offscreen_buffer *Buffer, char *String)
+DEBUGWriteLine(app_state *AppState, app_offscreen_buffer *Buffer, v2 P, f32 Scale, string Str)
 {
-    f32 AtX = -0.5f*Buffer->Width;
-    f32 AtY = -0.5f*Buffer->Height;
+    f32 AtX = P.X;
+    f32 AtY = P.Y;
     u32 PrevCodePoint = 0;
-    for(char *At = String;
-        *At;
-        )
+    for(u32 Index = 0;
+        Index < Str.Size;
+        ++Index)
     {
-        u32 Codepoint = *At;
+        u32 Codepoint = Str.Data[Index];
         
         if(Codepoint != ' ')
         {        
@@ -503,17 +503,17 @@ DEBUGWriteLine(app_state *AppState, app_offscreen_buffer *Buffer, char *String)
             v2 YAxis = V2(0.0f, 1.0f);
             
             v2 Size = V2((f32)Bitmap->Height*Bitmap->WidthOverHeight, (f32)Bitmap->Height);
+            Size = V2Multiply(Size, V2Set1(Scale));
             
             v2 Align = Hadamard(Bitmap->AlignPercentage, Size);
             v3 Offset = V3(AtX, AtY, 0);
             v3 BaseP = V3Subtract(Offset, V3(Align.X, Align.Y, 0));
             v2 ScreenCenter = V2(0.5f*Buffer->Width, 0.5f*Buffer->Height);
             
-            v2 P = V2Add(ScreenCenter, V2(BaseP.X, BaseP.Y));
-            
+            v2 ScaledP = V2Add(ScreenCenter, V2(BaseP.X, BaseP.Y));
             v2 ScaledXAxis = V2Multiply(V2Set1(Size.X), XAxis);
             v2 ScaledYAxis = V2Multiply(V2Set1(Size.Y), YAxis);
-            DrawBitmap(Buffer, P, ScaledXAxis, ScaledYAxis, V4(1.0f, 1.0f, 1.0f, 1.0f), Bitmap, ClipRect);
+            DrawBitmap(Buffer, ScaledP, ScaledXAxis, ScaledYAxis, V4(1.0f, 1.0f, 1.0f, 1.0f), Bitmap, ClipRect);
             
             PrevCodePoint = Codepoint;
             
@@ -523,8 +523,6 @@ DEBUGWriteLine(app_state *AppState, app_offscreen_buffer *Buffer, char *String)
         {
             AtX += 24.0f;
         }
-        
-        ++At;
         
     }
     
@@ -542,7 +540,7 @@ AppUpdateAndRender(app_memory *Memory, app_offscreen_buffer *Buffer, f32 DeltaTi
     {
         InitializeArena(&AppState->Arena, Memory->StorageSize - sizeof(app_state), (u8 *)Memory->Storage + sizeof(app_state));
         
-        AppState->TestBMP = LoadBMP("test_tree.bmp");
+        AppState->TestBMP = LoadBMP(&AppState->Arena, "test_tree.bmp");
         AppState->TestFont = Platform.DEBUGGetGlyphForCodepoint(&AppState->Arena, 'K');
         
         AppState->IsInitialized = true;
@@ -560,8 +558,12 @@ AppUpdateAndRender(app_memory *Memory, app_offscreen_buffer *Buffer, f32 DeltaTi
     v4 Color = V4(0.6f, 0.0f, 0.6f, 1.0f);
     DrawRectangle(Buffer, V2(0.0f, 0.0f), V2((f32)Buffer->Width, (f32)Buffer->Height), Color, ClipRect);
     
+    
+    DrawRectangle(Buffer, V2(100, 100), V2(150, 150), V4(0.4f, 0.0f, 0.4f, 1.0f), ClipRect);
+    DEBUGWriteLine(AppState, Buffer, V2(100, 100), 0.6f, String("Exit"));
+    
 #if 0
-    DEBUGWriteLine(AppState, Buffer, "AWA VA AV");
+    DEBUGWriteLine(AppState, Buffer, V2(0, 0), 0.6f, String("AWA VA AV"));
 #else
     
 #if 0
@@ -574,7 +576,7 @@ AppUpdateAndRender(app_memory *Memory, app_offscreen_buffer *Buffer, f32 DeltaTi
 #endif
     
     loaded_bitmap *Bitmap = &AppState->TestBMP;
-    f32 Height = 128.0f;
+    f32 Height = 512.0f;
     v2 Size = V2(Height*Bitmap->WidthOverHeight, Height);
     
     v2 Align = Hadamard(Bitmap->AlignPercentage, Size);

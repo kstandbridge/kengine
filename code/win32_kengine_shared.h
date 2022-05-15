@@ -10,9 +10,9 @@ ConsoleOutInternal(string Str)
     HANDLE OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     Assert(OutputHandle != INVALID_HANDLE_VALUE);
     
-    WriteFile(OutputHandle, Str.Data, (DWORD)Str.Length, &Result, 0);
+    WriteFile(OutputHandle, Str.Data, (DWORD)Str.Size, &Result, 0);
     
-    Assert(Result == Str.Length);
+    Assert(Result == Str.Size);
     return Result;
 }
 
@@ -47,7 +47,7 @@ AllocateArena(memory_index TotalMemorySize)
 }
 
 inline string
-ReadEntireFile(memory_arena *Arena, char *FilePath)
+DEBUGReadEntireFile(memory_arena *Arena, char *FilePath)
 {
     string Result;
     ZeroStruct(Result);
@@ -59,14 +59,14 @@ ReadEntireFile(memory_arena *Arena, char *FilePath)
     b32 ReadResult = GetFileSizeEx(FileHandle, &FileSize);
     Assert(ReadResult);
     
-    Result.Length = (memory_index)FileSize.QuadPart;
-    Result.Data = PushSize(Arena, Result.Length);
+    Result.Size = (memory_index)FileSize.QuadPart;
+    Result.Data = PushSize(Arena, Result.Size);
     Assert(Result.Data);
     
     DWORD BytesRead;
-    ReadResult = ReadFile(FileHandle, Result.Data, (DWORD)Result.Length, &BytesRead, 0);
+    ReadResult = ReadFile(FileHandle, Result.Data, (DWORD)Result.Size, &BytesRead, 0);
     Assert(ReadResult);
-    Assert(BytesRead == Result.Length);
+    Assert(BytesRead == Result.Size);
     
     CloseHandle(FileHandle);
     

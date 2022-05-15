@@ -34,13 +34,11 @@ cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_tests.c /link /NODEF
 if !ERRORLEVEL! neq 0 ( goto cleanup )
 win32_kengine_tests.exe
 
-REM App
-cl %CommonCompilerFlags% ..\kengine\code\kengine.c -LD /link %CommonLinkerFlags% -PDB:kengine_%random%.pdb -EXPORT:AppUpdateAndRender
-if !ERRORLEVEL! neq 0 ( goto cleanup )
-
 REM Win32 platform
 cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine.c /link /NODEFAULTLIB /SUBSYSTEM:windows %CommonLinkerFlags% Gdi32.lib User32.lib Winmm.lib
-if !ERRORLEVEL! neq 0 ( goto cleanup )
+
+REM App
+cl %CommonCompilerFlags% ..\kengine\code\kengine.c -LD /link %CommonLinkerFlags% Imm32.lib -PDB:kengine_%random%.pdb -EXPORT:AppUpdateAndRender User32.lib
 
 :cleanup
 del lock.tmp
