@@ -1,6 +1,6 @@
 #include "kengine_platform.h"
 #include "kengine_intrinsics.h"
-#include "kengine_generated.c"
+#include "kengine_generated.h"
 #include "kengine_math.h"
 #include "kengine_shared.h"
 #include "win32_kengine_shared.h"

@@ -41,6 +41,35 @@ Copy(memory_index Size, void *SourceInit, void *DestInit)
 }
 
 
+inline temporary_memory
+BeginTemporaryMemory(memory_arena *Arena)
+{
+    temporary_memory Result;
+    
+    Result.Arena = Arena;
+    Result.Used = Arena->Used;
+    
+    ++Arena->TempCount;
+    
+    return(Result);
+}
+
+inline void
+EndTemporaryMemory(temporary_memory TempMem)
+{
+    memory_arena *Arena = TempMem.Arena;
+    Assert(Arena->Used >= TempMem.Used);
+    Arena->Used = TempMem.Used;
+    Assert(Arena->TempCount > 0);
+    --Arena->TempCount;
+}
+
+inline void
+CheckArena(memory_arena *Arena)
+{
+    Assert(Arena->TempCount == 0);
+}
+
 #define PushStruct(Arena, type) (type *)PushSizeInternal(Arena, sizeof(type), 4)
 #define PushArray(Arena, Count, type) (type *)PushSizeInternal(Arena, (Count)*sizeof(type), 4)
 #define PushSize(Arena, Size) PushSizeInternal(Arena, Size, 4)
@@ -76,6 +105,15 @@ EndPushSize(memory_arena *Arena, memory_index Size)
 {
     --Arena->TempCount;
     PushSizeInternal(Arena, Size, 4);
+}
+
+inline void
+SubArena(memory_arena *Result, memory_arena *Arena, memory_index Size)
+{
+    Result->Size = Size;
+    Result->Base = (u8 *)PushSizeInternal(Arena, Size, 16);
+    Result->Used = 0;
+    Result->TempCount = 0;
 }
 
 // NOTE(kstandbridge): String

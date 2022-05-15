@@ -134,11 +134,12 @@ typedef struct v4
     f32 A;
 } v4;
 
+introspect(ctor);
 typedef struct rectangle2i
 {
     s32 MinX;
-    s32 MinY;
     s32 MaxX;
+    s32 MinY;
     s32 MaxY;
 } rectangle2i;
 

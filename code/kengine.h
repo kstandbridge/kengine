@@ -33,8 +33,9 @@
 #include "kengine_platform.h"
 #include "kengine_shared.h"
 #include "kengine_intrinsics.h"
-#include "kengine_generated.c"
+#include "kengine_generated.h"
 #include "kengine_math.h"
+#include "kengine_render_group.h"
 
 #pragma pack(push, 1)
 typedef struct bitmap_header
@@ -68,7 +69,8 @@ typedef struct app_state
     
     f32 Time;
     
-    memory_arena Arena;
+    memory_arena PermanentArena;
+    memory_arena TransientArena;
     
     loaded_bitmap TestBMP;
     loaded_bitmap TestFont;

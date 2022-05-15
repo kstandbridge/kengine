@@ -26,7 +26,7 @@ REM Preprocessor
 cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_preprocessor.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
 if !ERRORLEVEL! neq 0 ( goto cleanup )
 pushd ..\kengine\code
-..\..\build\win32_kengine_preprocessor.exe > kengine_generated.c
+..\..\build\win32_kengine_preprocessor.exe > kengine_generated.h
 popd
 
 REM Unit tests
