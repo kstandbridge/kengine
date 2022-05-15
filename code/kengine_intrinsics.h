@@ -1,28 +1,5 @@
 #ifndef KENGINE_INTRINSICS_H
 
-#if COMPILER_MSVC
-#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
-#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
-inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expected)
-{
-    u32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
-    
-    return(Result);
-}
-#elif COMPILER_LLVM
-// TODO(kstandbridge): Does LLVM have real read-specific barriers yet?
-#define CompletePreviousReadsBeforeFutureReads asm volatile("" ::: "memory")
-#define CompletePreviousWritesBeforeFutureWrites asm volatile("" ::: "memory")
-inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expected)
-{
-    u32 Result = __sync_val_compare_and_swap(Value, Expected, New);
-    
-    return(Result);
-}
-#else
-// TODO(kstandbridge): Other compilers/platforms??
-#endif
-
 inline f32
 SquareRoot(f32 Real32)
 {

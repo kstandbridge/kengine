@@ -569,7 +569,10 @@ RenderGroupToOutput(render_group *Group)
             
             Work->Group = Group;
             Work->ClipRect = ClipRect;
-            TileRenderWorkThread(Work);
+            
+            Platform.AddWorkEntry(Platform.PerFrameWorkQueue, TileRenderWorkThread, Work);
         }
     }
+    
+    Platform.CompleteAllWork(Platform.PerFrameWorkQueue);
 }

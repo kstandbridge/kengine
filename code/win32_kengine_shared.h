@@ -73,6 +73,122 @@ DEBUGReadEntireFile(memory_arena *Arena, char *FilePath)
     return Result;
 }
 
+typedef struct platform_work_queue_entry
+{
+    platform_work_queue_callback *Callback;
+    void *Data;
+} platform_work_queue_entry;
+
+
+typedef struct platform_work_queue
+{
+    u32 volatile CompletionGoal;
+    u32 volatile CompletionCount;
+    
+    u32 volatile NextEntryToWrite;
+    u32 volatile NextEntryToRead;
+    HANDLE SemaphoreHandle;
+    
+    platform_work_queue_entry Entries[256];
+} platform_work_queue;
+
+internal void
+AddWorkEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data)
+{
+    // TODO(casey): Switch to InterlockedCompareExchange eventually
+    // so that any thread can add?
+    u32 NewNextEntryToWrite = (Queue->NextEntryToWrite + 1) % ArrayCount(Queue->Entries);
+    Assert(NewNextEntryToWrite != Queue->NextEntryToRead);
+    platform_work_queue_entry *Entry = Queue->Entries + Queue->NextEntryToWrite;
+    Entry->Callback = Callback;
+    Entry->Data = Data;
+    ++Queue->CompletionGoal;
+    _WriteBarrier();
+    Queue->NextEntryToWrite = NewNextEntryToWrite;
+    ReleaseSemaphore(Queue->SemaphoreHandle, 1, 0);
+}
+
+internal b32
+DoNextWorkQueueEntry(platform_work_queue *Queue)
+{
+    b32 WeShouldSleep = false;
+    
+    u32 OriginalNextEntryToRead = Queue->NextEntryToRead;
+    u32 NewNextEntryToRead = (OriginalNextEntryToRead + 1) % ArrayCount(Queue->Entries);
+    if(OriginalNextEntryToRead != Queue->NextEntryToWrite)
+    {
+        u32 Index = InterlockedCompareExchange((LONG volatile *)&Queue->NextEntryToRead,
+                                               NewNextEntryToRead,
+                                               OriginalNextEntryToRead);
+        if(Index == OriginalNextEntryToRead)
+        {        
+            platform_work_queue_entry Entry = Queue->Entries[Index];
+            Entry.Callback(Entry.Data);
+            InterlockedIncrement((LONG volatile *)&Queue->CompletionCount);
+        }
+    }
+    else
+    {
+        WeShouldSleep = true;
+    }
+    
+    return WeShouldSleep;
+}
+
+internal void
+CompleteAllWork(platform_work_queue *Queue)
+{
+    while(Queue->CompletionGoal != Queue->CompletionCount)
+    {
+        DoNextWorkQueueEntry(Queue);
+    }
+    
+    Queue->CompletionGoal = 0;
+    Queue->CompletionCount = 0;
+}
+
+DWORD WINAPI
+ThreadProc(LPVOID lpParameter)
+{
+    platform_work_queue *Queue = (platform_work_queue *)lpParameter;
+    
+    u32 TestThreadID = GetThreadID();
+    Assert(TestThreadID == GetCurrentThreadId());
+    
+    for(;;)
+    {
+        if(DoNextWorkQueueEntry(Queue))
+        {
+            WaitForSingleObjectEx(Queue->SemaphoreHandle, INFINITE, FALSE);
+        }
+    }
+    
+    //    return(0);
+}
+
+internal void
+MakeQueue(platform_work_queue *Queue, u32 ThreadCount)
+{
+    Queue->CompletionGoal = 0;
+    Queue->CompletionCount = 0;
+    
+    Queue->NextEntryToWrite = 0;
+    Queue->NextEntryToRead = 0;
+    
+    u32 InitialCount = 0;
+    Queue->SemaphoreHandle = CreateSemaphoreEx(0, InitialCount, ThreadCount,
+                                               0, 0, SEMAPHORE_ALL_ACCESS);
+    for(u32 ThreadIndex = 0;
+        ThreadIndex < ThreadCount;
+        ++ThreadIndex)
+    {
+        DWORD ThreadID;
+        HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Queue, 0, &ThreadID);
+        CloseHandle(ThreadHandle);
+    }
+}
+
+
 
 #define WIN32_KENGINE_SHARED_H
 #endif //WIN32_KENGINE_SHARED_H

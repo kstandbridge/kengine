@@ -6,8 +6,8 @@
 - meta linked list
 - meta double linked list
 - meta free list
-- Software render push system
 - Software render split screen to tasks
+- get horizontal alignment for font codepoints
 - UI push system
 - UI render system
 - UI handle interaction

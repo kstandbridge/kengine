@@ -428,23 +428,31 @@ WinMainCRTStartup()
         {
             ShowWindow(WindowHwnd, SW_SHOW);
             
+            platform_work_queue PerFrameWorkQueue;
+            MakeQueue(&PerFrameWorkQueue, 6);
+            platform_work_queue BackgroundWorkQueue;
+            MakeQueue(&BackgroundWorkQueue, 2);
+            
             
             char *SourceAppCodeDLLFullPath = "D:/build/kengine.dll";
             char *TempAppCodeDLLFullPath = "D:/build/kengine_temp.dll";
             char *AppCodeLockFullPath = "D:/build/lock.tmp";
             
+            app_code AppCode = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
             
 #if KENGINE_INTERNAL
             LPVOID BaseAddress = (LPVOID)Terabytes(2);
 #else
             LPVOID BaseAddress = 0;
 #endif
-            
-            app_code AppCode = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
             app_memory AppMemory;
             ZeroStruct(AppMemory);
             AppMemory.StorageSize = Megabytes(256);
             AppMemory.Storage = VirtualAlloc(BaseAddress, (size_t)AppMemory.StorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            AppMemory.PlatformAPI.PerFrameWorkQueue = &PerFrameWorkQueue;
+            AppMemory.PlatformAPI.BackgroundWorkQueue = &BackgroundWorkQueue;
+            AppMemory.PlatformAPI.AddWorkEntry = AddWorkEntry;
+            AppMemory.PlatformAPI.CompleteAllWork = CompleteAllWork;
             AppMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGReadEntireFile;
             AppMemory.PlatformAPI.DEBUGGetGlyphForCodepoint = DEBUGGetGlyphForCodepoint;
             

@@ -1,7 +1,8 @@
 #include "kengine.h"
-#include "kengine_render_group.c"
 
 global platform_api Platform;
+
+#include "kengine_render_group.c"
 
 internal loaded_bitmap
 LoadBMP(memory_arena *Arena, char *FileName)

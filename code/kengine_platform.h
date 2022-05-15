@@ -17,6 +17,51 @@ void *memset(void *_Dst, int _Val, size_t _Size)
 #define introspect(...)
 #include "kengine_types.h"
 
+#if COMPILER_MSVC
+#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
+#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
+inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expected)
+{
+    u32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
+    
+    return Result;
+}
+inline u32 GetThreadID()
+{
+    u8 *ThreadLocalStorage = (u8 *)__readgsqword(0x30);
+    u32 ThreadID = *(u32 *)(ThreadLocalStorage + 0x48);
+    
+    return(ThreadID);
+}
+#elif COMPILER_LLVM
+// TODO(kstandbridge): Does LLVM have real read-specific barriers yet?
+#define CompletePreviousReadsBeforeFutureReads asm volatile("" ::: "memory")
+#define CompletePreviousWritesBeforeFutureWrites asm volatile("" ::: "memory")
+inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expected)
+{
+    u32 Result = __sync_val_compare_and_swap(Value, Expected, New);
+    
+    return Result;
+}
+inline u32 GetThreadID(void)
+{
+    u32 ThreadID;
+#if defined(__APPLE__) && defined(__x86_64__)
+    asm("mov %%gs:0x00,%0" : "=r"(ThreadID));
+#elif defined(__i386__)
+    asm("mov %%gs:0x08,%0" : "=r"(ThreadID));
+#elif defined(__x86_64__)
+    asm("mov %%fs:0x10,%0" : "=r"(ThreadID));
+#else
+#error Unsupported architecture
+#endif
+    
+    return ThreadID;
+}
+#else
+// TODO(kstandbridge): Other compilers/platforms??
+#endif
+
 #define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
 #define ZeroArray(Count, Pointer) ZeroSize(Count*sizeof((Pointer)[0]), Pointer)
 inline void
@@ -44,11 +89,22 @@ typedef struct app_offscreen_buffer
 // NOTE(kstandbridge): Platform api
 //
 typedef string debug_read_entire_file(memory_arena *Arena, char *FilePath);
-
 typedef loaded_bitmap debug_get_glyph_for_codepoint(memory_arena *Arena, u32 Codepoint);
+
+typedef struct platform_work_queue platform_work_queue;
+typedef void platform_work_queue_callback(void *Data);
+
+typedef void platform_add_work_entry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data);
+typedef void platform_complete_all_work(platform_work_queue *Queue);
 
 typedef struct platform_api
 {
+    platform_work_queue *PerFrameWorkQueue;
+    platform_work_queue *BackgroundWorkQueue;
+    
+    platform_add_work_entry *AddWorkEntry;
+    platform_complete_all_work *CompleteAllWork;
+    
     debug_read_entire_file *DEBUGReadEntireFile;
     debug_get_glyph_for_codepoint *DEBUGGetGlyphForCodepoint;
 } platform_api;
