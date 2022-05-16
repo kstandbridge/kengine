@@ -2,12 +2,11 @@
 
 /* TODO(kstandbridge): 
 
-- Task pool
+- get horizontal alignment for font codepoints
+
 - meta linked list
 - meta double linked list
 - meta free list
-- Software render split screen to tasks
-- get horizontal alignment for font codepoints
 - UI push system
 - UI render system
 - UI handle interaction

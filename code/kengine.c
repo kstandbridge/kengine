@@ -98,26 +98,23 @@ DEBUGWriteLine(app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, 
         Index < Str.Size;
         ++Index)
     {
-        u32 Codepoint = Str.Data[Index];
+        u32 CodePoint = Str.Data[Index];
         
-        if(Codepoint != ' ')
+        if(CodePoint != ' ')
         {        
-            if(AppState->Glyphs[Codepoint].Memory == 0)
+            if(AppState->Glyphs[CodePoint].Memory == 0)
             {
-                AppState->Glyphs[Codepoint] = Platform.DEBUGGetGlyphForCodepoint(&AppState->PermanentArena, Codepoint);
+                AppState->Glyphs[CodePoint] = Platform.DEBUGGetGlyphForCodePoint(&AppState->PermanentArena, CodePoint);
             }
             
-            loaded_bitmap *Bitmap = AppState->Glyphs + Codepoint;
-            PushBitmap(RenderGroup, Bitmap, Scale, V2(AtX, AtY), V4(1, 1, 1, 1), 0.0f);
+            loaded_bitmap *Bitmap = AppState->Glyphs + CodePoint;
+            PushBitmap(RenderGroup, Bitmap, Scale*Bitmap->Height, V2(AtX, AtY), V4(1, 1, 1, 1), 0.0f);
             
-            PrevCodePoint = Codepoint;
-            
-            AtX += 24.0f;
+            PrevCodePoint = CodePoint;
         }
-        else
-        {
-            AtX += 24.0f;
-        }
+        
+        f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(PrevCodePoint, CodePoint);
+        AtX += AdvanceX;
     }
     
     AtY += 100.0f;
@@ -135,7 +132,7 @@ AppUpdateAndRender(app_memory *Memory, app_offscreen_buffer *Buffer, f32 DeltaTi
         InitializeArena(&AppState->PermanentArena, Memory->StorageSize - sizeof(app_state), (u8 *)Memory->Storage + sizeof(app_state));
         
         AppState->TestBMP = LoadBMP(&AppState->PermanentArena, "test_tree.bmp");
-        AppState->TestFont = Platform.DEBUGGetGlyphForCodepoint(&AppState->PermanentArena, 'K');
+        AppState->TestFont = Platform.DEBUGGetGlyphForCodePoint(&AppState->PermanentArena, 'K');
         
         SubArena(&AppState->TransientArena, &AppState->PermanentArena, Megabytes(64));
         
@@ -158,15 +155,12 @@ AppUpdateAndRender(app_memory *Memory, app_offscreen_buffer *Buffer, f32 DeltaTi
     
     PushClear(RenderGroup, V4(0.3f, 0.0f, 0.3f, 1.0f));
     
-    PushRect(RenderGroup, V2(-500.0f, 0.0f), V2(50.0f, 50.0f), V4(0, 1, 1, 1));
-    PushRect(RenderGroup, V2(500.0f, 0), V2(50.0f, 50.0f), V4(1, 1, 0, 1));
-    
     f32 Angle = 0.1f*AppState->Time;
     PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, V2(0.0f, 0.0f), V4(1, 1, 1, 1), Angle);
     
-    PushRect(RenderGroup, V2(0.8f, 0), V2(0.05f, 0.05f), V4(0, 0, 0, 1));
-    
-    DEBUGWriteLine(AppState, RenderGroup, V2(0, 0), 16.0f, String("AWA VA AV"));
+    DEBUGWriteLine(AppState, RenderGroup, V2(-500.0f, 0.0f), 0.5f, String("AWA VA AV"));
+    DEBUGWriteLine(AppState, RenderGroup, V2(-500.0f, 120.0f), 0.5f, String("The quick brown fox jumps over the lazy dog"));
+    DEBUGWriteLine(AppState, RenderGroup, V2(-500.0f, -120.0f), 0.5f, String("Waltz, bad nymph, for quick jigs vex."));
     
     RenderGroupToOutput(RenderGroup);
     EndTemporaryMemory(RenderMem);

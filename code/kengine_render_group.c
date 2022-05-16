@@ -419,12 +419,13 @@ inline void
 PushBitmap(render_group *Group, loaded_bitmap *Bitmap, f32 Height, v2 Offset, v4 Color, f32 Angle)
 {
     v2 Dim = V2(Height*Bitmap->WidthOverHeight, Height);
-    
+    v2 Align = Hadamard(Bitmap->AlignPercentage, Dim);
+    v2 P = V2Subtract(Offset, Align);
     render_entry_bitmap *Entry = PushRenderElement(Group, render_entry_bitmap);
     if(Entry)
     {
         Entry->Bitmap = Bitmap;
-        Entry->P = V2Add(Group->ScreenCenter, Offset);
+        Entry->P = V2Add(Group->ScreenCenter, P);
         Entry->Color = Color;
         Entry->Dim = Dim;
         Entry->Angle = Angle;

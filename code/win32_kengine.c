@@ -44,8 +44,14 @@ global b32 GlobalIsRunning;
 global s64 GlobalPerfCountFrequency;
 global win32_offscreen_buffer GlobalBackbuffer;
 
+#define MAX_GLYPH_COUNT 5000
+global f32 *GlobalCodePointHoriziontalAdvance;
+global u32 *GlobalGlyphIndexFromCodePoint;
+global KERNINGPAIR *GlobalKerningPairs;
+global DWORD GlobalKerningPairCount;
+
 internal loaded_bitmap
-DEBUGGetGlyphForCodepoint(memory_arena *Arena, u32 CodePoint)
+DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
 {
     
 #define MAX_FONT_WIDTH 1024
@@ -57,8 +63,17 @@ DEBUGGetGlyphForCodepoint(memory_arena *Arena, u32 CodePoint)
     local_persist HFONT FontHandle;
     local_persist TEXTMETRIC TextMetric;
     
+    local_persist u32 CurrentGlyphIndex = 0;
     if(!FontInitialized)
     {
+        memory_index CodePointSize = sizeof(f32) * MAX_GLYPH_COUNT * MAX_GLYPH_COUNT;
+        GlobalCodePointHoriziontalAdvance = PushSize(Arena, CodePointSize);
+        ZeroSize(CodePointSize, GlobalCodePointHoriziontalAdvance);
+        
+        memory_index GlyphIndexSize = sizeof(u32)*(MAX_GLYPH_COUNT * MAX_GLYPH_COUNT + 1);
+        GlobalGlyphIndexFromCodePoint = PushSize(Arena, GlyphIndexSize);
+        ZeroSize(GlyphIndexSize, GlobalGlyphIndexFromCodePoint);
+        
         FontDeviceContext = CreateCompatibleDC(GetDC(0));
         
         BITMAPINFO Info;
@@ -78,22 +93,42 @@ DEBUGGetGlyphForCodepoint(memory_arena *Arena, u32 CodePoint)
         SelectObject(FontDeviceContext, Bitmap);
         SetBkColor(FontDeviceContext, RGB(0, 0, 0));
         
-        AddFontResourceExA("c:/Windows/Fonts/arial.ttf", FR_PRIVATE, 0);
-        s32 Height = 128; // TODO(kstandbridge): Figure out how to specify pixels properly here
-        FontHandle = CreateFontA(Height, 0, 0, 0,
-                                 FW_NORMAL, // NOTE(kstandbridge): Weight
-                                 FALSE, // NOTE(kstandbridge): Italic
-                                 FALSE, // NOTE(kstandbridge): Underline
-                                 FALSE, // NOTE(kstandbridge): Strikeout
-                                 DEFAULT_CHARSET, 
-                                 OUT_DEFAULT_PRECIS,
-                                 CLIP_DEFAULT_PRECIS, 
-                                 ANTIALIASED_QUALITY,
-                                 DEFAULT_PITCH|FF_DONTCARE,
-                                 "Arial");
+        NONCLIENTMETRICS NonClientMetrics;
+        NonClientMetrics.cbSize = sizeof(NONCLIENTMETRICS);
+        if(SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, NonClientMetrics.cbSize, &NonClientMetrics, 0))
+        {
+            LOGFONTA LogFont = NonClientMetrics.lfMessageFont;
+            s32 Height = 128; // TODO(kstandbridge): Figure out how we could use logFont.lfHeight
+            FontHandle = CreateFontA(Height, LogFont.lfWidth, LogFont.lfEscapement, LogFont.lfOrientation,
+                                     LogFont.lfWeight, LogFont.lfItalic, LogFont.lfUnderline, LogFont.lfStrikeOut, 
+                                     LogFont.lfCharSet, LogFont.lfOutPrecision, LogFont.lfClipPrecision, LogFont.lfQuality, 
+                                     LogFont.lfPitchAndFamily, LogFont.lfFaceName);
+        }
+        else
+        {
+            // NOTE(kstandbridge): Failed to load system font so just use arial
+            AddFontResourceExA("c:/Windows/Fonts/arial.ttf", FR_PRIVATE, 0);
+            s32 Height = 128; // TODO(kstandbridge): Figure out how to specify pixels properly here
+            FontHandle = CreateFontA(Height, 0, 0, 0,
+                                     FW_NORMAL, // NOTE(kstandbridge): Weight
+                                     FALSE, // NOTE(kstandbridge): Italic
+                                     FALSE, // NOTE(kstandbridge): Underline
+                                     FALSE, // NOTE(kstandbridge): Strikeout
+                                     DEFAULT_CHARSET, 
+                                     OUT_DEFAULT_PRECIS,
+                                     CLIP_DEFAULT_PRECIS, 
+                                     ANTIALIASED_QUALITY,
+                                     DEFAULT_PITCH|FF_DONTCARE,
+                                     "Arial");
+        }
+        
         
         SelectObject(FontDeviceContext, FontHandle);
         GetTextMetrics(FontDeviceContext, &TextMetric);
+        
+        GlobalKerningPairCount = GetKerningPairsW(FontDeviceContext, 0, 0);
+        GlobalKerningPairs = PushArray(Arena, GlobalKerningPairCount, KERNINGPAIR);
+        GetKerningPairsW(FontDeviceContext, GlobalKerningPairCount, GlobalKerningPairs);
         
         FontInitialized = true;
     }
@@ -225,23 +260,46 @@ DEBUGGetGlyphForCodepoint(memory_arena *Arena, u32 CodePoint)
         
     }
     
+    u32 GlyphIndex = GlobalGlyphIndexFromCodePoint[CodePoint] = ++CurrentGlyphIndex;
+    
     INT ThisWidth;
     GetCharWidth32W(FontDeviceContext, CodePoint, CodePoint, &ThisWidth);
     f32 CharAdvance = (f32)ThisWidth;
     
-#if 0    
     for(u32 OtherGlyphIndex = 0;
-        OtherGlyphIndex < Font->MaxGlyphCount;
+        OtherGlyphIndex < MAX_GLYPH_COUNT;
         ++OtherGlyphIndex)
     {
-        Font->HorizontalAdvance[GlyphIndex*Font->MaxGlyphCount + OtherGlyphIndex] += CharAdvance - KerningChange;
+        GlobalCodePointHoriziontalAdvance[GlyphIndex*MAX_GLYPH_COUNT + OtherGlyphIndex] += CharAdvance - KerningChange;
         if(OtherGlyphIndex != 0)
         {
-            Font->HorizontalAdvance[OtherGlyphIndex*Font->MaxGlyphCount + GlyphIndex] += KerningChange;
+            //GlobalCodePointHoriziontalAdvance[OtherGlyphIndex*MAX_GLYPH_COUNT + GlyphIndex] += KerningChange;
         }
     }
-#endif
     
+    return Result;
+}
+
+internal f32
+DEBUGGetHorizontalAdvanceForPair(u32 PrevCodePoint, u32 CodePoint)
+{
+    u32 PrevGlyphIndex = GlobalGlyphIndexFromCodePoint[PrevCodePoint];
+    u32 GlyphIndex = GlobalGlyphIndexFromCodePoint[CodePoint];
+    
+    f32 Result = GlobalCodePointHoriziontalAdvance[PrevGlyphIndex*MAX_GLYPH_COUNT + GlyphIndex];
+    
+    for(DWORD KerningPairIndex = 0;
+        KerningPairIndex < GlobalKerningPairCount;
+        ++KerningPairIndex)
+    {
+        KERNINGPAIR *Pair = GlobalKerningPairs + KerningPairIndex;
+        if((Pair->wFirst == PrevCodePoint) &&
+           (Pair->wSecond == CodePoint))
+        {
+            Result += Pair->iKernAmount;
+            break;
+        }
+    }
     
     return Result;
 }
@@ -454,7 +512,8 @@ WinMainCRTStartup()
             AppMemory.PlatformAPI.AddWorkEntry = AddWorkEntry;
             AppMemory.PlatformAPI.CompleteAllWork = CompleteAllWork;
             AppMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGReadEntireFile;
-            AppMemory.PlatformAPI.DEBUGGetGlyphForCodepoint = DEBUGGetGlyphForCodepoint;
+            AppMemory.PlatformAPI.DEBUGGetGlyphForCodePoint = DEBUGGetGlyphForCodePoint;
+            AppMemory.PlatformAPI.DEBUGGetHorizontalAdvanceForPair = DEBUGGetHorizontalAdvanceForPair;
             
             GlobalIsRunning = true;
             while(GlobalIsRunning)

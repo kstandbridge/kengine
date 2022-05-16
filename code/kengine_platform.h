@@ -90,6 +90,7 @@ typedef struct app_offscreen_buffer
 //
 typedef string debug_read_entire_file(memory_arena *Arena, char *FilePath);
 typedef loaded_bitmap debug_get_glyph_for_codepoint(memory_arena *Arena, u32 Codepoint);
+typedef f32 debug_get_horiziontal_advance_for_pair(u32 PrevCodePoint, u32 CodePoint);
 
 typedef struct platform_work_queue platform_work_queue;
 typedef void platform_work_queue_callback(void *Data);
@@ -106,7 +107,8 @@ typedef struct platform_api
     platform_complete_all_work *CompleteAllWork;
     
     debug_read_entire_file *DEBUGReadEntireFile;
-    debug_get_glyph_for_codepoint *DEBUGGetGlyphForCodepoint;
+    debug_get_glyph_for_codepoint *DEBUGGetGlyphForCodePoint;
+    debug_get_horiziontal_advance_for_pair *DEBUGGetHorizontalAdvanceForPair;
 } platform_api;
 
 //
