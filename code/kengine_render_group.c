@@ -382,14 +382,6 @@ DrawBitmap(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color, loade
     }
 }
 
-inline v2
-Unproject(render_group *Group, v2 PixelsXY)
-{
-    v2 Result = V2Subtract(PixelsXY, Group->ScreenCenter);
-    
-    return Result;
-}
-
 #define PushRenderElement(Group, Type) (Type *)PushRenderElementInternal(Group, sizeof(Type), RenderGroupEntry_##Type)
 inline void *
 PushRenderElementInternal(render_group *Group, umm Size, render_group_entry_type Type)
@@ -433,7 +425,7 @@ PushBitmap(render_group *Group, loaded_bitmap *Bitmap, f32 Height, v2 Offset, v4
     if(Entry)
     {
         Entry->Bitmap = Bitmap;
-        Entry->P = V2Add(Group->ScreenCenter, P);
+        Entry->P = P;
         Entry->Color = Color;
         Entry->Dim = Dim;
         Entry->Angle = Angle;
@@ -443,14 +435,12 @@ PushBitmap(render_group *Group, loaded_bitmap *Bitmap, f32 Height, v2 Offset, v4
 inline void
 PushRect(render_group *Group, v2 Offset, v2 Dim, v4 Color)
 {
-    v2 P = V2Subtract(Offset, V2Multiply(V2Set1(0.5f), Dim));
-    
-    render_entry_rectangle *Rect = PushRenderElement(Group, render_entry_rectangle);
-    if(Rect)
+    render_entry_rectangle *Entry = PushRenderElement(Group, render_entry_rectangle);
+    if(Entry)
     {
-        Rect->P = V2Add(Group->ScreenCenter, P);
-        Rect->Color = Color;
-        Rect->Dim = Dim;
+        Entry->P = Offset;
+        Entry->Color = Color;
+        Entry->Dim = Dim;
     }
 }
 

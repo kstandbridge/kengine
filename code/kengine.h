@@ -66,6 +66,7 @@ typedef enum ui_interaction_type
     
     UiInteraction_NOP,
     
+    UiInteraction_Move,
     UiInteraction_Invoke,
     
 } ui_interaction_type;
@@ -80,6 +81,7 @@ typedef struct ui_interaction
     {
         void *Generic;
         click_event *Handler;
+        v2 *P;
     };
 } ui_interaction;
 
@@ -102,6 +104,7 @@ typedef struct app_state
     ui_interaction HotInteraction;
     ui_interaction NextHotInteraction;
     
+    v2 TestP;
     s32 TestCounter;
 } app_state;
 

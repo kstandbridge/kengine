@@ -160,6 +160,8 @@ UiBeginInteract(app_state *AppState, app_input *Input, v2 MouseP)
 {
     if(AppState->HotInteraction.Type)
     {
+        // TODO(kstandbridge): We could potentionally create a new control and begin an interaction with it
+        
         AppState->Interaction = AppState->HotInteraction;
     }
     else
@@ -182,7 +184,7 @@ UiEndInteract(app_state *AppState, app_input *Input, v2 MouseP)
             {
                 Handler(AppState);
             }
-        }
+        } break;
     }
     
     AppState->Interaction.Type = UiInteraction_None;
@@ -190,9 +192,137 @@ UiEndInteract(app_state *AppState, app_input *Input, v2 MouseP)
 }
 
 internal void
-TestHandler(app_state *AppState)
+UiInteract(app_state *AppState, app_input *Input, v2 MouseP)
+{
+    if(AppState->Interaction.Type)
+    {
+        v2 *P = AppState->Interaction.P;
+        v2 dMouseP = V2Subtract(MouseP, AppState->LastMouseP);
+        switch(AppState->Interaction.Type)
+        {
+            case UiInteraction_Move:
+            {
+                *P = V2Add(*P, dMouseP);
+            } break;
+        }
+        
+        for(u32 TransitionIndex = Input->MouseButtons[AppInputMouseButton_Left].HalfTransitionCount;
+            TransitionIndex > 1;
+            --TransitionIndex)
+        {
+            UiEndInteract(AppState, Input, MouseP);
+            UiBeginInteract(AppState, Input, MouseP);
+        }
+        
+        if(!Input->MouseButtons[AppInputMouseButton_Left].EndedDown)
+        {
+            UiEndInteract(AppState, Input, MouseP);
+        }
+    }
+    else
+    {
+        AppState->HotInteraction = AppState->NextHotInteraction;
+        
+        for(u32 TransitionIndex = Input->MouseButtons[AppInputMouseButton_Left].HalfTransitionCount;
+            TransitionIndex > 1;
+            --TransitionIndex)
+        {
+            UiBeginInteract(AppState, Input, MouseP);
+            UiEndInteract(AppState, Input, MouseP);
+        }
+        
+        if(Input->MouseButtons[AppInputMouseButton_Left].EndedDown)
+        {
+            UiBeginInteract(AppState, Input, MouseP);
+        }
+    }
+    
+    AppState->LastMouseP = MouseP;
+}
+
+internal void
+IncrementHandler(app_state *AppState)
 {
     ++AppState->TestCounter;
+}
+
+internal void
+DecrementHandler(app_state *AppState)
+{
+    --AppState->TestCounter;
+}
+
+internal void
+DrawUI(app_state *AppState, render_group *RenderGroup, memory_arena *Arena, app_input *Input, v2 MouseP)
+{
+    f32 Scale = 1.0f;
+    
+    // NOTE(kstandbridge): Counter Display
+    {    
+        v2 BoundsP = AppState->TestP;
+        string Str = FormatString(Arena, "before %d after", AppState->TestCounter);
+        rectangle2 TextBounds = GetTextSize(AppState, RenderGroup, BoundsP, Scale, Str);
+        
+        ui_interaction ButtonInteraction;
+        ButtonInteraction.Type = UiInteraction_Move;
+        ButtonInteraction.P = &AppState->TestP;
+        //ButtonInteraction.Handler = TestHandler;
+        
+        b32 IsHot = InteractionIsHot(AppState, ButtonInteraction);
+        v4 ButtonColor = IsHot ? V4(1, 0, 0, 1) : V4(1, 0, 1, 1);
+        PushRect(RenderGroup, TextBounds.Min, V2Subtract(TextBounds.Max, TextBounds.Min), ButtonColor);
+        WriteLine(AppState, RenderGroup, BoundsP, Scale, Str);
+        
+        if(IsInRectangle(TextBounds, MouseP))
+        {
+            AppState->NextHotInteraction = ButtonInteraction;
+        }
+    }
+    
+    // NOTE(kstandbridge): Increment button
+    {
+        v2 BoundsP = V2(150, 150);
+        
+        string Str = String("Decrement");
+        rectangle2 TextBounds = GetTextSize(AppState, RenderGroup, BoundsP, Scale, Str);
+        
+        ui_interaction Interaction;
+        Interaction.Type = UiInteraction_Invoke;
+        Interaction.Handler = DecrementHandler;
+        
+        b32 IsHot = InteractionIsHot(AppState, Interaction);
+        v4 ButtonColor = IsHot ? V4(0, 0, 1, 1) : V4(1, 0, 0, 1);
+        PushRect(RenderGroup, TextBounds.Min, V2Subtract(TextBounds.Max, TextBounds.Min), ButtonColor);
+        WriteLine(AppState, RenderGroup, BoundsP, Scale, Str);
+        
+        if(IsInRectangle(TextBounds, MouseP))
+        {
+            AppState->NextHotInteraction = Interaction;
+        }
+    }
+    
+    // NOTE(kstandbridge): Increment button
+    {
+        v2 BoundsP = V2(750, 150);
+        
+        string Str = String("Increment");
+        rectangle2 TextBounds = GetTextSize(AppState, RenderGroup, BoundsP, Scale, Str);
+        
+        ui_interaction Interaction;
+        Interaction.Type = UiInteraction_Invoke;
+        Interaction.Handler = IncrementHandler;
+        
+        b32 IsHot = InteractionIsHot(AppState, Interaction);
+        v4 ButtonColor = IsHot ? V4(0, 0, 1, 1) : V4(1, 0, 0, 1);
+        PushRect(RenderGroup, TextBounds.Min, V2Subtract(TextBounds.Max, TextBounds.Min), ButtonColor);
+        WriteLine(AppState, RenderGroup, BoundsP, Scale, Str);
+        
+        if(IsInRectangle(TextBounds, MouseP))
+        {
+            AppState->NextHotInteraction = Interaction;
+        }
+    }
+    
 }
 
 extern void
@@ -208,6 +338,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         AppState->TestBMP = LoadBMP(&AppState->PermanentArena, "test_tree.bmp");
         AppState->TestFont = Platform.DEBUGGetGlyphForCodePoint(&AppState->PermanentArena, 'K');
+        AppState->TestP = V2(500.0f, 500.0f);
         
         SubArena(&AppState->TransientArena, &AppState->PermanentArena, Megabytes(64));
         
@@ -230,88 +361,43 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     PushClear(RenderGroup, V4(0.3f, 0.0f, 0.3f, 1.0f));
     
-#if 0    
+#if 0
+    v2 P = V2(100.0f, 75.0f);
+    
+    v2 RectSize = V2((f32)AppState->TestBMP.Width, (f32)AppState->TestBMP.Height);
+    
+    PushRect(RenderGroup, P, RectSize, V4(1, 1, 0, 1));
+    PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, P, V4(1, 1, 1, 1), 0.0f);
+    
+    P.X += 250;
+    
+    rectangle2 TextBounds = GetTextSize(AppState, RenderGroup, P, 1.0f, String("Hello"));
+    v2 MouseP = V2(Input->MouseX, Input->MouseY);
+    
+    b32 IsHot = IsInRectangle(TextBounds, MouseP);
+    v4 BackColor = IsHot ? V4(0, 0, 1, 1) : V4(1, 1, 1, 1);
+    PushRect(RenderGroup, TextBounds.Min, V2Subtract(TextBounds.Max, TextBounds.Min), BackColor);
+    WriteLine(AppState, RenderGroup, P, 1.0f, String("Hello"));
+    
+#if 0
     f32 Angle = 0.1f*AppState->Time;
-    PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, MouseP, V4(1, 1, 1, 1), Angle);
+    PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, P, V4(1, 1, 1, 1), Angle);
 #endif
     
-    f32 Scale = 1.0f;
-    v2 MouseP = Unproject(RenderGroup, V2(Input->MouseX, Input->MouseY));
+#else
     
     AppState->NextHotInteraction.Type = UiInteraction_None;
     AppState->NextHotInteraction.Generic = 0;
     
-    // NOTE(kstandbridge): Draw Button
-    {    
-        v2 BoundsP = V2(-250.0f, 125.0f);
-        string Str = FormatString(RenderMem.Arena, "before %d after", AppState->TestCounter);
-        rectangle2 TextBounds = GetTextSize(AppState, RenderGroup, BoundsP, Scale, Str);
-        v2 Dim = GetDim(TextBounds);
-        v2 TotalDim = V2Add(Dim, V2Set1(10.0f));
-        
-        v2 TotalMinCorner = V2(BoundsP.X, BoundsP.Y - TotalDim.Y);
-        v2 InteriorMinCorner = TotalMinCorner;
-        v2 InteriorMaxCorner = V2Add(InteriorMinCorner, Dim);
-        rectangle2 TotalBounds = Rectangle2(InteriorMinCorner, InteriorMaxCorner);
-        
-        ui_interaction ButtonInteraction;
-        ButtonInteraction.Type = UiInteraction_Invoke;
-        ButtonInteraction.Handler = TestHandler;
-        
-        b32 IsHot = InteractionIsHot(AppState, ButtonInteraction);
-        v4 ButtonColor = IsHot ? V4(1, 0, 0, 1) : V4(1, 0, 1, 1);
-        PushRect(RenderGroup, BoundsP, TotalDim, ButtonColor);
-        v2 TextP = V2Subtract(BoundsP, V2Multiply(V2Set1(0.5f), Dim));
-        WriteLine(AppState, RenderGroup, TextP, Scale, Str);
-        
-        if(IsInRectangle(TotalBounds, MouseP))
-        {
-            AppState->NextHotInteraction = ButtonInteraction;
-        }
-    }
-    
-    // NOTE(kstandbridge): Interact button
-    {
-        if(AppState->Interaction.Type)
-        {
-            for(u32 TransitionIndex = Input->MouseButtons[AppInputMouseButton_Left].HalfTransitionCount;
-                TransitionIndex > 1;
-                --TransitionIndex)
-            {
-                UiEndInteract(AppState, Input, MouseP);
-                UiBeginInteract(AppState, Input, MouseP);
-            }
-            
-            if(!Input->MouseButtons[AppInputMouseButton_Left].EndedDown)
-            {
-                UiEndInteract(AppState, Input, MouseP);
-            }
-        }
-        else
-        {
-            AppState->HotInteraction = AppState->NextHotInteraction;
-            
-            for(u32 TransitionIndex = Input->MouseButtons[AppInputMouseButton_Left].HalfTransitionCount;
-                TransitionIndex > 1;
-                --TransitionIndex)
-            {
-                UiBeginInteract(AppState, Input, MouseP);
-                UiEndInteract(AppState, Input, MouseP);
-            }
-            
-            if(Input->MouseButtons[AppInputMouseButton_Left].EndedDown)
-            {
-                UiBeginInteract(AppState, Input, MouseP);
-            }
-        }
-        
-        AppState->LastMouseP = MouseP;
-    }
+    v2 MouseP = V2(Input->MouseX, Input->MouseY);
+    DrawUI(AppState, RenderGroup, RenderMem.Arena, Input, MouseP);
+    UiInteract(AppState, Input, MouseP);
     
     // NOTE(kstandbridge): Cursor
     {
         PushRect(RenderGroup, MouseP, V2(10, 10), V4(1, 1, 0, 1));
     }
+#endif
     
     RenderGroupToOutput(RenderGroup);
     EndTemporaryMemory(RenderMem);
