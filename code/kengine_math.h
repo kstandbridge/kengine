@@ -149,5 +149,65 @@ HasArea(rectangle2i A)
     return Result;
 }
 
+//
+// NOTE(kstandbridge): rectangle2 operations
+//
+
+inline rectangle2
+InvertedInfinityRectangle2()
+{
+    rectangle2 Result;
+    
+    Result.Min.X = Result.Min.Y = F32Max;
+    Result.Max.X = Result.Max.Y = -F32Max;
+    
+    return Result;
+}
+
+inline rectangle2
+RectMinDim(v2 Min, v2 Dim)
+{
+    rectangle2 Result;
+    
+    Result.Min = Min;
+    Result.Max = V2Add(Min, Dim);
+    
+    return Result;
+}
+
+
+inline rectangle2
+Union(rectangle2 A, rectangle2 B)
+{
+    rectangle2 Result;
+    
+    Result.Min.X = (A.Min.X < B.Min.X) ? A.Min.X : B.Min.X;
+    Result.Min.Y = (A.Min.Y < B.Min.Y) ? A.Min.Y : B.Min.Y;
+    Result.Max.X = (A.Max.X > B.Max.X) ? A.Max.X : B.Max.X;
+    Result.Max.Y = (A.Max.Y > B.Max.Y) ? A.Max.Y : B.Max.Y;
+    
+    return Result;
+}
+
+inline v2
+GetDim(rectangle2 Rect)
+{
+    v2 Result = V2Subtract(Rect.Max, Rect.Min);
+    
+    return Result;
+}
+
+inline b32
+IsInRectangle(rectangle2 Rectangle, v2 Test)
+{
+    b32 Result = ((Test.X >= Rectangle.Min.X) &&
+                  (Test.Y >= Rectangle.Min.Y) &&
+                  (Test.X < Rectangle.Max.X) &&
+                  (Test.Y < Rectangle.Max.Y));
+    
+    return Result;
+}
+
+
 #define KENGINE_MATH_H
 #endif //KENGINE_MATH_H

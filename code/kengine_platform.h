@@ -85,6 +85,42 @@ typedef struct app_offscreen_buffer
     s32 Pitch;
 } app_offscreen_buffer;
 
+typedef struct app_button_state
+{
+    s32 HalfTransitionCount;
+    b32 EndedDown;
+} app_button_state;
+
+typedef enum app_input_mouse_button_type
+{
+    AppInputMouseButton_Left,
+    AppInputMouseButton_Middle,
+    AppInputMouseButton_Right,
+    AppInputMouseButton_Extended0,
+    AppInputMouseButton_Extended1,
+    
+    AppInputMouseButton_Count,
+} app_input_mouse_button_type;
+
+typedef struct app_input
+{
+    app_button_state MouseButtons[AppInputMouseButton_Count];
+    f32 MouseX;
+    f32 MouseY;
+    f32 MouseZ;
+    
+    f32 dtForFrame;
+} app_input;
+
+inline b32
+WasPressed(app_button_state State)
+{
+    b32 Result = ((State.HalfTransitionCount > 1) ||
+                  ((State.HalfTransitionCount == 1) && (State.EndedDown)));
+    
+    return Result;
+}
+
 //
 // NOTE(kstandbridge): Platform api
 //
@@ -120,10 +156,12 @@ typedef struct app_memory
     u64 StorageSize;
     void *Storage;
     
+    b32 ExecutableReloaded;
+    
     platform_api PlatformAPI;
 } app_memory;
 
-typedef void app_update_and_render(app_memory *Memory, app_offscreen_buffer *Buffer, f32 DeltaTime);
+typedef void app_update_and_render(app_memory *Memory, app_input *Input, app_offscreen_buffer *Buffer);
 
 
 #define KENGINE_PLATFORM_H

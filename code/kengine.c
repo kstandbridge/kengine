@@ -88,9 +88,16 @@ LoadBMP(memory_arena *Arena, char *FileName)
     return(Result);
 }
 
-internal void
-DEBUGWriteLine(app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, string Str)
+typedef enum text_op_type
 {
+    TextOp_DrawText,
+    TextOp_SizeText,
+} text_op_type;
+internal rectangle2
+TextOpInternal(text_op_type Op, app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, string Str)
+{
+    rectangle2 Result = InvertedInfinityRectangle2();
+    
     f32 AtX = P.X;
     f32 AtY = P.Y;
     u32 PrevCodePoint = 0;
@@ -108,7 +115,21 @@ DEBUGWriteLine(app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, 
             }
             
             loaded_bitmap *Bitmap = AppState->Glyphs + CodePoint;
-            PushBitmap(RenderGroup, Bitmap, Scale*Bitmap->Height, V2(AtX, AtY), V4(1, 1, 1, 1), 0.0f);
+            f32 Height = Scale*Bitmap->Height;
+            v2 Offset = V2(AtX, AtY);
+            if(Op == TextOp_DrawText)
+            {
+                PushBitmap(RenderGroup, Bitmap, Height, Offset, V4(1, 1, 1, 1), 0.0f);
+            }
+            else
+            {
+                Assert(Op == TextOp_SizeText);
+                v2 Dim = V2(Height*Bitmap->WidthOverHeight, Height);
+                v2 Align = Hadamard(Bitmap->AlignPercentage, Dim);
+                v2 GlyphP = V2Subtract(Offset, Align);
+                rectangle2 GlyphDim = RectMinDim(GlyphP, Dim);
+                Result = Union(Result, GlyphDim);
+            }
             
             PrevCodePoint = CodePoint;
         }
@@ -117,11 +138,65 @@ DEBUGWriteLine(app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, 
         AtX += AdvanceX;
     }
     
-    AtY += 100.0f;
+    return Result;
+}
+
+inline void
+WriteLine(app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, string Str)
+{
+    TextOpInternal(TextOp_DrawText, AppState, RenderGroup, P, Scale, Str);
+}
+
+inline rectangle2
+GetTextSize(app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, string Str)
+{
+    rectangle2 Result = TextOpInternal(TextOp_SizeText, AppState, RenderGroup, P, Scale, Str);
+    
+    return Result;
+}
+
+internal void
+UiBeginInteract(app_state *AppState, app_input *Input, v2 MouseP)
+{
+    if(AppState->HotInteraction.Type)
+    {
+        AppState->Interaction = AppState->HotInteraction;
+    }
+    else
+    {
+        AppState->Interaction.Type = UiInteraction_NOP;
+        AppState->Interaction.Generic = 0;
+    }
+}
+
+internal void
+UiEndInteract(app_state *AppState, app_input *Input, v2 MouseP)
+{
+    switch(AppState->Interaction.Type)
+    {
+        case UiInteraction_Invoke:
+        {
+            click_event *Handler = AppState->Interaction.Handler;
+            Assert(Handler);
+            if(Handler)
+            {
+                Handler(AppState);
+            }
+        }
+    }
+    
+    AppState->Interaction.Type = UiInteraction_None;
+    AppState->Interaction.Generic = 0;
+}
+
+internal void
+TestHandler(app_state *AppState)
+{
+    ++AppState->TestCounter;
 }
 
 extern void
-AppUpdateAndRender(app_memory *Memory, app_offscreen_buffer *Buffer, f32 DeltaTime)
+AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *Buffer)
 {
     Platform = Memory->PlatformAPI;
     
@@ -140,7 +215,7 @@ AppUpdateAndRender(app_memory *Memory, app_offscreen_buffer *Buffer, f32 DeltaTi
     }
     
     
-    AppState->Time += DeltaTime;
+    AppState->Time += Input->dtForFrame;;
     
     temporary_memory RenderMem = BeginTemporaryMemory(&AppState->TransientArena);
     
@@ -155,12 +230,88 @@ AppUpdateAndRender(app_memory *Memory, app_offscreen_buffer *Buffer, f32 DeltaTi
     
     PushClear(RenderGroup, V4(0.3f, 0.0f, 0.3f, 1.0f));
     
+#if 0    
     f32 Angle = 0.1f*AppState->Time;
-    PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, V2(0.0f, 0.0f), V4(1, 1, 1, 1), Angle);
+    PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, MouseP, V4(1, 1, 1, 1), Angle);
+#endif
     
-    DEBUGWriteLine(AppState, RenderGroup, V2(-500.0f, 0.0f), 0.5f, String("AWA VA AV"));
-    DEBUGWriteLine(AppState, RenderGroup, V2(-500.0f, 120.0f), 0.5f, String("The quick brown fox jumps over the lazy dog"));
-    DEBUGWriteLine(AppState, RenderGroup, V2(-500.0f, -120.0f), 0.5f, String("Waltz, bad nymph, for quick jigs vex."));
+    f32 Scale = 1.0f;
+    v2 MouseP = Unproject(RenderGroup, V2(Input->MouseX, Input->MouseY));
+    
+    AppState->NextHotInteraction.Type = UiInteraction_None;
+    AppState->NextHotInteraction.Generic = 0;
+    
+    // NOTE(kstandbridge): Draw Button
+    {    
+        v2 BoundsP = V2(-250.0f, 125.0f);
+        string Str = FormatString(RenderMem.Arena, "before %d after", AppState->TestCounter);
+        rectangle2 TextBounds = GetTextSize(AppState, RenderGroup, BoundsP, Scale, Str);
+        v2 Dim = GetDim(TextBounds);
+        v2 TotalDim = V2Add(Dim, V2Set1(10.0f));
+        
+        v2 TotalMinCorner = V2(BoundsP.X, BoundsP.Y - TotalDim.Y);
+        v2 InteriorMinCorner = TotalMinCorner;
+        v2 InteriorMaxCorner = V2Add(InteriorMinCorner, Dim);
+        rectangle2 TotalBounds = Rectangle2(InteriorMinCorner, InteriorMaxCorner);
+        
+        ui_interaction ButtonInteraction;
+        ButtonInteraction.Type = UiInteraction_Invoke;
+        ButtonInteraction.Handler = TestHandler;
+        
+        b32 IsHot = InteractionIsHot(AppState, ButtonInteraction);
+        v4 ButtonColor = IsHot ? V4(1, 0, 0, 1) : V4(1, 0, 1, 1);
+        PushRect(RenderGroup, BoundsP, TotalDim, ButtonColor);
+        v2 TextP = V2Subtract(BoundsP, V2Multiply(V2Set1(0.5f), Dim));
+        WriteLine(AppState, RenderGroup, TextP, Scale, Str);
+        
+        if(IsInRectangle(TotalBounds, MouseP))
+        {
+            AppState->NextHotInteraction = ButtonInteraction;
+        }
+    }
+    
+    // NOTE(kstandbridge): Interact button
+    {
+        if(AppState->Interaction.Type)
+        {
+            for(u32 TransitionIndex = Input->MouseButtons[AppInputMouseButton_Left].HalfTransitionCount;
+                TransitionIndex > 1;
+                --TransitionIndex)
+            {
+                UiEndInteract(AppState, Input, MouseP);
+                UiBeginInteract(AppState, Input, MouseP);
+            }
+            
+            if(!Input->MouseButtons[AppInputMouseButton_Left].EndedDown)
+            {
+                UiEndInteract(AppState, Input, MouseP);
+            }
+        }
+        else
+        {
+            AppState->HotInteraction = AppState->NextHotInteraction;
+            
+            for(u32 TransitionIndex = Input->MouseButtons[AppInputMouseButton_Left].HalfTransitionCount;
+                TransitionIndex > 1;
+                --TransitionIndex)
+            {
+                UiBeginInteract(AppState, Input, MouseP);
+                UiEndInteract(AppState, Input, MouseP);
+            }
+            
+            if(Input->MouseButtons[AppInputMouseButton_Left].EndedDown)
+            {
+                UiBeginInteract(AppState, Input, MouseP);
+            }
+        }
+        
+        AppState->LastMouseP = MouseP;
+    }
+    
+    // NOTE(kstandbridge): Cursor
+    {
+        PushRect(RenderGroup, MouseP, V2(10, 10), V4(1, 1, 0, 1));
+    }
     
     RenderGroupToOutput(RenderGroup);
     EndTemporaryMemory(RenderMem);

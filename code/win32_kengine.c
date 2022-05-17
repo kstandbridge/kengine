@@ -122,7 +122,6 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                                      "Arial");
         }
         
-        
         SelectObject(FontDeviceContext, FontHandle);
         GetTextMetrics(FontDeviceContext, &TextMetric);
         
@@ -449,6 +448,16 @@ Win32LoadAppCode(char *SourceDLLName, char *TempDLLName, char *LockName)
     return Result;
 }
 
+inline void
+ProcessInputMessage(app_button_state *NewState, b32 IsDown)
+{
+    if(NewState->EndedDown != IsDown)
+    {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
+    }
+}
+
 s32 __stdcall
 WinMainCRTStartup()
 {
@@ -491,13 +500,6 @@ WinMainCRTStartup()
             platform_work_queue BackgroundWorkQueue;
             MakeQueue(&BackgroundWorkQueue, 2);
             
-            
-            char *SourceAppCodeDLLFullPath = "D:/build/kengine.dll";
-            char *TempAppCodeDLLFullPath = "D:/build/kengine_temp.dll";
-            char *AppCodeLockFullPath = "D:/build/lock.tmp";
-            
-            app_code AppCode = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
-            
 #if KENGINE_INTERNAL
             LPVOID BaseAddress = (LPVOID)Terabytes(2);
 #else
@@ -515,17 +517,62 @@ WinMainCRTStartup()
             AppMemory.PlatformAPI.DEBUGGetGlyphForCodePoint = DEBUGGetGlyphForCodePoint;
             AppMemory.PlatformAPI.DEBUGGetHorizontalAdvanceForPair = DEBUGGetHorizontalAdvanceForPair;
             
+            
+            app_input Input[2];
+            ZeroArray(ArrayCount(Input), Input);
+            app_input *NewInput = &Input[0];
+            app_input *OldInput = &Input[1];
+            
+            char *SourceAppCodeDLLFullPath = "D:/build/kengine.dll";
+            char *TempAppCodeDLLFullPath = "D:/build/kengine_temp.dll";
+            char *AppCodeLockFullPath = "D:/build/lock.tmp";
+            
+            app_code AppCode = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
+            
+            
             GlobalIsRunning = true;
             while(GlobalIsRunning)
             {
+                AppMemory.ExecutableReloaded = false;
                 FILETIME NewDLLWriteTime = Win32GetLastWriteTime(SourceAppCodeDLLFullPath);
                 if(CompareFileTime(&NewDLLWriteTime, &AppCode.LastDLLWriteTime) != 0)
                 {
+                    CompleteAllWork(&PerFrameWorkQueue);
+                    CompleteAllWork(&BackgroundWorkQueue);
+                    
                     Win32UnloadAppCode(&AppCode);
                     AppCode = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
+                    AppMemory.ExecutableReloaded = true;
                 }
                 
                 Win32ProcessPendingMessages();
+                
+                POINT MouseP;
+                GetCursorPos(&MouseP);
+                ScreenToClient(WindowHwnd, &MouseP);
+                NewInput->MouseX = (f32)MouseP.x;
+                NewInput->MouseY = (f32)((GlobalBackbuffer.Height - 1) - MouseP.y);
+                NewInput->MouseZ = 0; // TODO(kstandbridge): Get mousewheel position
+                
+                // NOTE(kstandbridge): The order of these needs to match the order on enum app_input_mouse_button_type
+                DWORD ButtonVKs[AppInputMouseButton_Count] =
+                {
+                    VK_LBUTTON,
+                    VK_MBUTTON,
+                    VK_RBUTTON,
+                    VK_XBUTTON1,
+                    VK_XBUTTON2,
+                };
+                
+                for(u32 ButtonIndex = 0;
+                    ButtonIndex < AppInputMouseButton_Count;
+                    ++ButtonIndex)
+                {
+                    NewInput->MouseButtons[ButtonIndex] = OldInput->MouseButtons[ButtonIndex];
+                    NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
+                    ProcessInputMessage(&NewInput->MouseButtons[ButtonIndex],
+                                        GetKeyState(ButtonVKs[ButtonIndex]) & (1 << 15));
+                }
                 
                 LARGE_INTEGER WorkCounter = Win32GetWallClock();
                 f32 WorkSecondsElapsed = Win32GetSecondsElapsed(LastCounter, WorkCounter);
@@ -551,6 +598,7 @@ WinMainCRTStartup()
                     }
                 }
                 
+                NewInput->dtForFrame = SecondsElapsedForFrame;
                 LARGE_INTEGER EndCounter = Win32GetWallClock();
                 LastCounter = EndCounter;
                 
@@ -565,12 +613,16 @@ WinMainCRTStartup()
                 
                 if(AppCode.AppUpdateAndRender)
                 {
-                    AppCode.AppUpdateAndRender(&AppMemory, &AppBuffer, TargetSecondsPerFrame);
+                    AppCode.AppUpdateAndRender(&AppMemory, NewInput, &AppBuffer);
                 }
                 
                 HDC DeviceContext = GetDC(WindowHwnd);
                 StretchDIBits(DeviceContext, 0, 0, GlobalBackbuffer.Width, GlobalBackbuffer.Height, 0, 0, GlobalBackbuffer.Width, GlobalBackbuffer.Height, GlobalBackbuffer.Memory, &GlobalBackbuffer.Info, DIB_RGB_COLORS, SRCCOPY);
                 ReleaseDC(WindowHwnd, DeviceContext);
+                
+                app_input *Temp = NewInput;
+                NewInput = OldInput;
+                OldInput = Temp;
                 
             }
             

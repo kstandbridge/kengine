@@ -94,7 +94,9 @@ PushSizeInternal(memory_arena *Arena, memory_index SizeInit, memory_index Alignm
 inline u8 *
 BeginPushSize(memory_arena *Arena)
 {
-    u8 *Result = Arena->Base;
+    memory_index AlignmentOffset = GetAlignmentOffset(Arena, 4);
+    
+    u8 *Result = Arena->Base + Arena->Used + AlignmentOffset;
     ++Arena->TempCount;
     
     return Result;

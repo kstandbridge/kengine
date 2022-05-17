@@ -11,6 +11,8 @@ REM unreferenced formal parameter
 set CommonCompilerFlags=-wd4100 %CommonCompilerFlags%
 REM local variable is initialized but not referenced
 set CommonCompilerFlags=-wd4189 %CommonCompilerFlags%
+REM nonstandard extension used: nameless struct/union
+set CommonCompilerFlags=-wd4201 %CommonCompilerFlags%
 
 set CommonLinkerFlags=-STACK:0x100000,0x100000 -incremental:no -opt:ref kernel32.lib
 
@@ -19,8 +21,6 @@ IF NOT EXIST ..\build mkdir ..\build
 pushd ..\build
 
 del *.pdb > NUL 2> NUL
-
-echo WAITING FOR PDB > lock.tmp
 
 REM Preprocessor
 cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_preprocessor.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
@@ -38,10 +38,11 @@ REM Win32 platform
 cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine.c /link /NODEFAULTLIB /SUBSYSTEM:windows %CommonLinkerFlags% Gdi32.lib User32.lib Winmm.lib
 
 REM App
+echo WAITING FOR PDB > lock.tmp
 cl %CommonCompilerFlags% ..\kengine\code\kengine.c -LD /link %CommonLinkerFlags% Imm32.lib -PDB:kengine_%random%.pdb -EXPORT:AppUpdateAndRender User32.lib
+del lock.tmp
 
 :cleanup
-del lock.tmp
 
 popd
 

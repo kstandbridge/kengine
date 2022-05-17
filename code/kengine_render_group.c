@@ -382,6 +382,14 @@ DrawBitmap(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color, loade
     }
 }
 
+inline v2
+Unproject(render_group *Group, v2 PixelsXY)
+{
+    v2 Result = V2Subtract(PixelsXY, Group->ScreenCenter);
+    
+    return Result;
+}
+
 #define PushRenderElement(Group, Type) (Type *)PushRenderElementInternal(Group, sizeof(Type), RenderGroupEntry_##Type)
 inline void *
 PushRenderElementInternal(render_group *Group, umm Size, render_group_entry_type Type)
@@ -444,7 +452,6 @@ PushRect(render_group *Group, v2 Offset, v2 Dim, v4 Color)
         Rect->Color = Color;
         Rect->Dim = Dim;
     }
-    
 }
 
 internal render_group *

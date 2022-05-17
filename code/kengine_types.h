@@ -143,6 +143,14 @@ typedef struct rectangle2i
     s32 MaxY;
 } rectangle2i;
 
+introspect(ctor);
+typedef struct rectangle2
+{
+    v2 Min;
+    v2 Max;
+} rectangle2;
+
+
 typedef struct loaded_bitmap
 {
     void *Memory;
