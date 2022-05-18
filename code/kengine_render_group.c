@@ -638,7 +638,7 @@ typedef enum text_op_type
     TextOp_SizeText,
 } text_op_type;
 internal rectangle2
-TextOpInternal(text_op_type Op, app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, string Str)
+TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str)
 {
     rectangle2 Result = InvertedInfinityRectangle2();
     
@@ -653,13 +653,13 @@ TextOpInternal(text_op_type Op, app_state *AppState, render_group *RenderGroup, 
         
         if(CodePoint != ' ')
         {        
-            if(AppState->Glyphs[CodePoint].Memory == 0)
+            if(Assets->Glyphs[CodePoint].Memory == 0)
             {
                 // TODO(kstandbridge): This should be threaded
-                AppState->Glyphs[CodePoint] = Platform.DEBUGGetGlyphForCodePoint(&AppState->PermanentArena, CodePoint);
+                Assets->Glyphs[CodePoint] = Platform.DEBUGGetGlyphForCodePoint(&Assets->Arena, CodePoint);
             }
             
-            loaded_bitmap *Bitmap = AppState->Glyphs + CodePoint;
+            loaded_bitmap *Bitmap = Assets->Glyphs + CodePoint;
             f32 Height = Scale*Bitmap->Height;
             v2 Offset = V2(AtX, AtY);
             if(Op == TextOp_DrawText)
@@ -687,15 +687,15 @@ TextOpInternal(text_op_type Op, app_state *AppState, render_group *RenderGroup, 
 }
 
 inline void
-WriteLine(app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, string Str)
+WriteLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str)
 {
-    TextOpInternal(TextOp_DrawText, AppState, RenderGroup, P, Scale, Str);
+    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Str);
 }
 
 inline rectangle2
-GetTextSize(app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, string Str)
+GetTextSize(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str)
 {
-    rectangle2 Result = TextOpInternal(TextOp_SizeText, AppState, RenderGroup, P, Scale, Str);
+    rectangle2 Result = TextOpInternal(TextOp_SizeText, RenderGroup, Assets, P, Scale, Str);
     
     return Result;
 }

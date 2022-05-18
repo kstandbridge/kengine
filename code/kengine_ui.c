@@ -1,16 +1,16 @@
 
 internal void
-TextElement(app_state *AppState, ui_state *UiState, render_group *RenderGroup, v2 MouseP, v2 BoundsP, string Str, ui_interaction Interaction)
+TextElement(ui_state *UiState, assets *Assets, render_group *RenderGroup, v2 MouseP, v2 BoundsP, string Str, ui_interaction Interaction)
 {
     f32 Scale = 1.0f;
     
-    rectangle2 TextBounds = GetTextSize(AppState, RenderGroup, BoundsP, Scale, Str);
+    rectangle2 TextBounds = GetTextSize(RenderGroup, Assets, BoundsP, Scale, Str);
     
     b32 IsHot = InteractionIsHot(UiState, Interaction);
     
     v4 ButtonColor = IsHot ? V4(0, 0, 1, 1) : V4(1, 0, 0, 1);
     PushRect(RenderGroup, TextBounds.Min, V2Subtract(TextBounds.Max, TextBounds.Min), ButtonColor);
-    WriteLine(AppState, RenderGroup, BoundsP, Scale, Str);
+    WriteLine(RenderGroup, Assets, BoundsP, Scale, Str);
     
     if(IsInRectangle(TextBounds, MouseP))
     {
@@ -20,7 +20,7 @@ TextElement(app_state *AppState, ui_state *UiState, render_group *RenderGroup, v
 }
 
 internal b32 
-PushButton(app_state *AppState, ui_state *UiState, render_group *RenderGroup, u32 ID, v2 MouseP, v2 BoundsP, string Str)
+PushButton(ui_state *UiState, assets *Assets, render_group *RenderGroup, u32 ID, v2 MouseP, v2 BoundsP, string Str)
 {
     ui_interaction Interaction;
     ZeroStruct(Interaction);
@@ -29,13 +29,13 @@ PushButton(app_state *AppState, ui_state *UiState, render_group *RenderGroup, u3
     
     b32 Result = InteractionsAreEqual(Interaction, UiState->ToExecute);
     
-    TextElement(AppState, UiState, RenderGroup, MouseP, BoundsP, Str, Interaction);
+    TextElement(UiState, Assets, RenderGroup, MouseP, BoundsP, Str, Interaction);
     
     return Result;
 }
 
 internal void
-EditableV2(app_state *AppState, ui_state *UiState, render_group *RenderGroup, u32 ID, v2 MouseP, v2 BoundsP, string Str, v2 *TargetP)
+EditableV2(ui_state *UiState, assets *Assets, render_group *RenderGroup, u32 ID, v2 MouseP, v2 BoundsP, string Str, v2 *TargetP)
 {
     ui_interaction Interaction;
     ZeroStruct(Interaction);
@@ -43,7 +43,7 @@ EditableV2(app_state *AppState, ui_state *UiState, render_group *RenderGroup, u3
     Interaction.Type = UiInteraction_Draggable;
     Interaction.P = TargetP;
     
-    TextElement(AppState, UiState, RenderGroup, MouseP, BoundsP, Str, Interaction);
+    TextElement(UiState, Assets, RenderGroup, MouseP, BoundsP, Str, Interaction);
     
     if(InteractionsAreEqual(Interaction, UiState->Interaction))
     {
@@ -57,14 +57,14 @@ internal void
 UIUpdateAndRender(app_state *AppState, ui_state *UiState, memory_arena *Arena, render_group *RenderGroup, v2 MouseP)
 {
     string Str = FormatString(Arena, "before %d after", AppState->TestCounter);
-    EditableV2(AppState, UiState, RenderGroup, 1111, MouseP, AppState->TestP, Str, &AppState->TestP);
+    EditableV2(UiState, &AppState->Assets, RenderGroup, 1111, MouseP, AppState->TestP, Str, &AppState->TestP);
     
-    if(PushButton(AppState, UiState, RenderGroup, 2222, MouseP, V2(750, 150), String("Decrement")))
+    if(PushButton(UiState, &AppState->Assets, RenderGroup, 2222, MouseP, V2(750, 150), String("Decrement")))
     {
         --AppState->TestCounter;
     }
     
-    if(PushButton(AppState, UiState, RenderGroup, 3333, MouseP, V2(150, 150), String("Increment")))
+    if(PushButton(UiState, &AppState->Assets, RenderGroup, 3333, MouseP, V2(150, 150), String("Increment")))
     {
         ++AppState->TestCounter;
     }

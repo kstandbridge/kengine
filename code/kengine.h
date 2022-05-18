@@ -31,49 +31,22 @@
 #include "kengine_math.h"
 #include "kengine_render_group.h"
 #include "kengine_ui.h"
-
-#pragma pack(push, 1)
-typedef struct bitmap_header
-{
-    u16 FileType;
-    u32 FileSize;
-    u16 Reserved1;
-    u16 Reserved2;
-    u32 BitmapOffset;
-    u32 Size;
-    s32 Width;
-    s32 Height;
-    u16 Planes;
-    u16 BitsPerPixel;
-    u32 Compression;
-    u32 SizeOfBitmap;
-    s32 HorzResolution;
-    s32 VertResolution;
-    u32 ColorsUsed;
-    u32 ColorsImportant;
-    
-    u32 RedMask;
-    u32 GreenMask;
-    u32 BlueMask;
-} bitmap_header;
-#pragma pack(pop)
+#include "kengine_assets.h"
 
 typedef struct app_state
 {
     b32 IsInitialized;
     
-    f32 Time;
-    
     memory_arena PermanentArena;
     memory_arena TransientArena;
     
+    ui_state UiState;
+    assets Assets;
+    
+    f32 Time;
     loaded_bitmap TestBMP;
     loaded_bitmap TestFont;
     
-    // TODO(kstandbridge): Move this to assets or similar
-    loaded_bitmap Glyphs[256];
-    
-    ui_state UiState;
     
     v2 TestP;
     s32 TestCounter;
