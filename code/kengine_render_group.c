@@ -630,3 +630,72 @@ RenderGroupToOutput(render_group *Group)
     
     Platform.CompleteAllWork(Platform.PerFrameWorkQueue);
 }
+
+
+typedef enum text_op_type
+{
+    TextOp_DrawText,
+    TextOp_SizeText,
+} text_op_type;
+internal rectangle2
+TextOpInternal(text_op_type Op, app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, string Str)
+{
+    rectangle2 Result = InvertedInfinityRectangle2();
+    
+    f32 AtX = P.X;
+    f32 AtY = P.Y;
+    u32 PrevCodePoint = 0;
+    for(u32 Index = 0;
+        Index < Str.Size;
+        ++Index)
+    {
+        u32 CodePoint = Str.Data[Index];
+        
+        if(CodePoint != ' ')
+        {        
+            if(AppState->Glyphs[CodePoint].Memory == 0)
+            {
+                // TODO(kstandbridge): This should be threaded
+                AppState->Glyphs[CodePoint] = Platform.DEBUGGetGlyphForCodePoint(&AppState->PermanentArena, CodePoint);
+            }
+            
+            loaded_bitmap *Bitmap = AppState->Glyphs + CodePoint;
+            f32 Height = Scale*Bitmap->Height;
+            v2 Offset = V2(AtX, AtY);
+            if(Op == TextOp_DrawText)
+            {
+                PushBitmap(RenderGroup, Bitmap, Height, Offset, V4(1, 1, 1, 1), 0.0f);
+            }
+            else
+            {
+                Assert(Op == TextOp_SizeText);
+                v2 Dim = V2(Height*Bitmap->WidthOverHeight, Height);
+                v2 Align = Hadamard(Bitmap->AlignPercentage, Dim);
+                v2 GlyphP = V2Subtract(Offset, Align);
+                rectangle2 GlyphDim = RectMinDim(GlyphP, Dim);
+                Result = Union(Result, GlyphDim);
+            }
+            
+            PrevCodePoint = CodePoint;
+        }
+        
+        f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(PrevCodePoint, CodePoint);
+        AtX += AdvanceX;
+    }
+    
+    return Result;
+}
+
+inline void
+WriteLine(app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, string Str)
+{
+    TextOpInternal(TextOp_DrawText, AppState, RenderGroup, P, Scale, Str);
+}
+
+inline rectangle2
+GetTextSize(app_state *AppState, render_group *RenderGroup, v2 P, f32 Scale, string Str)
+{
+    rectangle2 Result = TextOpInternal(TextOp_SizeText, AppState, RenderGroup, P, Scale, Str);
+    
+    return Result;
+}

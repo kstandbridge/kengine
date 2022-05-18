@@ -2,8 +2,6 @@
 
 /* TODO(kstandbridge): 
 
-- UI push system
-- UI render system
 - meta linked list
 - meta double linked list
 - meta free list
@@ -32,6 +30,7 @@
 #include "kengine_generated.h"
 #include "kengine_math.h"
 #include "kengine_render_group.h"
+#include "kengine_ui.h"
 
 #pragma pack(push, 1)
 typedef struct bitmap_header
@@ -59,31 +58,6 @@ typedef struct bitmap_header
 } bitmap_header;
 #pragma pack(pop)
 
-typedef enum ui_interaction_type
-{
-    UiInteraction_None,
-    
-    UiInteraction_NOP,
-    
-    UiInteraction_ImmediateButton,
-    UiInteraction_Draggable,
-    
-} ui_interaction_type;
-
-typedef struct app_state app_state;
-
-typedef struct ui_interaction
-{
-    u32 ID;
-    ui_interaction_type Type;
-    
-    union
-    {
-        void *Generic;
-        v2 *P;
-    };
-} ui_interaction;
-
 typedef struct app_state
 {
     b32 IsInitialized;
@@ -96,60 +70,15 @@ typedef struct app_state
     loaded_bitmap TestBMP;
     loaded_bitmap TestFont;
     
+    // TODO(kstandbridge): Move this to assets or similar
     loaded_bitmap Glyphs[256];
     
-    v2 LastMouseP;
-    ui_interaction Interaction;
-    
-    ui_interaction HotInteraction;
-    ui_interaction NextHotInteraction;
-    
-    ui_interaction ToExecute;
-    ui_interaction NextToExecute;
+    ui_state UiState;
     
     v2 TestP;
     s32 TestCounter;
     
 } app_state;
-
-
-inline b32
-InteractionsAreEqual(ui_interaction A, ui_interaction B)
-{
-    b32 Result = ((A.ID == B.ID) &&
-                  (A.Type == B.Type) &&
-                  (A.Generic == B.Generic));
-    
-    return Result;
-}
-
-inline b32
-InteractionIsHot(app_state *AppState, ui_interaction A)
-{
-    b32 Result = InteractionsAreEqual(AppState->HotInteraction, A);
-    
-    if(A.Type == UiInteraction_None)
-    {
-        Result = false;
-    }
-    
-    return Result;
-}
-
-inline b32 
-InteractionIsValid(ui_interaction *Interaction)
-{
-    b32 Result = (Interaction->Type != UiInteraction_None);
-    
-    return Result;
-}
-
-inline void
-ClearInteraction(ui_interaction *Interaction)
-{
-    Interaction->Type = UiInteraction_None;
-    Interaction->Generic = 0;
-}
 
 #define KENGINE_H
 #endif //KENGINE_H

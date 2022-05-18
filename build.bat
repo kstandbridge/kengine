@@ -8,7 +8,7 @@ set CommonCompilerFlags=-diagnostics:column -WL -nologo -fp:fast -fp:except- -Gm
 set CommonCompilerFlags=-DKENGINE_INTERNAL=1 %CommonCompilerFlags%
 
 REM unreferenced formal parameter
-set CommonCompilerFlags=-wd4100 %CommonCompilerFlags%
+REM set CommonCompilerFlags=-wd4100 %CommonCompilerFlags%
 REM local variable is initialized but not referenced
 set CommonCompilerFlags=-wd4189 %CommonCompilerFlags%
 REM nonstandard extension used: nameless struct/union
