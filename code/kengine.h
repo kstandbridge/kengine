@@ -2,12 +2,11 @@
 
 /* TODO(kstandbridge): 
 
+- UI push system
+- UI render system
 - meta linked list
 - meta double linked list
 - meta free list
-- UI push system
-- UI render system
-- UI handle interaction
 - Format string c	Character
 - Format string o	Unsigned octal
 - Format string x	Unsigned hexadecimal integer
@@ -66,7 +65,7 @@ typedef enum ui_interaction_type
     
     UiInteraction_NOP,
     
-    UiInteraction_Move,
+    UiInteraction_Drag,
     UiInteraction_Invoke,
     
 } ui_interaction_type;
@@ -106,6 +105,7 @@ typedef struct app_state
     
     v2 TestP;
     s32 TestCounter;
+    
 } app_state;
 
 

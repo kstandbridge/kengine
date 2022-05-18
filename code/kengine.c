@@ -196,12 +196,12 @@ UiInteract(app_state *AppState, app_input *Input, v2 MouseP)
 {
     if(AppState->Interaction.Type)
     {
-        v2 *P = AppState->Interaction.P;
-        v2 dMouseP = V2Subtract(MouseP, AppState->LastMouseP);
         switch(AppState->Interaction.Type)
         {
-            case UiInteraction_Move:
+            case UiInteraction_Drag:
             {
+                v2 dMouseP = V2Subtract(MouseP, AppState->LastMouseP);
+                v2 *P = AppState->Interaction.P;
                 *P = V2Add(*P, dMouseP);
             } break;
         }
@@ -240,6 +240,8 @@ UiInteract(app_state *AppState, app_input *Input, v2 MouseP)
     AppState->LastMouseP = MouseP;
 }
 
+
+
 internal void
 IncrementHandler(app_state *AppState)
 {
@@ -264,9 +266,8 @@ DrawUI(app_state *AppState, render_group *RenderGroup, memory_arena *Arena, app_
         rectangle2 TextBounds = GetTextSize(AppState, RenderGroup, BoundsP, Scale, Str);
         
         ui_interaction ButtonInteraction;
-        ButtonInteraction.Type = UiInteraction_Move;
+        ButtonInteraction.Type = UiInteraction_Drag;
         ButtonInteraction.P = &AppState->TestP;
-        //ButtonInteraction.Handler = TestHandler;
         
         b32 IsHot = InteractionIsHot(AppState, ButtonInteraction);
         v4 ButtonColor = IsHot ? V4(1, 0, 0, 1) : V4(1, 0, 1, 1);
@@ -301,7 +302,7 @@ DrawUI(app_state *AppState, render_group *RenderGroup, memory_arena *Arena, app_
         }
     }
     
-    // NOTE(kstandbridge): Increment button
+    // NOTE(kstandbridge): Decrement button
     {
         v2 BoundsP = V2(750, 150);
         
@@ -322,7 +323,6 @@ DrawUI(app_state *AppState, render_group *RenderGroup, memory_arena *Arena, app_
             AppState->NextHotInteraction = Interaction;
         }
     }
-    
 }
 
 extern void
@@ -346,7 +346,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     }
     
     
-    AppState->Time += Input->dtForFrame;;
+    AppState->Time += Input->dtForFrame;
     
     temporary_memory RenderMem = BeginTemporaryMemory(&AppState->TransientArena);
     
@@ -362,6 +362,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     PushClear(RenderGroup, V4(0.3f, 0.0f, 0.3f, 1.0f));
     
 #if 0
+    
     v2 P = V2(100.0f, 75.0f);
     
     v2 RectSize = V2((f32)AppState->TestBMP.Width, (f32)AppState->TestBMP.Height);
@@ -390,16 +391,23 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     AppState->NextHotInteraction.Generic = 0;
     
     v2 MouseP = V2(Input->MouseX, Input->MouseY);
+    
     DrawUI(AppState, RenderGroup, RenderMem.Arena, Input, MouseP);
+    
     UiInteract(AppState, Input, MouseP);
     
     // NOTE(kstandbridge): Cursor
     {
         PushRect(RenderGroup, MouseP, V2(10, 10), V4(1, 1, 0, 1));
     }
+    
 #endif
     
     RenderGroupToOutput(RenderGroup);
+    
+    v2 RectP = V2((f32)Buffer->Width / 2, (f32)Buffer->Height / 2);
+    DrawCircle(DrawBuffer, RectP, V2Add(RectP, V2(50, 50)), V4(1, 1, 0, 1), Rectangle2i(0, Buffer->Width, 0, Buffer->Height));
+    
     EndTemporaryMemory(RenderMem);
     
     CheckArena(&AppState->PermanentArena);

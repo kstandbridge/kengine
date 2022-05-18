@@ -40,6 +40,62 @@ DrawRectangle(loaded_bitmap *Buffer, v2 vMin, v2 vMax, v4 Color, rectangle2i Cli
 }
 
 internal void
+DrawCircle(loaded_bitmap *Buffer, v2 vMin, v2 vMax, v4 Color, rectangle2i ClipRect)
+{
+    f32 R = Color.R;
+    f32 G = Color.G;
+    f32 B = Color.B;
+    f32 A = Color.A;
+    
+    rectangle2i FillRect;
+    FillRect.MinX = RoundReal32ToInt32(vMin.X);
+    FillRect.MinY = RoundReal32ToInt32(vMin.Y);
+    FillRect.MaxX = RoundReal32ToInt32(vMax.X);
+    FillRect.MaxY = RoundReal32ToInt32(vMax.Y);
+    
+    FillRect = Intersect(FillRect, ClipRect);
+    
+    s32 RadiusX = (FillRect.MaxX - FillRect.MinX) / 2;
+    s32 RadiusY = (FillRect.MaxY - FillRect.MinY) / 2;
+    s32 CenterX = FillRect.MinX + (RadiusX);
+    s32 CenterY = FillRect.MinY + (RadiusY);
+    
+    u32 Color32 = ((RoundReal32ToUInt32(A * 255.0f) << 24) |
+                   (RoundReal32ToUInt32(R * 255.0f) << 16) |
+                   (RoundReal32ToUInt32(G * 255.0f) << 8) |
+                   (RoundReal32ToUInt32(B * 255.0f) << 0));
+    
+    u8 *Row = ((u8 *)Buffer->Memory +
+               FillRect.MinX*BITMAP_BYTES_PER_PIXEL +
+               FillRect.MinY*Buffer->Pitch);
+    for(s32 Y = FillRect.MinY;
+        Y < FillRect.MaxY;
+        ++Y)
+    {
+        u32 *Pixel = (u32 *)Row;
+        for(s32 X = FillRect.MinX;
+            X < FillRect.MaxX;
+            ++X)
+        {   
+            s32 dX = X - CenterX;
+            s32 dY = Y - CenterY;
+            
+            dX *= dX;
+            dY *= dY;
+            
+            f32 Val = SquareRoot((f32)dX + (f32)dY);
+            if(Val < RadiusX)
+            {
+                *Pixel = Color32;
+            }
+            ++Pixel;
+        }
+        
+        Row += Buffer->Pitch;
+    }
+}
+
+internal void
 DrawBitmap(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color, loaded_bitmap *Texture, rectangle2i ClipRect)
 {
     // NOTE(kstandbridge): Premultiply color up front   
