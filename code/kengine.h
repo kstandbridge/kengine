@@ -65,21 +65,21 @@ typedef enum ui_interaction_type
     
     UiInteraction_NOP,
     
-    UiInteraction_Drag,
-    UiInteraction_Invoke,
+    UiInteraction_ImmediateButton,
+    UiInteraction_Draggable,
     
 } ui_interaction_type;
 
 typedef struct app_state app_state;
-typedef void click_event(app_state *AppState);
 
 typedef struct ui_interaction
 {
+    u32 ID;
     ui_interaction_type Type;
+    
     union
     {
         void *Generic;
-        click_event *Handler;
         v2 *P;
     };
 } ui_interaction;
@@ -100,8 +100,12 @@ typedef struct app_state
     
     v2 LastMouseP;
     ui_interaction Interaction;
+    
     ui_interaction HotInteraction;
     ui_interaction NextHotInteraction;
+    
+    ui_interaction ToExecute;
+    ui_interaction NextToExecute;
     
     v2 TestP;
     s32 TestCounter;
@@ -112,7 +116,8 @@ typedef struct app_state
 inline b32
 InteractionsAreEqual(ui_interaction A, ui_interaction B)
 {
-    b32 Result = ((A.Type == B.Type) &&
+    b32 Result = ((A.ID == B.ID) &&
+                  (A.Type == B.Type) &&
                   (A.Generic == B.Generic));
     
     return Result;
@@ -123,7 +128,27 @@ InteractionIsHot(app_state *AppState, ui_interaction A)
 {
     b32 Result = InteractionsAreEqual(AppState->HotInteraction, A);
     
+    if(A.Type == UiInteraction_None)
+    {
+        Result = false;
+    }
+    
     return Result;
+}
+
+inline b32 
+InteractionIsValid(ui_interaction *Interaction)
+{
+    b32 Result = (Interaction->Type != UiInteraction_None);
+    
+    return Result;
+}
+
+inline void
+ClearInteraction(ui_interaction *Interaction)
+{
+    Interaction->Type = UiInteraction_None;
+    Interaction->Generic = 0;
 }
 
 #define KENGINE_H
