@@ -70,7 +70,6 @@ typedef enum ui_layout_type
 typedef struct ui_layout_row
 {
     ui_layout_type Type;
-    rectangle2i Bounds;
     ui_element *LastElement;
     
     f32 UsedWidth;
@@ -92,6 +91,7 @@ typedef struct ui_layout
     f32 Scale;
     v2 MouseP;
     v2 dMouseP;
+    
     s32 FillRows;
     f32 UsedHeight;
     

@@ -68,7 +68,6 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
         switch(Layout->State->Interaction.Type)
         {
             case UiInteraction_ImmediateButton:
-            case UiInteraction_Draggable:
             {
                 if(MouseUp)
                 {
@@ -178,6 +177,7 @@ BeginRow(ui_layout *Layout, ui_layout_type Type)
 {
     Assert(!Layout->IsCreatingRow);
     Layout->IsCreatingRow = true;
+    
     ui_layout_row *Row = PushStruct(Layout->Arena, ui_layout_row);
     ZeroStruct(*Row);
     Row->Next = Layout->LastRow;
@@ -202,33 +202,32 @@ EndRow(ui_layout *Layout)
         Assert(Row->Type == LayoutType_Auto);
     }
     
+    for(ui_element *Element = Row->LastElement;
+        Element;
+        Element = Element->Next)
     {
-        for(ui_element *Element = Row->LastElement;
-            Element;
-            Element = Element->Next)
+        if(Element->Type == ElementType_Spacer)
         {
-            if(Element->Type == ElementType_Spacer)
+            ++Row->SpacerCount;
+        }
+        else
+        {
+            rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, Element->Label);
+            Element->TextOffset = TextBounds.Min.Y;
+            Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
+                              TextBounds.Max.Y - TextBounds.Min.Y);
+            
+            Row->UsedWidth += Element->Dim.X;
+            if(Element->Dim.Y > Row->MaxHeight)
             {
-                ++Row->SpacerCount;
-            }
-            else
-            {
-                rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, Element->Label);
-                Element->TextOffset = TextBounds.Min.Y;
-                Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
-                                  TextBounds.Max.Y - TextBounds.Min.Y);
-                
-                Row->UsedWidth += Element->Dim.X;
-                if(Element->Dim.Y > Row->MaxHeight)
-                {
-                    Row->MaxHeight = Element->Dim.Y;
-                }
+                Row->MaxHeight = Element->Dim.Y;
             }
         }
-        if(Row->Type == LayoutType_Auto)
-        {
-            Layout->UsedHeight += Row->MaxHeight;
-        }
+    }
+    
+    if(Row->Type == LayoutType_Auto)
+    {
+        Layout->UsedHeight += Row->MaxHeight;
     }
 }
 
