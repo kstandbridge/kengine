@@ -54,7 +54,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     ui_layout Layout = BeginUIFrame(&AppState->UiState, RenderMem.Arena, RenderGroup, Input, 0.5f);
     
-    PushRow(&Layout, LayoutType_Auto);
+    BeginRow(&Layout, LayoutType_Auto);
     PushButtonElement(&Layout, __COUNTER__, String("Top Left gggg"));
     PushSpacerElement(&Layout);
     if(PushButtonElement(&Layout, __COUNTER__, String("Click Me")))
@@ -62,17 +62,20 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         AppState->TestP = V2Set1(0.0f);
     }
     PushButtonElement(&Layout, __COUNTER__, String("Top Right"));
+    EndRow(&Layout);
     
-    PushRow(&Layout, LayoutType_Fill);
+    BeginRow(&Layout, LayoutType_Fill);
     PushSpacerElement(&Layout);
     string ScrollText = FormatString(RenderMem.Arena, "Before %.2f %.2f After", AppState->TestP.X, AppState->TestP.Y);
     PushScrollElement(&Layout, __COUNTER__, ScrollText, &AppState->TestP);
     PushSpacerElement(&Layout);
+    EndRow(&Layout);
     
-    PushRow(&Layout, LayoutType_Auto);
+    BeginRow(&Layout, LayoutType_Auto);
     PushButtonElement(&Layout, __COUNTER__, String("Bottom Left"));
     PushSpacerElement(&Layout);
     PushButtonElement(&Layout, __COUNTER__, String("Bottom Right"));
+    EndRow(&Layout);
     
     EndUIFrame(&Layout, Input);
     

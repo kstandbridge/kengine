@@ -2,7 +2,6 @@
 
 /* TODO(kstandbridge): 
 
-- Begin/EndRow to reduce iterations of DrawUIInternal
 - meta linked list
 - meta double linked list
 - meta free list

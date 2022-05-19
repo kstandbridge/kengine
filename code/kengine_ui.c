@@ -111,58 +111,10 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
 internal void
 DrawUIInternal(ui_layout *Layout)
 {
-    s32 RowCount = 0;
-    s32 FillRows = 0;
-    f32 UsedHeight = 0.0f;
-    for(ui_layout_row *Row = Layout->LastRow;
-        Row;
-        Row = Row->Next)
-    {
-        // TODO(kstandbridge): This could be moved to EndRow?
-        ++RowCount;
-        if(Row->Type == LayoutType_Fill)
-        {
-            ++FillRows;
-        }
-        else
-        {
-            Assert(Row->Type == LayoutType_Auto);
-        }
-        
-        {
-            for(ui_element *Element = Row->LastElement;
-                Element;
-                Element = Element->Next)
-            {
-                if(Element->Type == ElementType_Spacer)
-                {
-                    ++Row->SpacerCount;
-                }
-                else
-                {
-                    rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, Element->Label);
-                    Element->TextOffset = TextBounds.Min.Y;
-                    Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
-                                      TextBounds.Max.Y - TextBounds.Min.Y);
-                    
-                    Row->UsedWidth += Element->Dim.X;
-                    if(Element->Dim.Y > Row->MaxHeight)
-                    {
-                        Row->MaxHeight = Element->Dim.Y;
-                    }
-                }
-            }
-            if(Row->Type == LayoutType_Auto)
-            {
-                UsedHeight += Row->MaxHeight;
-            }
-        }
-    }
-    
     f32 CurrentY = 0.0f;
     f32 TotalHeight = (f32)Layout->RenderGroup->OutputTarget->Height;
-    f32 RemainingHeight = TotalHeight - UsedHeight;
-    f32 HeightPerFill = RemainingHeight / FillRows;
+    f32 RemainingHeight = TotalHeight - Layout->UsedHeight;
+    f32 HeightPerFill = RemainingHeight / Layout->FillRows;
     for(ui_layout_row *Row = Layout->LastRow;
         Row;
         Row = Row->Next)
@@ -212,6 +164,8 @@ DrawUIInternal(ui_layout *Layout)
 internal void
 EndUIFrame(ui_layout *Layout, app_input *Input)
 {
+    Assert(!Layout->IsCreatingRow);
+    
     HandleUIInteractionsInternal(Layout, Input);
     
     Layout->State->LastMouseP = Layout->MouseP;
@@ -220,8 +174,10 @@ EndUIFrame(ui_layout *Layout, app_input *Input)
 }
 
 inline void
-PushRow(ui_layout *Layout, ui_layout_type Type)
+BeginRow(ui_layout *Layout, ui_layout_type Type)
 {
+    Assert(!Layout->IsCreatingRow);
+    Layout->IsCreatingRow = true;
     ui_layout_row *Row = PushStruct(Layout->Arena, ui_layout_row);
     ZeroStruct(*Row);
     Row->Next = Layout->LastRow;
@@ -230,9 +186,57 @@ PushRow(ui_layout *Layout, ui_layout_type Type)
     Row->Type = Type;
 }
 
+inline void
+EndRow(ui_layout *Layout)
+{
+    Assert(Layout->IsCreatingRow);
+    Layout->IsCreatingRow = false;
+    
+    ui_layout_row *Row = Layout->LastRow;
+    if(Row->Type == LayoutType_Fill)
+    {
+        ++Layout->FillRows;
+    }
+    else
+    {
+        Assert(Row->Type == LayoutType_Auto);
+    }
+    
+    {
+        for(ui_element *Element = Row->LastElement;
+            Element;
+            Element = Element->Next)
+        {
+            if(Element->Type == ElementType_Spacer)
+            {
+                ++Row->SpacerCount;
+            }
+            else
+            {
+                rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, Element->Label);
+                Element->TextOffset = TextBounds.Min.Y;
+                Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
+                                  TextBounds.Max.Y - TextBounds.Min.Y);
+                
+                Row->UsedWidth += Element->Dim.X;
+                if(Element->Dim.Y > Row->MaxHeight)
+                {
+                    Row->MaxHeight = Element->Dim.Y;
+                }
+            }
+        }
+        if(Row->Type == LayoutType_Auto)
+        {
+            Layout->UsedHeight += Row->MaxHeight;
+        }
+    }
+}
+
 inline ui_element *
 PushElementInternal(ui_layout *Layout, ui_element_type ElementType, ui_element_type InteractionType, u32 ID, string Str, void *Target)
 {
+    Assert(Layout->IsCreatingRow);
+    
     ui_element *Element = PushStruct(Layout->Arena, ui_element);
     ZeroStruct(*Element);
     Element->Next = Layout->LastRow->LastElement;
@@ -251,6 +255,8 @@ PushElementInternal(ui_layout *Layout, ui_element_type ElementType, ui_element_t
 inline b32
 PushButtonElement(ui_layout *Layout, u32 ID, string Str)
 {
+    Assert(Layout->IsCreatingRow);
+    
     ui_element *Element = PushElementInternal(Layout, ElementType_Button, UiInteraction_ImmediateButton, ID, Str, 0);
     
     b32 Result = InteractionsAreEqual(Element->Interaction, Layout->State->ToExecute);
@@ -260,6 +266,8 @@ PushButtonElement(ui_layout *Layout, u32 ID, string Str)
 inline void
 PushScrollElement(ui_layout *Layout, u32 ID, string Str, v2 *TargetP)
 {
+    Assert(Layout->IsCreatingRow);
+    
     ui_element *Element = PushElementInternal(Layout, ElementType_Slider, UiInteraction_Draggable, ID, Str, TargetP);
     
     if(InteractionsAreEqual(Element->Interaction, Layout->State->Interaction))
@@ -272,5 +280,7 @@ PushScrollElement(ui_layout *Layout, u32 ID, string Str, v2 *TargetP)
 inline void
 PushSpacerElement(ui_layout *Layout)
 {
+    Assert(Layout->IsCreatingRow);
+    
     PushElementInternal(Layout, ElementType_Spacer, UiInteraction_NOP, 0, String(""), 0);
 }

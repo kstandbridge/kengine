@@ -87,9 +87,13 @@ typedef struct ui_layout
     
     render_group *RenderGroup;
     
+    b32 IsCreatingRow;
+    
     f32 Scale;
     v2 MouseP;
     v2 dMouseP;
+    s32 FillRows;
+    f32 UsedHeight;
     
     ui_layout_row *LastRow;
     
