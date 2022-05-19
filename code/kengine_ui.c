@@ -15,7 +15,7 @@ TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, f32
     PushRect(Layout->RenderGroup, P, Dim, ButtonColor);
     WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, V2(0.0f, TextOffset)), Scale, Str);
     
-    if(IsInRectangle(Bounds, Layout->MouseP))
+    if(IsInRectangle(Rectangle2(P, V2Add(P, Dim)), Layout->MouseP))
     {
         Layout->State->NextHotInteraction = Interaction;
     }
@@ -111,8 +111,6 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
 internal void
 DrawUIInternal(ui_layout *Layout)
 {
-    f32 CurrentY = 0.0f;
-    
     s32 RowCount = 0;
     s32 FillRows = 0;
     f32 UsedHeight = 0.0f;
@@ -161,6 +159,7 @@ DrawUIInternal(ui_layout *Layout)
         }
     }
     
+    f32 CurrentY = 0.0f;
     f32 TotalHeight = (f32)Layout->RenderGroup->OutputTarget->Height;
     f32 RemainingHeight = TotalHeight - UsedHeight;
     f32 HeightPerFill = RemainingHeight / FillRows;
@@ -172,14 +171,6 @@ DrawUIInternal(ui_layout *Layout)
         f32 RemainingWidth = TotalWidth - Row->UsedWidth;
         f32 WidthPerSpacer = RemainingWidth / Row->SpacerCount;
         v2 P = V2(TotalWidth, CurrentY);
-        if(Row->Type == LayoutType_Fill)
-        {
-            P.Y += (0.5f*HeightPerFill) - (0.5f*Row->MaxHeight);
-        }
-        else
-        {
-            Assert(Row->Type == LayoutType_Auto);
-        }
         
         for(ui_element *Element = Row->LastElement;
             Element;
@@ -193,7 +184,17 @@ DrawUIInternal(ui_layout *Layout)
             {
                 P.X -= Element->Dim.X;
                 f32 HeightDifference = (Row->MaxHeight - Element->Dim.Y);
-                TextElement(Layout, P, Element->Label, Element->Interaction, Element->TextOffset - HeightDifference, HeightDifference, Layout->Scale);
+                f32 TextOffset = Element->TextOffset - HeightDifference;
+                if(Row->Type == LayoutType_Fill)
+                {
+                    TextOffset -= 0.5f*HeightPerFill;
+                    HeightDifference = HeightPerFill - Element->Dim.Y;
+                }
+                else
+                {
+                    Assert(Row->Type == LayoutType_Auto);
+                }
+                TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, HeightDifference, Layout->Scale);
             }
         }
         if(Row->Type == LayoutType_Auto)
