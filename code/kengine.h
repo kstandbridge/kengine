@@ -2,9 +2,11 @@
 
 /* TODO(kstandbridge): 
 
+- Begin/EndRow to reduce iterations of DrawUIInternal
 - meta linked list
 - meta double linked list
 - meta free list
+- fix: FormatString ex: %f,%f
 - Format string c	Character
 - Format string o	Unsigned octal
 - Format string x	Unsigned hexadecimal integer
@@ -30,8 +32,8 @@
 #include "kengine_generated.h"
 #include "kengine_math.h"
 #include "kengine_render_group.h"
-#include "kengine_ui.h"
 #include "kengine_assets.h"
+#include "kengine_ui.h"
 
 typedef struct app_state
 {
@@ -46,7 +48,6 @@ typedef struct app_state
     f32 Time;
     loaded_bitmap TestBMP;
     loaded_bitmap TestFont;
-    
     
     v2 TestP;
     s32 TestCounter;

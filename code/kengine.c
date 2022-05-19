@@ -25,6 +25,8 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         SubArena(&AppState->TransientArena, &AppState->PermanentArena, Megabytes(32));
         
+        AppState->UiState.Assets = &AppState->Assets;
+        
         AppState->IsInitialized = true;
     }
     
@@ -41,50 +43,55 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     render_group *RenderGroup = AllocateRenderGroup(RenderMem.Arena, Megabytes(4), DrawBuffer);
     
-    PushClear(RenderGroup, V4(0.3f, 0.0f, 0.3f, 1.0f));
+    if(Memory->ExecutableReloaded)
+    {
+        PushClear(RenderGroup, V4(0.6f, 0.0f, 0.6f, 1.0f));
+    }
+    else
+    {
+        PushClear(RenderGroup, V4(0.3f, 0.0f, 0.3f, 1.0f));
+    }
     
-    v2 MouseP = V2(Input->MouseX, Input->MouseY);
-    ui_state *UiState = &AppState->UiState;
-    UIUpdateAndRender(AppState, UiState, RenderMem.Arena, RenderGroup, MouseP);
-    UIInteract(UiState, Input);
-    ClearInteraction(&UiState->NextHotInteraction);
-    UiState->LastMouseP = MouseP;
+    ui_layout Layout = BeginUIFrame(&AppState->UiState, RenderMem.Arena, RenderGroup, Input, 0.5f);
+    
+    PushRow(&Layout, LayoutType_Auto);
+    PushButtonElement(&Layout, __COUNTER__, String("Top Left gggg"));
+    PushSpacerElement(&Layout);
+    if(PushButtonElement(&Layout, __COUNTER__, String("Click Me")))
+    {
+        AppState->TestP = V2Set1(0.0f);
+    }
+    PushButtonElement(&Layout, __COUNTER__, String("Top Right"));
+    
+    PushRow(&Layout, LayoutType_Fill);
+    PushSpacerElement(&Layout);
+    string ScrollText = FormatString(RenderMem.Arena, "Before %.2f %.2f After", AppState->TestP.X, AppState->TestP.Y);
+    PushScrollElement(&Layout, __COUNTER__, ScrollText, &AppState->TestP);
+    PushSpacerElement(&Layout);
+    
+    PushRow(&Layout, LayoutType_Auto);
+    PushButtonElement(&Layout, __COUNTER__, String("Bottom Left"));
+    PushSpacerElement(&Layout);
+    PushButtonElement(&Layout, __COUNTER__, String("Bottom Right"));
+    
+    EndUIFrame(&Layout, Input);
     
 #if 0
-    
-    v2 P = V2(100.0f, 75.0f);
-    
-    v2 RectSize = V2((f32)AppState->TestBMP.Width, (f32)AppState->TestBMP.Height);
-    
-    PushRect(RenderGroup, P, RectSize, V4(1, 1, 0, 1));
-    PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, P, V4(1, 1, 1, 1), 0.0f);
-    
-    P.X += 250;
-    
-    rectangle2 TextBounds = GetTextSize(AppState, RenderGroup, P, 1.0f, String("Hello"));
-    v2 MouseP = V2(Input->MouseX, Input->MouseY);
-    
-    b32 IsHot = IsInRectangle(TextBounds, MouseP);
-    v4 BackColor = IsHot ? V4(0, 0, 1, 1) : V4(1, 1, 1, 1);
-    PushRect(RenderGroup, TextBounds.Min, V2Subtract(TextBounds.Max, TextBounds.Min), BackColor);
-    WriteLine(AppState, RenderGroup, P, 1.0f, String("Hello"));
-    
-#if 0
+    v2 P = V2(500.0f, 400.0f);
     f32 Angle = 0.1f*AppState->Time;
     PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, P, V4(1, 1, 1, 1), Angle);
 #endif
     
-#endif
-    
-    RenderGroupToOutput(RenderGroup);
-    
-#if 0    
+#if 0
     v2 RectP = V2((f32)Buffer->Width / 2, (f32)Buffer->Height / 2);
+    // TODO(kstandbridge): push circle?
     DrawCircle(DrawBuffer, RectP, V2Add(RectP, V2(50, 50)), V4(1, 1, 0, 1), Rectangle2i(0, Buffer->Width, 0, Buffer->Height));
 #endif
     
+    RenderGroupToOutput(RenderGroup);
     EndTemporaryMemory(RenderMem);
     
     CheckArena(&AppState->PermanentArena);
     CheckArena(&AppState->TransientArena);
+    CheckArena(&AppState->Assets.Arena);
 }
