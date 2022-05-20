@@ -1,19 +1,19 @@
 
 internal void
-TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, f32 TextOffset, f32 Padding, f32 Scale)
+TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, v2 TextOffset, v2 Padding, f32 Scale)
 {
     rectangle2 Bounds = TextOpInternal(TextOp_SizeText, Layout->RenderGroup, Layout->State->Assets, P, Scale, Str);
     
     v2 Dim = V2(Bounds.Max.X - Bounds.Min.X, 
                 Bounds.Max.Y - Bounds.Min.Y);
-    Dim.Y += Padding;
+    Dim = V2Add(Dim, Padding);
     
     b32 IsHot = InteractionIsHot(Layout->State, Interaction);
     
     v4 ButtonColor = IsHot ? V4(0, 0, 1, 1) : V4(1, 0, 0, 1);
     
     PushRect(Layout->RenderGroup, P, Dim, ButtonColor);
-    WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, V2(0.0f, TextOffset)), Scale, Str);
+    WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str);
     
     if(IsInRectangle(Rectangle2(P, V2Add(P, Dim)), Layout->MouseP))
     {
@@ -134,17 +134,25 @@ DrawUIInternal(ui_layout *Layout)
             else
             {
                 P.X -= Element->Dim.X;
-                f32 HeightDifference = (Row->MaxHeight - Element->Dim.Y);
-                f32 TextOffset = Element->TextOffset - HeightDifference;
+                v2 HeightDifference = V2(0.0f, Row->MaxHeight - Element->Dim.Y);
+                v2 TextOffset = V2(0.0f, Element->TextOffset - HeightDifference.Y);
                 if(Row->Type == LayoutType_Fill)
                 {
-                    TextOffset -= 0.5f*HeightPerFill;
-                    HeightDifference = HeightPerFill - Element->Dim.Y;
+                    TextOffset.Y -= (0.5f*HeightPerFill) - 0.5f*(Element->Dim.Y);
+                    HeightDifference.Y = HeightPerFill - Element->Dim.Y;
                 }
                 else
                 {
                     Assert(Row->Type == LayoutType_Auto);
                 }
+                
+                if(Row->SpacerCount == 0)
+                {
+                    HeightDifference.X = (RemainingWidth/Row->ElementCount);
+                    TextOffset.X -= 0.5f*HeightDifference.X;
+                    P.X -= HeightDifference.X;
+                }
+                
                 TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, HeightDifference, Layout->Scale);
             }
         }
@@ -212,6 +220,7 @@ EndRow(ui_layout *Layout)
         }
         else
         {
+            ++Row->ElementCount;
             rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, Element->Label);
             Element->TextOffset = TextBounds.Min.Y;
             Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
@@ -272,7 +281,7 @@ PushScrollElement(ui_layout *Layout, u32 ID, string Str, v2 *TargetP)
     if(InteractionsAreEqual(Element->Interaction, Layout->State->Interaction))
     {
         v2 *P = Layout->State->Interaction.P;
-        *P = V2Add(*P, Layout->dMouseP);
+        *P = V2Add(*P, V2Multiply(V2Set1(0.01f), Layout->dMouseP));
     }
 }
 

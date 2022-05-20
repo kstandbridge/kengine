@@ -75,6 +75,7 @@ typedef struct ui_layout_row
     f32 UsedWidth;
     f32 MaxHeight;
     s32 SpacerCount;
+    s32 ElementCount;
     
     struct ui_layout_row *Next;
 } ui_layout_row;

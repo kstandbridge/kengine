@@ -2,6 +2,7 @@
 
 /* TODO(kstandbridge): 
 
+- fix: LayoutType_Fill horizontally
 - meta linked list
 - meta double linked list
 - meta free list
@@ -50,6 +51,8 @@ typedef struct app_state
     
     v2 TestP;
     s32 TestCounter;
+    // TODO(kstandbridge): Switch to a float
+    v2 UiScale;
     
 } app_state;
 

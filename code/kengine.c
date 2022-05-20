@@ -27,6 +27,8 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         AppState->UiState.Assets = &AppState->Assets;
         
+        AppState->UiScale = V2(0.5f, 0.0f);
+        
         AppState->IsInitialized = true;
     }
     
@@ -52,7 +54,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         PushClear(RenderGroup, V4(0.3f, 0.0f, 0.3f, 1.0f));
     }
     
-    ui_layout Layout = BeginUIFrame(&AppState->UiState, RenderMem.Arena, RenderGroup, Input, 0.5f);
+    ui_layout Layout = BeginUIFrame(&AppState->UiState, RenderMem.Arena, RenderGroup, Input, AppState->UiScale.X);
     
     BeginRow(&Layout, LayoutType_Auto);
     if(PushButtonElement(&Layout, __COUNTER__, String("Top Left gggg")))
@@ -69,18 +71,48 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     BeginRow(&Layout, LayoutType_Fill);
     PushSpacerElement(&Layout);
-    string ScrollText = FormatString(RenderMem.Arena, "Before %.2f %.2f After", AppState->TestP.X, AppState->TestP.Y);
-    PushScrollElement(&Layout, __COUNTER__, ScrollText, &AppState->TestP);
+    PushScrollElement(&Layout, __COUNTER__, 
+                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f PadRight", AppState->TestP.X, AppState->TestP.Y), 
+                      &AppState->TestP);
     PushSpacerElement(&Layout);
+    EndRow(&Layout);
+    
+    BeginRow(&Layout, LayoutType_Fill);
+    PushScrollElement(&Layout, __COUNTER__, 
+                      FormatString(RenderMem.Arena, "NoPad %.2f %.2f NoPad", AppState->TestP.X, AppState->TestP.Y), 
+                      &AppState->TestP);
+    EndRow(&Layout);
+    
+    BeginRow(&Layout, LayoutType_Fill);
+    PushScrollElement(&Layout, __COUNTER__, 
+                      FormatString(RenderMem.Arena, "NoPad %.2f %.2f PadRight", AppState->TestP.X, AppState->TestP.Y), 
+                      &AppState->TestP);
+    PushSpacerElement(&Layout);
+    EndRow(&Layout);
+    
+    BeginRow(&Layout, LayoutType_Auto);
+    PushSpacerElement(&Layout);
+    PushButtonElement(&Layout, __COUNTER__, String("Foo"));
+    PushSpacerElement(&Layout);
+    PushButtonElement(&Layout, __COUNTER__, String("Bar"));
+    PushSpacerElement(&Layout);
+    PushButtonElement(&Layout, __COUNTER__, String("Bas"));
+    PushSpacerElement(&Layout);
+    EndRow(&Layout);
+    
+    BeginRow(&Layout, LayoutType_Fill);
+    PushSpacerElement(&Layout);
+    PushScrollElement(&Layout, __COUNTER__, 
+                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f NoPad", AppState->TestP.X, AppState->TestP.Y), 
+                      &AppState->TestP);
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Auto);
     PushButtonElement(&Layout, __COUNTER__, String("Bottom Left"));
     PushSpacerElement(&Layout);
-    if(PushButtonElement(&Layout, __COUNTER__, String("Bottom Middle")))
-    {
-        AppState->TestP = V2(87.4f, 23.3f);
-    }
+    PushScrollElement(&Layout, __COUNTER__, 
+                      FormatString(RenderMem.Arena, "UI Scale: %.2f", AppState->UiScale.X),
+                      &AppState->UiScale);
     PushSpacerElement(&Layout);
     PushButtonElement(&Layout, __COUNTER__, String("Bottom Right"));
     EndRow(&Layout);
