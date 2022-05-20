@@ -30,6 +30,8 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         AppState->UiScale = V2(0.5f, 0.0f);
         
         AppState->TestString.Length = 1;
+        AppState->TestString.SelectionStart = 1;
+        AppState->TestString.SelectionEnd = 1;
         AppState->TestString.Size = 32;
         AppState->TestString.Data = PushSize(&AppState->PermanentArena, AppState->TestString.Size);
         AppState->TestString.Data[0] = ':';

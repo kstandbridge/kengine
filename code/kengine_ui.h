@@ -13,6 +13,8 @@ typedef enum ui_interaction_type
     
 } ui_interaction_type;
 
+
+
 typedef struct ui_interaction
 {
     u32 ID;
@@ -22,7 +24,7 @@ typedef struct ui_interaction
     {
         void *Generic;
         v2 *P;
-        string *Str;
+        editable_string *Str;
     };
 } ui_interaction;
 

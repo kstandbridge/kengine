@@ -104,9 +104,18 @@ typedef struct temporary_memory
     memory_index Used;
 } temporary_memory;
 
+typedef struct editable_string
+{
+    u32 Length;
+    u32 SelectionStart;
+    u32 SelectionEnd;
+    
+    umm Size;
+    u8 *Data;
+} editable_string;
+
 typedef struct string
 {
-    umm Length;
     umm Size;
     u8 *Data;
 } string;

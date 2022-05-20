@@ -48,7 +48,7 @@ typedef struct app_state
     loaded_bitmap TestBMP;
     loaded_bitmap TestFont;
     
-    string TestString;
+    editable_string TestString;
     v2 TestP;
     s32 TestCounter;
     // TODO(kstandbridge): Switch to a float

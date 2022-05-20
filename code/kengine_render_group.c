@@ -646,7 +646,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
     f32 AtY = P.Y;
     u32 PrevCodePoint = 0;
     for(u32 Index = 0;
-        Index < Str.Length;
+        Index < Str.Size;
         ++Index)
     {
         u32 CodePoint = Str.Data[Index];

@@ -229,7 +229,6 @@ StringInternal(umm Length, u8 *Data)
 {
     string Result;
     
-    Result.Length = Length;
     Result.Size = Length;
     Result.Data = Data;
     
@@ -242,7 +241,6 @@ PushStringInternal(memory_arena *Arena, umm Length, u8 *Data)
 {
     string Result;
     
-    Result.Length = Length;
     Result.Size = Length;
     Result.Data = PushCopy(Arena, Result.Size, Data);
     
@@ -556,8 +554,7 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
     }
     va_end(ArgList);
     
-    Result.Length = Tokenizer.Tail - (char *)Result.Data;
-    Result.Size = Result.Length;
+    Result.Size = Tokenizer.Tail - (char *)Result.Data;
     EndPushSize(Arena, Result.Size);
     return Result;
 }

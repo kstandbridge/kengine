@@ -81,7 +81,7 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
             ui_interaction SelectedInteraction = Layout->State->SelectedInteraction;
             if(SelectedInteraction.Type == UiInteraction_TextInput)
             {
-                string *Str = SelectedInteraction.Str;
+                editable_string *Str = SelectedInteraction.Str;
                 char *At = Input->Text;
                 while(*At != '\0')
                 {
@@ -324,9 +324,9 @@ PushScrollElement(ui_layout *Layout, u32 ID, string Str, v2 *TargetP)
 }
 
 inline void
-PushTextInputElement(ui_layout *Layout, u32 ID, string *Target)
+PushTextInputElement(ui_layout *Layout, u32 ID, editable_string *Target)
 {
     Assert(Layout->IsCreatingRow);
     
-    PushElementInternal(Layout, ElementType_TextBox, UiInteraction_TextInput, ID, *Target, Target);
+    PushElementInternal(Layout, ElementType_TextBox, UiInteraction_TextInput, ID, StringInternal(Target->Length, Target->Data), Target);
 }
