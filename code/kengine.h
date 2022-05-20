@@ -2,7 +2,6 @@
 
 /* TODO(kstandbridge): 
 
-- fix: LayoutType_Fill horizontally
 - meta linked list
 - meta double linked list
 - meta free list

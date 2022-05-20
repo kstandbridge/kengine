@@ -38,6 +38,8 @@ typedef struct ui_state
     ui_interaction ToExecute;
     ui_interaction NextToExecute;
     
+    ui_interaction SelectedInteraction;
+    
 } ui_state;
 
 typedef enum ui_element_type
@@ -114,6 +116,19 @@ inline b32
 InteractionIsHot(ui_state *State, ui_interaction A)
 {
     b32 Result = InteractionsAreEqual(State->HotInteraction, A);
+    
+    if(A.Type == UiInteraction_None)
+    {
+        Result = false;
+    }
+    
+    return Result;
+}
+
+inline b32
+InteractionIsSelected(ui_state *State, ui_interaction A)
+{
+    b32 Result = InteractionsAreEqual(State->SelectedInteraction, A);
     
     if(A.Type == UiInteraction_None)
     {

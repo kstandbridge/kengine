@@ -12,6 +12,12 @@ TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, v2 
     
     v4 ButtonColor = IsHot ? V4(0, 0, 1, 1) : V4(1, 0, 0, 1);
     
+    b32 IsSelected = InteractionIsSelected(Layout->State, Interaction);
+    if(IsSelected)
+    {
+        ButtonColor = V4(0, 1, 0, 1);
+    }
+    
     PushRect(Layout->RenderGroup, P, Dim, ButtonColor);
     WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str);
     
@@ -64,6 +70,11 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
         }
         
         b32 EndInteraction = false;
+        
+        if(MouseDown)
+        {
+            Layout->State->SelectedInteraction = Layout->State->HotInteraction;
+        }
         
         switch(Layout->State->Interaction.Type)
         {
