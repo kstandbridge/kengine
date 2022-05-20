@@ -29,6 +29,11 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         AppState->UiScale = V2(0.5f, 0.0f);
         
+        AppState->TestString.Length = 1;
+        AppState->TestString.Size = 32;
+        AppState->TestString.Data = PushSize(&AppState->PermanentArena, AppState->TestString.Size);
+        AppState->TestString.Data[0] = ':';
+        
         AppState->IsInitialized = true;
     }
     
@@ -57,10 +62,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     ui_layout Layout = BeginUIFrame(&AppState->UiState, RenderMem.Arena, RenderGroup, Input, AppState->UiScale.X);
     
     BeginRow(&Layout, LayoutType_Auto);
-    if(PushButtonElement(&Layout, __COUNTER__, String("Top Left gggg")))
-    {
-        AppState->TestP = V2(123.0f, 234.0f);
-    }
+    PushTextInputElement(&Layout, __COUNTER__, &AppState->TestString);
     PushSpacerElement(&Layout);
     if(PushButtonElement(&Layout, __COUNTER__, String("Click Me")))
     {

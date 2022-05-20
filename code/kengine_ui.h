@@ -9,6 +9,7 @@ typedef enum ui_interaction_type
     
     UiInteraction_ImmediateButton,
     UiInteraction_Draggable,
+    UiInteraction_TextInput,
     
 } ui_interaction_type;
 
@@ -21,6 +22,7 @@ typedef struct ui_interaction
     {
         void *Generic;
         v2 *P;
+        string *Str;
     };
 } ui_interaction;
 

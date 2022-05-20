@@ -303,6 +303,45 @@ DEBUGGetHorizontalAdvanceForPair(u32 PrevCodePoint, u32 CodePoint)
     return Result;
 }
 
+inline b32
+TryParseCodePoint(u32 CodePoint, char *Buffer)
+{
+    b32 Result = true;
+    
+    if (CodePoint <= 0x7F) 
+    {
+        Buffer[0] = (char) CodePoint;
+        Buffer[1] = '\0';
+    }
+    else if (CodePoint <= 0x7FF)
+    {
+        Buffer[0] = 0xC0 | (char) ((CodePoint >> 6) & 0x1F);
+        Buffer[1] = 0x80 | (char) (CodePoint & 0x3F);
+        Buffer[2] = '\0';
+    } 
+    else if (CodePoint <= 0xFFFF)
+    {
+        Buffer[0] = 0xE0 | (char) ((CodePoint >> 12) & 0x0F);
+        Buffer[1] = 0x80 | (char) ((CodePoint >> 6) & 0x3F);
+        Buffer[2] = 0x80 | (char) (CodePoint & 0x3F);
+        Buffer[3] = '\0';
+    } 
+    else if (CodePoint <= 0x10FFFF)
+    {
+        Buffer[0] = 0xF0 | (char) ((CodePoint >> 18) & 0x0F);
+        Buffer[1] = 0x80 | (char) ((CodePoint >> 12) & 0x3F);
+        Buffer[2] = 0x80 | (char) ((CodePoint >> 6) & 0x3F);
+        Buffer[3] = 0x80 | (char) (CodePoint & 0x3F);
+        Buffer[4] = '\0';
+    }
+    else
+    {
+        Result = false;
+    }
+    
+    return Result;
+}
+
 internal LRESULT CALLBACK
 Win32MainWindowCallback(HWND Window,
                         UINT Message,
@@ -317,7 +356,6 @@ Win32MainWindowCallback(HWND Window,
         {
             GlobalIsRunning = false;
         } break;
-        
         
         case WM_SIZE:
         {
@@ -359,7 +397,7 @@ Win32MainWindowCallback(HWND Window,
 }
 
 internal void
-Win32ProcessPendingMessages()
+Win32ProcessPendingMessages(app_input *Input)
 {
     MSG Msg;
     ZeroStruct(Msg);
@@ -371,6 +409,27 @@ Win32ProcessPendingMessages()
             {
                 // NOTE(kstandbridge): This actually never gets hit, but we need at least 1 case otherwise compiler error
                 __debugbreak();
+            } break;
+            
+            case WM_CHAR:
+            {
+                WORD vkCode = LOWORD(Msg.wParam);
+                WORD keyFlags = HIWORD(Msg.lParam);
+                WORD scanCode = LOBYTE(keyFlags);
+                BOOL isExtendedKey = (keyFlags & KF_EXTENDED) == KF_EXTENDED;
+                if (isExtendedKey)
+                {
+                    scanCode = MAKEWORD(scanCode, 0xE0);
+                }
+                BOOL repeatFlag = (keyFlags & KF_REPEAT) == KF_REPEAT;
+                WORD repeatCount = LOWORD(Msg.lParam);
+                BOOL upFlag = (keyFlags & KF_UP) == KF_UP;
+                
+                if(!TryParseCodePoint((u32)Msg.wParam, Input->Text))
+                {
+                    __debugbreak();
+                }
+                
             } break;
             
             default: 
@@ -545,7 +604,8 @@ WinMainCRTStartup()
                     AppMemory.ExecutableReloaded = true;
                 }
                 
-                Win32ProcessPendingMessages();
+                NewInput->Text[0] = '\0';
+                Win32ProcessPendingMessages(NewInput);
                 
                 POINT MouseP;
                 GetCursorPos(&MouseP);

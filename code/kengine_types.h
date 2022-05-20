@@ -106,6 +106,7 @@ typedef struct temporary_memory
 
 typedef struct string
 {
+    umm Length;
     umm Size;
     u8 *Data;
 } string;

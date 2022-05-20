@@ -109,6 +109,8 @@ typedef struct app_input
     f32 MouseY;
     f32 MouseZ;
     
+    char Text[5];
+    
     f32 dtForFrame;
 } app_input;
 

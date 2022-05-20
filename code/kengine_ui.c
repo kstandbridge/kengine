@@ -76,6 +76,26 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
             Layout->State->SelectedInteraction = Layout->State->HotInteraction;
         }
         
+        if(Input->Text[0] != '\0')
+        {
+            ui_interaction SelectedInteraction = Layout->State->SelectedInteraction;
+            if(SelectedInteraction.Type == UiInteraction_TextInput)
+            {
+                string *Str = SelectedInteraction.Str;
+                char *At = Input->Text;
+                while(*At != '\0')
+                {
+                    if(Str->Length < Str->Size)
+                    {
+                        Str->Data[Str->Length++] = *At;
+                        ++Str->Size;
+                        ++At;
+                    }
+                }
+                
+            }
+        }
+        
         switch(Layout->State->Interaction.Type)
         {
             case UiInteraction_ImmediateButton:
@@ -271,6 +291,13 @@ PushElementInternal(ui_layout *Layout, ui_element_type ElementType, ui_element_t
     return Element;
 }
 
+inline void
+PushSpacerElement(ui_layout *Layout)
+{
+    Assert(Layout->IsCreatingRow);
+    
+    PushElementInternal(Layout, ElementType_Spacer, UiInteraction_NOP, 0, String(""), 0);
+}
 inline b32
 PushButtonElement(ui_layout *Layout, u32 ID, string Str)
 {
@@ -297,9 +324,9 @@ PushScrollElement(ui_layout *Layout, u32 ID, string Str, v2 *TargetP)
 }
 
 inline void
-PushSpacerElement(ui_layout *Layout)
+PushTextInputElement(ui_layout *Layout, u32 ID, string *Target)
 {
     Assert(Layout->IsCreatingRow);
     
-    PushElementInternal(Layout, ElementType_Spacer, UiInteraction_NOP, 0, String(""), 0);
+    PushElementInternal(Layout, ElementType_TextBox, UiInteraction_TextInput, ID, *Target, Target);
 }
