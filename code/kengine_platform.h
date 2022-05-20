@@ -91,23 +91,41 @@ typedef struct app_button_state
     b32 EndedDown;
 } app_button_state;
 
-typedef enum app_input_mouse_button_type
+typedef enum mouse_button_type
 {
-    AppInputMouseButton_Left,
-    AppInputMouseButton_Middle,
-    AppInputMouseButton_Right,
-    AppInputMouseButton_Extended0,
-    AppInputMouseButton_Extended1,
+    MouseButton_Left,
+    MouseButton_Middle,
+    MouseButton_Right,
+    MouseButton_Extended0,
+    MouseButton_Extended1,
     
-    AppInputMouseButton_Count,
-} app_input_mouse_button_type;
+    MouseButton_Count,
+} mouse_button_type;
+
+typedef enum keyboard_button_type
+{
+    KeyboardButton_Backspace,
+    KeyboardButton_Return,
+    KeyboardButton_Up,
+    KeyboardButton_Left,
+    KeyboardButton_Down,
+    KeyboardButton_Right,
+    KeyboardButton_Escape,
+    
+    KeyboardButton_Count,
+} keyboard_button_type;
 
 typedef struct app_input
 {
-    app_button_state MouseButtons[AppInputMouseButton_Count];
+    app_button_state MouseButtons[MouseButton_Count];
     f32 MouseX;
     f32 MouseY;
     f32 MouseZ;
+    
+    app_button_state KeyboardButtons[KeyboardButton_Count];
+    b32 ShiftDown;
+    b32 AltDown;
+    b32 ControlDown;
     
     char Text[5];
     

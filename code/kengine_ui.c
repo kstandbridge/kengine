@@ -50,8 +50,78 @@ BeginUIFrame(ui_state *UiState, memory_arena *Arena, render_group *RenderGroup, 
 internal void
 HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
 {
-    u32 TransitionCount = Input->MouseButtons[AppInputMouseButton_Left].HalfTransitionCount;
-    b32 MouseButton = Input->MouseButtons[AppInputMouseButton_Left].EndedDown;
+    // NOTE(kstandbridge): Input text
+    ui_interaction SelectedInteraction = Layout->State->SelectedInteraction;
+    if(Input->Text[0] != '\0')
+    {
+        if(SelectedInteraction.Type == UiInteraction_TextInput)
+        {
+            editable_string *Str = SelectedInteraction.Str;
+            
+            char *At = Input->Text;
+            while(*At != '\0')
+            {
+                if(Str->Length < Str->Size)
+                {
+                    ++Str->Length;
+                    umm Index = Str->Length;
+                    while(Index > Str->SelectionStart)
+                    {
+                        Str->Data[Index] = Str->Data[Index - 1];
+                        --Index;
+                    }
+                    Str->Data[Str->SelectionStart++] = *At;
+                }
+                ++At;
+            }
+            
+        }
+    }
+    // NOTE(kstandbridge): Keyboard buttons
+    for(keyboard_button_type Type = 0;
+        Type != KeyboardButton_Count;
+        ++Type)
+    {
+        
+        if(WasPressed(Input->KeyboardButtons[Type]))
+        {
+            if(SelectedInteraction.Type == UiInteraction_TextInput)
+            {
+                editable_string *Str = SelectedInteraction.Str;
+                if(Type == KeyboardButton_Backspace)
+                {
+                    if(Str->Length > 0)
+                    {
+                        umm StartMoveIndex = Str->SelectionStart--;
+                        while(StartMoveIndex < Str->Length)
+                        {
+                            Str->Data[StartMoveIndex - 1] = Str->Data[StartMoveIndex++];
+                        }
+                        Str->Data[--Str->Length] = '\0';
+                    }
+                    
+                }
+                if(Type == KeyboardButton_Right)
+                {
+                    if(Str->SelectionStart < Str->Length)
+                    {
+                        ++Str->SelectionStart;
+                    }
+                }
+                if(Type == KeyboardButton_Left)
+                {
+                    if(Str->SelectionStart > 0)
+                    {
+                        --Str->SelectionStart;
+                    }
+                }
+            }
+        }
+    }
+    
+    // NOTE(kstandbridge): Mouse buttons
+    u32 TransitionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
+    b32 MouseButton = Input->MouseButtons[MouseButton_Left].EndedDown;
     if(TransitionCount % 2)
     {
         MouseButton = !MouseButton;
@@ -74,26 +144,6 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
         if(MouseDown)
         {
             Layout->State->SelectedInteraction = Layout->State->HotInteraction;
-        }
-        
-        if(Input->Text[0] != '\0')
-        {
-            ui_interaction SelectedInteraction = Layout->State->SelectedInteraction;
-            if(SelectedInteraction.Type == UiInteraction_TextInput)
-            {
-                editable_string *Str = SelectedInteraction.Str;
-                char *At = Input->Text;
-                while(*At != '\0')
-                {
-                    if(Str->Length < Str->Size)
-                    {
-                        Str->Data[Str->Length++] = *At;
-                        ++Str->Size;
-                        ++At;
-                    }
-                }
-                
-            }
         }
         
         switch(Layout->State->Interaction.Type)
@@ -184,7 +234,35 @@ DrawUIInternal(ui_layout *Layout)
                     P.X -= HeightDifference.X;
                 }
                 
-                TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, HeightDifference, Layout->Scale);
+                switch(Element->Type)
+                {
+                    case ElementType_TextBox:
+                    {
+                        TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, HeightDifference, Layout->Scale);
+                        
+                        if(Element->Interaction.Type == UiInteraction_TextInput)
+                        {
+                            editable_string *Str = Element->Interaction.Str;
+                            rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data));
+                            v2 SelectionStartDim = V2(TextBounds.Max.X - TextBounds.Min.X, 0);
+                            
+                            PushRect(Layout->RenderGroup, V2Add(P, SelectionStartDim), V2(5.0f, Element->Dim.Y), V4(0.0f, 0.0f, 0.0f, 1.0f));
+                        }
+                        
+                    } break;
+                    
+                    case ElementType_Static:
+                    case ElementType_Checkbox:
+                    case ElementType_Slider:
+                    case ElementType_Button:
+                    {
+                        TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, HeightDifference, Layout->Scale);
+                        
+                    } break;
+                    
+                    InvalidDefaultCase;
+                }
+                
             }
         }
         if(Row->Type == LayoutType_Auto)

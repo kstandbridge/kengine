@@ -396,6 +396,16 @@ Win32MainWindowCallback(HWND Window,
     
 }
 
+inline void
+ProcessInputMessage(app_button_state *NewState, b32 IsDown)
+{
+    if(NewState->EndedDown != IsDown)
+    {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
+    }
+}
+
 internal void
 Win32ProcessPendingMessages(app_input *Input)
 {
@@ -411,9 +421,81 @@ Win32ProcessPendingMessages(app_input *Input)
                 __debugbreak();
             } break;
             
+            case WM_SYSKEYDOWN:
+            case WM_SYSKEYUP:
+            case WM_KEYDOWN:
+            case WM_KEYUP:
+            {
+                u32 VKCode = (u32)Msg.wParam;
+                b32 WasDown = ((Msg.lParam & (1 << 30)) != 0);
+                b32 IsDown = ((Msg.lParam & (1 << 31)) == 0);
+                if(WasDown != IsDown)
+                {
+                    switch(VKCode)
+                    {
+                        case VK_BACK:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Backspace, IsDown); } break;
+                        case VK_RETURN: { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Return, IsDown); } break;
+                        case VK_UP:     { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Up, IsDown); } break;
+                        case VK_LEFT:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Left, IsDown); } break;
+                        case VK_DOWN:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Down, IsDown); } break;
+                        case VK_RIGHT:  { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Right, IsDown); } break;
+                        case VK_ESCAPE: { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Escape, IsDown); } break;
+                    }
+                }
+                
+                if(IsDown)
+                {
+                    b32 AltKeyWasDown = (Msg.lParam & (1 << 29));
+                    if((VKCode == VK_F4) && AltKeyWasDown)
+                    {
+                        GlobalIsRunning = false;
+                    }
+                    if((VKCode == VK_RETURN) && AltKeyWasDown)
+                    {
+                        if(Msg.hwnd)
+                        {
+                            // NOTE(kstandbridge): http://blogs.msdn.com/b/oldnewthing/archive/2010/04/12/9994016.aspx
+                            local_persist WINDOWPLACEMENT WindowPosition;
+                            WindowPosition.length = sizeof(WINDOWPLACEMENT);
+                            
+                            HWND WindowHwnd = Msg.hwnd;
+                            
+                            DWORD Style = GetWindowLong(WindowHwnd, GWL_STYLE);
+                            if(Style & WS_OVERLAPPEDWINDOW)
+                            {
+                                MONITORINFO MonitorInfo = {sizeof(MonitorInfo)};
+                                if(GetWindowPlacement(WindowHwnd, &WindowPosition) &&
+                                   GetMonitorInfo(MonitorFromWindow(WindowHwnd, MONITOR_DEFAULTTOPRIMARY), &MonitorInfo))
+                                {
+                                    SetWindowLong(WindowHwnd, GWL_STYLE, Style & ~WS_OVERLAPPEDWINDOW);
+                                    SetWindowPos(WindowHwnd, HWND_TOP,
+                                                 MonitorInfo.rcMonitor.left, MonitorInfo.rcMonitor.top,
+                                                 MonitorInfo.rcMonitor.right - MonitorInfo.rcMonitor.left,
+                                                 MonitorInfo.rcMonitor.bottom - MonitorInfo.rcMonitor.top,
+                                                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+                                }
+                            }
+                            else
+                            {
+                                SetWindowLong(WindowHwnd, GWL_STYLE, Style | WS_OVERLAPPEDWINDOW);
+                                SetWindowPlacement(WindowHwnd, &WindowPosition);
+                                SetWindowPos(WindowHwnd, 0, 0, 0, 0, 0,
+                                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                                             SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+                            }
+                        }
+                    }
+                }
+                
+                // NOTE(kstandbridge): Dispatch messages so we can pickup WM_CHAR for text input
+                TranslateMessage(&Msg);
+                DispatchMessageA(&Msg);
+                
+            } break;
+            
             case WM_CHAR:
             {
-                WORD vkCode = LOWORD(Msg.wParam);
+                WORD VKCode = LOWORD(Msg.wParam);
                 WORD keyFlags = HIWORD(Msg.lParam);
                 WORD scanCode = LOBYTE(keyFlags);
                 BOOL isExtendedKey = (keyFlags & KF_EXTENDED) == KF_EXTENDED;
@@ -423,11 +505,17 @@ Win32ProcessPendingMessages(app_input *Input)
                 }
                 BOOL repeatFlag = (keyFlags & KF_REPEAT) == KF_REPEAT;
                 WORD repeatCount = LOWORD(Msg.lParam);
-                BOOL upFlag = (keyFlags & KF_UP) == KF_UP;
+                BOOL UpFlag = (keyFlags & KF_UP) == KF_UP;
                 
                 if(!TryParseCodePoint((u32)Msg.wParam, Input->Text))
                 {
                     __debugbreak();
+                }
+                
+                // NOTE(kstandbridge): Only printable characters
+                if (*Input->Text < ' ' || *Input->Text == 127) 
+                {
+                    Input->Text[0] = '\0';
                 }
                 
             } break;
@@ -507,16 +595,6 @@ Win32LoadAppCode(char *SourceDLLName, char *TempDLLName, char *LockName)
     return Result;
 }
 
-inline void
-ProcessInputMessage(app_button_state *NewState, b32 IsDown)
-{
-    if(NewState->EndedDown != IsDown)
-    {
-        NewState->EndedDown = IsDown;
-        ++NewState->HalfTransitionCount;
-    }
-}
-
 s32 __stdcall
 WinMainCRTStartup()
 {
@@ -589,6 +667,7 @@ WinMainCRTStartup()
             app_code AppCode = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
             
             
+            
             GlobalIsRunning = true;
             while(GlobalIsRunning)
             {
@@ -605,7 +684,16 @@ WinMainCRTStartup()
                 }
                 
                 NewInput->Text[0] = '\0';
+                ZeroArray(KeyboardButton_Count, NewInput->KeyboardButtons);
+                NewInput->ShiftDown = (GetKeyState(VK_SHIFT) & (1 << 15));
+                NewInput->AltDown = (GetKeyState(VK_MENU) & (1 << 15));
+                NewInput->ControlDown = (GetKeyState(VK_CONTROL) & (1 << 15));
                 Win32ProcessPendingMessages(NewInput);
+                
+                if(WasPressed(NewInput->KeyboardButtons[KeyboardButton_Return]) && NewInput->AltDown)
+                {
+                    
+                }
                 
                 POINT MouseP;
                 GetCursorPos(&MouseP);
@@ -615,7 +703,7 @@ WinMainCRTStartup()
                 NewInput->MouseZ = 0; // TODO(kstandbridge): Get mousewheel position
                 
                 // NOTE(kstandbridge): The order of these needs to match the order on enum app_input_mouse_button_type
-                DWORD ButtonVKs[AppInputMouseButton_Count] =
+                DWORD ButtonVKs[MouseButton_Count] =
                 {
                     VK_LBUTTON,
                     VK_MBUTTON,
@@ -625,7 +713,7 @@ WinMainCRTStartup()
                 };
                 
                 for(u32 ButtonIndex = 0;
-                    ButtonIndex < AppInputMouseButton_Count;
+                    ButtonIndex < MouseButton_Count;
                     ++ButtonIndex)
                 {
                     NewInput->MouseButtons[ButtonIndex] = OldInput->MouseButtons[ButtonIndex];

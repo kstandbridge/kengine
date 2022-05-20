@@ -651,7 +651,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
     {
         u32 CodePoint = Str.Data[Index];
         
-        if(CodePoint != ' ')
+        if(CodePoint && CodePoint != ' ')
         {        
             if(Assets->Glyphs[CodePoint].Memory == 0)
             {
@@ -660,6 +660,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
             }
             
             loaded_bitmap *Bitmap = Assets->Glyphs + CodePoint;
+            Assert(Bitmap->Memory);
             f32 Height = Scale*Bitmap->Height;
             v2 Offset = V2(AtX, AtY);
             if(Op == TextOp_DrawText)
@@ -680,6 +681,12 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
         }
         
         f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(PrevCodePoint, CodePoint);
+        
+        if(CodePoint == ' ')
+        {
+            Result.Max.X += AdvanceX;
+        }
+        
         AtX += AdvanceX;
     }
     
