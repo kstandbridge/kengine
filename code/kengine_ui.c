@@ -82,41 +82,71 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
         Type != KeyboardButton_Count;
         ++Type)
     {
-        
-        if(WasPressed(Input->KeyboardButtons[Type]))
+        u32 TransitionCount = Input->KeyboardButtons[Type].HalfTransitionCount;
+        b32 KeyboardButton = Input->KeyboardButtons[Type].EndedDown;
+        if(TransitionCount % 2)
         {
-            if(SelectedInteraction.Type == UiInteraction_TextInput)
+            KeyboardButton = !KeyboardButton;
+        }
+        
+        for(u32 TransitionIndex = 0;
+            TransitionIndex <= TransitionCount;
+            ++TransitionIndex)
+        {
+            b32 KeyboardDown = false;
+            b32 KeyboardUp = false;
+            if(TransitionIndex != 0)
             {
-                editable_string *Str = SelectedInteraction.Str;
-                if(Type == KeyboardButton_Backspace)
+                KeyboardDown = KeyboardButton;
+                KeyboardUp = !KeyboardButton;
+            }
+            
+            if(KeyboardDown)
+            {
+                if(SelectedInteraction.Type == UiInteraction_TextInput)
                 {
-                    if(Str->Length > 0)
+                    editable_string *Str = SelectedInteraction.Str;
+                    switch(Type)
                     {
-                        umm StartMoveIndex = Str->SelectionStart--;
-                        while(StartMoveIndex < Str->Length)
+                        case KeyboardButton_Delete:
                         {
-                            Str->Data[StartMoveIndex - 1] = Str->Data[StartMoveIndex++];
-                        }
-                        Str->Data[--Str->Length] = '\0';
-                    }
-                    
-                }
-                if(Type == KeyboardButton_Right)
-                {
-                    if(Str->SelectionStart < Str->Length)
-                    {
-                        ++Str->SelectionStart;
-                    }
-                }
-                if(Type == KeyboardButton_Left)
-                {
-                    if(Str->SelectionStart > 0)
-                    {
-                        --Str->SelectionStart;
+                            if(Str->SelectionStart < Str->Length)
+                            {
+                                Str->SelectionStart++;
+                            }
+                        } // break; // NOTE(kstandbridge): Intentionally falling through
+                        case KeyboardButton_Backspace:
+                        {
+                            if(Str->Length > 0)
+                            {
+                                umm StartMoveIndex = Str->SelectionStart--;
+                                while(StartMoveIndex < Str->Length)
+                                {
+                                    Str->Data[StartMoveIndex - 1] = Str->Data[StartMoveIndex++];
+                                }
+                                Str->Data[--Str->Length] = '\0';
+                            }
+                        } break;
+                        case KeyboardButton_Right:
+                        {
+                            if(Str->SelectionStart < Str->Length)
+                            {
+                                ++Str->SelectionStart;
+                            }
+                        } break;
+                        case KeyboardButton_Left:
+                        {
+                            if(Str->SelectionStart > 0)
+                            {
+                                --Str->SelectionStart;
+                            }
+                        } break;
                     }
                 }
             }
+            KeyboardButton = !KeyboardButton;
         }
+        
     }
     
     // NOTE(kstandbridge): Mouse buttons

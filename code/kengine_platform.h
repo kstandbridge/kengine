@@ -104,6 +104,7 @@ typedef enum mouse_button_type
 
 typedef enum keyboard_button_type
 {
+    KeyboardButton_Delete,
     KeyboardButton_Backspace,
     KeyboardButton_Return,
     KeyboardButton_Up,

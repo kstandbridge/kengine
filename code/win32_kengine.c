@@ -429,18 +429,17 @@ Win32ProcessPendingMessages(app_input *Input)
                 u32 VKCode = (u32)Msg.wParam;
                 b32 WasDown = ((Msg.lParam & (1 << 30)) != 0);
                 b32 IsDown = ((Msg.lParam & (1 << 31)) == 0);
-                if(WasDown != IsDown)
+                
+                switch(VKCode)
                 {
-                    switch(VKCode)
-                    {
-                        case VK_BACK:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Backspace, IsDown); } break;
-                        case VK_RETURN: { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Return, IsDown); } break;
-                        case VK_UP:     { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Up, IsDown); } break;
-                        case VK_LEFT:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Left, IsDown); } break;
-                        case VK_DOWN:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Down, IsDown); } break;
-                        case VK_RIGHT:  { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Right, IsDown); } break;
-                        case VK_ESCAPE: { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Escape, IsDown); } break;
-                    }
+                    case VK_DELETE:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Delete, IsDown); } break;
+                    case VK_BACK:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Backspace, IsDown); } break;
+                    case VK_RETURN: { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Return, IsDown); } break;
+                    case VK_UP:     { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Up, IsDown); } break;
+                    case VK_LEFT:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Left, IsDown); } break;
+                    case VK_DOWN:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Down, IsDown); } break;
+                    case VK_RIGHT:  { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Right, IsDown); } break;
+                    case VK_ESCAPE: { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Escape, IsDown); } break;
                 }
                 
                 if(IsDown)
@@ -496,16 +495,16 @@ Win32ProcessPendingMessages(app_input *Input)
             case WM_CHAR:
             {
                 WORD VKCode = LOWORD(Msg.wParam);
-                WORD keyFlags = HIWORD(Msg.lParam);
-                WORD scanCode = LOBYTE(keyFlags);
-                BOOL isExtendedKey = (keyFlags & KF_EXTENDED) == KF_EXTENDED;
-                if (isExtendedKey)
+                WORD KeyFlags = HIWORD(Msg.lParam);
+                WORD ScanCode = LOBYTE(KeyFlags);
+                BOOL IsExtendedKey = (KeyFlags & KF_EXTENDED) == KF_EXTENDED;
+                if (IsExtendedKey)
                 {
-                    scanCode = MAKEWORD(scanCode, 0xE0);
+                    ScanCode = MAKEWORD(ScanCode, 0xE0);
                 }
-                BOOL repeatFlag = (keyFlags & KF_REPEAT) == KF_REPEAT;
-                WORD repeatCount = LOWORD(Msg.lParam);
-                BOOL UpFlag = (keyFlags & KF_UP) == KF_UP;
+                BOOL RepeatFlag = (KeyFlags & KF_REPEAT) == KF_REPEAT;
+                WORD RepeatCount = LOWORD(Msg.lParam);
+                BOOL UpFlag = (KeyFlags & KF_UP) == KF_UP;
                 
                 if(!TryParseCodePoint((u32)Msg.wParam, Input->Text))
                 {
