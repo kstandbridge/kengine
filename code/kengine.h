@@ -2,7 +2,6 @@
 
 /* TODO(kstandbridge): 
 
-- fix: Caret position can shrink. Type ;1 then press Left
 - meta linked list
 - meta double linked list
 - meta free list

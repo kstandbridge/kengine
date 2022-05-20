@@ -114,7 +114,7 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
                             {
                                 Str->SelectionStart++;
                             }
-                        } // break; // NOTE(kstandbridge): Intentionally falling through
+                        } // NOTE(kstandbridge): No break intentional
                         case KeyboardButton_Backspace:
                         {
                             if(Str->Length > 0)
@@ -146,7 +146,6 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
             }
             KeyboardButton = !KeyboardButton;
         }
-        
     }
     
     // NOTE(kstandbridge): Mouse buttons
@@ -276,7 +275,7 @@ DrawUIInternal(ui_layout *Layout)
                             rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data));
                             v2 SelectionStartDim = V2(TextBounds.Max.X - TextBounds.Min.X, 0);
                             
-                            PushRect(Layout->RenderGroup, V2Add(P, SelectionStartDim), V2(5.0f, Element->Dim.Y), V4(0.0f, 0.0f, 0.0f, 1.0f));
+                            PushRect(Layout->RenderGroup, V2Add(P, SelectionStartDim), V2(5.0f, Element->Dim.Y + HeightDifference.Y), V4(0.0f, 0.0f, 0.0f, 1.0f));
                         }
                         
                     } break;
