@@ -2,6 +2,11 @@
 
 /* TODO(kstandbridge): 
 
+- force all rows to be LayoutType_Fill? Spacers can be used instead
+- min height for controls/rows
+- min width for controls
+- max height for controls/rows
+- max width for controls
 - meta linked list
 - meta double linked list
 - meta free list
