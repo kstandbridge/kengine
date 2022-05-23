@@ -2,7 +2,6 @@
 
 /* TODO(kstandbridge): 
 
-- force all rows to be LayoutType_Fill? Spacers can be used instead
 - min height for controls/rows
 - min width for controls
 - max height for controls/rows
@@ -38,6 +37,16 @@
 #include "kengine_render_group.h"
 #include "kengine_assets.h"
 #include "kengine_ui.h"
+
+typedef struct colors
+{
+    v4 Clear;
+    v4 HotButton;
+    v4 Button;
+    v4 ClickedButton;
+    v4 ButtonBorder;
+    v4 Caret;
+} colors;
 
 typedef struct app_state
 {

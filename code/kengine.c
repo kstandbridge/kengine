@@ -1,6 +1,7 @@
 #include "kengine.h"
 
 global platform_api Platform;
+global colors Colors;
 
 #include "kengine_render_group.c"
 #include "kengine_ui.c"
@@ -10,6 +11,13 @@ extern void
 AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *Buffer)
 {
     Platform = Memory->PlatformAPI;
+    
+    Colors.Clear = RGBColor(56, 56, 56, 255);
+    Colors.HotButton = RGBColor(69, 69, 69, 255);
+    Colors.Button = RGBColor(51, 51, 51, 255);
+    Colors.ClickedButton = RGBColor(102, 102, 102, 255);
+    Colors.ButtonBorder = RGBColor(155, 155, 155, 255);
+    Colors.Caret = RGBColor(230, 230, 230, 255);
     
     app_state *AppState = (app_state *)Memory->Storage;
     
@@ -58,7 +66,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     }
     else
     {
-        PushClear(RenderGroup, RGBColor(56, 56, 56, 255));
+        PushClear(RenderGroup, Colors.Clear);
     }
     
     ui_layout Layout = BeginUIFrame(&AppState->UiState, RenderMem.Arena, RenderGroup, Input, 8.0f, AppState->UiScale.X);

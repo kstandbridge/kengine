@@ -11,25 +11,21 @@ TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, v2 
     Dim = V2Add(Dim, V2Multiply(V2Set1(Layout->Padding), V2Set1(2.0f)));
     b32 IsHot = InteractionIsHot(Layout->State, Interaction);
     
-    v4 HotButton = RGBColor(69, 69, 69, 255);
-    v4 ButtonBack = RGBColor(51, 51, 51, 255);
-    
-    v4 ButtonColor = IsHot ? HotButton : ButtonBack;
+    v4 ButtonColor = IsHot ? Colors.HotButton : Colors.Button;
     
     if(InteractionIsClicked(Layout->State, Interaction))
     {
-        ButtonColor = RGBColor(102, 102, 102, 255);
+        ButtonColor = Colors.ClickedButton;
     }
     
     PushRect(Layout->RenderGroup, P, Dim, ButtonColor, ButtonColor);
     
-    v4 OutlineColor = RGBColor(155, 155, 155, 255);
     f32 Thickness = Scale*3.0f;
     if(Thickness < 1.0f)
     {
         Thickness = 1.0f;
     }
-    PushRectOutline(Layout->RenderGroup, P, Dim, OutlineColor, OutlineColor, Thickness);
+    PushRectOutline(Layout->RenderGroup, P, Dim, Colors.ButtonBorder, Colors.ButtonBorder, Thickness);
     
     WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor);
     
@@ -290,7 +286,13 @@ DrawUIInternal(ui_layout *Layout)
                             v2 SelectionStartDim = V2(TextBounds.Max.X - TextBounds.Min.X, 0);
                             SelectionStartDim.X += Layout->Padding;
                             
-                            PushRect(Layout->RenderGroup, V2Add(P, SelectionStartDim), V2(5.0f, Element->Dim.Y + HeightDifference.Y), V4(0.0f, 0.0f, 0.0f, 1.0f), V4(0.0f, 0.0f, 0.0f, 1.0f));
+                            f32 Thickness = Layout->Scale*3.0f;
+                            if(Thickness < 1.0f)
+                            {
+                                Thickness = 1.0f;
+                            }
+                            
+                            PushRect(Layout->RenderGroup, V2Add(P, SelectionStartDim), V2(Thickness, Element->Dim.Y + HeightDifference.Y), Colors.Caret, Colors.Caret);
                         }
                         
                     } break;
