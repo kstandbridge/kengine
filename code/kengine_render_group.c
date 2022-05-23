@@ -1,12 +1,7 @@
 
 internal void
-DrawRectangle(loaded_bitmap *Buffer, v2 vMin, v2 vMax, v4 Color, rectangle2i ClipRect)
+DrawRectangle(loaded_bitmap *Buffer, v2 vMin, v2 vMax, v4 Color, v4 AltColor, rectangle2i ClipRect)
 {
-    f32 R = Color.R;
-    f32 G = Color.G;
-    f32 B = Color.B;
-    f32 A = Color.A;
-    
     rectangle2i FillRect;
     FillRect.MinX = RoundReal32ToInt32(vMin.X);
     FillRect.MinY = RoundReal32ToInt32(vMin.Y);
@@ -15,26 +10,43 @@ DrawRectangle(loaded_bitmap *Buffer, v2 vMin, v2 vMax, v4 Color, rectangle2i Cli
     
     FillRect = Intersect(FillRect, ClipRect);
     
-    u32 Color32 = ((RoundReal32ToUInt32(A * 255.0f) << 24) |
-                   (RoundReal32ToUInt32(R * 255.0f) << 16) |
-                   (RoundReal32ToUInt32(G * 255.0f) << 8) |
-                   (RoundReal32ToUInt32(B * 255.0f) << 0));
+    u32 Color32 = ((RoundReal32ToUInt32(Color.A * 255.0f) << 24) |
+                   (RoundReal32ToUInt32(Color.R * 255.0f) << 16) |
+                   (RoundReal32ToUInt32(Color.G * 255.0f) << 8) |
+                   (RoundReal32ToUInt32(Color.B * 255.0f) << 0));
+    
+    u32 AltColor32 = ((RoundReal32ToUInt32(AltColor.A * 255.0f) << 24) |
+                      (RoundReal32ToUInt32(AltColor.R * 255.0f) << 16) |
+                      (RoundReal32ToUInt32(AltColor.G * 255.0f) << 8) |
+                      (RoundReal32ToUInt32(AltColor.B * 255.0f) << 0));
     
     u8 *Row = ((u8 *)Buffer->Memory +
                FillRect.MinX*BITMAP_BYTES_PER_PIXEL +
                FillRect.MinY*Buffer->Pitch);
-    for(int Y = FillRect.MinY;
+    b32 InvertColor = false;
+    for(s32 Y = FillRect.MinY;
         Y < FillRect.MaxY;
         ++Y)
     {
         u32 *Pixel = (u32 *)Row;
-        for(int X = FillRect.MinX;
+        for(s32 X = FillRect.MinX;
             X < FillRect.MaxX;
             ++X)
         {            
-            *Pixel++ = Color32;
+            u32 ColorToUse;
+            
+            if(InvertColor)
+            {
+                ColorToUse = (X % 2 == 1) ? Color32 : AltColor32;
+            }
+            else
+            {
+                ColorToUse = (X % 2 == 1) ? AltColor32 : Color32;
+            }
+            
+            *Pixel++ = ColorToUse;
         }
-        
+        InvertColor = !InvertColor;
         Row += Buffer->Pitch;
     }
 }
@@ -125,7 +137,7 @@ DrawBitmap(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color, loade
     P[2] = V2Add(Origin, V2Add(XAxis, YAxis));
     P[3] = V2Add(Origin, YAxis);
     
-    for(int PIndex = 0;
+    for(s32 PIndex = 0;
         PIndex < ArrayCount(P);
         ++PIndex)
     {
@@ -217,11 +229,11 @@ DrawBitmap(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color, loade
         void *TextureMemory = Texture->Memory;
         s32 TexturePitch = Texture->Pitch;
         
-        int MinY = FillRect.MinY;
-        int MaxY = FillRect.MaxY;
-        int MinX = FillRect.MinX;
-        int MaxX = FillRect.MaxX;
-        for(int Y = MinY;
+        s32 MinY = FillRect.MinY;
+        s32 MaxY = FillRect.MaxY;
+        s32 MinX = FillRect.MinX;
+        s32 MaxX = FillRect.MaxX;
+        for(s32 Y = MinY;
             Y < MaxY;
             ++Y)
         {
@@ -239,7 +251,7 @@ DrawBitmap(loaded_bitmap *Buffer, v2 Origin, v2 XAxis, v2 YAxis, v4 Color, loade
             __m128i ClipMask = StartClipMask;
             
             u32 *Pixel = (u32 *)Row;
-            for(int XI = MinX;
+            for(s32 XI = MinX;
                 XI < MaxX;
                 XI += 4)
             {            
@@ -489,15 +501,26 @@ PushBitmap(render_group *Group, loaded_bitmap *Bitmap, f32 Height, v2 Offset, v4
 }
 
 inline void
-PushRect(render_group *Group, v2 Offset, v2 Dim, v4 Color)
+PushRect(render_group *Group, v2 Offset, v2 Dim, v4 Color, v4 AltColor)
 {
     render_entry_rectangle *Entry = PushRenderElement(Group, render_entry_rectangle);
     if(Entry)
     {
         Entry->P = Offset;
         Entry->Color = Color;
+        Entry->AltColor = AltColor;
         Entry->Dim = Dim;
     }
+}
+
+inline void
+PushRectOutline(render_group *Group, v2 Offset, v2 Dim, v4 Color, v4 AltColor, f32 Thickness)
+{
+    PushRect(Group, Offset, V2(Dim.X, Thickness), Color, AltColor);
+    PushRect(Group, V2Add(Offset, V2(0.0f, Dim.Y - Thickness)), V2(Dim.X, Thickness), Color, AltColor);
+    
+    PushRect(Group, Offset, V2(Thickness, Dim.Y), Color, AltColor);
+    PushRect(Group, V2Add(Offset, V2(Dim.X - Thickness, 0.0f)), V2(Thickness, Dim.Y), Color, AltColor);
 }
 
 internal render_group *
@@ -545,7 +568,7 @@ TileRenderWorkThread(void *Data)
                 
                 v2 vMin = V2(0.0f, 0.0f);
                 v2 vMax = V2((f32)OutputTarget->Width, (f32)OutputTarget->Height);
-                DrawRectangle(OutputTarget, vMin, vMax, Entry->Color, ClipRect);
+                DrawRectangle(OutputTarget, vMin, vMax, Entry->Color, Entry->Color, ClipRect);
                 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -569,10 +592,11 @@ TileRenderWorkThread(void *Data)
             {
                 render_entry_rectangle *Entry = (render_entry_rectangle *)EntryData;
                 
-                DrawRectangle(OutputTarget, Entry->P, V2Add(Entry->P, Entry->Dim), Entry->Color, ClipRect);
+                DrawRectangle(OutputTarget, Entry->P, V2Add(Entry->P, Entry->Dim), Entry->Color, Entry->AltColor, ClipRect);
                 
                 BaseAddress += sizeof(*Entry);
             } break;
+            
             
             InvalidDefaultCase;
         }
@@ -595,12 +619,12 @@ RenderGroupToOutput(render_group *Group)
     s32 TileHeight = OutputTarget->Height / TileCountY;
     TileWidth = ((TileWidth + 3) / 4) * 4;
     
-    int WorkCount = 0;
-    for(int TileY = 0;
+    s32 WorkCount = 0;
+    for(s32 TileY = 0;
         TileY < TileCountY;
         ++TileY)
     {
-        for(int TileX = 0;
+        for(s32 TileX = 0;
             TileX < TileCountX;
             ++TileX)
         {
@@ -638,7 +662,7 @@ typedef enum text_op_type
     TextOp_SizeText,
 } text_op_type;
 internal rectangle2
-TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str)
+TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 Color)
 {
     rectangle2 Result = InvertedInfinityRectangle2();
     
@@ -665,7 +689,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
             v2 Offset = V2(AtX, AtY);
             if(Op == TextOp_DrawText)
             {
-                PushBitmap(RenderGroup, Bitmap, Height, Offset, V4(1, 1, 1, 1), 0.0f);
+                PushBitmap(RenderGroup, Bitmap, Height, Offset, Color, 0.0f);
             }
             else
             {
@@ -694,15 +718,15 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
 }
 
 inline void
-WriteLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str)
+WriteLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 Color)
 {
-    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Str);
+    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Str, Color);
 }
 
 inline rectangle2
-GetTextSize(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str)
+GetTextSize(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 Color)
 {
-    rectangle2 Result = TextOpInternal(TextOp_SizeText, RenderGroup, Assets, P, Scale, Str);
+    rectangle2 Result = TextOpInternal(TextOp_SizeText, RenderGroup, Assets, P, Scale, Str, Color);
     
     return Result;
 }

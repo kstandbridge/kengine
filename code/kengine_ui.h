@@ -43,6 +43,7 @@ typedef struct ui_state
     ui_interaction NextToExecute;
     
     ui_interaction SelectedInteraction;
+    ui_interaction ClickedInteraction;
     
 } ui_state;
 
@@ -62,7 +63,7 @@ typedef struct ui_element
     ui_interaction Interaction;
     string Label;
     v2 Dim;
-    f32 TextOffset;
+    v2 TextOffset;
     
     struct ui_element *Next;
 } ui_element; 
@@ -98,6 +99,7 @@ typedef struct ui_layout
     f32 Scale;
     v2 MouseP;
     v2 dMouseP;
+    f32 Padding;
     
     s32 FillRows;
     f32 UsedHeight;
@@ -133,6 +135,19 @@ inline b32
 InteractionIsSelected(ui_state *State, ui_interaction A)
 {
     b32 Result = InteractionsAreEqual(State->SelectedInteraction, A);
+    
+    if(A.Type == UiInteraction_None)
+    {
+        Result = false;
+    }
+    
+    return Result;
+}
+
+inline b32
+InteractionIsClicked(ui_state *State, ui_interaction A)
+{
+    b32 Result = InteractionsAreEqual(State->ClickedInteraction, A);
     
     if(A.Type == UiInteraction_None)
     {

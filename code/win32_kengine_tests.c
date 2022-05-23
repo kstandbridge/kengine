@@ -254,7 +254,7 @@ mainCRTStartup()
         Index < 20;
         ++Index)
     {
-        int Integar = (int)Value;
+        s32 Integar = (s32)Value;
         Value -= Integar;
         
         char Output[2];

@@ -30,6 +30,7 @@ typedef struct render_entry_bitmap
 typedef struct render_entry_rectangle
 {
     v4 Color;
+    v4 AltColor;
     v2 P;
     v2 Dim;
 } render_entry_rectangle;

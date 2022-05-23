@@ -58,10 +58,10 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     }
     else
     {
-        PushClear(RenderGroup, V4(0.3f, 0.0f, 0.3f, 1.0f));
+        PushClear(RenderGroup, RGBColor(56, 56, 56, 255));
     }
     
-    ui_layout Layout = BeginUIFrame(&AppState->UiState, RenderMem.Arena, RenderGroup, Input, AppState->UiScale.X);
+    ui_layout Layout = BeginUIFrame(&AppState->UiState, RenderMem.Arena, RenderGroup, Input, 8.0f, AppState->UiScale.X);
     
     BeginRow(&Layout, LayoutType_Auto);
     PushTextInputElement(&Layout, __COUNTER__, &AppState->TestString);
@@ -98,7 +98,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     PushSpacerElement(&Layout);
     PushButtonElement(&Layout, __COUNTER__, String("Foo"));
     PushSpacerElement(&Layout);
-    PushButtonElement(&Layout, __COUNTER__, String("Bar"));
+    PushStaticElement(&Layout, __COUNTER__, String("Bar"));
     PushSpacerElement(&Layout);
     PushButtonElement(&Layout, __COUNTER__, String("Bas"));
     PushSpacerElement(&Layout);

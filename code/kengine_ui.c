@@ -2,24 +2,36 @@
 internal void
 TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, v2 TextOffset, v2 Padding, f32 Scale)
 {
-    rectangle2 Bounds = TextOpInternal(TextOp_SizeText, Layout->RenderGroup, Layout->State->Assets, P, Scale, Str);
+    v4 TextColor = V4Set1(1.0f);
+    rectangle2 Bounds = TextOpInternal(TextOp_SizeText, Layout->RenderGroup, Layout->State->Assets, P, Scale, Str, TextColor);
     
     v2 Dim = V2(Bounds.Max.X - Bounds.Min.X, 
                 Bounds.Max.Y - Bounds.Min.Y);
     Dim = V2Add(Dim, Padding);
-    
+    Dim = V2Add(Dim, V2Multiply(V2Set1(Layout->Padding), V2Set1(2.0f)));
     b32 IsHot = InteractionIsHot(Layout->State, Interaction);
     
-    v4 ButtonColor = IsHot ? V4(0, 0, 1, 1) : V4(1, 0, 0, 1);
+    v4 HotButton = RGBColor(69, 69, 69, 255);
+    v4 ButtonBack = RGBColor(51, 51, 51, 255);
     
-    b32 IsSelected = InteractionIsSelected(Layout->State, Interaction);
-    if(IsSelected)
+    v4 ButtonColor = IsHot ? HotButton : ButtonBack;
+    
+    if(InteractionIsClicked(Layout->State, Interaction))
     {
-        ButtonColor = V4(0, 1, 0, 1);
+        ButtonColor = RGBColor(102, 102, 102, 255);
     }
     
-    PushRect(Layout->RenderGroup, P, Dim, ButtonColor);
-    WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str);
+    PushRect(Layout->RenderGroup, P, Dim, ButtonColor, ButtonColor);
+    
+    v4 OutlineColor = RGBColor(155, 155, 155, 255);
+    f32 Thickness = Scale*3.0f;
+    if(Thickness < 1.0f)
+    {
+        Thickness = 1.0f;
+    }
+    PushRectOutline(Layout->RenderGroup, P, Dim, OutlineColor, OutlineColor, Thickness);
+    
+    WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor);
     
     if(IsInRectangle(Rectangle2(P, V2Add(P, Dim)), Layout->MouseP))
     {
@@ -28,7 +40,7 @@ TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, v2 
 }
 
 internal ui_layout
-BeginUIFrame(ui_state *UiState, memory_arena *Arena, render_group *RenderGroup, app_input *Input, f32 Scale)
+BeginUIFrame(ui_state *UiState, memory_arena *Arena, render_group *RenderGroup, app_input *Input, f32 Padding, f32 Scale)
 {
     ui_layout Result;
     ZeroStruct(Result);
@@ -40,6 +52,7 @@ BeginUIFrame(ui_state *UiState, memory_arena *Arena, render_group *RenderGroup, 
     Result.Scale = Scale;
     Result.MouseP = V2(Input->MouseX, Input->MouseY);
     Result.dMouseP = V2Subtract(Result.MouseP, UiState->LastMouseP);
+    Result.Padding = Padding;
     
     UiState->ToExecute = UiState->NextToExecute;
     ClearInteraction(&UiState->NextToExecute);
@@ -173,6 +186,7 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
         if(MouseDown)
         {
             Layout->State->SelectedInteraction = Layout->State->HotInteraction;
+            Layout->State->ClickedInteraction = Layout->State->HotInteraction;
         }
         
         switch(Layout->State->Interaction.Type)
@@ -185,8 +199,6 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
                     EndInteraction = true;
                 }
             } break;
-            
-            // TODO(kstandbridge): InteractionSelect that could choose a textbox or row in list
             
             case UiInteraction_None:
             {
@@ -209,6 +221,7 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
         if(EndInteraction)
         {
             ClearInteraction(&Layout->State->Interaction);
+            ClearInteraction(&Layout->State->ClickedInteraction);
         }
         
         MouseButton = !MouseButton;
@@ -245,7 +258,7 @@ DrawUIInternal(ui_layout *Layout)
             {
                 P.X -= Element->Dim.X;
                 v2 HeightDifference = V2(0.0f, Row->MaxHeight - Element->Dim.Y);
-                v2 TextOffset = V2(0.0f, Element->TextOffset - HeightDifference.Y);
+                v2 TextOffset = V2Subtract(Element->TextOffset, HeightDifference);
                 if(Row->Type == LayoutType_Fill)
                 {
                     TextOffset.Y -= (0.5f*HeightPerFill) - 0.5f*(Element->Dim.Y);
@@ -269,13 +282,15 @@ DrawUIInternal(ui_layout *Layout)
                     {
                         TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, HeightDifference, Layout->Scale);
                         
-                        if(Element->Interaction.Type == UiInteraction_TextInput)
+                        if(InteractionIsSelected(Layout->State, Element->Interaction) &&
+                           (Element->Interaction.Type == UiInteraction_TextInput))
                         {
                             editable_string *Str = Element->Interaction.Str;
-                            rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data));
+                            rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data), V4Set1(1.0f));
                             v2 SelectionStartDim = V2(TextBounds.Max.X - TextBounds.Min.X, 0);
+                            SelectionStartDim.X += Layout->Padding;
                             
-                            PushRect(Layout->RenderGroup, V2Add(P, SelectionStartDim), V2(5.0f, Element->Dim.Y + HeightDifference.Y), V4(0.0f, 0.0f, 0.0f, 1.0f));
+                            PushRect(Layout->RenderGroup, V2Add(P, SelectionStartDim), V2(5.0f, Element->Dim.Y + HeightDifference.Y), V4(0.0f, 0.0f, 0.0f, 1.0f), V4(0.0f, 0.0f, 0.0f, 1.0f));
                         }
                         
                     } break;
@@ -359,10 +374,11 @@ EndRow(ui_layout *Layout)
         else
         {
             ++Row->ElementCount;
-            rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, Element->Label);
-            Element->TextOffset = TextBounds.Min.Y;
+            rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, Element->Label, V4Set1(1.0f));
+            Element->TextOffset = V2(-Layout->Padding, TextBounds.Min.Y - Layout->Padding);
             Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
                               TextBounds.Max.Y - TextBounds.Min.Y);
+            Element->Dim = V2Add(Element->Dim, V2Set1(Layout->Padding*2.0f));
             
             Row->UsedWidth += Element->Dim.X;
             if(Element->Dim.Y > Row->MaxHeight)
@@ -405,6 +421,16 @@ PushSpacerElement(ui_layout *Layout)
     
     PushElementInternal(Layout, ElementType_Spacer, UiInteraction_NOP, 0, String(""), 0);
 }
+
+inline void
+PushStaticElement(ui_layout *Layout, u32 ID, string Str)
+{
+    Assert(Layout->IsCreatingRow);
+    
+    PushElementInternal(Layout, ElementType_Static, UiInteraction_None, ID, Str, 0);
+}
+
+
 inline b32
 PushButtonElement(ui_layout *Layout, u32 ID, string Str)
 {

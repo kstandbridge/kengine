@@ -82,6 +82,18 @@ Hadamard(v2 A, v2 B)
 // NOTE(kstandbridge): v4 operations
 //
 
+inline v4
+RGBColor(f32 R, f32 G, f32 B, f32 A)
+{
+    v4 Result;
+    
+    Result.R = R/255.0f;
+    Result.G = G/255.0f;
+    Result.B = B/255.0f;
+    Result.A = A/255.0f;
+    
+    return Result;
+}
 
 inline v4
 SRGB255ToLinear1(v4 C)
@@ -95,7 +107,7 @@ SRGB255ToLinear1(v4 C)
     Result.B = Square(Inv255*C.B);
     Result.A = Inv255*C.A;
     
-    return(Result);
+    return Result;
 }
 
 inline v4
@@ -110,7 +122,7 @@ Linear1ToSRGB255(v4 C)
     Result.B = One255*SquareRoot(C.B);
     Result.A = One255*C.A;
     
-    return(Result);
+    return Result;
 }
 
 //

@@ -144,14 +144,14 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
     SIZE Size;
     GetTextExtentPoint32W(FontDeviceContext, &CheesePoint, 1, &Size);
     
-    int PreStepX = 128;
+    s32 PreStepX = 128;
     
-    int BoundWidth = Size.cx + 2*PreStepX;
+    s32 BoundWidth = Size.cx + 2*PreStepX;
     if(BoundWidth > MAX_FONT_WIDTH)
     {
         BoundWidth = MAX_FONT_WIDTH;
     }
-    int BoundHeight = Size.cy;
+    s32 BoundHeight = Size.cy;
     if(BoundHeight > MAX_FONT_HEIGHT)
     {
         BoundHeight = MAX_FONT_HEIGHT;
@@ -206,8 +206,8 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
     f32 KerningChange = 0;
     if(MinX <= MaxX)
     {
-        int Width = (MaxX - MinX) + 1;
-        int Height = (MaxY - MinY) + 1;
+        s32 Width = (MaxX - MinX) + 1;
+        s32 Height = (MaxY - MinY) + 1;
         
         Result.Width = Width + 2;
         Result.Height = Height + 2;
@@ -652,7 +652,6 @@ WinMainCRTStartup()
             AppMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGReadEntireFile;
             AppMemory.PlatformAPI.DEBUGGetGlyphForCodePoint = DEBUGGetGlyphForCodePoint;
             AppMemory.PlatformAPI.DEBUGGetHorizontalAdvanceForPair = DEBUGGetHorizontalAdvanceForPair;
-            
             
             app_input Input[2];
             ZeroArray(ArrayCount(Input), Input);
