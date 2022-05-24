@@ -38,12 +38,18 @@
 typedef struct colors
 {
     v4 Clear;
+    
     v4 Text;
+    v4 TextBorder;
+    v4 SelectedTextBorder;
+    v4 TextBackground;
+    v4 Caret;
+    
     v4 HotButton;
     v4 Button;
     v4 ClickedButton;
     v4 ButtonBorder;
-    v4 Caret;
+    
 } colors;
 
 typedef struct app_state

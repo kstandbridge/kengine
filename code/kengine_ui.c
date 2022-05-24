@@ -28,6 +28,21 @@ TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, v2 
     }
 }
 
+internal void
+DrawTextElement(ui_layout *Layout, v2 P, string Str, v2 TextOffset, v2 Dim, f32 Scale, v4 BackgroundColor, v4 BorderColor, v4 TextColor)
+{
+    PushRect(Layout->RenderGroup, P, Dim, BackgroundColor, BackgroundColor);
+    
+    f32 Thickness = Scale*3.0f;
+    if(Thickness < 1.0f)
+    {
+        Thickness = 1.0f;
+    }
+    PushRectOutline(Layout->RenderGroup, P, Dim, BorderColor, BorderColor, Thickness);
+    
+    WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor);
+}
+
 internal ui_layout
 BeginUIFrame(ui_state *UiState, memory_arena *Arena, render_group *RenderGroup, app_input *Input, f32 Padding, f32 Scale)
 {
@@ -267,11 +282,18 @@ DrawUIInternal(ui_layout *Layout)
                 
                 Element->Dim = V2Add(Element->Dim, HeightDifference);
                 
+                if(IsInRectangle(Rectangle2(P, V2Add(P, Element->Dim)), Layout->MouseP))
+                {
+                    Layout->State->NextHotInteraction = Element->Interaction;
+                }
+                
                 switch(Element->Type)
                 {
                     case ElementType_TextBox:
                     {
-                        TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, Element->Dim, Layout->Scale);
+                        v4 BorderColor = InteractionIsSelected(Layout->State, Element->Interaction) ? Colors.SelectedTextBorder : Colors.TextBorder;
+                        
+                        DrawTextElement(Layout, P, Element->Label, TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, BorderColor, Colors.Text);
                         
                         if(InteractionIsSelected(Layout->State, Element->Interaction) &&
                            (Element->Interaction.Type == UiInteraction_TextInput))
@@ -297,7 +319,16 @@ DrawUIInternal(ui_layout *Layout)
                     case ElementType_Slider:
                     case ElementType_Button:
                     {
-                        TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, Element->Dim, Layout->Scale);
+                        v4 ButtonColor = InteractionIsHot(Layout->State, Element->Interaction) ? Colors.HotButton : Colors.Button;
+                        
+                        if(InteractionIsClicked(Layout->State, Element->Interaction))
+                        {
+                            ButtonColor = Colors.ClickedButton;
+                        }
+                        
+                        DrawTextElement(Layout, P, Element->Label, TextOffset, Element->Dim, Layout->Scale, ButtonColor, Colors.ButtonBorder, Colors.Text);
+                        
+                        
                         
                     } break;
                     

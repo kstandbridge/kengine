@@ -13,13 +13,18 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     Platform = Memory->PlatformAPI;
     
 #if 1
-    Colors.Text = RGBColor(0, 0, 0, 255);
     Colors.Clear = RGBColor(255, 255, 255, 255);
+    
+    Colors.Text = RGBColor(0, 0, 0, 255);
+    Colors.TextBorder = RGBColor(122, 122, 122, 255);
+    Colors.SelectedTextBorder = RGBColor(0, 120, 215, 255);
+    Colors.TextBackground = RGBColor(255, 255, 255, 255);
+    Colors.Caret = RGBColor(0, 0, 0, 255);
+    
     Colors.HotButton = RGBColor(229, 241, 251, 255);
     Colors.Button = RGBColor(225, 225, 225, 255);
     Colors.ClickedButton = RGBColor(204, 228, 247, 255);
     Colors.ButtonBorder = RGBColor(173, 173, 173, 173);
-    Colors.Caret = RGBColor(230, 230, 230, 255);
 #else
     // NOTE(kstandbridge): Dark mode
     Colors.Text = RBGColor(255, 255, 255, 255);
@@ -48,7 +53,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         AppState->UiState.Assets = &AppState->Assets;
         
-        AppState->UiScale = V2(0.5f, 0.0f);
+        AppState->UiScale = V2(0.13f, 0.0f);
         
         AppState->TestString.Length = 1;
         AppState->TestString.SelectionStart = 1;
