@@ -1,34 +1,5 @@
 
 internal void
-TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, v2 TextOffset, v2 Dim, f32 Scale)
-{
-    b32 IsHot = InteractionIsHot(Layout->State, Interaction);
-    
-    v4 ButtonColor = IsHot ? Colors.HotButton : Colors.Button;
-    
-    if(InteractionIsClicked(Layout->State, Interaction))
-    {
-        ButtonColor = Colors.ClickedButton;
-    }
-    
-    PushRect(Layout->RenderGroup, P, Dim, ButtonColor, ButtonColor);
-    
-    f32 Thickness = Scale*3.0f;
-    if(Thickness < 1.0f)
-    {
-        Thickness = 1.0f;
-    }
-    PushRectOutline(Layout->RenderGroup, P, Dim, Colors.ButtonBorder, Colors.ButtonBorder, Thickness);
-    
-    WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str, Colors.Text);
-    
-    if(IsInRectangle(Rectangle2(P, V2Add(P, Dim)), Layout->MouseP))
-    {
-        Layout->State->NextHotInteraction = Interaction;
-    }
-}
-
-internal void
 DrawTextElement(ui_layout *Layout, v2 P, string Str, v2 TextOffset, v2 Dim, f32 Scale, v4 BackgroundColor, v4 BorderColor, v4 TextColor)
 {
     PushRect(Layout->RenderGroup, P, Dim, BackgroundColor, BackgroundColor);
@@ -130,6 +101,10 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
                             if(Str->SelectionStart < Str->Length)
                             {
                                 Str->SelectionStart++;
+                            }
+                            else
+                            {
+                                break;
                             }
                         } // NOTE(kstandbridge): No break intentional
                         case KeyboardButton_Backspace:

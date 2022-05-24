@@ -53,7 +53,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         AppState->UiState.Assets = &AppState->Assets;
         
-        AppState->UiScale = V2(0.13f, 0.0f);
+        AppState->UiScale = V2(0.3f, 0.0f);
         
         AppState->TestString.Length = 1;
         AppState->TestString.SelectionStart = 1;
