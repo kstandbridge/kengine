@@ -287,11 +287,11 @@ DrawUIInternal(ui_layout *Layout)
                             
                             editable_string *Str = Element->Interaction.Str;
                             
-                            v2 CaretP = V2Set1(0);
+                            v2 CaretP = V2(0, Layout->Padding);
                             if(Str->SelectionStart > 0)
                             {
                                 rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data), V4Set1(1.0f));
-                                CaretP = V2(TextBounds.Max.X - TextBounds.Min.X, 0);
+                                CaretP.X = TextBounds.Max.X - TextBounds.Min.X;
                             }
                             
                             CaretP.X += Layout->Padding;
@@ -305,7 +305,7 @@ DrawUIInternal(ui_layout *Layout)
                                     Thickness = 1.0f;
                                 }
                                 
-                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, Element->Dim.Y + HeightDifference.Y), Colors.Caret, Colors.Caret);
+                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, Element->Dim.Y - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
                                 
                                 // TODO(kstandbridge): Remove debug info
                                 DrawTextElement(Layout, V2Subtract(P, V2(0, Row->MaxHeight)), FormatString(Layout->Arena, "%d / %d", Str->SelectionStart, Str->SelectionEnd), TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, Colors.ButtonBorder, Colors.Text);
@@ -334,9 +334,9 @@ DrawUIInternal(ui_layout *Layout)
                                 {
                                     CaretP.X -= Thickness;
                                 }
-                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, Element->Dim.Y + HeightDifference.Y), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
+                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, Element->Dim.Y - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
                                 WriteLine(Layout->RenderGroup, Layout->State->Assets, 
-                                          V2Subtract(V2Add(P, CaretP), V2(0, TextOffset.Y)), 
+                                          V2Subtract(V2Add(P, V2(CaretP.X, 0)), V2(0, TextOffset.Y)), 
                                           Layout->Scale, SelectedStr, Colors.SelectedText);
                                 
                                 // TODO(kstandbridge): Remove debug info
