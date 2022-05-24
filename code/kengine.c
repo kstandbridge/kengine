@@ -18,6 +18,8 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     Colors.Text = RGBColor(0, 0, 0, 255);
     Colors.TextBorder = RGBColor(122, 122, 122, 255);
     Colors.SelectedTextBorder = RGBColor(0, 120, 215, 255);
+    Colors.SelectedTextBackground = RGBColor(0, 120, 215, 255);
+    Colors.SelectedText = RGBColor(255, 255, 255, 255);
     Colors.TextBackground = RGBColor(255, 255, 255, 255);
     Colors.Caret = RGBColor(0, 0, 0, 255);
     
@@ -26,8 +28,8 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     Colors.ClickedButton = RGBColor(204, 228, 247, 255);
     Colors.ButtonBorder = RGBColor(173, 173, 173, 173);
 #else
-    // NOTE(kstandbridge): Dark mode
-    Colors.Text = RBGColor(255, 255, 255, 255);
+    NOTE(kstandbridge): Dark mode
+        Colors.Text = RBGColor(255, 255, 255, 255);
     Colors.Clear = RGBColor(56, 56, 56, 255);
     Colors.HotButton = RGBColor(69, 69, 69, 255);
     Colors.Button = RGBColor(51, 51, 51, 255);

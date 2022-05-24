@@ -59,6 +59,7 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
                         --Index;
                     }
                     Str->Data[Str->SelectionStart++] = *At;
+                    Str->SelectionEnd = Str->SelectionStart;
                 }
                 ++At;
             }
@@ -101,6 +102,7 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
                             if(Str->SelectionStart < Str->Length)
                             {
                                 Str->SelectionStart++;
+                                Str->SelectionEnd = Str->SelectionStart;
                             }
                             else
                             {
@@ -117,6 +119,7 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
                                     Str->Data[StartMoveIndex - 1] = Str->Data[StartMoveIndex++];
                                 }
                                 Str->Data[--Str->Length] = '\0';
+                                Str->SelectionEnd = Str->SelectionStart;
                             }
                         } break;
                         case KeyboardButton_Right:
@@ -125,12 +128,20 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
                             {
                                 ++Str->SelectionStart;
                             }
+                            if(!Input->ShiftDown)
+                            {
+                                Str->SelectionEnd = Str->SelectionStart;
+                            }
                         } break;
                         case KeyboardButton_Left:
                         {
                             if(Str->SelectionStart > 0)
                             {
                                 --Str->SelectionStart;
+                            }
+                            if(!Input->ShiftDown)
+                            {
+                                Str->SelectionEnd = Str->SelectionStart;
                             }
                         } break;
                     }
@@ -273,18 +284,56 @@ DrawUIInternal(ui_layout *Layout)
                         if(InteractionIsSelected(Layout->State, Element->Interaction) &&
                            (Element->Interaction.Type == UiInteraction_TextInput))
                         {
+                            
                             editable_string *Str = Element->Interaction.Str;
+                            
                             rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data), V4Set1(1.0f));
-                            v2 SelectionStartDim = V2(TextBounds.Max.X - TextBounds.Min.X, 0);
-                            SelectionStartDim.X += Layout->Padding;
+                            v2 CaretP = V2(TextBounds.Max.X - TextBounds.Min.X, 0);
+                            CaretP.X += Layout->Padding;
                             
-                            f32 Thickness = Layout->Scale*3.0f;
-                            if(Thickness < 1.0f)
+                            f32 Thickness;
+                            if(Str->SelectionStart == Str->SelectionEnd)
                             {
-                                Thickness = 1.0f;
+                                Thickness = Layout->Scale*3.0f;
+                                if(Thickness < 1.0f)
+                                {
+                                    Thickness = 1.0f;
+                                }
+                                
+                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, Element->Dim.Y + HeightDifference.Y), Colors.Caret, Colors.Caret);
                             }
-                            
-                            PushRect(Layout->RenderGroup, V2Add(P, SelectionStartDim), V2(Thickness, Element->Dim.Y + HeightDifference.Y), Colors.Caret, Colors.Caret);
+                            else
+                            {
+                                s32 SelectedCharacters = Str->SelectionStart - Str->SelectionEnd;
+                                s32 TotalCharaceters = SelectedCharacters;
+                                if(TotalCharaceters < 0)
+                                {
+                                    TotalCharaceters *= -1;
+                                }
+                                s32 StartOfSelection;
+                                if(Str->SelectionEnd > Str->SelectionStart)
+                                {
+                                    StartOfSelection = Str->SelectionEnd + SelectedCharacters;
+                                }
+                                else
+                                {
+                                    StartOfSelection = Str->SelectionEnd;
+                                }
+                                string SelectedStr = StringInternal(TotalCharaceters, Str->Data + StartOfSelection);
+                                rectangle2 SelectedBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, SelectedStr, V4Set1(1.0f));
+                                Thickness = SelectedBounds.Max.X - SelectedBounds.Min.X;
+                                if(Str->SelectionEnd < Str->SelectionStart)
+                                {
+                                    CaretP.X -= Thickness;
+                                }
+                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, Element->Dim.Y + HeightDifference.Y), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
+                                WriteLine(Layout->RenderGroup, Layout->State->Assets, 
+                                          V2Subtract(V2Add(P, CaretP), V2(0, TextOffset.Y)), 
+                                          Layout->Scale, SelectedStr, Colors.SelectedText);
+                                
+                                // NOTE(kstandbridge): Debug info
+                                DrawTextElement(Layout, V2Subtract(P, V2(0, Row->MaxHeight)), FormatString(Layout->Arena, "%d / %d - %S", Str->SelectionStart, Str->SelectionEnd, SelectedStr), TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, Colors.ButtonBorder, Colors.Text);
+                            }
                         }
                         
                     } break;

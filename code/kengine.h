@@ -2,6 +2,10 @@
 
 /* TODO(kstandbridge): 
 
+- Smooth font resources:
+-> https://github.com/ocornut/imgui/issues/2468
+ -> https://www.grc.com/ct/ctwhat.htm
+
 - fix: textinput del should not delete prev char when char at end of string
 - meta linked list
 - meta double linked list
@@ -42,6 +46,8 @@ typedef struct colors
     v4 Text;
     v4 TextBorder;
     v4 SelectedTextBorder;
+    v4 SelectedTextBackground;
+    v4 SelectedText;
     v4 TextBackground;
     v4 Caret;
     
