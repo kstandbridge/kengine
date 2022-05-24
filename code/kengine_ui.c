@@ -11,7 +11,10 @@ DrawTextElement(ui_layout *Layout, v2 P, string Str, v2 TextOffset, v2 Dim, f32 
     }
     PushRectOutline(Layout->RenderGroup, P, Dim, BorderColor, BorderColor, Thickness);
     
-    WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor);
+    if(Str.Size > 0)
+    {
+        WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor);
+    }
 }
 
 internal ui_layout
@@ -434,7 +437,16 @@ EndRow(ui_layout *Layout)
         else
         {
             ++Row->ElementCount;
-            rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, Element->Label, V4Set1(1.0f));
+            string LabelStr;
+            if(Element->Label.Size == 0)
+            {
+                LabelStr = String("K");
+            }
+            else
+            {
+                LabelStr = Element->Label;
+            }
+            rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, LabelStr, V4Set1(1.0f));
             Element->TextOffset = V2(-Layout->Padding, TextBounds.Min.Y - Layout->Padding);
             Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
                               TextBounds.Max.Y - TextBounds.Min.Y);
