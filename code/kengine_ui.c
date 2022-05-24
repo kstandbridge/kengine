@@ -1,14 +1,7 @@
 
 internal void
-TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, v2 TextOffset, v2 Padding, f32 Scale)
+TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, v2 TextOffset, v2 Dim, f32 Scale)
 {
-    v4 TextColor = V4Set1(1.0f);
-    rectangle2 Bounds = TextOpInternal(TextOp_SizeText, Layout->RenderGroup, Layout->State->Assets, P, Scale, Str, TextColor);
-    
-    v2 Dim = V2(Bounds.Max.X - Bounds.Min.X, 
-                Bounds.Max.Y - Bounds.Min.Y);
-    Dim = V2Add(Dim, Padding);
-    Dim = V2Add(Dim, V2Multiply(V2Set1(Layout->Padding), V2Set1(2.0f)));
     b32 IsHot = InteractionIsHot(Layout->State, Interaction);
     
     v4 ButtonColor = IsHot ? Colors.HotButton : Colors.Button;
@@ -27,7 +20,7 @@ TextElement(ui_layout *Layout, v2 P, string Str, ui_interaction Interaction, v2 
     }
     PushRectOutline(Layout->RenderGroup, P, Dim, Colors.ButtonBorder, Colors.ButtonBorder, Thickness);
     
-    WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor);
+    WriteLine(Layout->RenderGroup, Layout->State->Assets, V2Subtract(P, TextOffset), Scale, Str, Colors.Text);
     
     if(IsInRectangle(Rectangle2(P, V2Add(P, Dim)), Layout->MouseP))
     {
@@ -272,11 +265,13 @@ DrawUIInternal(ui_layout *Layout)
                     P.X -= HeightDifference.X;
                 }
                 
+                Element->Dim = V2Add(Element->Dim, HeightDifference);
+                
                 switch(Element->Type)
                 {
                     case ElementType_TextBox:
                     {
-                        TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, HeightDifference, Layout->Scale);
+                        TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, Element->Dim, Layout->Scale);
                         
                         if(InteractionIsSelected(Layout->State, Element->Interaction) &&
                            (Element->Interaction.Type == UiInteraction_TextInput))
@@ -302,7 +297,7 @@ DrawUIInternal(ui_layout *Layout)
                     case ElementType_Slider:
                     case ElementType_Button:
                     {
-                        TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, HeightDifference, Layout->Scale);
+                        TextElement(Layout, P, Element->Label, Element->Interaction, TextOffset, Element->Dim, Layout->Scale);
                         
                     } break;
                     
@@ -381,6 +376,28 @@ EndRow(ui_layout *Layout)
             Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
                               TextBounds.Max.Y - TextBounds.Min.Y);
             Element->Dim = V2Add(Element->Dim, V2Set1(Layout->Padding*2.0f));
+            
+            if((Element->MinDim.X != 0) && 
+               (Element->Dim.X < Element->MinDim.X))
+            {
+                Element->Dim.X = Element->MinDim.X;
+            }
+            if((Element->MinDim.Y != 0) && 
+               (Element->Dim.Y < Element->MinDim.Y))
+            {
+                Element->Dim.Y = Element->MinDim.Y;
+            }
+            
+            if((Element->MaxDim.X != 0) &&
+               (Element->Dim.X > Element->MaxDim.X))
+            {
+                Element->Dim.X = Element->MaxDim.X;
+            }
+            if((Element->MaxDim.Y != 0) && 
+               (Element->Dim.Y > Element->MaxDim.Y))
+            {
+                Element->Dim.Y = Element->MaxDim.Y;
+            }
             
             Row->UsedWidth += Element->Dim.X;
             if(Element->Dim.Y > Row->MaxHeight)
@@ -464,4 +481,20 @@ PushTextInputElement(ui_layout *Layout, u32 ID, editable_string *Target)
     Assert(Layout->IsCreatingRow);
     
     PushElementInternal(Layout, ElementType_TextBox, UiInteraction_TextInput, ID, StringInternal(Target->Length, Target->Data), Target);
+}
+
+inline void
+SetElementMinDim(ui_layout *Layout, f32 Width, f32 Height)
+{
+    Assert(Layout->IsCreatingRow);
+    
+    Layout->LastRow->LastElement->MinDim = V2(Width, Height);
+}
+
+inline void
+SetElementMaxDim(ui_layout *Layout, f32 Width, f32 Height)
+{
+    Assert(Layout->IsCreatingRow);
+    
+    Layout->LastRow->LastElement->MaxDim = V2(Width, Height);
 }

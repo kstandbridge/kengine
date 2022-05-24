@@ -2,10 +2,7 @@
 
 /* TODO(kstandbridge): 
 
-- min height for controls/rows
-- min width for controls
-- max height for controls/rows
-- max width for controls
+- fix: textinput del should not delete prev char when char at end of string
 - meta linked list
 - meta double linked list
 - meta free list
@@ -41,6 +38,7 @@
 typedef struct colors
 {
     v4 Clear;
+    v4 Text;
     v4 HotButton;
     v4 Button;
     v4 ClickedButton;

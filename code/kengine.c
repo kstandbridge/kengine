@@ -12,12 +12,25 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
 {
     Platform = Memory->PlatformAPI;
     
+#if 1
+    Colors.Text = RGBColor(0, 0, 0, 255);
+    Colors.Clear = RGBColor(255, 255, 255, 255);
+    Colors.HotButton = RGBColor(229, 241, 251, 255);
+    Colors.Button = RGBColor(225, 225, 225, 255);
+    Colors.ClickedButton = RGBColor(204, 228, 247, 255);
+    Colors.ButtonBorder = RGBColor(173, 173, 173, 173);
+    Colors.Caret = RGBColor(230, 230, 230, 255);
+#else
+    // NOTE(kstandbridge): Dark mode
+    Colors.Text = RBGColor(255, 255, 255, 255);
     Colors.Clear = RGBColor(56, 56, 56, 255);
     Colors.HotButton = RGBColor(69, 69, 69, 255);
     Colors.Button = RGBColor(51, 51, 51, 255);
     Colors.ClickedButton = RGBColor(102, 102, 102, 255);
     Colors.ButtonBorder = RGBColor(155, 155, 155, 255);
     Colors.Caret = RGBColor(230, 230, 230, 255);
+    
+#endif
     
     app_state *AppState = (app_state *)Memory->Storage;
     
@@ -73,6 +86,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     BeginRow(&Layout, LayoutType_Auto);
     PushTextInputElement(&Layout, __COUNTER__, &AppState->TestString);
+    SetElementMinDim(&Layout, 240, 0);
     PushSpacerElement(&Layout);
     if(PushButtonElement(&Layout, __COUNTER__, String("Click Me")))
     {
@@ -107,6 +121,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     PushButtonElement(&Layout, __COUNTER__, String("Foo"));
     PushSpacerElement(&Layout);
     PushStaticElement(&Layout, __COUNTER__, String("Bar"));
+    SetElementMinDim(&Layout, 512, 0);
     PushSpacerElement(&Layout);
     PushButtonElement(&Layout, __COUNTER__, String("Bas"));
     PushSpacerElement(&Layout);

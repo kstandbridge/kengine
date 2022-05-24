@@ -64,6 +64,8 @@ typedef struct ui_element
     string Label;
     v2 Dim;
     v2 TextOffset;
+    v2 MinDim;
+    v2 MaxDim;
     
     struct ui_element *Next;
 } ui_element; 
