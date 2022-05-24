@@ -287,8 +287,13 @@ DrawUIInternal(ui_layout *Layout)
                             
                             editable_string *Str = Element->Interaction.Str;
                             
-                            rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data), V4Set1(1.0f));
-                            v2 CaretP = V2(TextBounds.Max.X - TextBounds.Min.X, 0);
+                            v2 CaretP = V2Set1(0);
+                            if(Str->SelectionStart > 0)
+                            {
+                                rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data), V4Set1(1.0f));
+                                CaretP = V2(TextBounds.Max.X - TextBounds.Min.X, 0);
+                            }
+                            
                             CaretP.X += Layout->Padding;
                             
                             f32 Thickness;
@@ -301,6 +306,9 @@ DrawUIInternal(ui_layout *Layout)
                                 }
                                 
                                 PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, Element->Dim.Y + HeightDifference.Y), Colors.Caret, Colors.Caret);
+                                
+                                // TODO(kstandbridge): Remove debug info
+                                DrawTextElement(Layout, V2Subtract(P, V2(0, Row->MaxHeight)), FormatString(Layout->Arena, "%d / %d", Str->SelectionStart, Str->SelectionEnd), TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, Colors.ButtonBorder, Colors.Text);
                             }
                             else
                             {
@@ -331,7 +339,7 @@ DrawUIInternal(ui_layout *Layout)
                                           V2Subtract(V2Add(P, CaretP), V2(0, TextOffset.Y)), 
                                           Layout->Scale, SelectedStr, Colors.SelectedText);
                                 
-                                // NOTE(kstandbridge): Debug info
+                                // TODO(kstandbridge): Remove debug info
                                 DrawTextElement(Layout, V2Subtract(P, V2(0, Row->MaxHeight)), FormatString(Layout->Arena, "%d / %d - %S", Str->SelectionStart, Str->SelectionEnd, SelectedStr), TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, Colors.ButtonBorder, Colors.Text);
                             }
                         }
