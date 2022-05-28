@@ -98,8 +98,12 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         if(SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, NonClientMetrics.cbSize, &NonClientMetrics, 0))
         {
             LOGFONTA LogFont = NonClientMetrics.lfMessageFont;
-            s32 Height = 128; // TODO(kstandbridge): Figure out how we could use logFont.lfHeight
-            FontHandle = CreateFontA(Height, LogFont.lfWidth, LogFont.lfEscapement, LogFont.lfOrientation,
+            // TODO(kstandbridge): Figure out how to specify pixels properly here
+            s32 FontHeight = 128;
+            //s32 PointSize = 72;
+            //s32 FontHeight = -MulDiv(PointSize, GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
+            //s32 FontHeight = LogFont.lfHeight;
+            FontHandle = CreateFontA(FontHeight, LogFont.lfWidth, LogFont.lfEscapement, LogFont.lfOrientation,
                                      LogFont.lfWeight, LogFont.lfItalic, LogFont.lfUnderline, LogFont.lfStrikeOut, 
                                      LogFont.lfCharSet, LogFont.lfOutPrecision, LogFont.lfClipPrecision, LogFont.lfQuality, 
                                      LogFont.lfPitchAndFamily, LogFont.lfFaceName);
@@ -217,6 +221,26 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         
         memset(Result.Memory, 0, Result.Height*Result.Pitch);
         
+        u32 RedMask = 0xff;
+        u32 GreenMask = 0xff00;
+        u32 BlueMask = 0xff0000;
+        u32 AlphaMask = 0xff000000;        
+        
+        bit_scan_result RedScan = FindLeastSignificantSetBit(RedMask);
+        bit_scan_result GreenScan = FindLeastSignificantSetBit(GreenMask);
+        bit_scan_result BlueScan = FindLeastSignificantSetBit(BlueMask);
+        bit_scan_result AlphaScan = FindLeastSignificantSetBit(AlphaMask);
+        
+        Assert(RedScan.Found);
+        Assert(GreenScan.Found);
+        Assert(BlueScan.Found);
+        Assert(AlphaScan.Found);
+        
+        s32 RedShiftDown = (s32)RedScan.Index;
+        s32 GreenShiftDown = (s32)GreenScan.Index;
+        s32 BlueShiftDown = (s32)BlueScan.Index;
+        s32 AlphaShiftDown = (s32)AlphaScan.Index;
+        
         u8 *DestRow = (u8 *)Result.Memory + (Result.Height - 1 - 1)*Result.Pitch;
         u32 *SourceRow = (u32 *)FontBits + (MAX_FONT_HEIGHT - 1 - MinY)*MAX_FONT_WIDTH;
         for(s32 Y = MinY;
@@ -229,10 +253,19 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                 X <= MaxX;
                 ++X)
             {
-                
                 u32 Pixel = *Source;
-                f32 Gray = (f32)(Pixel & 0xFF); 
-                v4 Texel = V4(255.0f, 255.0f, 255.0f, Gray);
+                
+                f32 Alpha = 255.0f;
+                if(Pixel == 0)
+                {
+                    Alpha = 0.0f;
+                }
+                
+                v4 Texel = V4((f32)((Pixel & RedMask) >> RedShiftDown),
+                              (f32)((Pixel & GreenMask) >> GreenShiftDown),
+                              (f32)((Pixel & BlueMask) >> BlueShiftDown),
+                              Alpha);
+                
                 Texel = SRGB255ToLinear1(Texel);
                 Texel.R *= Texel.A;
                 Texel.G *= Texel.A;
@@ -243,6 +276,7 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                            ((u32)(Texel.R + 0.5f) << 16) |
                            ((u32)(Texel.G + 0.5f) << 8) |
                            ((u32)(Texel.B + 0.5f) << 0));
+                
                 
                 
                 ++Source;
@@ -272,7 +306,7 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         GlobalCodePointHoriziontalAdvance[GlyphIndex*MAX_GLYPH_COUNT + OtherGlyphIndex] += CharAdvance - KerningChange;
         if(OtherGlyphIndex != 0)
         {
-            //GlobalCodePointHoriziontalAdvance[OtherGlyphIndex*MAX_GLYPH_COUNT + GlyphIndex] += KerningChange;
+            GlobalCodePointHoriziontalAdvance[OtherGlyphIndex*MAX_GLYPH_COUNT + GlyphIndex] += KerningChange;
         }
     }
     

@@ -59,10 +59,10 @@ LoadBMP(memory_arena *Arena, char *FileName)
             {
                 u32 C = *SourceDest;
                 
-                v4 Texel = {(f32)((C & RedMask) >> RedShiftDown),
-                    (f32)((C & GreenMask) >> GreenShiftDown),
-                    (f32)((C & BlueMask) >> BlueShiftDown),
-                    (f32)((C & AlphaMask) >> AlphaShiftDown)};
+                v4 Texel = V4((f32)((C & RedMask) >> RedShiftDown),
+                              (f32)((C & GreenMask) >> GreenShiftDown),
+                              (f32)((C & BlueMask) >> BlueShiftDown),
+                              (f32)((C & AlphaMask) >> AlphaShiftDown));
                 
                 Texel = SRGB255ToLinear1(Texel);
                 Texel.R *= Texel.A;

@@ -75,7 +75,7 @@ FindLeastSignificantSetBit(u32 Value)
     }
 #endif
     
-    return(Result);
+    return Result;
 }
 
 

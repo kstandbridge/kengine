@@ -2,15 +2,22 @@
 
 /* TODO(kstandbridge): 
 
-- Smooth font resources:
--> https://github.com/ocornut/imgui/issues/2468
- -> https://www.grc.com/ct/ctwhat.htm
-
-- fix: textinput del should not delete prev char when char at end of string
+- fix: selection exists left/right should go to selection start/end
+- del/backspace should clear the selection
+- textbox home/end
+- textbox ctrl+Shift home+end (find space)
+- textbox ctrl left+right (find space)
+- textbox ctrl+Shift left+right (find space)
+- checkbox linked to editable boolean
+- radio linked to enum?
+- dropdown linked to enum?
+- dropdown could do enum to string conversation func or similar?
+- listview
 - meta linked list
 - meta double linked list
 - meta free list
 - fix: FormatString ex: %f,%f
+- introspect method names remove underscores
 - Format string c	Character
 - Format string o	Unsigned octal
 - Format string x	Unsigned hexadecimal integer
@@ -26,7 +33,14 @@
 - Format string n	Nothing printed.
 - Format string flags
 - Format string width
-- introspect method names remove underscores
+
+- Smooth font resources:
+-> https://github.com/ocornut/imgui/issues/2468
+ -> https://www.grc.com/ct/ctwhat.htm
+
+- we need a way to dump a struct for debugging purposes, I need to see values frame by frame, introspect to get the values to output, can be preprocessed
+- pulse based on deltatime, we could use it for the caret to fade in and out, and such animations
+- 
 
 */
 
