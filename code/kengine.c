@@ -21,6 +21,15 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     Colors.SelectedTextBorder = RGBColor(0, 120, 215, 255);
     Colors.SelectedTextBackground = RGBColor(0, 120, 215, 255);
     Colors.SelectedText = RGBColor(255, 255, 255, 255);
+    
+    Colors.SelectedOutline = RGBColor(15, 15, 15, 255);
+    Colors.SelectedOutlineAlt = RGBColor(255, 255, 255, 255);
+    
+    Colors.CheckBoxBorder = RGBColor(51, 51, 51, 255);
+    Colors.CheckBoxBackground = RGBColor(255, 255, 255, 255);
+    Colors.CheckBoxBorderClicked = RGBColor(0, 84, 153, 255);
+    Colors.CheckBoxBackgroundClicked = RGBColor(204, 228, 247, 255);
+    
     Colors.TextBackground = RGBColor(255, 255, 255, 255);
     Colors.Caret = RGBColor(0, 0, 0, 255);
     
@@ -52,9 +61,9 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         AppState->TestFont = Platform.DEBUGGetGlyphForCodePoint(&AppState->PermanentArena, 'K');
         AppState->TestP = V2(500.0f, 500.0f);
         
-        SubArena(&AppState->Assets.Arena, &AppState->PermanentArena, Megabytes(32));
+        SubArena(&AppState->Assets.Arena, &AppState->PermanentArena, Megabytes(512));
         
-        SubArena(&AppState->TransientArena, &AppState->PermanentArena, Megabytes(32));
+        SubArena(&AppState->TransientArena, &AppState->PermanentArena, Megabytes(256));
         
         AppState->UiState.Assets = &AppState->Assets;
         
@@ -128,12 +137,13 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     BeginRow(&Layout, LayoutType_Auto);
     PushSpacerElement(&Layout);
-    PushButtonElement(&Layout, __COUNTER__, String("Foo"));
+    PushButtonElement(&Layout, __COUNTER__, 
+                      FormatString(RenderMem.Arena, "Before %s after", AppState->TestBoolean ? "true" : "false"));
     PushSpacerElement(&Layout);
     PushStaticElement(&Layout, __COUNTER__, String("Bar"));
     SetElementMinDim(&Layout, 512, 0);
     PushSpacerElement(&Layout);
-    PushButtonElement(&Layout, __COUNTER__, String("Bas"));
+    PushCheckboxElement(&Layout, __COUNTER__, String("Bas"), &AppState->TestBoolean);
     PushSpacerElement(&Layout);
     EndRow(&Layout);
     

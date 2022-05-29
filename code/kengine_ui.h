@@ -10,6 +10,7 @@ typedef enum ui_interaction_type
     UiInteraction_ImmediateButton,
     UiInteraction_Draggable,
     UiInteraction_TextInput,
+    UiInteraction_EditableBool,
     
 } ui_interaction_type;
 
@@ -25,6 +26,7 @@ typedef struct ui_interaction
         void *Generic;
         v2 *P;
         editable_string *Str;
+        b32 *Bool;
     };
 } ui_interaction;
 

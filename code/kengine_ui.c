@@ -69,6 +69,7 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
             
         }
     }
+    
     // NOTE(kstandbridge): Keyboard buttons
     for(keyboard_button_type Type = 0;
         Type != KeyboardButton_Count;
@@ -189,6 +190,16 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
                 if(MouseUp)
                 {
                     Layout->State->NextToExecute = Layout->State->Interaction;
+                    EndInteraction = true;
+                }
+            } break;
+            
+            // TODO(kstandbridge): Is this the best place to do this?
+            case UiInteraction_EditableBool:
+            {
+                if(MouseUp)
+                {
+                    *Layout->State->Interaction.Bool = !*Layout->State->Interaction.Bool;
                     EndInteraction = true;
                 }
             } break;
@@ -349,8 +360,57 @@ DrawUIInternal(ui_layout *Layout)
                         
                     } break;
                     
-                    case ElementType_Static:
                     case ElementType_Checkbox:
+                    {
+                        f32 Thickness = Layout->Scale*3.0f;
+                        if(Thickness < 1.0f)
+                        {
+                            Thickness = 1.0f;
+                        }
+                        
+                        DrawTextElement(Layout, P, Element->Label, TextOffset, Element->Dim, Layout->Scale, Colors.Clear, Colors.Clear, Colors.Text);
+                        
+                        v2 CheckBoxP = V2Add(P, V2(Layout->Padding, Layout->Padding*0.75f));
+                        v2 CheckBoxDim = V2Set1(Element->Dim.Y - Layout->Padding*1.5f);
+                        if(InteractionIsClicked(Layout->State, Element->Interaction))
+                        {
+                            PushRect(Layout->RenderGroup, CheckBoxP, CheckBoxDim, Colors.CheckBoxBackgroundClicked, Colors.CheckBoxBackgroundClicked);
+                            PushRectOutline(Layout->RenderGroup, CheckBoxP, CheckBoxDim, Colors.CheckBoxBorderClicked, Colors.CheckBoxBorderClicked, Thickness);
+                        }
+                        else
+                        {
+                            
+                            PushRect(Layout->RenderGroup, CheckBoxP, CheckBoxDim, Colors.CheckBoxBackground, Colors.CheckBoxBackground);
+                            PushRectOutline(Layout->RenderGroup, CheckBoxP, CheckBoxDim, Colors.CheckBoxBorder, Colors.CheckBoxBorder, Thickness);
+                            
+                            if(*Element->Interaction.Bool)
+                            {
+                                // TODO(kstandbridge): PushGlyph call?
+                                u32 CodePoint = 0x2713;
+                                if(Layout->State->Assets->Glyphs[CodePoint].Memory == 0)
+                                {
+                                    // TODO(kstandbridge): This should be threaded
+                                    Layout->State->Assets->Glyphs[CodePoint] = Platform.DEBUGGetGlyphForCodePoint(&Layout->State->Assets->Arena, CodePoint);
+                                }
+                                
+                                loaded_bitmap *Bitmap = Layout->State->Assets->Glyphs + CodePoint;
+                                Assert(Bitmap->Memory);
+                                f32 Height = Layout->Scale*Bitmap->Height;
+                                PushBitmap(Layout->RenderGroup, Bitmap, Height, V2Add(CheckBoxP, V2Set1(Layout->Padding*0.25f)), Colors.Text, 0);
+                            }
+                            
+                        }
+                        
+                        if(InteractionIsSelected(Layout->State, Element->Interaction))
+                        {
+                            v2 OutlineP = V2Add(P, V2(Element->Dim.Y, Layout->Padding*0.75f));
+                            v2 OutlineDim = V2Subtract(Element->Dim, V2(Element->Dim.Y + Layout->Padding*0.5f, Layout->Padding*1.5f));
+                            
+                            PushRectOutline(Layout->RenderGroup, OutlineP, OutlineDim, Colors.SelectedOutline, Colors.SelectedOutlineAlt, Thickness);
+                        }
+                        
+                    } break;
+                    case ElementType_Static:
                     case ElementType_Slider:
                     case ElementType_Button:
                     {
@@ -452,6 +512,13 @@ EndRow(ui_layout *Layout)
                               TextBounds.Max.Y - TextBounds.Min.Y);
             Element->Dim = V2Add(Element->Dim, V2Set1(Layout->Padding*2.0f));
             
+            if(Element->Type == ElementType_Checkbox)
+            {
+                Element->Dim.X += Element->Dim.Y - Layout->Padding * 0.5f;
+                Element->TextOffset.X -= Element->Dim.Y - Layout->Padding * 0.5f; 
+            }
+            
+            
             if((Element->MinDim.X != 0) && 
                (Element->Dim.X < Element->MinDim.X))
             {
@@ -548,6 +615,14 @@ PushScrollElement(ui_layout *Layout, u32 ID, string Str, v2 *TargetP)
         v2 *P = Layout->State->Interaction.P;
         *P = V2Add(*P, V2Multiply(V2Set1(0.01f), Layout->dMouseP));
     }
+}
+
+inline void
+PushCheckboxElement(ui_layout *Layout, u32 ID, string Str, b32 *TargetBool)
+{
+    Assert(Layout->IsCreatingRow);
+    
+    ui_element *Element = PushElementInternal(Layout, ElementType_Checkbox, UiInteraction_EditableBool, ID, Str, TargetBool);
 }
 
 inline void

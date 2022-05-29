@@ -8,7 +8,6 @@
 - textbox ctrl+Shift home+end (find space)
 - textbox ctrl left+right (find space)
 - textbox ctrl+Shift left+right (find space)
-- checkbox linked to editable boolean
 - radio linked to enum?
 - dropdown linked to enum?
 - dropdown could do enum to string conversation func or similar?
@@ -17,6 +16,7 @@
 - meta double linked list
 - meta free list
 - fix: FormatString ex: %f,%f
+- limited number of glyphs, perhaps with a lookup table of codepoint to index
 - introspect method names remove underscores
 - Format string c	Character
 - Format string o	Unsigned octal
@@ -62,6 +62,15 @@ typedef struct colors
     v4 SelectedTextBorder;
     v4 SelectedTextBackground;
     v4 SelectedText;
+    
+    v4 SelectedOutline;
+    v4 SelectedOutlineAlt;
+    
+    v4 CheckBoxBorder;
+    v4 CheckBoxBackground;
+    v4 CheckBoxBorderClicked;
+    v4 CheckBoxBackgroundClicked;
+    
     v4 TextBackground;
     v4 Caret;
     
@@ -91,6 +100,7 @@ typedef struct app_state
     s32 TestCounter;
     // TODO(kstandbridge): Switch to a float
     v2 UiScale;
+    b32 TestBoolean;
     
 } app_state;
 

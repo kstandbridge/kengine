@@ -30,7 +30,8 @@ typedef struct assets
 {
     memory_arena Arena;
     
-    loaded_bitmap Glyphs[256];
+    // TODO(kstandbridge): Hash table of index to codepoint? Then only keep x amount of glyphs
+    loaded_bitmap Glyphs[65536];
     
 } assets;
 

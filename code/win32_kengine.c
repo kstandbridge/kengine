@@ -677,7 +677,7 @@ WinMainCRTStartup()
 #endif
             app_memory AppMemory;
             ZeroStruct(AppMemory);
-            AppMemory.StorageSize = Megabytes(256);
+            AppMemory.StorageSize = Megabytes(1024);
             AppMemory.Storage = VirtualAlloc(BaseAddress, (size_t)AppMemory.StorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             AppMemory.PlatformAPI.PerFrameWorkQueue = &PerFrameWorkQueue;
             AppMemory.PlatformAPI.BackgroundWorkQueue = &BackgroundWorkQueue;
