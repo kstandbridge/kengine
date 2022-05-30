@@ -372,42 +372,21 @@ DrawUIInternal(ui_layout *Layout)
                         
                         v2 CheckBoxP = V2Add(P, V2(Layout->Padding, Layout->Padding*0.75f));
                         v2 CheckBoxDim = V2Set1(Element->Dim.Y - Layout->Padding*1.5f);
+                        v4 CheckBoxBorder;
+                        v4 CheckBoxBackground;
                         if(InteractionIsClicked(Layout->State, Element->Interaction))
                         {
-                            PushRect(Layout->RenderGroup, CheckBoxP, CheckBoxDim, Colors.CheckBoxBackgroundClicked, Colors.CheckBoxBackgroundClicked);
-                            PushRectOutline(Layout->RenderGroup, CheckBoxP, CheckBoxDim, Colors.CheckBoxBorderClicked, Colors.CheckBoxBorderClicked, Thickness);
+                            CheckBoxBorder = Colors.CheckBoxBorderClicked;
+                            CheckBoxBackground = Colors.CheckBoxBackgroundClicked;
                         }
                         else
                         {
-                            
-                            PushRect(Layout->RenderGroup, CheckBoxP, CheckBoxDim, Colors.CheckBoxBackground, Colors.CheckBoxBackground);
-                            PushRectOutline(Layout->RenderGroup, CheckBoxP, CheckBoxDim, Colors.CheckBoxBorder, Colors.CheckBoxBorder, Thickness);
-                            
-                            if(*Element->Interaction.Bool)
-                            {
-                                // TODO(kstandbridge): PushGlyph call?
-                                u32 CodePoint = 0x2713;
-                                if(Layout->State->Assets->Glyphs[CodePoint].Memory == 0)
-                                {
-                                    // TODO(kstandbridge): This should be threaded
-                                    Layout->State->Assets->Glyphs[CodePoint] = Platform.DEBUGGetGlyphForCodePoint(&Layout->State->Assets->Arena, CodePoint);
-                                }
-                                
-                                loaded_bitmap *Bitmap = Layout->State->Assets->Glyphs + CodePoint;
-                                Assert(Bitmap->Memory);
-                                f32 Height = Layout->Scale*Bitmap->Height;
-                                PushBitmap(Layout->RenderGroup, Bitmap, Height, V2Add(CheckBoxP, V2Set1(Layout->Padding*0.25f)), Colors.Text, 0);
-                            }
-                            
+                            CheckBoxBorder = Colors.CheckBoxBorder;
+                            CheckBoxBackground = Colors.CheckBoxBackground;
                         }
+                        string CheckBoxText = (*Element->Interaction.Bool) ? String("\\2713") : String("");
                         
-                        if(InteractionIsSelected(Layout->State, Element->Interaction))
-                        {
-                            v2 OutlineP = V2Add(P, V2(Element->Dim.Y, Layout->Padding*0.75f));
-                            v2 OutlineDim = V2Subtract(Element->Dim, V2(Element->Dim.Y + Layout->Padding*0.5f, Layout->Padding*1.5f));
-                            
-                            PushRectOutline(Layout->RenderGroup, OutlineP, OutlineDim, Colors.SelectedOutline, Colors.SelectedOutlineAlt, Thickness);
-                        }
+                        DrawTextElement(Layout, CheckBoxP, CheckBoxText, V2Set1(-Layout->Padding*0.25f), CheckBoxDim, Layout->Scale, CheckBoxBackground, CheckBoxBorder, Colors.Text);
                         
                     } break;
                     case ElementType_Static:

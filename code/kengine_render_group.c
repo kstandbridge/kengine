@@ -675,6 +675,19 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
     {
         u32 CodePoint = Str.Data[Index];
         
+        if((Str.Data[0] == '\\') &&
+           (IsHex(Str.Data[1])) &&
+           (IsHex(Str.Data[2])) &&
+           (IsHex(Str.Data[3])) &&
+           (IsHex(Str.Data[4])))
+        {
+            CodePoint = ((GetHex(Str.Data[1]) << 12) |
+                         (GetHex(Str.Data[2]) << 8) |
+                         (GetHex(Str.Data[3]) << 4) |
+                         (GetHex(Str.Data[4]) << 0));
+            Index += 4;
+        }
+        
         if(CodePoint && CodePoint != ' ')
         {        
             if(Assets->Glyphs[CodePoint].Memory == 0)

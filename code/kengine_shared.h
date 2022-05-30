@@ -142,6 +142,32 @@ IsWhitespace(char C)
 }
 
 inline b32
+IsHex(char Char)
+{
+    b32 Result = (((Char >= '0') && (Char <= '9')) ||
+                  ((Char >= 'A') && (Char <= 'F')));
+    
+    return Result;
+}
+
+inline u32
+GetHex(char Char)
+{
+    u32 Result = 0;
+    
+    if((Char >= '0') && (Char <= '9'))
+    {
+        Result = Char - '0';
+    }
+    else if((Char >= 'A') && (Char <= 'F'))
+    {
+        Result = 0xA + (Char - 'A');
+    }
+    
+    return Result;
+}
+
+inline b32
 IsNumber(char C)
 {
     b32 Result = ((C >= '0') && (C <= '9'));
