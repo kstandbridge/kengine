@@ -11,6 +11,8 @@ typedef enum ui_interaction_type
     UiInteraction_Draggable,
     UiInteraction_TextInput,
     UiInteraction_EditableBool,
+    UiInteraction_MultipleChoice,
+    UiInteraction_MultipleChoiceOption,
     
 } ui_interaction_type;
 
@@ -56,6 +58,7 @@ typedef enum ui_element_type
     ElementType_Slider,
     ElementType_Spacer,
     ElementType_TextBox,
+    ElementType_DropDown,
     ElementType_Button,
 } ui_element_type;
 
@@ -63,11 +66,13 @@ typedef struct ui_element
 {
     ui_element_type Type;
     ui_interaction Interaction;
+    
     string Label;
     v2 Dim;
     v2 TextOffset;
     v2 MinDim;
     v2 MaxDim;
+    b32 IsFloating;
     
     struct ui_element *Next;
 } ui_element; 
@@ -118,6 +123,32 @@ InteractionsAreEqual(ui_interaction A, ui_interaction B)
     b32 Result = ((A.ID == B.ID) &&
                   (A.Type == B.Type) &&
                   (A.Generic == B.Generic));
+    
+    return Result;
+}
+
+inline b32
+InteractionIsToExecute(ui_state *State, ui_interaction A)
+{
+    b32 Result = InteractionsAreEqual(State->ToExecute, A);
+    
+    if(A.Type == UiInteraction_None)
+    {
+        Result = false;
+    }
+    
+    return Result;
+}
+
+inline b32
+InteractionIsNextToExecute(ui_state *State, ui_interaction A)
+{
+    b32 Result = InteractionsAreEqual(State->NextToExecute, A);
+    
+    if(A.Type == UiInteraction_None)
+    {
+        Result = false;
+    }
     
     return Result;
 }

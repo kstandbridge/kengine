@@ -106,6 +106,17 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     BeginRow(&Layout, LayoutType_Auto);
     PushTextInputElement(&Layout, __COUNTER__, &AppState->TestString);
     SetElementMinDim(&Layout, 240, 0);
+    
+    
+    string FruitLabels[Fruit_Count];
+    FruitLabels[Fruit_Unkown] = String("");
+    FruitLabels[Fruit_Apple] = String("Apple");
+    FruitLabels[Fruit_Banana] = String("Banana");
+    FruitLabels[Fruit_Orange] = String("Orange");
+    
+    PushDropDownElement(&Layout, __COUNTER__, FruitLabels, Fruit_Count, (s32 *)&AppState->TestEnum);
+    SetElementMinDim(&Layout, 240, 0);
+    
     PushSpacerElement(&Layout);
     if(PushButtonElement(&Layout, __COUNTER__, String("Click Me")))
     {
@@ -167,10 +178,12 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     EndUIFrame(&Layout, Input);
     
 #if 0
-    v2 P = V2(500.0f, 400.0f);
+    v2 P = V2(Buffer->Width*0.5f, Buffer->Height*0.5f);
     f32 Angle = 0.1f*AppState->Time;
     PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, P, V4(1, 1, 1, 1), Angle);
 #endif
+    
+    RenderGroupToOutput(RenderGroup);
     
 #if 0
     v2 RectP = V2((f32)Buffer->Width / 2, (f32)Buffer->Height / 2);
@@ -178,7 +191,6 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     DrawCircle(DrawBuffer, RectP, V2Add(RectP, V2(50, 50)), V4(1, 1, 0, 1), Rectangle2i(0, Buffer->Width, 0, Buffer->Height));
 #endif
     
-    RenderGroupToOutput(RenderGroup);
     EndTemporaryMemory(RenderMem);
     
     CheckArena(&AppState->PermanentArena);

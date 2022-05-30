@@ -81,6 +81,16 @@ typedef struct colors
     
 } colors;
 
+typedef enum fruit_type
+{
+    Fruit_Unkown,
+    Fruit_Apple,
+    Fruit_Banana,
+    Fruit_Orange,
+    
+    Fruit_Count
+} fruit_type;
+
 typedef struct app_state
 {
     b32 IsInitialized;
@@ -101,6 +111,8 @@ typedef struct app_state
     // TODO(kstandbridge): Switch to a float
     v2 UiScale;
     b32 TestBoolean;
+    
+    fruit_type TestEnum;
     
 } app_state;
 

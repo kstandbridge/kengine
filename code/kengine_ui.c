@@ -213,6 +213,15 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
                 }
             } break;
             
+            case UiInteraction_MultipleChoiceOption:
+            {
+                if(MouseUp)
+                {
+                    Layout->State->NextToExecute = Layout->State->Interaction;
+                    EndInteraction = true;
+                }
+            } break;
+            
             default:
             {
                 if(MouseUp)
@@ -249,7 +258,7 @@ DrawUIInternal(ui_layout *Layout)
         f32 RemainingWidth = TotalWidth - Row->UsedWidth;
         f32 WidthPerSpacer = RemainingWidth / Row->SpacerCount;
         v2 P = V2(TotalWidth, CurrentY);
-        
+        ui_element *LastElement = 0;
         for(ui_element *Element = Row->LastElement;
             Element;
             Element = Element->Next)
@@ -260,7 +269,10 @@ DrawUIInternal(ui_layout *Layout)
             }
             else
             {
-                P.X -= Element->Dim.X;
+                if(!Element->IsFloating)
+                {
+                    P.X -= Element->Dim.X;
+                }
                 v2 HeightDifference = V2(0.0f, Row->MaxHeight - Element->Dim.Y);
                 v2 TextOffset = V2Subtract(Element->TextOffset, HeightDifference);
                 if(Row->Type == LayoutType_Fill)
@@ -277,10 +289,22 @@ DrawUIInternal(ui_layout *Layout)
                 {
                     HeightDifference.X = (RemainingWidth/Row->ElementCount);
                     TextOffset.X -= 0.5f*HeightDifference.X;
-                    P.X -= HeightDifference.X;
+                    if(!Element->IsFloating)
+                    {
+                        P.X -= HeightDifference.X;
+                    }
                 }
                 
                 Element->Dim = V2Add(Element->Dim, HeightDifference);
+                
+                if(Element->IsFloating)
+                {
+                    P.Y -= Element->Dim.Y;
+                }
+                else
+                {
+                    P.Y = CurrentY;
+                }
                 
                 if(IsInRectangle(Rectangle2(P, V2Add(P, Element->Dim)), Layout->MouseP))
                 {
@@ -372,6 +396,7 @@ DrawUIInternal(ui_layout *Layout)
                         
                         v2 CheckBoxP = V2Add(P, V2(Layout->Padding, Layout->Padding*0.75f));
                         v2 CheckBoxDim = V2Set1(Element->Dim.Y - Layout->Padding*1.5f);
+                        
                         v4 CheckBoxBorder;
                         v4 CheckBoxBackground;
                         if(InteractionIsClicked(Layout->State, Element->Interaction))
@@ -387,6 +412,16 @@ DrawUIInternal(ui_layout *Layout)
                         string CheckBoxText = (*Element->Interaction.Bool) ? String("\\2713") : String("");
                         
                         DrawTextElement(Layout, CheckBoxP, CheckBoxText, V2Set1(-Layout->Padding*0.25f), CheckBoxDim, Layout->Scale, CheckBoxBackground, CheckBoxBorder, Colors.Text);
+                        
+                    } break;
+                    case ElementType_DropDown:
+                    {
+                        v4 ButtonColor = Colors.Button;
+                        if(InteractionIsSelected(Layout->State, Element->Interaction))
+                        {
+                            ButtonColor = V4(1, 0, 0, 1);
+                        }
+                        DrawTextElement(Layout, P, Element->Label, TextOffset, Element->Dim, Layout->Scale, ButtonColor, Colors.ButtonBorder, Colors.Text);
                         
                     } break;
                     case ElementType_Static:
@@ -406,11 +441,13 @@ DrawUIInternal(ui_layout *Layout)
                         
                     } break;
                     
+                    
                     InvalidDefaultCase;
                 }
-                
             }
+            LastElement = Element;
         }
+        
         if(Row->Type == LayoutType_Auto)
         {
             CurrentY += Row->MaxHeight;
@@ -420,6 +457,7 @@ DrawUIInternal(ui_layout *Layout)
             Assert(Row->Type == LayoutType_Fill);
             CurrentY += HeightPerFill;
         }
+        
     }
 }
 
@@ -465,6 +503,7 @@ EndRow(ui_layout *Layout)
         Assert(Row->Type == LayoutType_Auto);
     }
     
+    ui_element *LastElement = 0;
     for(ui_element *Element = Row->LastElement;
         Element;
         Element = Element->Next)
@@ -472,6 +511,18 @@ EndRow(ui_layout *Layout)
         if(Element->Type == ElementType_Spacer)
         {
             ++Row->SpacerCount;
+        }
+        else if(Element->IsFloating)
+        {
+            if(LastElement)
+            {
+                Element->Dim = LastElement->Dim;
+                Element->TextOffset = LastElement->TextOffset;
+            }
+            else
+            {
+                Assert(!"First element cannot be floating as it needs a parent to float from")
+            }
         }
         else
         {
@@ -526,6 +577,7 @@ EndRow(ui_layout *Layout)
                 Row->MaxHeight = Element->Dim.Y;
             }
         }
+        LastElement = Element;
     }
     
     if(Row->Type == LayoutType_Auto)
@@ -610,6 +662,45 @@ PushTextInputElement(ui_layout *Layout, u32 ID, editable_string *Target)
     Assert(Layout->IsCreatingRow);
     
     PushElementInternal(Layout, ElementType_TextBox, UiInteraction_TextInput, ID, StringInternal(Target->Length, Target->Data), Target);
+}
+
+inline void
+PushDropDownElement(ui_layout *Layout, u32 ID, string *Labels, s32 LabelCount, s32 *Target)
+{
+    Assert(Layout->IsCreatingRow);
+    
+    ui_element *Element = PushElementInternal(Layout, ElementType_DropDown, UiInteraction_ImmediateButton, ID, Labels[*Target], Target);
+    
+    for(s32 LabelIndex = 1;
+        LabelIndex < LabelCount;
+        ++LabelIndex)
+    {
+        ui_interaction Interaction;
+        ZeroStruct(Interaction);
+        Interaction.ID = LabelIndex + 72; // TODO(kstandbridge): How??!?
+        Interaction.Type = UiInteraction_MultipleChoiceOption;
+        Interaction.Generic = Target;
+        
+        if(InteractionsAreEqual(Interaction, Layout->State->ToExecute))
+        {
+            *Target = LabelIndex;
+        }
+        
+        if(InteractionIsSelected(Layout->State, Element->Interaction))
+        {
+            ui_element *Choice = PushStruct(Layout->Arena, ui_element);
+            ZeroStruct(*Choice);
+            Choice->Next = Element->Next;
+            Element->Next = Choice;
+            Layout->LastRow->LastElement = Element;
+            
+            Choice->Type = ElementType_Button;
+            Choice->Interaction = Interaction;
+            Choice->Label = Labels[LabelIndex];
+            Choice->IsFloating = true;
+        }
+    }
+    
 }
 
 inline void
