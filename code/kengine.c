@@ -122,7 +122,8 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     {
         AppState->TestP = V2Set1(0.0f);
     }
-    PushButtonElement(&Layout, __COUNTER__, String("Top Right"));
+    PushButtonElement(&Layout, __COUNTER__, 
+                      FormatString(RenderMem.Arena, "before %S after", FruitLabels + AppState->TestEnum));
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Fill);

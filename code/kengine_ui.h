@@ -1,6 +1,5 @@
 #ifndef KENGINE_UI_H
 
-
 typedef enum ui_interaction_type
 {
     UiInteraction_None,
@@ -15,8 +14,6 @@ typedef enum ui_interaction_type
     UiInteraction_MultipleChoiceOption,
     
 } ui_interaction_type;
-
-
 
 typedef struct ui_interaction
 {

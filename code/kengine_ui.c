@@ -671,9 +671,9 @@ PushDropDownElement(ui_layout *Layout, u32 ID, string *Labels, s32 LabelCount, s
     
     ui_element *Element = PushElementInternal(Layout, ElementType_DropDown, UiInteraction_ImmediateButton, ID, Labels[*Target], Target);
     
-    for(s32 LabelIndex = 1;
-        LabelIndex < LabelCount;
-        ++LabelIndex)
+    for(s32 LabelIndex = LabelCount - 1;
+        LabelIndex > 0;
+        --LabelIndex)
     {
         ui_interaction Interaction;
         ZeroStruct(Interaction);
