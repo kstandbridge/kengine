@@ -325,7 +325,8 @@ DrawUIInternal(ui_layout *Layout)
                             
                             editable_string *Str = Element->Interaction.Str;
                             
-                            v2 CaretP = V2(0, Layout->Padding);
+                            v2 CaretP = V2(0, -TextOffset.Y - Layout->Padding*0.25f);
+                            f32 CaretHeight = Platform.DEBUGGetLineAdvance()*Layout->Scale;
                             if(Str->SelectionStart > 0)
                             {
                                 rectangle2 TextBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data), V4Set1(1.0f));
@@ -343,7 +344,7 @@ DrawUIInternal(ui_layout *Layout)
                                     Thickness = 1.0f;
                                 }
                                 
-                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, Element->Dim.Y - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
+                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
                                 
                                 // TODO(kstandbridge): Remove debug info
                                 DrawTextElement(Layout, V2Subtract(P, V2(0, Row->MaxHeight)), FormatString(Layout->Arena, "%d / %d", Str->SelectionStart, Str->SelectionEnd), TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, Colors.ButtonBorder, Colors.Text);
@@ -365,17 +366,69 @@ DrawUIInternal(ui_layout *Layout)
                                 {
                                     StartOfSelection = Str->SelectionEnd;
                                 }
+                                
                                 string SelectedStr = StringInternal(TotalCharaceters, Str->Data + StartOfSelection);
+                                
+#if 1
+                                for(umm Index = 0;
+                                    Index < SelectedStr.Size + 1;
+                                    Index++)
+                                {
+                                    if(Index == SelectedStr.Size)
+                                    {
+                                        string PartSelectedStr = SelectedStr;
+                                        rectangle2 SelectedBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, PartSelectedStr, V4Set1(1.0f));
+                                        Thickness = SelectedBounds.Max.X - SelectedBounds.Min.X;
+                                        if(Str->SelectionEnd < Str->SelectionStart)
+                                        {
+                                            CaretP.X -= Thickness;
+                                        }
+                                        PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
+                                        
+#if 0                                        
+                                        WriteLine(Layout->RenderGroup, Layout->State->Assets, 
+                                                  V2Subtract(V2Add(P, V2(CaretP.X, 0)), V2(0, TextOffset.Y)), 
+                                                  Layout->Scale, PartSelectedStr, Colors.SelectedText);
+#endif
+                                    }
+                                    else if(SelectedStr.Data[Index] == '\n')
+                                    {
+                                        umm PartSelectedLength = SelectedStr.Size - Index - 1;
+                                        //CaretP.Y -= CaretHeight;
+                                        ++Index;
+                                        if((PartSelectedLength > 0) && 
+                                           (SelectedStr.Data[Index] != '\n'))
+                                        {
+                                            string PartSelectedStr = StringInternal(PartSelectedLength, SelectedStr.Data + Index);
+                                            rectangle2 SelectedBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, PartSelectedStr, V4Set1(1.0f));
+                                            Thickness = SelectedBounds.Max.X - SelectedBounds.Min.X;
+                                            if(Str->SelectionEnd < Str->SelectionStart)
+                                            {
+                                                CaretP.X -= Thickness;
+                                            }
+                                            PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
+                                            
+#if 0                                        
+                                            WriteLine(Layout->RenderGroup, Layout->State->Assets, 
+                                                      V2Subtract(V2Add(P, V2(CaretP.X, 0)), V2(0, TextOffset.Y)), 
+                                                      Layout->Scale, PartSelectedStr, Colors.SelectedText);
+#endif
+                                        }
+                                    }
+                                    
+                                }
+#else
                                 rectangle2 SelectedBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, SelectedStr, V4Set1(1.0f));
                                 Thickness = SelectedBounds.Max.X - SelectedBounds.Min.X;
                                 if(Str->SelectionEnd < Str->SelectionStart)
                                 {
                                     CaretP.X -= Thickness;
                                 }
-                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, Element->Dim.Y - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
+                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
                                 WriteLine(Layout->RenderGroup, Layout->State->Assets, 
                                           V2Subtract(V2Add(P, V2(CaretP.X, 0)), V2(0, TextOffset.Y)), 
                                           Layout->Scale, SelectedStr, Colors.SelectedText);
+#endif
                                 
                                 // TODO(kstandbridge): Remove debug info
                                 DrawTextElement(Layout, V2Subtract(P, V2(0, Row->MaxHeight)), FormatString(Layout->Arena, "%d / %d - %S", Str->SelectionStart, Str->SelectionEnd, SelectedStr), TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, Colors.ButtonBorder, Colors.Text);
@@ -469,6 +522,25 @@ EndUIFrame(ui_layout *Layout, app_input *Input)
     HandleUIInteractionsInternal(Layout, Input);
     
     Layout->State->LastMouseP = Layout->MouseP;
+    
+#if 0    
+    // TODO(kstandbridge): Hack to fix heights?
+    if(Layout->UsedHeight > Layout->RenderGroup->OutputTarget->Height)
+    {
+        f32 HeightToRemove = Layout->UsedHeight - Layout->RenderGroup->OutputTarget->Height;
+        ui_layout_row *BiggestRow = Layout->LastRow;
+        for(ui_layout_row *Row = Layout->LastRow;
+            Row != 0;
+            Row = Row->Next)
+        {
+            if(BiggestRow->MaxHeight < Row->MaxHeight)
+            {
+                BiggestRow = Row;
+            }
+        }
+        BiggestRow->MaxHeight -= HeightToRemove;
+    }
+#endif
     
     DrawUIInternal(Layout);
 }
@@ -569,6 +641,11 @@ EndRow(ui_layout *Layout)
                (Element->Dim.Y > Element->MaxDim.Y))
             {
                 Element->Dim.Y = Element->MaxDim.Y;
+            }
+            
+            if(Element->Dim.X > Layout->RenderGroup->OutputTarget->Width - Row->UsedWidth)
+            {
+                Element->Dim.X = Layout->RenderGroup->OutputTarget->Width - Row->UsedWidth;
             }
             
             Row->UsedWidth += Element->Dim.X;

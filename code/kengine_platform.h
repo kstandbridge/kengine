@@ -145,15 +145,18 @@ WasPressed(app_button_state State)
 //
 // NOTE(kstandbridge): Platform api
 //
-typedef string debug_read_entire_file(memory_arena *Arena, char *FilePath);
-typedef loaded_bitmap debug_get_glyph_for_codepoint(memory_arena *Arena, u32 Codepoint);
-typedef f32 debug_get_horiziontal_advance_for_pair(u32 PrevCodePoint, u32 CodePoint);
-
 typedef struct platform_work_queue platform_work_queue;
 typedef void platform_work_queue_callback(void *Data);
 
 typedef void platform_add_work_entry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data);
 typedef void platform_complete_all_work(platform_work_queue *Queue);
+
+typedef string get_command_line_args(memory_arena *Arena);
+
+typedef string debug_read_entire_file(memory_arena *Arena, char *FilePath);
+typedef loaded_bitmap debug_get_glyph_for_codepoint(memory_arena *Arena, u32 Codepoint);
+typedef f32 debug_get_horiziontal_advance_for_pair(u32 PrevCodePoint, u32 CodePoint);
+typedef f32 debug_get_line_advance();
 
 typedef struct platform_api
 {
@@ -163,9 +166,12 @@ typedef struct platform_api
     platform_add_work_entry *AddWorkEntry;
     platform_complete_all_work *CompleteAllWork;
     
+    get_command_line_args *GetCommandLineArgs;
+    
     debug_read_entire_file *DEBUGReadEntireFile;
     debug_get_glyph_for_codepoint *DEBUGGetGlyphForCodePoint;
     debug_get_horiziontal_advance_for_pair *DEBUGGetHorizontalAdvanceForPair;
+    debug_get_line_advance *DEBUGGetLineAdvance;
 } platform_api;
 
 //

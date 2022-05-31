@@ -675,56 +675,68 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
     {
         u32 CodePoint = Str.Data[Index];
         
-        if((Str.Data[0] == '\\') &&
-           (IsHex(Str.Data[1])) &&
-           (IsHex(Str.Data[2])) &&
-           (IsHex(Str.Data[3])) &&
-           (IsHex(Str.Data[4])))
+        if(Str.Data[Index] == '\r')
         {
-            CodePoint = ((GetHex(Str.Data[1]) << 12) |
-                         (GetHex(Str.Data[2]) << 8) |
-                         (GetHex(Str.Data[3]) << 4) |
-                         (GetHex(Str.Data[4]) << 0));
-            Index += 4;
+            // NOTE(kstandbridge): Ignore
         }
-        
-        if(CodePoint && CodePoint != ' ')
-        {        
-            if(Assets->Glyphs[CodePoint].Memory == 0)
+        else if(Str.Data[Index] == '\n')
+        {
+            AtY -= Platform.DEBUGGetLineAdvance()*Scale;
+            AtX = P.X;
+        }
+        else
+        {
+            if((Str.Data[0] == '\\') &&
+               (IsHex(Str.Data[1])) &&
+               (IsHex(Str.Data[2])) &&
+               (IsHex(Str.Data[3])) &&
+               (IsHex(Str.Data[4])))
             {
-                // TODO(kstandbridge): This should be threaded
-                Assets->Glyphs[CodePoint] = Platform.DEBUGGetGlyphForCodePoint(&Assets->Arena, CodePoint);
+                CodePoint = ((GetHex(Str.Data[1]) << 12) |
+                             (GetHex(Str.Data[2]) << 8) |
+                             (GetHex(Str.Data[3]) << 4) |
+                             (GetHex(Str.Data[4]) << 0));
+                Index += 4;
             }
             
-            loaded_bitmap *Bitmap = Assets->Glyphs + CodePoint;
-            Assert(Bitmap->Memory);
-            f32 Height = Scale*Bitmap->Height;
-            v2 Offset = V2(AtX, AtY);
-            if(Op == TextOp_DrawText)
-            {
-                PushBitmap(RenderGroup, Bitmap, Height, Offset, Color, 0.0f);
-            }
-            else
-            {
-                Assert(Op == TextOp_SizeText);
-                v2 Dim = V2(Height*Bitmap->WidthOverHeight, Height);
-                v2 Align = Hadamard(Bitmap->AlignPercentage, Dim);
-                v2 GlyphP = V2Subtract(Offset, Align);
-                rectangle2 GlyphDim = RectMinDim(GlyphP, Dim);
-                Result = Union(Result, GlyphDim);
+            if(CodePoint && CodePoint != ' ')
+            {        
+                if(Assets->Glyphs[CodePoint].Memory == 0)
+                {
+                    // TODO(kstandbridge): This should be threaded
+                    Assets->Glyphs[CodePoint] = Platform.DEBUGGetGlyphForCodePoint(&Assets->Arena, CodePoint);
+                }
+                
+                loaded_bitmap *Bitmap = Assets->Glyphs + CodePoint;
+                Assert(Bitmap->Memory);
+                f32 Height = Scale*Bitmap->Height;
+                v2 Offset = V2(AtX, AtY);
+                if(Op == TextOp_DrawText)
+                {
+                    PushBitmap(RenderGroup, Bitmap, Height, Offset, Color, 0.0f);
+                }
+                else
+                {
+                    Assert(Op == TextOp_SizeText);
+                    v2 Dim = V2(Height*Bitmap->WidthOverHeight, Height);
+                    v2 Align = Hadamard(Bitmap->AlignPercentage, Dim);
+                    v2 GlyphP = V2Subtract(Offset, Align);
+                    rectangle2 GlyphDim = RectMinDim(GlyphP, Dim);
+                    Result = Union(Result, GlyphDim);
+                }
+                
+                PrevCodePoint = CodePoint;
             }
             
-            PrevCodePoint = CodePoint;
+            f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(PrevCodePoint, CodePoint);
+            
+            if(CodePoint == ' ')
+            {
+                Result.Max.X += AdvanceX;
+            }
+            
+            AtX += AdvanceX;
         }
-        
-        f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(PrevCodePoint, CodePoint);
-        
-        if(CodePoint == ' ')
-        {
-            Result.Max.X += AdvanceX;
-        }
-        
-        AtX += AdvanceX;
     }
     
     return Result;

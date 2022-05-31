@@ -49,6 +49,7 @@ global f32 *GlobalCodePointHoriziontalAdvance;
 global u32 *GlobalGlyphIndexFromCodePoint;
 global KERNINGPAIR *GlobalKerningPairs;
 global DWORD GlobalKerningPairCount;
+global TEXTMETRIC GlobalTextMetric;
 
 internal loaded_bitmap
 DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
@@ -61,7 +62,6 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
     local_persist VOID *FontBits;
     local_persist HDC FontDeviceContext;
     local_persist HFONT FontHandle;
-    local_persist TEXTMETRIC TextMetric;
     
     local_persist u32 CurrentGlyphIndex = 0;
     if(!FontInitialized)
@@ -127,7 +127,7 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         }
         
         SelectObject(FontDeviceContext, FontHandle);
-        GetTextMetrics(FontDeviceContext, &TextMetric);
+        GetTextMetrics(FontDeviceContext, &GlobalTextMetric);
         
         GlobalKerningPairCount = GetKerningPairsW(FontDeviceContext, 0, 0);
         GlobalKerningPairs = PushArray(Arena, GlobalKerningPairCount, KERNINGPAIR);
@@ -287,7 +287,7 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         }
         
         Result.AlignPercentage.X = (1.0f) / (f32)Result.Width;
-        Result.AlignPercentage.Y = (1.0f + (MaxY - (BoundHeight - TextMetric.tmDescent))) / (f32)Result.Height;
+        Result.AlignPercentage.Y = (1.0f + (MaxY - (BoundHeight - GlobalTextMetric.tmDescent))) / (f32)Result.Height;
         
         KerningChange = (f32)(MinX - PreStepX);
         
@@ -333,6 +333,14 @@ DEBUGGetHorizontalAdvanceForPair(u32 PrevCodePoint, u32 CodePoint)
             break;
         }
     }
+    
+    return Result;
+}
+
+internal f32
+DEBUGGetLineAdvance()
+{
+    f32 Result = (f32)GlobalTextMetric.tmAscent + (f32)GlobalTextMetric.tmDescent + (f32)GlobalTextMetric.tmDescent;
     
     return Result;
 }
@@ -628,6 +636,16 @@ Win32LoadAppCode(char *SourceDLLName, char *TempDLLName, char *LockName)
     return Result;
 }
 
+internal string
+GetCommandLineArgs(memory_arena *Arena)
+{
+    LPSTR Args = GetCommandLineA();
+    
+    string Result = FormatString(Arena, "%s", Args);
+    
+    return Result;
+}
+
 s32 __stdcall
 WinMainCRTStartup()
 {
@@ -683,9 +701,13 @@ WinMainCRTStartup()
             AppMemory.PlatformAPI.BackgroundWorkQueue = &BackgroundWorkQueue;
             AppMemory.PlatformAPI.AddWorkEntry = AddWorkEntry;
             AppMemory.PlatformAPI.CompleteAllWork = CompleteAllWork;
+            
             AppMemory.PlatformAPI.DEBUGReadEntireFile = DEBUGReadEntireFile;
             AppMemory.PlatformAPI.DEBUGGetGlyphForCodePoint = DEBUGGetGlyphForCodePoint;
             AppMemory.PlatformAPI.DEBUGGetHorizontalAdvanceForPair = DEBUGGetHorizontalAdvanceForPair;
+            AppMemory.PlatformAPI.DEBUGGetLineAdvance = DEBUGGetLineAdvance;
+            
+            AppMemory.PlatformAPI.GetCommandLineArgs = GetCommandLineArgs;
             
             app_input Input[2];
             ZeroArray(ArrayCount(Input), Input);
@@ -696,7 +718,7 @@ WinMainCRTStartup()
             char *TempAppCodeDLLFullPath = "D:/build/kengine_temp.dll";
             char *AppCodeLockFullPath = "D:/build/lock.tmp";
             
-            app_code AppCode = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
+            app_code AppCode; // = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
             
             
             
