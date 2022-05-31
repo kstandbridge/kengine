@@ -277,7 +277,48 @@ DrawUIInternal(ui_layout *Layout)
                 v2 TextOffset = V2Subtract(Element->TextOffset, HeightDifference);
                 if(Row->Type == LayoutType_Fill)
                 {
-                    TextOffset.Y -= (0.5f*HeightPerFill) - 0.5f*(Element->Dim.Y);
+                    switch(Element->LabelLayout)
+                    {
+                        case TextLayout_TopLeft:
+                        {
+                            TextOffset.Y -= (1.0f*HeightPerFill) - 1.0f*(Element->Dim.Y);
+                            if(Row->SpacerCount == 0)
+                            {
+                                TextOffset.X += 0.5f*(Element->Dim.X);
+                            }
+                        } break;
+                        case TextLayout_MiddleLeft:
+                        {
+                            TextOffset.Y -= (0.5f*HeightPerFill) - 0.5f*(Element->Dim.Y);
+                            if(Row->SpacerCount == 0)
+                            {
+                                TextOffset.X += 0.5f*(Element->Dim.X);
+                            }
+                        } break;
+                        case TextLayout_BottomLeft:
+                        {
+                            if(Row->SpacerCount == 0)
+                            {
+                                TextOffset.X += 0.5f*(Element->Dim.X);
+                            }
+                        } break;
+                        
+                        case TextLayout_TopMiddle:
+                        {
+                            TextOffset.Y -= (1.0f*HeightPerFill) - 1.0f*(Element->Dim.Y);
+                        } break;
+                        case TextLayout_MiddleMiddle:
+                        {
+                            TextOffset.Y -= (0.5f*HeightPerFill) - 0.5f*(Element->Dim.Y);
+                        } break;
+                        case TextLayout_BottomMiddle:
+                        {
+                            // NOTE(kstandbridge): Already aligned by default
+                        } break;
+                        
+                        InvalidDefaultCase;
+                    }
+                    
                     HeightDifference.Y = HeightPerFill - Element->Dim.Y;
                 }
                 else
@@ -664,7 +705,7 @@ EndRow(ui_layout *Layout)
 }
 
 inline ui_element *
-PushElementInternal(ui_layout *Layout, ui_element_type ElementType, ui_element_type InteractionType, u32 ID, string Str, void *Target)
+PushElementInternal(ui_layout *Layout, ui_element_type ElementType, ui_element_type InteractionType, u32 ID, string Label, ui_text_layout_type LabelLayout, void *Target)
 {
     Assert(Layout->IsCreatingRow);
     
@@ -678,7 +719,8 @@ PushElementInternal(ui_layout *Layout, ui_element_type ElementType, ui_element_t
     Element->Interaction.ID = ID;
     Element->Interaction.Type = InteractionType;
     Element->Interaction.Generic = Target;
-    Element->Label = Str;
+    Element->Label = Label;
+    Element->LabelLayout = LabelLayout;
     
     return Element;
 }
@@ -688,35 +730,35 @@ PushSpacerElement(ui_layout *Layout)
 {
     Assert(Layout->IsCreatingRow);
     
-    PushElementInternal(Layout, ElementType_Spacer, UiInteraction_NOP, 0, String(""), 0);
+    PushElementInternal(Layout, ElementType_Spacer, UiInteraction_NOP, 0, String(""), TextLayout_None, 0);
 }
 
 inline void
-PushStaticElement(ui_layout *Layout, u32 ID, string Str)
+PushStaticElement(ui_layout *Layout, u32 ID, string Label, ui_text_layout_type LabelLayout)
 {
     Assert(Layout->IsCreatingRow);
     
-    PushElementInternal(Layout, ElementType_Static, UiInteraction_None, ID, Str, 0);
+    PushElementInternal(Layout, ElementType_Static, UiInteraction_None, ID, Label, LabelLayout, 0);
 }
 
 
 inline b32
-PushButtonElement(ui_layout *Layout, u32 ID, string Str)
+PushButtonElement(ui_layout *Layout, u32 ID, string Label)
 {
     Assert(Layout->IsCreatingRow);
     
-    ui_element *Element = PushElementInternal(Layout, ElementType_Button, UiInteraction_ImmediateButton, ID, Str, 0);
+    ui_element *Element = PushElementInternal(Layout, ElementType_Button, UiInteraction_ImmediateButton, ID, Label, TextLayout_MiddleMiddle, 0);
     
     b32 Result = InteractionsAreEqual(Element->Interaction, Layout->State->ToExecute);
     return Result;
 }
 
 inline void
-PushScrollElement(ui_layout *Layout, u32 ID, string Str, v2 *TargetP)
+PushScrollElement(ui_layout *Layout, u32 ID, string Label, v2 *TargetP)
 {
     Assert(Layout->IsCreatingRow);
     
-    ui_element *Element = PushElementInternal(Layout, ElementType_Slider, UiInteraction_Draggable, ID, Str, TargetP);
+    ui_element *Element = PushElementInternal(Layout, ElementType_Slider, UiInteraction_Draggable, ID, Label, TextLayout_MiddleMiddle, TargetP);
     
     if(InteractionsAreEqual(Element->Interaction, Layout->State->Interaction))
     {
@@ -726,11 +768,11 @@ PushScrollElement(ui_layout *Layout, u32 ID, string Str, v2 *TargetP)
 }
 
 inline void
-PushCheckboxElement(ui_layout *Layout, u32 ID, string Str, b32 *TargetBool)
+PushCheckboxElement(ui_layout *Layout, u32 ID, string Label, b32 *TargetBool)
 {
     Assert(Layout->IsCreatingRow);
     
-    ui_element *Element = PushElementInternal(Layout, ElementType_Checkbox, UiInteraction_EditableBool, ID, Str, TargetBool);
+    ui_element *Element = PushElementInternal(Layout, ElementType_Checkbox, UiInteraction_EditableBool, ID, Label, TextLayout_MiddleMiddle, TargetBool);
 }
 
 inline void
@@ -738,7 +780,7 @@ PushTextInputElement(ui_layout *Layout, u32 ID, editable_string *Target)
 {
     Assert(Layout->IsCreatingRow);
     
-    PushElementInternal(Layout, ElementType_TextBox, UiInteraction_TextInput, ID, StringInternal(Target->Length, Target->Data), Target);
+    PushElementInternal(Layout, ElementType_TextBox, UiInteraction_TextInput, ID, StringInternal(Target->Length, Target->Data), TextLayout_MiddleMiddle, Target);
 }
 
 inline void
@@ -746,7 +788,7 @@ PushDropDownElement(ui_layout *Layout, u32 ID, string *Labels, s32 LabelCount, s
 {
     Assert(Layout->IsCreatingRow);
     
-    ui_element *Element = PushElementInternal(Layout, ElementType_DropDown, UiInteraction_ImmediateButton, ID, Labels[*Target], Target);
+    ui_element *Element = PushElementInternal(Layout, ElementType_DropDown, UiInteraction_ImmediateButton, ID, Labels[*Target], TextLayout_MiddleMiddle, Target);
     
     for(s32 LabelIndex = LabelCount - 1;
         LabelIndex > 0;

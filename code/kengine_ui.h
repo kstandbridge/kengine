@@ -59,12 +59,29 @@ typedef enum ui_element_type
     ElementType_Button,
 } ui_element_type;
 
+typedef enum ui_text_layout_type
+{
+    TextLayout_None,
+    
+    TextLayout_TopLeft,
+    TextLayout_MiddleLeft,
+    TextLayout_BottomLeft,
+    
+    TextLayout_TopMiddle,
+    TextLayout_MiddleMiddle,
+    TextLayout_BottomMiddle,
+    
+    
+    
+} ui_text_layout_type;
+
 typedef struct ui_element
 {
     ui_element_type Type;
     ui_interaction Interaction;
     
     string Label;
+    ui_text_layout_type LabelLayout;
     v2 Dim;
     v2 TextOffset;
     v2 MinDim;
