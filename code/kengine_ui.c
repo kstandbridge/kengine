@@ -665,6 +665,7 @@ EndRow(ui_layout *Layout)
             if((Element->MinDim.X != 0) && 
                (Element->Dim.X < Element->MinDim.X))
             {
+                Element->TextOffset.X -= (Element->MinDim.X - Element->Dim.X)*0.5f;
                 Element->Dim.X = Element->MinDim.X;
             }
             if((Element->MinDim.Y != 0) && 
