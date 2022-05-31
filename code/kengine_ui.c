@@ -677,6 +677,7 @@ EndRow(ui_layout *Layout)
             if((Element->MaxDim.X != 0) &&
                (Element->Dim.X > Element->MaxDim.X))
             {
+                Element->TextOffset.X += (Element->Dim.X - Element->MaxDim.X)*0.5f;
                 Element->Dim.X = Element->MaxDim.X;
             }
             if((Element->MaxDim.Y != 0) && 

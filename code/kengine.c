@@ -131,17 +131,17 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     PushStaticElement(&Layout, __COUNTER__, 
                       FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nTopLeft", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_TopLeft);
-    SetElementMinDim(&Layout, 300.0f, 0.0f);
+    SetElementMaxDim(&Layout, 150.0f, 0.0f);
     PushSpacerElement(&Layout);
     PushStaticElement(&Layout, __COUNTER__, 
                       FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nMiddleLeft", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_MiddleLeft);
-    SetElementMinDim(&Layout, 300.0f, 0.0f);
+    SetElementMaxDim(&Layout, 150.0f, 0.0f);
     PushSpacerElement(&Layout);
     PushStaticElement(&Layout, __COUNTER__, 
                       FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nBottomLeft", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_BottomLeft);
-    SetElementMinDim(&Layout, 300.0f, 0.0f);
+    SetElementMaxDim(&Layout, 150.0f, 0.0f);
     PushSpacerElement(&Layout);
     EndRow(&Layout);
     
@@ -150,15 +150,15 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     PushStaticElement(&Layout, __COUNTER__, 
                       FormatString(RenderMem.Arena, "PadMiddle %.2f %.2f \nTopMiddle", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_TopMiddle);
-    SetElementMinDim(&Layout, 300.0f, 0.0f);
+    SetElementMaxDim(&Layout, 150.0f, 0.0f);
     PushStaticElement(&Layout, __COUNTER__, 
                       FormatString(RenderMem.Arena, "PadMiddle %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_MiddleMiddle);
-    SetElementMinDim(&Layout, 300.0f, 0.0f);
+    SetElementMaxDim(&Layout, 150.0f, 0.0f);
     PushStaticElement(&Layout, __COUNTER__, 
                       FormatString(RenderMem.Arena, "PadMiddle %.2f %.2f \nBottomMiddle", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_BottomMiddle);
-    SetElementMinDim(&Layout, 300.0f, 0.0f);
+    SetElementMaxDim(&Layout, 150.0f, 0.0f);
     PushSpacerElement(&Layout);
     EndRow(&Layout);
     
