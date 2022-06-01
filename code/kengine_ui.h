@@ -115,14 +115,14 @@ typedef struct ui_layout
     ui_state *State;
     memory_arena *Arena;
     
-    render_group *RenderGroup;
-    
     b32 IsCreatingRow;
     
     f32 Scale;
     v2 MouseP;
     v2 dMouseP;
     f32 Padding;
+    
+    loaded_bitmap *DrawBuffer;
     
     s32 FillRows;
     f32 UsedHeight;

@@ -81,27 +81,26 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     AppState->Time += Input->dtForFrame;
     
-    temporary_memory RenderMem = BeginTemporaryMemory(&AppState->TransientArena);
-    
+#if 1
     loaded_bitmap DrawBufferInteral;
     loaded_bitmap *DrawBuffer = &DrawBufferInteral;
     DrawBuffer->Memory = Buffer->Memory;
     DrawBuffer->Width = Buffer->Width;
     DrawBuffer->Height = Buffer->Height;
     DrawBuffer->Pitch = Buffer->Pitch;
+#else
+    loaded_bitmap DrawBufferInteral;
+    loaded_bitmap *DrawBuffer = &DrawBufferInteral;
+    s32 Y = 320;
+    s32 X = 240;
+    DrawBuffer->Memory = (u8 *)Buffer->Memory + X*BITMAP_BYTES_PER_PIXEL + Y*Buffer->Pitch;
+    DrawBuffer->Width = 1024;
+    DrawBuffer->Height = 768;
+    DrawBuffer->Pitch = Buffer->Pitch;
+#endif
     
-    render_group *RenderGroup = AllocateRenderGroup(RenderMem.Arena, Megabytes(4), DrawBuffer);
-    
-    if(Memory->ExecutableReloaded)
-    {
-        PushClear(RenderGroup, V4(0.6f, 0.0f, 0.6f, 1.0f));
-    }
-    else
-    {
-        PushClear(RenderGroup, Colors.Clear);
-    }
-    
-    ui_layout Layout = BeginUIFrame(&AppState->UiState, RenderMem.Arena, RenderGroup, Input, 8.0f, AppState->UiScale.X);
+    temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
+    ui_layout Layout = BeginUIFrame(&AppState->UiState, TempMem.Arena, Input, DrawBuffer, 8.0f, AppState->UiScale.X);
     
     BeginRow(&Layout, LayoutType_Auto);
     PushTextInputElement(&Layout, __COUNTER__, &AppState->TestString);
@@ -122,171 +121,25 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         AppState->TestP = V2Set1(0.0f);
     }
     PushButtonElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "before %S after", FruitLabels + AppState->TestEnum));
-    EndRow(&Layout);
-    
-    
-    BeginRow(&Layout, LayoutType_Fill);
-    PushSpacerElement(&Layout);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nTopLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopLeft);
-    SetElementMaxDim(&Layout, 150.0f, 0.0f);
-    PushSpacerElement(&Layout);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nMiddleLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleLeft);
-    SetElementMaxDim(&Layout, 150.0f, 0.0f);
-    PushSpacerElement(&Layout);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nBottomLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomLeft);
-    SetElementMaxDim(&Layout, 150.0f, 0.0f);
-    PushSpacerElement(&Layout);
+                      FormatString(TempMem.Arena, "before %S after", FruitLabels + AppState->TestEnum));
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Fill);
-    PushSpacerElement(&Layout);
     PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadMiddle %.2f %.2f \nTopMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopMiddle);
-    SetElementMaxDim(&Layout, 150.0f, 0.0f);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadMiddle %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleMiddle);
-    SetElementMaxDim(&Layout, 150.0f, 0.0f);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadMiddle %.2f %.2f \nBottomMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomMiddle);
-    SetElementMaxDim(&Layout, 150.0f, 0.0f);
-    PushSpacerElement(&Layout);
-    EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Fill);
-    PushSpacerElement(&Layout);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nTopLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopLeft);
-    PushSpacerElement(&Layout);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nMiddleLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleLeft);
-    PushSpacerElement(&Layout);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nBottomLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomLeft);
-    PushSpacerElement(&Layout);
-    EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Fill);
-    PushSpacerElement(&Layout);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadMiddle %.2f %.2f \nTopMiddle", AppState->TestP.X, AppState->TestP.Y),
+                      FormatString(TempMem.Arena, "NoPad %.2f %.2f \nTopMiddle", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_TopMiddle);
     PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadMiddle %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y),
+                      FormatString(TempMem.Arena, "NoPad %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_MiddleMiddle);
     PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadMiddle %.2f %.2f \nBottomMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomMiddle);
-    PushSpacerElement(&Layout);
-    EndRow(&Layout);
-    
-    
-#if 0    
-    BeginRow(&Layout, LayoutType_Auto);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "Auto %.2f %.2f \nTopLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopLeft);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "Auto %.2f %.2f \nMiddleLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleLeft);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "Auto %.2f %.2f \nBottomLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomLeft);
-    EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Fill);
-    PushSpacerElement(&Layout);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nTopLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopLeft);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nMiddleLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleLeft);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nBottomLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomLeft);
-    EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Fill);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadRight %.2f %.2f \nTopLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopLeft);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadRight %.2f %.2f \nMiddleLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleLeft);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadRight %.2f %.2f \nBottomLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomLeft);
-    PushSpacerElement(&Layout);
-    EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Fill);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "NoPad %.2f %.2f \nTopLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopLeft);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "NoPad %.2f %.2f \nMiddleLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleLeft);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "NoPad %.2f %.2f \nBottomLeft", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomLeft);
-    EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Fill);
-    PushSpacerElement(&Layout);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nTopMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopMiddle);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleMiddle);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadLeft %.2f %.2f \nBottomMiddle", AppState->TestP.X, AppState->TestP.Y),
+                      FormatString(TempMem.Arena, "NoPad %.2f %.2f \nBottomMiddle", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_BottomMiddle);
     EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Fill);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadRight %.2f %.2f \nTopMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopMiddle);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadRight %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleMiddle);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "PadRight %.2f %.2f \nBottomMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomMiddle);
-    PushSpacerElement(&Layout);
-    EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Fill);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "NoPad %.2f %.2f \nTopMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopMiddle);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "NoPad %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleMiddle);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "NoPad %.2f %.2f \nBottomMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomMiddle);
-    EndRow(&Layout);
-#endif
     
     BeginRow(&Layout, LayoutType_Auto);
     PushSpacerElement(&Layout);
     PushButtonElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "Before %s after", AppState->TestBoolean ? "true" : "false"));
+                      FormatString(TempMem.Arena, "Before %s after", AppState->TestBoolean ? "true" : "false"));
     PushSpacerElement(&Layout);
     PushStaticElement(&Layout, __COUNTER__, String("Bar"), TextLayout_MiddleMiddle);
     SetElementMinDim(&Layout, 512, 0);
@@ -299,7 +152,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     PushButtonElement(&Layout, __COUNTER__, String("Bottom Left"));
     PushSpacerElement(&Layout);
     PushScrollElement(&Layout, __COUNTER__, 
-                      FormatString(RenderMem.Arena, "UI Scale: %.2f", AppState->UiScale.X),
+                      FormatString(TempMem.Arena, "UI Scale: %.2f", AppState->UiScale.X),
                       &AppState->UiScale);
     PushSpacerElement(&Layout);
     PushButtonElement(&Layout, __COUNTER__, String("Bottom Right"));
@@ -307,23 +160,24 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     EndUIFrame(&Layout, Input);
     
+    EndTemporaryMemory(TempMem);
+    
+    CheckArena(&AppState->PermanentArena);
+    CheckArena(&AppState->TransientArena);
+    CheckArena(&AppState->Assets.Arena);
+    
+    
+    
 #if 0
     v2 P = V2(Buffer->Width*0.5f, Buffer->Height*0.5f);
     f32 Angle = 0.1f*AppState->Time;
     PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, P, V4(1, 1, 1, 1), Angle);
 #endif
     
-    RenderGroupToOutput(RenderGroup);
-    
 #if 0
     v2 RectP = V2((f32)Buffer->Width / 2, (f32)Buffer->Height / 2);
     // TODO(kstandbridge): push circle?
-    DrawCircle(DrawBuffer, RectP, V2Add(RectP, V2(50, 50)), V4(1, 1, 0, 1), Rectangle2i(0, Buffer->Width, 0, Buffer->Height));
+    DrawCircle(DrawBuffer, RectP, V2Add(RectP, V2(50, 50)), V4(1, 1, 0, 1.0f), Rectangle2i(0, Buffer->Width, 0, Buffer->Height));
 #endif
     
-    EndTemporaryMemory(RenderMem);
-    
-    CheckArena(&AppState->PermanentArena);
-    CheckArena(&AppState->TransientArena);
-    CheckArena(&AppState->Assets.Arena);
 }

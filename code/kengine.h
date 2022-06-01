@@ -2,6 +2,9 @@
 
 /* TODO(kstandbridge): 
 
+- draw text pass selectstart/end and color back/forground accordingly
+- editable_string ScrollOffset, if textbounds>dim then add scrolloffset to dim...
+
 - fix: selection exists left/right should go to selection start/end
 - del/backspace should clear the selection
 - textbox home/end

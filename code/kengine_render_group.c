@@ -664,6 +664,8 @@ typedef enum text_op_type
 internal rectangle2
 TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 Color)
 {
+    // TODO(kstandbridge): RenderGroup can be null, bad design
+    
     rectangle2 Result = InvertedInfinityRectangle2();
     
     f32 AtX = P.X;
@@ -713,6 +715,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                 v2 Offset = V2(AtX, AtY);
                 if(Op == TextOp_DrawText)
                 {
+                    Assert(RenderGroup);
                     PushBitmap(RenderGroup, Bitmap, Height, Offset, Color, 0.0f);
                 }
                 else
@@ -754,4 +757,23 @@ GetTextSize(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string S
     rectangle2 Result = TextOpInternal(TextOp_SizeText, RenderGroup, Assets, P, Scale, Str, Color);
     
     return Result;
+}
+
+
+internal void
+DrawTextElement(render_group *RenderGroup, assets *Assets, v2 P, string Str, v2 TextOffset, v2 Dim, f32 Scale, v4 BackgroundColor, v4 BorderColor, v4 TextColor)
+{
+    PushRect(RenderGroup, P, Dim, BackgroundColor, BackgroundColor);
+    
+    f32 Thickness = Scale*3.0f;
+    if(Thickness < 1.0f)
+    {
+        Thickness = 1.0f;
+    }
+    PushRectOutline(RenderGroup, P, Dim, BorderColor, BorderColor, Thickness);
+    
+    if(Str.Size > 0)
+    {
+        WriteLine(RenderGroup, Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor);
+    }
 }
