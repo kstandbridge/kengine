@@ -2,7 +2,7 @@
 
 /* TODO(kstandbridge): 
 
-- somehow ensure that floating viewports are rendered last
+- add padding to all sides of view ports
 - draw text pass selectstart/end and color back/forground accordingly
 - editable_string ScrollOffset, if textbounds>dim then add scrolloffset to dim...
 

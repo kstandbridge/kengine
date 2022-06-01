@@ -125,12 +125,12 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Fill);
+    PushScrollElement(&Layout, __COUNTER__, 
+                      FormatString(TempMem.Arena, "NoPad %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y),
+                      &AppState->TestP);
     PushStaticElement(&Layout, __COUNTER__, 
                       FormatString(TempMem.Arena, "NoPad %.2f %.2f \nTopMiddle", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_TopMiddle);
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(TempMem.Arena, "NoPad %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_MiddleMiddle);
     PushStaticElement(&Layout, __COUNTER__, 
                       FormatString(TempMem.Arena, "NoPad %.2f %.2f \nBottomMiddle", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_BottomMiddle);

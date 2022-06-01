@@ -126,6 +126,7 @@ typedef struct ui_layout
     
     s32 FillRows;
     f32 UsedHeight;
+    s32 FloatingElements;
     
     ui_layout_row *LastRow;
     

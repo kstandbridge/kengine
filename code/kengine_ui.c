@@ -15,6 +15,10 @@ BeginUIFrame(ui_state *UiState, memory_arena *Arena, app_input *Input, loaded_bi
     
     Result.DrawBuffer = DrawBuffer;
     
+    Result.FillRows = 0;
+    Result.UsedHeight = 0;
+    Result.FloatingElements = 0;
+    
     UiState->ToExecute = UiState->NextToExecute;
     ClearInteraction(&UiState->NextToExecute);
     
@@ -229,6 +233,13 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
 internal void
 DrawUIInternal(ui_layout *Layout)
 {
+    tile_render_work *FloatingRenderWorks = 0;
+    if(Layout->FloatingElements > 0)
+    {
+        FloatingRenderWorks = PushArray(Layout->Arena, Layout->FloatingElements, tile_render_work);
+    }
+    tile_render_work *CurrentRenderWork = FloatingRenderWorks;
+    
     f32 CurrentY = 0.0f;
     f32 TotalHeight = (f32)Layout->DrawBuffer->Height;
     f32 RemainingHeight = TotalHeight - Layout->UsedHeight;
@@ -496,14 +507,28 @@ DrawUIInternal(ui_layout *Layout)
                     InvalidDefaultCase;
                 }
                 
-                tile_render_work *Work = PushStruct(Layout->Arena, tile_render_work);
-                // TODO(kstandbridge): Perhaps tile render work for larger viewports
-                Work->Group = RenderGroup;
-                Work->ClipRect.MinX = 0;
-                Work->ClipRect.MaxX = DrawBuffer->Width;
-                Work->ClipRect.MinY = 0;
-                Work->ClipRect.MaxY = DrawBuffer->Height;
-                Platform.AddWorkEntry(Platform.PerFrameWorkQueue, TileRenderWorkThread, Work);
+                if(Element->IsFloating)
+                {
+                    tile_render_work *Work = CurrentRenderWork;
+                    Work->Group = RenderGroup;
+                    Work->ClipRect.MinX = 0;
+                    Work->ClipRect.MaxX = DrawBuffer->Width;
+                    Work->ClipRect.MinY = 0;
+                    Work->ClipRect.MaxY = DrawBuffer->Height;
+                    ++CurrentRenderWork;
+                }
+                else
+                {
+                    // TODO(kstandbridge): Perhaps tile render work for larger viewports
+                    tile_render_work *Work = PushStruct(Layout->Arena, tile_render_work);
+                    Work->Group = RenderGroup;
+                    Work->ClipRect.MinX = 0;
+                    Work->ClipRect.MaxX = DrawBuffer->Width;
+                    Work->ClipRect.MinY = 0;
+                    Work->ClipRect.MaxY = DrawBuffer->Height;
+                    Platform.AddWorkEntry(Platform.PerFrameWorkQueue, TileRenderWorkThread, Work);
+                }
+                
             }
             
             
@@ -520,6 +545,17 @@ DrawUIInternal(ui_layout *Layout)
             CurrentY += HeightPerFill;
         }
         
+    }
+    
+    Platform.CompleteAllWork(Platform.PerFrameWorkQueue);
+    
+    CurrentRenderWork = FloatingRenderWorks;;
+    for(s32 FloatingRenderWorkIndex = 0;
+        FloatingRenderWorkIndex < Layout->FloatingElements;
+        ++FloatingRenderWorkIndex)
+    {
+        Platform.AddWorkEntry(Platform.PerFrameWorkQueue, TileRenderWorkThread, CurrentRenderWork);
+        ++CurrentRenderWork;
     }
     
     Platform.CompleteAllWork(Platform.PerFrameWorkQueue);
@@ -790,6 +826,8 @@ PushDropDownElement(ui_layout *Layout, u32 ID, string *Labels, s32 LabelCount, s
             Choice->Interaction = Interaction;
             Choice->Label = Labels[LabelIndex];
             Choice->IsFloating = true;
+            
+            ++Layout->FloatingElements;
         }
     }
     
