@@ -355,9 +355,6 @@ DrawUIInternal(ui_layout *Layout)
                 render_group *RenderGroup = AllocateRenderGroup(Layout->Arena, Megabytes(4), DrawBuffer);
                 assets *Assets = Layout->State->Assets;
                 
-                // TODO(kstandbridge): Why do we need this?
-                v2 P = V2Set1(0.0f);
-                
                 switch(Element->Type)
                 {
                     
@@ -371,7 +368,7 @@ DrawUIInternal(ui_layout *Layout)
                     {
                         v4 BorderColor = InteractionIsSelected(Layout->State, Element->Interaction) ? Colors.SelectedTextBorder : Colors.TextBorder;
                         
-                        DrawTextElement(RenderGroup, Assets, P, Element->Label, TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, BorderColor, Colors.Text);
+                        DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, BorderColor, Colors.Text);
                         
                         if(InteractionIsSelected(Layout->State, Element->Interaction) &&
                            (Element->Interaction.Type == UiInteraction_TextInput))
@@ -383,7 +380,7 @@ DrawUIInternal(ui_layout *Layout)
                             f32 CaretHeight = Platform.DEBUGGetLineAdvance()*Layout->Scale;
                             if(Str->SelectionStart > 0)
                             {
-                                rectangle2 TextBounds = GetTextSize(RenderGroup, Assets, V2(0, 0), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data), V4Set1(1.0f));
+                                rectangle2 TextBounds = GetTextSize(RenderGroup, Assets, V2Set1(0.0f), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data), V4Set1(1.0f));
                                 CaretP.X = TextBounds.Max.X - TextBounds.Min.X;
                             }
                             
@@ -398,10 +395,10 @@ DrawUIInternal(ui_layout *Layout)
                                     Thickness = 1.0f;
                                 }
                                 
-                                PushRect(RenderGroup, V2Add(P, CaretP), V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
+                                PushRect(RenderGroup, CaretP, V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
                                 
                                 // TODO(kstandbridge): Remove debug info
-                                DrawTextElement(RenderGroup, Assets, V2Subtract(P, V2(0, Row->MaxHeight)), FormatString(Layout->Arena, "%d / %d", Str->SelectionStart, Str->SelectionEnd), TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, Colors.ButtonBorder, Colors.Text);
+                                DrawTextElement(RenderGroup, Assets, V2(0, Row->MaxHeight), FormatString(Layout->Arena, "%d / %d", Str->SelectionStart, Str->SelectionEnd), TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, Colors.ButtonBorder, Colors.Text);
                             }
                             else
                             {
@@ -423,69 +420,16 @@ DrawUIInternal(ui_layout *Layout)
                                 
                                 string SelectedStr = StringInternal(TotalCharaceters, Str->Data + StartOfSelection);
                                 
-#if 1
-                                for(umm Index = 0;
-                                    Index < SelectedStr.Size + 1;
-                                    Index++)
-                                {
-                                    if(Index == SelectedStr.Size)
-                                    {
-                                        string PartSelectedStr = SelectedStr;
-                                        rectangle2 SelectedBounds = GetTextSize(RenderGroup, Assets, V2(0, 0), Layout->Scale, PartSelectedStr, V4Set1(1.0f));
-                                        Thickness = SelectedBounds.Max.X - SelectedBounds.Min.X;
-                                        if(Str->SelectionEnd < Str->SelectionStart)
-                                        {
-                                            CaretP.X -= Thickness;
-                                        }
-                                        PushRect(RenderGroup, V2Add(P, CaretP), V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
-                                        
-#if 0                                        
-                                        WriteLine(RenderGroup, Assets, 
-                                                  V2Subtract(V2Add(P, V2(CaretP.X, 0)), V2(0, TextOffset.Y)), 
-                                                  Layout->Scale, PartSelectedStr, Colors.SelectedText);
-#endif
-                                    }
-                                    else if(SelectedStr.Data[Index] == '\n')
-                                    {
-                                        umm PartSelectedLength = SelectedStr.Size - Index - 1;
-                                        //CaretP.Y -= CaretHeight;
-                                        ++Index;
-                                        if((PartSelectedLength > 0) && 
-                                           (SelectedStr.Data[Index] != '\n'))
-                                        {
-                                            string PartSelectedStr = StringInternal(PartSelectedLength, SelectedStr.Data + Index);
-                                            rectangle2 SelectedBounds = GetTextSize(RenderGroup, Assets, V2(0, 0), Layout->Scale, PartSelectedStr, V4Set1(1.0f));
-                                            Thickness = SelectedBounds.Max.X - SelectedBounds.Min.X;
-                                            if(Str->SelectionEnd < Str->SelectionStart)
-                                            {
-                                                CaretP.X -= Thickness;
-                                            }
-                                            PushRect(RenderGroup, V2Add(P, CaretP), V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
-                                            
-#if 0                                        
-                                            WriteLine(RenderGroup, Assets, 
-                                                      V2Subtract(V2Add(P, V2(CaretP.X, 0)), V2(0, TextOffset.Y)), 
-                                                      Layout->Scale, PartSelectedStr, Colors.SelectedText);
-#endif
-                                        }
-                                    }
-                                    
-                                }
-#else
-                                rectangle2 SelectedBounds = GetTextSize(Layout->RenderGroup, Layout->State->Assets, V2(0, 0), Layout->Scale, SelectedStr, V4Set1(1.0f));
+                                rectangle2 SelectedBounds = GetTextSize(RenderGroup, Assets, V2(0, 0), Layout->Scale, SelectedStr, V4Set1(1.0f));
                                 Thickness = SelectedBounds.Max.X - SelectedBounds.Min.X;
                                 if(Str->SelectionEnd < Str->SelectionStart)
                                 {
                                     CaretP.X -= Thickness;
                                 }
-                                PushRect(Layout->RenderGroup, V2Add(P, CaretP), V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
-                                WriteLine(Layout->RenderGroup, Layout->State->Assets, 
-                                          V2Subtract(V2Add(P, V2(CaretP.X, 0)), V2(0, TextOffset.Y)), 
+                                PushRect(RenderGroup, CaretP, V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
+                                WriteLine(RenderGroup, Assets, 
+                                          V2Subtract(V2(CaretP.X, 0), V2(0, TextOffset.Y)), 
                                           Layout->Scale, SelectedStr, Colors.SelectedText);
-#endif
-                                
-                                // TODO(kstandbridge): Remove debug info
-                                DrawTextElement(RenderGroup, Assets, V2Subtract(P, V2(0, Row->MaxHeight)), FormatString(Layout->Arena, "%d / %d - %S", Str->SelectionStart, Str->SelectionEnd, SelectedStr), TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, Colors.ButtonBorder, Colors.Text);
                             }
                         }
                         
@@ -499,9 +443,9 @@ DrawUIInternal(ui_layout *Layout)
                             Thickness = 1.0f;
                         }
                         
-                        DrawTextElement(RenderGroup, Assets, P, Element->Label, TextOffset, Element->Dim, Layout->Scale, Colors.Clear, Colors.Clear, Colors.Text);
+                        DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, Colors.Clear, Colors.Clear, Colors.Text);
                         
-                        v2 CheckBoxP = V2Add(P, V2(Layout->Padding, Layout->Padding*0.75f));
+                        v2 CheckBoxP = V2(Layout->Padding, Layout->Padding*0.75f);
                         v2 CheckBoxDim = V2Set1(Element->Dim.Y - Layout->Padding*1.5f);
                         
                         v4 CheckBoxBorder;
@@ -528,7 +472,7 @@ DrawUIInternal(ui_layout *Layout)
                         {
                             ButtonColor = V4(1, 0, 0, 1);
                         }
-                        DrawTextElement(RenderGroup, Assets, P, Element->Label, TextOffset, Element->Dim, Layout->Scale, ButtonColor, Colors.ButtonBorder, Colors.Text);
+                        DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, ButtonColor, Colors.ButtonBorder, Colors.Text);
                         
                     } break;
                     case ElementType_Static:
@@ -542,7 +486,7 @@ DrawUIInternal(ui_layout *Layout)
                             ButtonColor = Colors.ClickedButton;
                         }
                         
-                        DrawTextElement(RenderGroup, Assets, P, Element->Label, TextOffset, Element->Dim, Layout->Scale, ButtonColor, Colors.ButtonBorder, Colors.Text);
+                        DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, ButtonColor, Colors.ButtonBorder, Colors.Text);
                         
                         
                         
@@ -552,8 +496,8 @@ DrawUIInternal(ui_layout *Layout)
                     InvalidDefaultCase;
                 }
                 
-                // TODO(kstandbridge): This is currently blocking we need to collect a bunch of render tasks then do them all
                 tile_render_work *Work = PushStruct(Layout->Arena, tile_render_work);
+                // TODO(kstandbridge): Perhaps tile render work for larger viewports
                 Work->Group = RenderGroup;
                 Work->ClipRect.MinX = 0;
                 Work->ClipRect.MaxX = DrawBuffer->Width;
