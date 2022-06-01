@@ -334,8 +334,8 @@ DrawUIInternal(ui_layout *Layout)
                         Layout->State->NextHotInteraction = Element->Interaction;
                     }
                 }
-                loaded_bitmap DrawBufferInteral;
-                loaded_bitmap *DrawBuffer = &DrawBufferInteral;
+                
+                loaded_bitmap *DrawBuffer = PushStruct(Layout->Arena, loaded_bitmap);;
                 if(Element->Type == ElementType_Spacer)
                 {
                     UiP.X -= WidthPerSpacer;
@@ -553,13 +553,13 @@ DrawUIInternal(ui_layout *Layout)
                 }
                 
                 // TODO(kstandbridge): This is currently blocking we need to collect a bunch of render tasks then do them all
-                tile_render_work Work;
-                Work.Group = RenderGroup;
-                Work.ClipRect.MinX = 0;
-                Work.ClipRect.MaxX = DrawBuffer->Width;
-                Work.ClipRect.MinY = 0;
-                Work.ClipRect.MaxY = DrawBuffer->Height;
-                TileRenderWorkThread(&Work);
+                tile_render_work *Work = PushStruct(Layout->Arena, tile_render_work);
+                Work->Group = RenderGroup;
+                Work->ClipRect.MinX = 0;
+                Work->ClipRect.MaxX = DrawBuffer->Width;
+                Work->ClipRect.MinY = 0;
+                Work->ClipRect.MaxY = DrawBuffer->Height;
+                Platform.AddWorkEntry(Platform.PerFrameWorkQueue, TileRenderWorkThread, Work);
             }
             
             
@@ -577,6 +577,8 @@ DrawUIInternal(ui_layout *Layout)
         }
         
     }
+    
+    Platform.CompleteAllWork(Platform.PerFrameWorkQueue);
 }
 
 internal void
