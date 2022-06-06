@@ -76,6 +76,13 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         AppState->TestString.Data = PushSize(&AppState->PermanentArena, AppState->TestString.Size);
         AppState->TestString.Data[0] = ':';
         
+        string TheString = String("Lorem ipsum dolor sit amet, consectetur adipiscing elit. \nDuis mattis iaculis nunc, vitae laoreet dolor. Sed condimentum,\n nulla venenatis interdum gravida, metus magna vestibulum urna,\n nec euismod lectus dui at mauris. Aenean venenatis ut ligula\n sit amet ullamcorper. Vivamus in magna tristique, sodales\n magna ac, sodales purus. Proin ut est ante. Quisque et \n sollicitudin velit. Fusce id elementum augue, non maximus\n magna. Aliquam finibus erat sit amet nibh pharetra, eget pharetra\n est convallis. Nam sodales tellus imperdiet ante hendrerit, ut\ntristique ex euismod. Morbi gravida elit orci, at ultrices\n turpis efficitur ac. Fusce dapibus auctor lorem quis tempor.\nSuspendisse at egestas justo. Nam bibendum ultricies molestie.\n Aenean lobortis vehicula ante, elementum eleifend eros congue\n eget. Phasellus placerat varius nunc non faucibus.");
+        AppState->LongString.Length = (u32)TheString.Size;
+        AppState->LongString.Size = TheString.Size;
+        AppState->LongString.Data = TheString.Data;
+        AppState->LongString.SelectionStart = 10;
+        AppState->LongString.SelectionEnd = 5;
+        
         AppState->IsInitialized = true;
     }
     
@@ -125,15 +132,31 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Fill);
-    PushScrollElement(&Layout, __COUNTER__, 
-                      FormatString(TempMem.Arena, "NoPad %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      &AppState->TestP);
+    
+#if 0
+    string TheString = FormatString(TempMem.Arena, "NoPad %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y);
+    editable_string EditString;
+    EditString.Length = (u32)TheString.Size;
+    EditString.Size = TheString.Size;
+    EditString.Data = TheString.Data;
+    EditString.SelectionStart = 10;
+    EditString.SelectionEnd = 5;
+    PushTextInputElement(&Layout, __COUNTER__, &EditString);
+#endif
+    
+#if 0
     PushStaticElement(&Layout, __COUNTER__, 
                       FormatString(TempMem.Arena, "NoPad %.2f %.2f \nTopMiddle", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_TopMiddle);
+#endif
+    
+    PushTextInputElement(&Layout, __COUNTER__, &AppState->TestString);
+    
+#if 0
     PushStaticElement(&Layout, __COUNTER__, 
                       FormatString(TempMem.Arena, "NoPad %.2f %.2f \nBottomMiddle", AppState->TestP.X, AppState->TestP.Y),
                       TextLayout_BottomMiddle);
+#endif
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Auto);
@@ -141,7 +164,34 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     PushButtonElement(&Layout, __COUNTER__, 
                       FormatString(TempMem.Arena, "Before %s after", AppState->TestBoolean ? "true" : "false"));
     PushSpacerElement(&Layout);
-    PushStaticElement(&Layout, __COUNTER__, String("Bar"), TextLayout_MiddleMiddle);
+    
+    editable_string *Str = &AppState->TestString;
+    
+    s32 SelectionStart;
+    s32 SelectionEnd;
+    if(Str->SelectionStart > Str->SelectionEnd)
+    {
+        SelectionStart = Str->SelectionEnd;
+        SelectionEnd = Str->SelectionStart;
+    }
+    else
+    {
+        SelectionStart = Str->SelectionStart;
+        SelectionEnd = Str->SelectionEnd;
+    }
+    
+    
+    {    
+        string Label = FormatString(TempMem.Arena, "Start: %d, End: %d, StartOfSelection: %d, EndOfSelection: %d\n'%S'", 
+                                    AppState->TestString.SelectionStart, 
+                                    AppState->TestString.SelectionEnd,
+                                    SelectionStart, SelectionEnd,
+                                    StringInternal(SelectionEnd - SelectionStart, Str->Data + SelectionStart));
+        PushStaticElement(&Layout, __COUNTER__, Label, TextLayout_MiddleMiddle);
+    }
+    
+    
+    
     SetElementMinDim(&Layout, 512, 0);
     PushSpacerElement(&Layout);
     PushCheckboxElement(&Layout, __COUNTER__, String("Bas"), &AppState->TestBoolean);
@@ -167,7 +217,6 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     CheckArena(&AppState->Assets.Arena);
     
     
-    
 #if 0
     v2 P = V2(Buffer->Width*0.5f, Buffer->Height*0.5f);
     f32 Angle = 0.1f*AppState->Time;
@@ -179,5 +228,6 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     // TODO(kstandbridge): push circle?
     DrawCircle(DrawBuffer, RectP, V2Add(RectP, V2(50, 50)), V4(1, 1, 0, 1.0f), Rectangle2i(0, Buffer->Width, 0, Buffer->Height));
 #endif
+    
     
 }

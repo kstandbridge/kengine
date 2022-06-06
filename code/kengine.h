@@ -116,6 +116,8 @@ typedef struct app_state
     v2 UiScale;
     b32 TestBoolean;
     
+    editable_string LongString;
+    
     fruit_type TestEnum;
     
 } app_state;

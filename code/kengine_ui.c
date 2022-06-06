@@ -377,10 +377,52 @@ DrawUIInternal(ui_layout *Layout)
                     
                     case ElementType_TextBox:
                     {
+                        
                         v4 BorderColor = InteractionIsSelected(Layout->State, Element->Interaction) ? Colors.SelectedTextBorder : Colors.TextBorder;
                         
-                        DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, BorderColor, Colors.Text);
+                        editable_string *Str = Element->Interaction.Str;
+                        s32 SelectionStart;
+                        s32 SelectionEnd;
+                        if(Str->SelectionStart > Str->SelectionEnd)
+                        {
+                            SelectionStart = Str->SelectionEnd;
+                            SelectionEnd = Str->SelectionStart;
+                        }
+                        else
+                        {
+                            SelectionStart = Str->SelectionStart;
+                            SelectionEnd = Str->SelectionEnd;
+                        }
                         
+                        f32 CaretHeight = Platform.DEBUGGetLineAdvance()*Layout->Scale*0.9f;
+                        DrawSelectedTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, BorderColor, Colors.Text, Colors.TextBackground, Colors.SelectedText, Colors.SelectedTextBackground, SelectionStart, SelectionEnd, CaretHeight);
+                        
+#if 0
+                        if(InteractionIsSelected(Layout->State, Element->Interaction) &&
+                           (Element->Interaction.Type == UiInteraction_TextInput))
+#endif
+                        {
+                            
+                            v2 CaretP = V2(TextOffset.X, -TextOffset.Y - Layout->Padding*0.25f);
+#if 0
+                            rectangle2 TextBounds = GetTextSize(Assets, Layout->Scale, StringInternal(Str->Length, Str->Data));
+                            CaretP.X = TextBounds.Max.X - TextBounds.Min.X;
+#endif
+                            
+                            
+                            f32 Thickness;
+                            //if(Str->SelectionStart == Str->SelectionEnd)
+                            {
+                                Thickness = Layout->Scale*30.0f;
+                                if(Thickness < 1.0f)
+                                {
+                                    Thickness = 1.0f;
+                                }
+                                
+                                PushRect(RenderGroup, CaretP, V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
+                            }
+                        }
+#if 0                        
                         if(InteractionIsSelected(Layout->State, Element->Interaction) &&
                            (Element->Interaction.Type == UiInteraction_TextInput))
                         {
@@ -407,9 +449,6 @@ DrawUIInternal(ui_layout *Layout)
                                 }
                                 
                                 PushRect(RenderGroup, CaretP, V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
-                                
-                                // TODO(kstandbridge): Remove debug info
-                                DrawTextElement(RenderGroup, Assets, V2(0, Row->MaxHeight), FormatString(Layout->Arena, "%d / %d", Str->SelectionStart, Str->SelectionEnd), TextOffset, Element->Dim, Layout->Scale, Colors.TextBackground, Colors.ButtonBorder, Colors.Text);
                             }
                             else
                             {
@@ -443,6 +482,7 @@ DrawUIInternal(ui_layout *Layout)
                                           Layout->Scale, SelectedStr, Colors.SelectedText);
                             }
                         }
+#endif
                         
                     } break;
                     
@@ -655,8 +695,8 @@ EndRow(ui_layout *Layout)
             {
                 LabelStr = Element->Label;
             }
-            // TODO(kstandbridge): bad design passing a null rendergroup
-            rectangle2 TextBounds = GetTextSize(0, Layout->State->Assets, V2(0, 0), Layout->Scale, LabelStr, V4Set1(1.0f));
+            
+            rectangle2 TextBounds = GetTextSize(Layout->State->Assets, Layout->Scale, LabelStr);
             Element->TextOffset = V2(-Layout->Padding, TextBounds.Min.Y - Layout->Padding);
             Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
                               TextBounds.Max.Y - TextBounds.Min.Y);

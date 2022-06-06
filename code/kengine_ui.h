@@ -71,7 +71,7 @@ typedef enum ui_text_layout_type
     TextLayout_MiddleMiddle,
     TextLayout_BottomMiddle,
     
-    
+    TextLayout_Scrollable,
     
 } ui_text_layout_type;
 

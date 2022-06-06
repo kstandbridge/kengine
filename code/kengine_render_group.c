@@ -659,10 +659,11 @@ RenderGroupToOutput(render_group *Group)
 typedef enum text_op_type
 {
     TextOp_DrawText,
+    TextOp_DrawSelectedText,
     TextOp_SizeText,
 } text_op_type;
 internal rectangle2
-TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 Color)
+TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
 {
     // TODO(kstandbridge): RenderGroup can be null, bad design
     
@@ -716,7 +717,32 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                 if(Op == TextOp_DrawText)
                 {
                     Assert(RenderGroup);
-                    PushBitmap(RenderGroup, Bitmap, Height, Offset, Color, 0.0f);
+                    PushBitmap(RenderGroup, Bitmap, Height, Offset, TextColor, 0.0f);
+                }
+                else if(Op == TextOp_DrawSelectedText)
+                {
+                    
+                    Assert(RenderGroup);
+                    if((Index >= SelectedStartIndex) &&
+                       (Index < SelectedEndIndex))
+                    {
+                        //v2 Dim = V2(Height*Bitmap->WidthOverHeight, Height);
+                        f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(CodePoint, PrevCodePoint);
+                        PushRect(RenderGroup, V2Subtract(Offset, V2(Scale, SelectedHeight*0.3f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                        PushBitmap(RenderGroup, Bitmap, Height, Offset, SelectedTextColor, 0.0f);
+                    }
+                    else
+                    {
+                        PushBitmap(RenderGroup, Bitmap, Height, Offset, TextColor, 0.0f);
+                    }
+                    if(Index == SelectedStartIndex)
+                    {
+                        if(SelectedStartIndex == SelectedEndIndex)
+                        {
+                            BackgroundColor;
+                            PushRect(RenderGroup, V2(AtX, AtY-SelectedHeight*0.3f), V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                        }
+                    }
                 }
                 else
                 {
@@ -736,6 +762,25 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
             if(CodePoint == ' ')
             {
                 Result.Max.X += AdvanceX;
+                if(Op == TextOp_DrawSelectedText)
+                {
+                    // TODO(kstandbridge): Duplicated code
+                    Assert(RenderGroup);
+                    if((Index >= SelectedStartIndex) &&
+                       (Index < SelectedEndIndex))
+                    {
+                        PushRect(RenderGroup, V2Subtract(V2(AtX, AtY), V2(Scale, SelectedHeight*0.3f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                    }
+                    
+                    if(Index == SelectedStartIndex)
+                    {
+                        if(SelectedStartIndex == SelectedEndIndex)
+                        {
+                            BackgroundColor;
+                            PushRect(RenderGroup, V2(AtX, AtY), V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                        }
+                    }
+                }
             }
             
             AtX += AdvanceX;
@@ -746,15 +791,21 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
 }
 
 inline void
-WriteLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 Color)
+WriteSelectedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
 {
-    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Str, Color);
+    TextOpInternal(TextOp_DrawSelectedText, RenderGroup, Assets, P, Scale, Str, TextColor, BackgroundColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight);
+}
+
+inline void
+WriteLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor)
+{
+    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Str, TextColor, V4Set1(0.0f), V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0);
 }
 
 inline rectangle2
-GetTextSize(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 Color)
+GetTextSize(assets *Assets, f32 Scale, string Str)
 {
-    rectangle2 Result = TextOpInternal(TextOp_SizeText, RenderGroup, Assets, P, Scale, Str, Color);
+    rectangle2 Result = TextOpInternal(TextOp_SizeText, 0, Assets, V2Set1(0.0f), Scale, Str, V4Set1(0.0f), V4Set1(0.0f), V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0);
     
     return Result;
 }
@@ -775,5 +826,23 @@ DrawTextElement(render_group *RenderGroup, assets *Assets, v2 P, string Str, v2 
     if(Str.Size > 0)
     {
         WriteLine(RenderGroup, Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor);
+    }
+}
+
+internal void
+DrawSelectedTextElement(render_group *RenderGroup, assets *Assets, v2 P, string Str, v2 TextOffset, v2 Dim, f32 Scale, v4 BorderColor, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
+{
+    PushRect(RenderGroup, P, Dim, BackgroundColor, BackgroundColor);
+    
+    f32 Thickness = Scale*3.0f;
+    if(Thickness < 1.0f)
+    {
+        Thickness = 1.0f;
+    }
+    PushRectOutline(RenderGroup, P, Dim, BorderColor, BorderColor, Thickness);
+    
+    if(Str.Size > 0)
+    {
+        WriteSelectedLine(RenderGroup, Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor, BackgroundColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight);
     }
 }

@@ -306,7 +306,7 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         GlobalCodePointHoriziontalAdvance[GlyphIndex*MAX_GLYPH_COUNT + OtherGlyphIndex] += CharAdvance - KerningChange;
         if(OtherGlyphIndex != 0)
         {
-            GlobalCodePointHoriziontalAdvance[OtherGlyphIndex*MAX_GLYPH_COUNT + GlyphIndex] += KerningChange;
+            //GlobalCodePointHoriziontalAdvance[OtherGlyphIndex*MAX_GLYPH_COUNT + GlyphIndex] += KerningChange;
         }
     }
     
