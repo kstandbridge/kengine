@@ -104,22 +104,6 @@ typedef struct temporary_memory
     memory_index Used;
 } temporary_memory;
 
-typedef struct editable_string
-{
-    u32 Length;
-    u32 SelectionStart;
-    u32 SelectionEnd;
-    
-    umm Size;
-    u8 *Data;
-} editable_string;
-
-typedef struct string
-{
-    umm Size;
-    u8 *Data;
-} string;
-
 introspect(ctor, set1, math);
 typedef struct v2
 {
@@ -159,6 +143,23 @@ typedef struct rectangle2
     v2 Min;
     v2 Max;
 } rectangle2;
+
+typedef struct editable_string
+{
+    u32 Length;
+    u32 SelectionStart;
+    u32 SelectionEnd;
+    v2 Offset;
+    
+    umm Size;
+    u8 *Data;
+} editable_string;
+
+typedef struct string
+{
+    umm Size;
+    u8 *Data;
+} string;
 
 
 typedef struct loaded_bitmap

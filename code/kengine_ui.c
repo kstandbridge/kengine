@@ -309,6 +309,11 @@ DrawUIInternal(ui_layout *Layout)
                                 // NOTE(kstandbridge): Already aligned by default
                             } break;
                             
+                            case TextLayout_Scrollable:
+                            {
+                                TextOffset = V2Add(TextOffset, Element->Interaction.Str->Offset);
+                            } break;
+                            
                             InvalidDefaultCase;
                         }
                         
@@ -812,7 +817,7 @@ PushScrollElement(ui_layout *Layout, u32 ID, string Label, v2 *TargetP)
     if(InteractionsAreEqual(Element->Interaction, Layout->State->Interaction))
     {
         v2 *P = Layout->State->Interaction.P;
-        *P = V2Add(*P, V2Multiply(V2Set1(0.01f), Layout->dMouseP));
+        *P = V2Add(*P, V2Multiply(V2Set1(0.1f), Layout->dMouseP));
     }
 }
 
@@ -829,7 +834,7 @@ PushTextInputElement(ui_layout *Layout, u32 ID, editable_string *Target)
 {
     Assert(Layout->IsCreatingRow);
     
-    PushElementInternal(Layout, ElementType_TextBox, UiInteraction_TextInput, ID, StringInternal(Target->Length, Target->Data), TextLayout_TopLeft, Target);
+    PushElementInternal(Layout, ElementType_TextBox, UiInteraction_TextInput, ID, StringInternal(Target->Length, Target->Data), TextLayout_Scrollable, Target);
 }
 
 inline void

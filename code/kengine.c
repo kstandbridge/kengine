@@ -150,7 +150,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
                       TextLayout_TopMiddle);
 #endif
     
-    PushTextInputElement(&Layout, __COUNTER__, &AppState->TestString);
+    PushTextInputElement(&Layout, __COUNTER__, &AppState->LongString);
     
 #if 0
     PushStaticElement(&Layout, __COUNTER__, 
@@ -160,28 +160,22 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Auto);
-    PushSpacerElement(&Layout);
-    PushButtonElement(&Layout, __COUNTER__, 
-                      FormatString(TempMem.Arena, "Before %s after", AppState->TestBoolean ? "true" : "false"));
-    PushSpacerElement(&Layout);
-    
-    editable_string *Str = &AppState->TestString;
-    
-    s32 SelectionStart;
-    s32 SelectionEnd;
-    if(Str->SelectionStart > Str->SelectionEnd)
-    {
-        SelectionStart = Str->SelectionEnd;
-        SelectionEnd = Str->SelectionStart;
-    }
-    else
-    {
-        SelectionStart = Str->SelectionStart;
-        SelectionEnd = Str->SelectionEnd;
-    }
-    
-    
     {    
+        editable_string *Str = &AppState->LongString;
+        s32 SelectionStart;
+        s32 SelectionEnd;
+        if(Str->SelectionStart > Str->SelectionEnd)
+        {
+            SelectionStart = Str->SelectionEnd;
+            SelectionEnd = Str->SelectionStart;
+        }
+        else
+        {
+            SelectionStart = Str->SelectionStart;
+            SelectionEnd = Str->SelectionEnd;
+        }
+        
+        
         string Label = FormatString(TempMem.Arena, "Start: %d, End: %d, StartOfSelection: %d, EndOfSelection: %d\n'%S'", 
                                     AppState->TestString.SelectionStart, 
                                     AppState->TestString.SelectionEnd,
@@ -189,8 +183,13 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
                                     StringInternal(SelectionEnd - SelectionStart, Str->Data + SelectionStart));
         PushStaticElement(&Layout, __COUNTER__, Label, TextLayout_MiddleMiddle);
     }
+    EndRow(&Layout);
     
-    
+    BeginRow(&Layout, LayoutType_Auto);
+    PushSpacerElement(&Layout);
+    PushButtonElement(&Layout, __COUNTER__, 
+                      FormatString(TempMem.Arena, "Before %s after", AppState->TestBoolean ? "true" : "false"));
+    PushSpacerElement(&Layout);
     
     SetElementMinDim(&Layout, 512, 0);
     PushSpacerElement(&Layout);
@@ -205,7 +204,12 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
                       FormatString(TempMem.Arena, "UI Scale: %.2f", AppState->UiScale.X),
                       &AppState->UiScale);
     PushSpacerElement(&Layout);
-    PushButtonElement(&Layout, __COUNTER__, String("Bottom Right"));
+    if(PushButtonElement(&Layout, __COUNTER__, String("Reset")))
+    {
+        AppState->LongString.Offset = V2(0, 0);
+    }
+    PushScrollElement(&Layout, __COUNTER__, FormatString(TempMem.Arena, "Offset: %f , %f", AppState->LongString.Offset.X, AppState->LongString.Offset.Y),
+                      &AppState->LongString.Offset);
     EndRow(&Layout);
     
     EndUIFrame(&Layout, Input);
