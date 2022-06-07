@@ -77,6 +77,9 @@ typedef enum ui_text_layout_type
 
 typedef struct ui_element
 {
+    struct ui_element *Prev;
+    struct ui_element *Next;
+    
     ui_element_type Type;
     ui_interaction Interaction;
     
@@ -87,8 +90,6 @@ typedef struct ui_element
     v2 MinDim;
     v2 MaxDim;
     b32 IsFloating;
-    
-    struct ui_element *Next;
 } ui_element; 
 
 typedef enum ui_layout_type
@@ -97,16 +98,45 @@ typedef enum ui_layout_type
     LayoutType_Fill,
 } ui_layout_type;
 
-typedef struct ui_layout_row
+typedef struct ui_layout_column
 {
+    
     ui_layout_type Type;
-    ui_element *LastElement;
+    
+    f32 ColumnWidth;
     
     f32 UsedWidth;
-    f32 MaxHeight;
     s32 SpacerCount;
-    s32 ElementCount;
     
+    v2 Dim;
+    b32 HasRows;
+    union
+    {
+        s32 ElementCount;
+        s32 RowCount;
+    };
+    union
+    {
+        struct ui_layout_row *LastRow;
+        ui_element *LastElement;
+    };
+    
+    struct ui_layout_column *Parent;
+    struct ui_layout_column *Next;
+} ui_layout_column;
+
+typedef struct ui_layout_row
+{
+    
+    ui_layout_type Type;
+    
+    f32 MaxHeight;
+    
+    v2 Dim;
+    s32 ColumnCount;
+    ui_layout_column *LastColumn;
+    
+    struct ui_layout_row *Parent;
     struct ui_layout_row *Next;
 } ui_layout_row;
 
@@ -114,8 +144,6 @@ typedef struct ui_layout
 {
     ui_state *State;
     memory_arena *Arena;
-    
-    b32 IsCreatingRow;
     
     f32 Scale;
     v2 MouseP;
@@ -128,7 +156,12 @@ typedef struct ui_layout
     f32 UsedHeight;
     s32 FloatingElements;
     
+    s32 RowCount;
     ui_layout_row *LastRow;
+    
+    ui_layout_row *CurrentRow;
+    ui_layout_column *CurrentColumn;
+    ui_element *CurrentElement;
     
 } ui_layout;
 

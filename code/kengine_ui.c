@@ -19,6 +19,10 @@ BeginUIFrame(ui_state *UiState, memory_arena *Arena, app_input *Input, loaded_bi
     Result.UsedHeight = 0;
     Result.FloatingElements = 0;
     
+    Result.LastRow = 0;
+    Result.CurrentRow = Result.LastRow;
+    Result.CurrentColumn = 0;
+    
     UiState->ToExecute = UiState->NextToExecute;
     ClearInteraction(&UiState->NextToExecute);
     
@@ -230,354 +234,364 @@ HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
     ClearInteraction(&Layout->State->NextHotInteraction);
 }
 
+#if 0
 internal void
-DrawUIInternal(ui_layout *Layout)
+DrawUIRow(ui_layout *Layout, ui_layout_row *LastRow, f32 AvailableWidth, f32 AvailableHeight, tile_render_work **CurrentRenderWork)
 {
-    tile_render_work *FloatingRenderWorks = 0;
-    if(Layout->FloatingElements > 0)
-    {
-        FloatingRenderWorks = PushArray(Layout->Arena, Layout->FloatingElements, tile_render_work);
-    }
-    tile_render_work *CurrentRenderWork = FloatingRenderWorks;
-    
     f32 CurrentY = 0.0f;
-    f32 TotalHeight = (f32)Layout->DrawBuffer->Height;
+    f32 TotalHeight = AvailableHeight;
     f32 RemainingHeight = TotalHeight - Layout->UsedHeight;
     f32 HeightPerFill = RemainingHeight / Layout->FillRows;
-    for(ui_layout_row *Row = Layout->LastRow;
-        Row;
+    
+    for(ui_layout_row *Row = LastRow;
+        Row != 0;
         Row = Row->Next)
     {
-        f32 TotalWidth = (f32)Layout->DrawBuffer->Width;
-        f32 RemainingWidth = TotalWidth - Row->UsedWidth;
-        f32 WidthPerSpacer = RemainingWidth / Row->SpacerCount;
+        f32 TotalWidth = AvailableWidth/Row->ColumnCount;
         v2 UiP = V2(TotalWidth, CurrentY);
-        ui_element *LastElement = 0;
-        for(ui_element *Element = Row->LastElement;
-            Element;
-            Element = Element->Next)
+        for(ui_layout_column *Column = Row->LastColumn;
+            Column != 0;
+            Column = Column->Next)
         {
+            if(Column->HasRows)
             {
-                v2 HeightDifference = V2(0.0f, Row->MaxHeight - Element->Dim.Y);
-                v2 TextOffset = V2Subtract(Element->TextOffset, HeightDifference);
+                DrawUIRow(Layout, Column->LastRow, AvailableWidth, RemainingHeight, CurrentRenderWork);
+            }
+            else
+            {
+                f32 RemainingWidth = TotalWidth - Column->UsedWidth;
+                f32 WidthPerSpacer = RemainingWidth / Column->SpacerCount;
                 
-                if(Element->Type != ElementType_Spacer)
+                ui_element *LastElement = 0;
+                for(ui_element *Element = Column->ElementSentinal->Next;
+                    Element != Column->ElementSentinal;
+                    Element = Element->Next)
                 {
-                    if(!Element->IsFloating)
                     {
-                        UiP.X -= Element->Dim.X;
-                    }
-                    
-                    if(Row->Type == LayoutType_Fill)
-                    {
-                        switch(Element->LabelLayout)
+                        v2 HeightDifference = V2(0.0f, Row->MaxHeight - Element->Dim.Y);
+                        v2 TextOffset = V2Subtract(Element->TextOffset, HeightDifference);
+                        
+                        if(Element->Type != ElementType_Spacer)
                         {
-                            case TextLayout_TopLeft:
+                            if(!Element->IsFloating)
                             {
-                                TextOffset.Y -= (1.0f*HeightPerFill) - 1.0f*(Element->Dim.Y);
-                                if(Row->SpacerCount == 0)
-                                {
-                                    TextOffset.X += 0.5f*(Element->Dim.X);
-                                }
-                            } break;
-                            case TextLayout_MiddleLeft:
+                                UiP.X -= Element->Dim.X;
+                            }
+                            
+                            if(Row->Type == LayoutType_Fill)
                             {
-                                TextOffset.Y -= (0.5f*HeightPerFill) - 0.5f*(Element->Dim.Y);
-                                if(Row->SpacerCount == 0)
+                                switch(Element->LabelLayout)
                                 {
-                                    TextOffset.X += 0.5f*(Element->Dim.X);
+                                    case TextLayout_TopLeft:
+                                    {
+                                        TextOffset.Y -= (1.0f*HeightPerFill) - 1.0f*(Element->Dim.Y);
+                                        if(Column->SpacerCount == 0)
+                                        {
+                                            //TextOffset.X += 0.5f*(Element->Dim.X);
+                                        }
+                                    } break;
+                                    case TextLayout_MiddleLeft:
+                                    {
+                                        TextOffset.Y -= (0.5f*HeightPerFill) - 0.5f*(Element->Dim.Y);
+                                        if(Column->SpacerCount == 0)
+                                        {
+                                            //TextOffset.X += 0.5f*(Element->Dim.X);
+                                        }
+                                    } break;
+                                    case TextLayout_BottomLeft:
+                                    {
+                                        if(Column->SpacerCount == 0)
+                                        {
+                                            //TextOffset.X += 0.5f*(Element->Dim.X);
+                                        }
+                                    } break;
+                                    
+                                    case TextLayout_TopMiddle:
+                                    {
+                                        TextOffset.Y -= (1.0f*HeightPerFill) - 1.0f*(Element->Dim.Y);
+                                        TextOffset.X -= 0.25f*(Element->Dim.X);
+                                    } break;
+                                    case TextLayout_MiddleMiddle:
+                                    {
+                                        TextOffset.Y -= (0.5f*HeightPerFill) - 0.5f*(Element->Dim.Y);
+                                        TextOffset.X -= 0.25f*(Element->Dim.X);
+                                    } break;
+                                    case TextLayout_BottomMiddle:
+                                    {
+                                        TextOffset.X -= 0.25f*(Element->Dim.X);
+                                    } break;
+                                    
+                                    case TextLayout_Scrollable:
+                                    {
+                                        TextOffset = V2Add(TextOffset, Element->Interaction.Str->Offset);
+                                    } break;
+                                    
+                                    InvalidDefaultCase;
                                 }
-                            } break;
-                            case TextLayout_BottomLeft:
+                                
+                                HeightDifference.Y = HeightPerFill - Element->Dim.Y;
+                            }
+                            else
                             {
-                                if(Row->SpacerCount == 0)
+                                Assert(Row->Type == LayoutType_Auto);
+                            }
+                            
+                            if(Column->SpacerCount == 0)
+                            {
+                                HeightDifference.X = (RemainingWidth/Column->ElementCount);
+                                TextOffset.X -= 0.5f*HeightDifference.X;
+                                if(!Element->IsFloating)
                                 {
-                                    TextOffset.X += 0.5f*(Element->Dim.X);
+                                    UiP.X -= HeightDifference.X;
                                 }
+                            }
+                            
+                            Element->Dim = V2Add(Element->Dim, HeightDifference);
+                            
+                            if(Element->IsFloating)
+                            {
+                                UiP.Y -= Element->Dim.Y;
+                            }
+                            else
+                            {
+                                UiP.Y = CurrentY;
+                            }
+                            
+                            if(IsInRectangle(Rectangle2(UiP, V2Add(UiP, Element->Dim)), Layout->MouseP))
+                            {
+                                Layout->State->NextHotInteraction = Element->Interaction;
+                            }
+                        }
+                        
+                        loaded_bitmap *DrawBuffer = PushStruct(Layout->Arena, loaded_bitmap);
+                        if(Element->Type == ElementType_Spacer)
+                        {
+                            UiP.X -= WidthPerSpacer;
+                            DrawBuffer->Width = (s32)WidthPerSpacer;
+                            DrawBuffer->Height = (s32)Row->MaxHeight;
+                            
+                        }
+                        else
+                        {
+                            DrawBuffer->Width = (s32)Element->Dim.X;
+                            DrawBuffer->Height = (s32)Element->Dim.Y;
+                        }
+                        DrawBuffer->Pitch = Layout->DrawBuffer->Pitch;
+                        DrawBuffer->Memory = (u8 *)Layout->DrawBuffer->Memory + (s32)UiP.X*BITMAP_BYTES_PER_PIXEL + (s32)UiP.Y*DrawBuffer->Pitch;
+                        
+                        
+                        render_group *RenderGroup = AllocateRenderGroup(Layout->Arena, Megabytes(4), DrawBuffer);
+                        assets *Assets = Layout->State->Assets;
+                        
+                        switch(Element->Type)
+                        {
+                            
+                            case ElementType_Spacer:
+                            {
+                                PushClear(RenderGroup, Colors.Clear);
+                                
                             } break;
                             
-                            case TextLayout_TopMiddle:
+                            case ElementType_TextBox:
                             {
-                                TextOffset.Y -= (1.0f*HeightPerFill) - 1.0f*(Element->Dim.Y);
-                            } break;
-                            case TextLayout_MiddleMiddle:
-                            {
-                                TextOffset.Y -= (0.5f*HeightPerFill) - 0.5f*(Element->Dim.Y);
-                            } break;
-                            case TextLayout_BottomMiddle:
-                            {
-                                // NOTE(kstandbridge): Already aligned by default
+                                
+                                v4 BorderColor = InteractionIsSelected(Layout->State, Element->Interaction) ? Colors.SelectedTextBorder : Colors.TextBorder;
+                                
+                                editable_string *Str = Element->Interaction.Str;
+                                s32 SelectionStart;
+                                s32 SelectionEnd;
+                                if(Str->SelectionStart > Str->SelectionEnd)
+                                {
+                                    SelectionStart = Str->SelectionEnd;
+                                    SelectionEnd = Str->SelectionStart;
+                                }
+                                else
+                                {
+                                    SelectionStart = Str->SelectionStart;
+                                    SelectionEnd = Str->SelectionEnd;
+                                }
+                                
+                                f32 CaretHeight = Platform.DEBUGGetLineAdvance()*Layout->Scale*0.9f;
+                                DrawSelectedTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, BorderColor, Colors.Text, Colors.TextBackground, Colors.SelectedText, Colors.SelectedTextBackground, SelectionStart, SelectionEnd, CaretHeight);
+                                
+#if 0
+                                if(InteractionIsSelected(Layout->State, Element->Interaction) &&
+                                   (Element->Interaction.Type == UiInteraction_TextInput))
+#endif
+                                {
+                                    
+                                    v2 CaretP = V2(TextOffset.X, -TextOffset.Y - Layout->Padding*0.25f);
+#if 0
+                                    rectangle2 TextBounds = GetTextSize(Assets, Layout->Scale, StringInternal(Str->Length, Str->Data));
+                                    CaretP.X = TextBounds.Max.X - TextBounds.Min.X;
+#endif
+                                    
+                                    
+                                    f32 Thickness;
+                                    //if(Str->SelectionStart == Str->SelectionEnd)
+                                    {
+                                        Thickness = Layout->Scale*30.0f;
+                                        if(Thickness < 1.0f)
+                                        {
+                                            Thickness = 1.0f;
+                                        }
+                                        
+                                        PushRect(RenderGroup, CaretP, V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
+                                    }
+                                }
+#if 0                        
+                                if(InteractionIsSelected(Layout->State, Element->Interaction) &&
+                                   (Element->Interaction.Type == UiInteraction_TextInput))
+                                {
+                                    
+                                    editable_string *Str = Element->Interaction.Str;
+                                    
+                                    v2 CaretP = V2(0, -TextOffset.Y - Layout->Padding*0.25f);
+                                    f32 CaretHeight = Platform.DEBUGGetLineAdvance()*Layout->Scale;
+                                    if(Str->SelectionStart > 0)
+                                    {
+                                        rectangle2 TextBounds = GetTextSize(RenderGroup, Assets, V2Set1(0.0f), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data), V4Set1(1.0f));
+                                        CaretP.X = TextBounds.Max.X - TextBounds.Min.X;
+                                    }
+                                    
+                                    CaretP.X += Layout->Padding;
+                                    
+                                    f32 Thickness;
+                                    if(Str->SelectionStart == Str->SelectionEnd)
+                                    {
+                                        Thickness = Layout->Scale*3.0f;
+                                        if(Thickness < 1.0f)
+                                        {
+                                            Thickness = 1.0f;
+                                        }
+                                        
+                                        PushRect(RenderGroup, CaretP, V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
+                                    }
+                                    else
+                                    {
+                                        s32 SelectedCharacters = Str->SelectionStart - Str->SelectionEnd;
+                                        s32 TotalCharaceters = SelectedCharacters;
+                                        if(TotalCharaceters < 0)
+                                        {
+                                            TotalCharaceters *= -1;
+                                        }
+                                        s32 StartOfSelection;
+                                        if(Str->SelectionEnd > Str->SelectionStart)
+                                        {
+                                            StartOfSelection = Str->SelectionEnd + SelectedCharacters;
+                                        }
+                                        else
+                                        {
+                                            StartOfSelection = Str->SelectionEnd;
+                                        }
+                                        
+                                        string SelectedStr = StringInternal(TotalCharaceters, Str->Data + StartOfSelection);
+                                        
+                                        rectangle2 SelectedBounds = GetTextSize(RenderGroup, Assets, V2(0, 0), Layout->Scale, SelectedStr, V4Set1(1.0f));
+                                        Thickness = SelectedBounds.Max.X - SelectedBounds.Min.X;
+                                        if(Str->SelectionEnd < Str->SelectionStart)
+                                        {
+                                            CaretP.X -= Thickness;
+                                        }
+                                        PushRect(RenderGroup, CaretP, V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
+                                        WriteLine(RenderGroup, Assets, 
+                                                  V2Subtract(V2(CaretP.X, 0), V2(0, TextOffset.Y)), 
+                                                  Layout->Scale, SelectedStr, Colors.SelectedText);
+                                    }
+                                }
+#endif
+                                
                             } break;
                             
-                            case TextLayout_Scrollable:
+                            case ElementType_Checkbox:
                             {
-                                TextOffset = V2Add(TextOffset, Element->Interaction.Str->Offset);
+                                f32 Thickness = Layout->Scale*3.0f;
+                                if(Thickness < 1.0f)
+                                {
+                                    Thickness = 1.0f;
+                                }
+                                
+                                DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, Colors.Clear, Colors.Clear, Colors.Text);
+                                
+                                v2 CheckBoxP = V2(Layout->Padding, Layout->Padding*0.75f);
+                                v2 CheckBoxDim = V2Set1(Element->Dim.Y - Layout->Padding*1.5f);
+                                
+                                v4 CheckBoxBorder;
+                                v4 CheckBoxBackground;
+                                if(InteractionIsClicked(Layout->State, Element->Interaction))
+                                {
+                                    CheckBoxBorder = Colors.CheckBoxBorderClicked;
+                                    CheckBoxBackground = Colors.CheckBoxBackgroundClicked;
+                                }
+                                else
+                                {
+                                    CheckBoxBorder = Colors.CheckBoxBorder;
+                                    CheckBoxBackground = Colors.CheckBoxBackground;
+                                }
+                                string CheckBoxText = (*Element->Interaction.Bool) ? String("\\2713") : String("");
+                                
+                                DrawTextElement(RenderGroup, Assets, CheckBoxP, CheckBoxText, V2Set1(-Layout->Padding*0.25f), CheckBoxDim, Layout->Scale, CheckBoxBackground, CheckBoxBorder, Colors.Text);
+                                
                             } break;
+                            case ElementType_DropDown:
+                            {
+                                v4 ButtonColor = Colors.Button;
+                                if(InteractionIsSelected(Layout->State, Element->Interaction))
+                                {
+                                    ButtonColor = V4(1, 0, 0, 1);
+                                }
+                                DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, ButtonColor, Colors.ButtonBorder, Colors.Text);
+                                
+                            } break;
+                            case ElementType_Static:
+                            case ElementType_Slider:
+                            case ElementType_Button:
+                            {
+                                v4 ButtonColor = InteractionIsHot(Layout->State, Element->Interaction) ? Colors.HotButton : Colors.Button;
+                                
+                                if(InteractionIsClicked(Layout->State, Element->Interaction))
+                                {
+                                    ButtonColor = Colors.ClickedButton;
+                                }
+                                
+                                DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, ButtonColor, Colors.ButtonBorder, Colors.Text);
+                                
+                                
+                                
+                            } break;
+                            
                             
                             InvalidDefaultCase;
                         }
                         
-                        HeightDifference.Y = HeightPerFill - Element->Dim.Y;
-                    }
-                    else
-                    {
-                        Assert(Row->Type == LayoutType_Auto);
-                    }
-                    
-                    if(Row->SpacerCount == 0)
-                    {
-                        HeightDifference.X = (RemainingWidth/Row->ElementCount);
-                        TextOffset.X -= 0.5f*HeightDifference.X;
-                        if(!Element->IsFloating)
+                        if(Element->IsFloating)
                         {
-                            UiP.X -= HeightDifference.X;
-                        }
-                    }
-                    
-                    Element->Dim = V2Add(Element->Dim, HeightDifference);
-                    
-                    if(Element->IsFloating)
-                    {
-                        UiP.Y -= Element->Dim.Y;
-                    }
-                    else
-                    {
-                        UiP.Y = CurrentY;
-                    }
-                    
-                    if(IsInRectangle(Rectangle2(UiP, V2Add(UiP, Element->Dim)), Layout->MouseP))
-                    {
-                        Layout->State->NextHotInteraction = Element->Interaction;
-                    }
-                }
-                
-                loaded_bitmap *DrawBuffer = PushStruct(Layout->Arena, loaded_bitmap);;
-                if(Element->Type == ElementType_Spacer)
-                {
-                    UiP.X -= WidthPerSpacer;
-                    DrawBuffer->Width = (s32)WidthPerSpacer;
-                    DrawBuffer->Height = (s32)Row->MaxHeight;
-                    
-                }
-                else
-                {
-                    DrawBuffer->Width = (s32)Element->Dim.X;
-                    DrawBuffer->Height = (s32)Element->Dim.Y;
-                }
-                DrawBuffer->Pitch = Layout->DrawBuffer->Pitch;
-                DrawBuffer->Memory = (u8 *)Layout->DrawBuffer->Memory + (s32)UiP.X*BITMAP_BYTES_PER_PIXEL + (s32)UiP.Y*DrawBuffer->Pitch;
-                
-                
-                render_group *RenderGroup = AllocateRenderGroup(Layout->Arena, Megabytes(4), DrawBuffer);
-                assets *Assets = Layout->State->Assets;
-                
-                switch(Element->Type)
-                {
-                    
-                    case ElementType_Spacer:
-                    {
-                        PushClear(RenderGroup, Colors.Clear);
-                        
-                    } break;
-                    
-                    case ElementType_TextBox:
-                    {
-                        
-                        v4 BorderColor = InteractionIsSelected(Layout->State, Element->Interaction) ? Colors.SelectedTextBorder : Colors.TextBorder;
-                        
-                        editable_string *Str = Element->Interaction.Str;
-                        s32 SelectionStart;
-                        s32 SelectionEnd;
-                        if(Str->SelectionStart > Str->SelectionEnd)
-                        {
-                            SelectionStart = Str->SelectionEnd;
-                            SelectionEnd = Str->SelectionStart;
+                            tile_render_work *Work = *CurrentRenderWork;
+                            Work->Group = RenderGroup;
+                            Work->ClipRect.MinX = 0;
+                            Work->ClipRect.MaxX = DrawBuffer->Width;
+                            Work->ClipRect.MinY = 0;
+                            Work->ClipRect.MaxY = DrawBuffer->Height;
+                            ++(*CurrentRenderWork);
                         }
                         else
                         {
-                            SelectionStart = Str->SelectionStart;
-                            SelectionEnd = Str->SelectionEnd;
+                            // TODO(kstandbridge): Perhaps tile render work for larger viewports
+                            tile_render_work *Work = PushStruct(Layout->Arena, tile_render_work);
+                            Work->Group = RenderGroup;
+                            Work->ClipRect.MinX = 0;
+                            Work->ClipRect.MaxX = DrawBuffer->Width;
+                            Work->ClipRect.MinY = 0;
+                            Work->ClipRect.MaxY = DrawBuffer->Height;
+                            Platform.AddWorkEntry(Platform.PerFrameWorkQueue, TileRenderWorkThread, Work);
                         }
                         
-                        f32 CaretHeight = Platform.DEBUGGetLineAdvance()*Layout->Scale*0.9f;
-                        DrawSelectedTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, BorderColor, Colors.Text, Colors.TextBackground, Colors.SelectedText, Colors.SelectedTextBackground, SelectionStart, SelectionEnd, CaretHeight);
-                        
-#if 0
-                        if(InteractionIsSelected(Layout->State, Element->Interaction) &&
-                           (Element->Interaction.Type == UiInteraction_TextInput))
-#endif
-                        {
-                            
-                            v2 CaretP = V2(TextOffset.X, -TextOffset.Y - Layout->Padding*0.25f);
-#if 0
-                            rectangle2 TextBounds = GetTextSize(Assets, Layout->Scale, StringInternal(Str->Length, Str->Data));
-                            CaretP.X = TextBounds.Max.X - TextBounds.Min.X;
-#endif
-                            
-                            
-                            f32 Thickness;
-                            //if(Str->SelectionStart == Str->SelectionEnd)
-                            {
-                                Thickness = Layout->Scale*30.0f;
-                                if(Thickness < 1.0f)
-                                {
-                                    Thickness = 1.0f;
-                                }
-                                
-                                PushRect(RenderGroup, CaretP, V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
-                            }
-                        }
-#if 0                        
-                        if(InteractionIsSelected(Layout->State, Element->Interaction) &&
-                           (Element->Interaction.Type == UiInteraction_TextInput))
-                        {
-                            
-                            editable_string *Str = Element->Interaction.Str;
-                            
-                            v2 CaretP = V2(0, -TextOffset.Y - Layout->Padding*0.25f);
-                            f32 CaretHeight = Platform.DEBUGGetLineAdvance()*Layout->Scale;
-                            if(Str->SelectionStart > 0)
-                            {
-                                rectangle2 TextBounds = GetTextSize(RenderGroup, Assets, V2Set1(0.0f), Layout->Scale, StringInternal(Str->SelectionStart, Str->Data), V4Set1(1.0f));
-                                CaretP.X = TextBounds.Max.X - TextBounds.Min.X;
-                            }
-                            
-                            CaretP.X += Layout->Padding;
-                            
-                            f32 Thickness;
-                            if(Str->SelectionStart == Str->SelectionEnd)
-                            {
-                                Thickness = Layout->Scale*3.0f;
-                                if(Thickness < 1.0f)
-                                {
-                                    Thickness = 1.0f;
-                                }
-                                
-                                PushRect(RenderGroup, CaretP, V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.Caret, Colors.Caret);
-                            }
-                            else
-                            {
-                                s32 SelectedCharacters = Str->SelectionStart - Str->SelectionEnd;
-                                s32 TotalCharaceters = SelectedCharacters;
-                                if(TotalCharaceters < 0)
-                                {
-                                    TotalCharaceters *= -1;
-                                }
-                                s32 StartOfSelection;
-                                if(Str->SelectionEnd > Str->SelectionStart)
-                                {
-                                    StartOfSelection = Str->SelectionEnd + SelectedCharacters;
-                                }
-                                else
-                                {
-                                    StartOfSelection = Str->SelectionEnd;
-                                }
-                                
-                                string SelectedStr = StringInternal(TotalCharaceters, Str->Data + StartOfSelection);
-                                
-                                rectangle2 SelectedBounds = GetTextSize(RenderGroup, Assets, V2(0, 0), Layout->Scale, SelectedStr, V4Set1(1.0f));
-                                Thickness = SelectedBounds.Max.X - SelectedBounds.Min.X;
-                                if(Str->SelectionEnd < Str->SelectionStart)
-                                {
-                                    CaretP.X -= Thickness;
-                                }
-                                PushRect(RenderGroup, CaretP, V2(Thickness, CaretHeight - Layout->Padding*1.5f), Colors.SelectedTextBackground, Colors.SelectedTextBackground);
-                                WriteLine(RenderGroup, Assets, 
-                                          V2Subtract(V2(CaretP.X, 0), V2(0, TextOffset.Y)), 
-                                          Layout->Scale, SelectedStr, Colors.SelectedText);
-                            }
-                        }
-#endif
-                        
-                    } break;
-                    
-                    case ElementType_Checkbox:
-                    {
-                        f32 Thickness = Layout->Scale*3.0f;
-                        if(Thickness < 1.0f)
-                        {
-                            Thickness = 1.0f;
-                        }
-                        
-                        DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, Colors.Clear, Colors.Clear, Colors.Text);
-                        
-                        v2 CheckBoxP = V2(Layout->Padding, Layout->Padding*0.75f);
-                        v2 CheckBoxDim = V2Set1(Element->Dim.Y - Layout->Padding*1.5f);
-                        
-                        v4 CheckBoxBorder;
-                        v4 CheckBoxBackground;
-                        if(InteractionIsClicked(Layout->State, Element->Interaction))
-                        {
-                            CheckBoxBorder = Colors.CheckBoxBorderClicked;
-                            CheckBoxBackground = Colors.CheckBoxBackgroundClicked;
-                        }
-                        else
-                        {
-                            CheckBoxBorder = Colors.CheckBoxBorder;
-                            CheckBoxBackground = Colors.CheckBoxBackground;
-                        }
-                        string CheckBoxText = (*Element->Interaction.Bool) ? String("\\2713") : String("");
-                        
-                        DrawTextElement(RenderGroup, Assets, CheckBoxP, CheckBoxText, V2Set1(-Layout->Padding*0.25f), CheckBoxDim, Layout->Scale, CheckBoxBackground, CheckBoxBorder, Colors.Text);
-                        
-                    } break;
-                    case ElementType_DropDown:
-                    {
-                        v4 ButtonColor = Colors.Button;
-                        if(InteractionIsSelected(Layout->State, Element->Interaction))
-                        {
-                            ButtonColor = V4(1, 0, 0, 1);
-                        }
-                        DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, ButtonColor, Colors.ButtonBorder, Colors.Text);
-                        
-                    } break;
-                    case ElementType_Static:
-                    case ElementType_Slider:
-                    case ElementType_Button:
-                    {
-                        v4 ButtonColor = InteractionIsHot(Layout->State, Element->Interaction) ? Colors.HotButton : Colors.Button;
-                        
-                        if(InteractionIsClicked(Layout->State, Element->Interaction))
-                        {
-                            ButtonColor = Colors.ClickedButton;
-                        }
-                        
-                        DrawTextElement(RenderGroup, Assets, V2Set1(0.0f), Element->Label, TextOffset, Element->Dim, Layout->Scale, ButtonColor, Colors.ButtonBorder, Colors.Text);
-                        
-                        
-                        
-                    } break;
+                    }
                     
                     
-                    InvalidDefaultCase;
+                    LastElement = Element;
                 }
-                
-                if(Element->IsFloating)
-                {
-                    tile_render_work *Work = CurrentRenderWork;
-                    Work->Group = RenderGroup;
-                    Work->ClipRect.MinX = 0;
-                    Work->ClipRect.MaxX = DrawBuffer->Width;
-                    Work->ClipRect.MinY = 0;
-                    Work->ClipRect.MaxY = DrawBuffer->Height;
-                    ++CurrentRenderWork;
-                }
-                else
-                {
-                    // TODO(kstandbridge): Perhaps tile render work for larger viewports
-                    tile_render_work *Work = PushStruct(Layout->Arena, tile_render_work);
-                    Work->Group = RenderGroup;
-                    Work->ClipRect.MinX = 0;
-                    Work->ClipRect.MaxX = DrawBuffer->Width;
-                    Work->ClipRect.MinY = 0;
-                    Work->ClipRect.MaxY = DrawBuffer->Height;
-                    Platform.AddWorkEntry(Platform.PerFrameWorkQueue, TileRenderWorkThread, Work);
-                }
-                
             }
-            
-            
-            LastElement = Element;
         }
         
         if(Row->Type == LayoutType_Auto)
@@ -591,6 +605,21 @@ DrawUIInternal(ui_layout *Layout)
         }
         
     }
+}
+#endif
+
+#if 0
+internal void
+DrawUIInternal(ui_layout *Layout)
+{
+    tile_render_work *FloatingRenderWorks = 0;
+    if(Layout->FloatingElements > 0)
+    {
+        FloatingRenderWorks = PushArray(Layout->Arena, Layout->FloatingElements, tile_render_work);
+    }
+    tile_render_work *CurrentRenderWork = FloatingRenderWorks;
+    
+    DrawUIRow(Layout, Layout->LastRow, (f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height, &CurrentRenderWork);
     
     Platform.CompleteAllWork(Platform.PerFrameWorkQueue);
     
@@ -605,59 +634,179 @@ DrawUIInternal(ui_layout *Layout)
     
     Platform.CompleteAllWork(Platform.PerFrameWorkQueue);
 }
+#endif
+
+// TODO(kstandbridge): Ditch this crap
+global s32 ColArrayIndex;
+global v4 ColArray[15];
+
+internal void
+IterateRowColumns(ui_layout *Layout, ui_layout_row *LastRow, v2 Dim, v2 *P)
+{
+    for(ui_layout_row *Row = LastRow;
+        Row != 0;
+        Row = Row->Next)
+    {
+        f32 StartX = P->X;
+        for(ui_layout_column *Column = Row->LastColumn;
+            Column != 0;
+            Column = Column->Next)
+        {
+            
+            if(Column->HasRows)
+            {
+                Assert(Column->LastRow);
+                f32 CurrentY = P->Y;
+                IterateRowColumns(Layout, Column->LastRow, Dim, P);
+                P->Y = CurrentY;
+                P->X -= Column->Dim.X;
+            }
+            else
+            {
+                P->X -= Column->Dim.X;
+                
+                loaded_bitmap *DrawBuffer = PushStruct(Layout->Arena, loaded_bitmap);
+                DrawBuffer->Width = (s32)Column->Dim.X;
+                DrawBuffer->Height = (s32)Column->Dim.Y;
+                DrawBuffer->Pitch = Layout->DrawBuffer->Pitch;
+                DrawBuffer->Memory = (u8 *)Layout->DrawBuffer->Memory + (s32)P->X*BITMAP_BYTES_PER_PIXEL + (s32)P->Y*DrawBuffer->Pitch;
+                render_group *RenderGroup = AllocateRenderGroup(Layout->Arena, Megabytes(4), DrawBuffer);
+                
+                ColArray[0] = V4(0.0f, 0.0f, 1.0f, 1.0f);
+                ColArray[1] = V4(0.0f, 1.0f, 0.0f, 1.0f);
+                ColArray[2] = V4(0.0f, 1.0f, 1.0f, 1.0f);
+                ColArray[3] = V4(1.0f, 0.0f, 0.0f, 1.0f);
+                ColArray[4] = V4(1.0f, 0.0f, 1.0f, 1.0f);
+                ColArray[5] = V4(0.0f, 0.0f, 0.5f, 1.0f);
+                ColArray[6] = V4(0.0f, 0.5f, 0.0f, 1.0f);
+                ColArray[7] = V4(0.0f, 0.5f, 0.5f, 1.0f);
+                ColArray[8] = V4(0.5f, 0.0f, 0.0f, 1.0f);
+                ColArray[9] = V4(0.5f, 0.0f, 0.5f, 1.0f);
+                ColArray[10] = V4(0.0f, 0.0f, 0.3f, 1.0f);
+                ColArray[11] = V4(0.0f, 0.3f, 0.0f, 1.0f);
+                ColArray[12] = V4(0.0f, 0.3f, 0.3f, 1.0f);
+                ColArray[13] = V4(0.3f, 0.0f, 0.0f, 1.0f);
+                ColArray[14] = V4(0.3f, 0.0f, 0.3f, 1.0f);
+                
+                
+                PushClear(RenderGroup, ColArray[ColArrayIndex]);
+                ColArrayIndex = (ColArrayIndex + 1) % ArrayCount(ColArray);
+                
+                
+                tile_render_work Work;
+                ZeroStruct(Work);
+                Work.Group = RenderGroup;
+                Work.ClipRect.MinX = 0;
+                Work.ClipRect.MaxX = DrawBuffer->Width;
+                Work.ClipRect.MinY = 0;
+                Work.ClipRect.MaxY = DrawBuffer->Height;
+                TileRenderWorkThread(&Work);
+                
+            }
+        }
+        P->X = StartX;
+        P->Y += Row->Dim.Y;
+    }
+}
+
+internal void
+CalculateUIDims(ui_layout *Layout, ui_layout_row *LastRow, v2 RowDim)
+{
+    for(ui_layout_row *Row = LastRow;
+        Row != 0;
+        Row = Row->Next)
+    {
+        Row->Dim = RowDim;
+        for(ui_layout_column *Column = Row->LastColumn;
+            Column != 0;
+            Column = Column->Next)
+        {
+            Column->Dim = V2(Row->Dim.X / Row->ColumnCount, Row->Dim.Y);
+            if(Column->HasRows)
+            {
+                CalculateUIDims(Layout, Column->LastRow, V2(Column->Dim.X, Column->Dim.Y / Column->RowCount));
+            }
+        }
+    }
+}
 
 internal void
 EndUIFrame(ui_layout *Layout, app_input *Input)
 {
-    Assert(!Layout->IsCreatingRow);
-    
     HandleUIInteractionsInternal(Layout, Input);
     
     Layout->State->LastMouseP = Layout->MouseP;
     
-#if 0    
-    // TODO(kstandbridge): Hack to fix heights?
-    if(Layout->UsedHeight > Layout->RenderGroup->OutputTarget->Height)
-    {
-        f32 HeightToRemove = Layout->UsedHeight - Layout->RenderGroup->OutputTarget->Height;
-        ui_layout_row *BiggestRow = Layout->LastRow;
-        for(ui_layout_row *Row = Layout->LastRow;
-            Row != 0;
-            Row = Row->Next)
-        {
-            if(BiggestRow->MaxHeight < Row->MaxHeight)
-            {
-                BiggestRow = Row;
-            }
-        }
-        BiggestRow->MaxHeight -= HeightToRemove;
-    }
-#endif
     
-    DrawUIInternal(Layout);
+    CalculateUIDims(Layout, Layout->LastRow, V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height / Layout->RowCount));
+    //DrawUIInternal(Layout);
+    
+    ColArrayIndex = 0;
+    v2 P = V2((f32)Layout->DrawBuffer->Width, 0.0f);
+    IterateRowColumns(Layout, Layout->LastRow, V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height), &P);
 }
 
 inline void
-BeginRow(ui_layout *Layout, ui_layout_type Type)
+EndColumn(ui_layout *Layout)
 {
-    Assert(!Layout->IsCreatingRow);
-    Layout->IsCreatingRow = true;
+    Layout->CurrentColumn = Layout->CurrentColumn->Parent;
+}
+
+inline void
+BeginColumn(ui_layout *Layout)
+{
+    ui_layout_column *Column = PushStruct(Layout->Arena, ui_layout_column);
+    ZeroStruct(*Column);
+    Column->Next = Layout->CurrentRow->LastColumn;
+    Layout->CurrentRow->LastColumn = Column;
     
-    ui_layout_row *Row = PushStruct(Layout->Arena, ui_layout_row);
-    ZeroStruct(*Row);
-    Row->Next = Layout->LastRow;
-    Layout->LastRow = Row;
+    ++Layout->CurrentRow->ColumnCount;
+    Column->Parent = Layout->CurrentColumn;
+    Layout->CurrentColumn = Column;
+}
+
+inline void
+SetRowLayoutType(ui_layout *Layout, ui_layout_type Type)
+{
+    Assert(Layout->CurrentRow);
+    Layout->CurrentRow->Type = Type;
+}
+
+inline void
+BeginRow(ui_layout *Layout)
+{
+    if(Layout->CurrentColumn == 0)
+    {
+        ui_layout_row *Row = PushStruct(Layout->Arena, ui_layout_row);
+        ZeroStruct(*Row);
+        Row->Next = Layout->LastRow;
+        Layout->LastRow = Row;
+        ++Layout->RowCount;
+        Row->Parent = Layout->CurrentRow;
+        Layout->CurrentRow = Row;
+    }
+    else
+    {
+        ui_layout_row *Row = PushStruct(Layout->Arena, ui_layout_row);
+        ZeroStruct(*Row);
+        Row->Next = Layout->CurrentColumn->LastRow;
+        Layout->CurrentColumn->LastRow = Row;
+        
+        Layout->CurrentColumn->HasRows = true;
+        ++Layout->CurrentColumn->RowCount;
+        
+        Row->Parent = Layout->CurrentRow;
+        Layout->CurrentRow = Row;
+    }
     
-    Row->Type = Type;
 }
 
 inline void
 EndRow(ui_layout *Layout)
 {
-    Assert(Layout->IsCreatingRow);
-    Layout->IsCreatingRow = false;
+    Layout->CurrentRow = Layout->CurrentRow->Parent;
     
-    ui_layout_row *Row = Layout->LastRow;
+#if 0    
     if(Row->Type == LayoutType_Fill)
     {
         ++Layout->FillRows;
@@ -667,106 +816,126 @@ EndRow(ui_layout *Layout)
         Assert(Row->Type == LayoutType_Auto);
     }
     
-    ui_element *LastElement = 0;
-    for(ui_element *Element = Row->LastElement;
-        Element;
-        Element = Element->Next)
+    for(ui_layout_column *Column = Row->ColumnSentinal->Next;
+        Column != Row->ColumnSentinal;
+        Column = Column->Next)
     {
-        if(Element->Type == ElementType_Spacer)
+        Column->Dim.X = Row->Dim.X / Row->ColumnCount;
+        if(Column->HasRows)
         {
-            ++Row->SpacerCount;
-        }
-        else if(Element->IsFloating)
-        {
-            if(LastElement)
-            {
-                Element->Dim = LastElement->Dim;
-                Element->TextOffset = LastElement->TextOffset;
-            }
-            else
-            {
-                Assert(!"First element cannot be floating as it needs a parent to float from")
-            }
+            // TODO(kstandbridge): I'm not sure what we would do in this case?
         }
         else
         {
-            ++Row->ElementCount;
-            string LabelStr;
-            if(Element->Label.Size == 0)
+            ui_element *LastElement = 0;
+            for(ui_element *Element = Column->ElementSentinal->Next;
+                Element != Column->ElementSentinal;
+                Element = Element->Next)
             {
-                LabelStr = String("K");
-            }
-            else
-            {
-                LabelStr = Element->Label;
-            }
-            
-            rectangle2 TextBounds = GetTextSize(Layout->State->Assets, Layout->Scale, LabelStr);
-            Element->TextOffset = V2(-Layout->Padding, TextBounds.Min.Y - Layout->Padding);
-            Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
-                              TextBounds.Max.Y - TextBounds.Min.Y);
-            Element->Dim = V2Add(Element->Dim, V2Set1(Layout->Padding*2.0f));
-            
-            if(Element->Type == ElementType_Checkbox)
-            {
-                Element->Dim.X += Element->Dim.Y - Layout->Padding * 0.5f;
-                Element->TextOffset.X -= Element->Dim.Y - Layout->Padding * 0.5f; 
-            }
-            
-            
-            if((Element->MinDim.X != 0) && 
-               (Element->Dim.X < Element->MinDim.X))
-            {
-                Element->TextOffset.X -= (Element->MinDim.X - Element->Dim.X)*0.5f;
-                Element->Dim.X = Element->MinDim.X;
-            }
-            if((Element->MinDim.Y != 0) && 
-               (Element->Dim.Y < Element->MinDim.Y))
-            {
-                Element->Dim.Y = Element->MinDim.Y;
-            }
-            
-            if((Element->MaxDim.X != 0) &&
-               (Element->Dim.X > Element->MaxDim.X))
-            {
-                Element->TextOffset.X += (Element->Dim.X - Element->MaxDim.X)*0.5f;
-                Element->Dim.X = Element->MaxDim.X;
-            }
-            if((Element->MaxDim.Y != 0) && 
-               (Element->Dim.Y > Element->MaxDim.Y))
-            {
-                Element->Dim.Y = Element->MaxDim.Y;
-            }
-            
-            if(Element->Dim.X > Layout->DrawBuffer->Width - Row->UsedWidth)
-            {
-                Element->Dim.X = Layout->DrawBuffer->Width - Row->UsedWidth;
-            }
-            
-            Row->UsedWidth += Element->Dim.X;
-            if(Element->Dim.Y > Row->MaxHeight)
-            {
-                Row->MaxHeight = Element->Dim.Y;
+                if(Element->Type == ElementType_Spacer)
+                {
+                    ++Column->SpacerCount;
+                }
+                else if(Element->IsFloating)
+                {
+                    if(LastElement)
+                    {
+                        Element->Dim = LastElement->Dim;
+                        Element->TextOffset = LastElement->TextOffset;
+                    }
+                    else
+                    {
+                        Assert(!"First element cannot be floating as it needs a parent to float from")
+                    }
+                }
+                else
+                {
+                    ++Column->ElementCount;
+                    string LabelStr;
+                    if(Element->Label.Size == 0)
+                    {
+                        LabelStr = String("K");
+                    }
+                    else
+                    {
+                        LabelStr = Element->Label;
+                    }
+                    
+                    rectangle2 TextBounds = GetTextSize(Layout->State->Assets, Layout->Scale, LabelStr);
+                    Element->TextOffset = V2(-Layout->Padding, TextBounds.Min.Y - Layout->Padding);
+                    Element->Dim = V2(TextBounds.Max.X - TextBounds.Min.X, 
+                                      TextBounds.Max.Y - TextBounds.Min.Y);
+                    Element->Dim = V2Add(Element->Dim, V2Set1(Layout->Padding*2.0f));
+                    
+                    if(Element->Type == ElementType_Checkbox)
+                    {
+                        Element->Dim.X += Element->Dim.Y - Layout->Padding * 0.5f;
+                        Element->TextOffset.X -= Element->Dim.Y - Layout->Padding * 0.5f; 
+                    }
+                    
+                    
+                    if((Element->MinDim.X != 0) && 
+                       (Element->Dim.X < Element->MinDim.X))
+                    {
+                        Element->TextOffset.X -= (Element->MinDim.X - Element->Dim.X)*0.5f;
+                        Element->Dim.X = Element->MinDim.X;
+                    }
+                    if((Element->MinDim.Y != 0) && 
+                       (Element->Dim.Y < Element->MinDim.Y))
+                    {
+                        Element->Dim.Y = Element->MinDim.Y;
+                    }
+                    
+                    if((Element->MaxDim.X != 0) &&
+                       (Element->Dim.X > Element->MaxDim.X))
+                    {
+                        Element->TextOffset.X += (Element->Dim.X - Element->MaxDim.X)*0.5f;
+                        Element->Dim.X = Element->MaxDim.X;
+                    }
+                    if((Element->MaxDim.Y != 0) && 
+                       (Element->Dim.Y > Element->MaxDim.Y))
+                    {
+                        Element->Dim.Y = Element->MaxDim.Y;
+                    }
+                    
+                    if(Element->Dim.X > Layout->DrawBuffer->Width - Column->UsedWidth)
+                    {
+                        Element->Dim.X = Layout->DrawBuffer->Width - Column->UsedWidth;
+                    }
+                    
+                    Column->UsedWidth += Element->Dim.X;
+                    if(Element->Dim.Y > Row->MaxHeight)
+                    {
+                        Row->MaxHeight = Element->Dim.Y;
+                    }
+                }
+                LastElement = Element;
             }
         }
-        LastElement = Element;
     }
     
     if(Row->Type == LayoutType_Auto)
     {
         Layout->UsedHeight += Row->MaxHeight;
     }
+#endif
+    
 }
 
+#if 0
 inline ui_element *
 PushElementInternal(ui_layout *Layout, ui_element_type ElementType, ui_element_type InteractionType, u32 ID, string Label, ui_text_layout_type LabelLayout, void *Target)
 {
-    Assert(Layout->IsCreatingRow);
-    
     ui_element *Element = PushStruct(Layout->Arena, ui_element);
     ZeroStruct(*Element);
-    Element->Next = Layout->LastRow->LastElement;
-    Layout->LastRow->LastElement = Element;
+    
+    if(Layout->CurrentColumn->ElementSentinal == 0)
+    {
+        Layout->CurrentColumn->ElementSentinal = PushStruct(Layout->Arena, ui_element);
+        DLIST_INIT(Layout->CurrentColumn->ElementSentinal);
+    }
+    
+    DLIST_INSERT(Layout->CurrentColumn->ElementSentinal, Element);
     
     Element->Type = ElementType;
     ZeroStruct(Element->Interaction);
@@ -782,16 +951,12 @@ PushElementInternal(ui_layout *Layout, ui_element_type ElementType, ui_element_t
 inline void
 PushSpacerElement(ui_layout *Layout)
 {
-    Assert(Layout->IsCreatingRow);
-    
     PushElementInternal(Layout, ElementType_Spacer, UiInteraction_NOP, 0, String(""), TextLayout_None, 0);
 }
 
 inline void
 PushStaticElement(ui_layout *Layout, u32 ID, string Label, ui_text_layout_type LabelLayout)
 {
-    Assert(Layout->IsCreatingRow);
-    
     PushElementInternal(Layout, ElementType_Static, UiInteraction_None, ID, Label, LabelLayout, 0);
 }
 
@@ -799,8 +964,6 @@ PushStaticElement(ui_layout *Layout, u32 ID, string Label, ui_text_layout_type L
 inline b32
 PushButtonElement(ui_layout *Layout, u32 ID, string Label)
 {
-    Assert(Layout->IsCreatingRow);
-    
     ui_element *Element = PushElementInternal(Layout, ElementType_Button, UiInteraction_ImmediateButton, ID, Label, TextLayout_MiddleMiddle, 0);
     
     b32 Result = InteractionsAreEqual(Element->Interaction, Layout->State->ToExecute);
@@ -810,8 +973,6 @@ PushButtonElement(ui_layout *Layout, u32 ID, string Label)
 inline void
 PushScrollElement(ui_layout *Layout, u32 ID, string Label, v2 *TargetP)
 {
-    Assert(Layout->IsCreatingRow);
-    
     ui_element *Element = PushElementInternal(Layout, ElementType_Slider, UiInteraction_Draggable, ID, Label, TextLayout_MiddleMiddle, TargetP);
     
     if(InteractionsAreEqual(Element->Interaction, Layout->State->Interaction))
@@ -824,24 +985,18 @@ PushScrollElement(ui_layout *Layout, u32 ID, string Label, v2 *TargetP)
 inline void
 PushCheckboxElement(ui_layout *Layout, u32 ID, string Label, b32 *TargetBool)
 {
-    Assert(Layout->IsCreatingRow);
-    
     ui_element *Element = PushElementInternal(Layout, ElementType_Checkbox, UiInteraction_EditableBool, ID, Label, TextLayout_MiddleMiddle, TargetBool);
 }
 
 inline void
 PushTextInputElement(ui_layout *Layout, u32 ID, editable_string *Target)
 {
-    Assert(Layout->IsCreatingRow);
-    
     PushElementInternal(Layout, ElementType_TextBox, UiInteraction_TextInput, ID, StringInternal(Target->Length, Target->Data), TextLayout_Scrollable, Target);
 }
 
 inline void
 PushDropDownElement(ui_layout *Layout, u32 ID, string *Labels, s32 LabelCount, s32 *Target)
 {
-    Assert(Layout->IsCreatingRow);
-    
     ui_element *Element = PushElementInternal(Layout, ElementType_DropDown, UiInteraction_ImmediateButton, ID, Labels[*Target], TextLayout_MiddleMiddle, Target);
     
     for(s32 LabelIndex = LabelCount - 1;
@@ -859,6 +1014,8 @@ PushDropDownElement(ui_layout *Layout, u32 ID, string *Labels, s32 LabelCount, s
             *Target = LabelIndex;
         }
         
+#if 0   
+        // TODO(kstandbridge): Fix the drop down choices
         if(InteractionIsSelected(Layout->State, Element->Interaction))
         {
             ui_element *Choice = PushStruct(Layout->Arena, ui_element);
@@ -874,6 +1031,8 @@ PushDropDownElement(ui_layout *Layout, u32 ID, string *Labels, s32 LabelCount, s
             
             ++Layout->FloatingElements;
         }
+#endif
+        
     }
     
 }
@@ -881,15 +1040,12 @@ PushDropDownElement(ui_layout *Layout, u32 ID, string *Labels, s32 LabelCount, s
 inline void
 SetElementMinDim(ui_layout *Layout, f32 Width, f32 Height)
 {
-    Assert(Layout->IsCreatingRow);
-    
-    Layout->LastRow->LastElement->MinDim = V2(Width, Height);
+    Layout->CurrentElement->MinDim = V2(Width, Height);
 }
 
 inline void
 SetElementMaxDim(ui_layout *Layout, f32 Width, f32 Height)
 {
-    Assert(Layout->IsCreatingRow);
-    
-    Layout->LastRow->LastElement->MaxDim = V2(Width, Height);
+    Layout->CurrentElement->MaxDim = V2(Width, Height);
 }
+#endif

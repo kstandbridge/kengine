@@ -14,6 +14,40 @@ void *memset(void *_Dst, int _Val, size_t _Size)
     return(_Dst);
 }
 
+// TODO(kstandbridge): Double-linked list meta programming
+#define DLIST_INSERT(Sentinel, Element)         \
+(Element)->Next = (Sentinel)->Next;         \
+(Element)->Prev = (Sentinel);               \
+(Element)->Next->Prev = (Element);          \
+(Element)->Prev->Next = (Element);
+#define DLIST_REMOVE(Element)         \
+if((Element)->Next) \
+{ \
+(Element)->Next->Prev = (Element)->Prev;         \
+(Element)->Prev->Next = (Element)->Next;         \
+(Element)->Next = (Element)->Prev = 0; \
+}
+#define DLIST_INSERT_AS_LAST(Sentinel, Element)         \
+(Element)->Next = (Sentinel);               \
+(Element)->Prev = (Sentinel)->Prev;         \
+(Element)->Next->Prev = (Element);          \
+(Element)->Prev->Next = (Element);
+
+#define DLIST_INIT(Sentinel) \
+(Sentinel)->Next = (Sentinel); \
+(Sentinel)->Prev = (Sentinel)
+
+#define DLIST_IS_EMPTY(Sentinel) \
+((Sentinel)->Next == (Sentinel))
+
+// TODO(kstandbridge): Free list meta programming
+#define FREELIST_ALLOCATE(Result, FreeListPointer, AllocationCode)             \
+(Result) = (FreeListPointer); \
+if(Result) {FreeListPointer = (Result)->NextFree;} else {Result = AllocationCode;}
+#define FREELIST_DEALLOCATE(Pointer, FreeListPointer) \
+if(Pointer) {(Pointer)->NextFree = (FreeListPointer); (FreeListPointer) = (Pointer);}
+
+
 #define introspect(...)
 #include "kengine_types.h"
 

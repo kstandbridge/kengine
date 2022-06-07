@@ -726,7 +726,6 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                     if((Index >= SelectedStartIndex) &&
                        (Index < SelectedEndIndex))
                     {
-                        //v2 Dim = V2(Height*Bitmap->WidthOverHeight, Height);
                         f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(CodePoint, PrevCodePoint);
                         PushRect(RenderGroup, V2Subtract(Offset, V2(Scale, SelectedHeight*0.3f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
                         PushBitmap(RenderGroup, Bitmap, Height, Offset, SelectedTextColor, 0.0f);

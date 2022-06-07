@@ -106,9 +106,143 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     DrawBuffer->Pitch = Buffer->Pitch;
 #endif
     
+    {
+        temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
+        
+        render_group *RenderGroup = AllocateRenderGroup(TempMem.Arena, Megabytes(4), DrawBuffer);
+        
+        if(Memory->ExecutableReloaded)
+        {
+            PushClear(RenderGroup, V4(1, 1, 1, 1));
+        }
+        else
+        {
+            PushClear(RenderGroup, V4(0, 0, 0, 1));
+        }
+        
+        tile_render_work Work;
+        ZeroStruct(Work);
+        Work.Group = RenderGroup;
+        Work.ClipRect.MinX = 0;
+        Work.ClipRect.MaxX = DrawBuffer->Width;
+        Work.ClipRect.MinY = 0;
+        Work.ClipRect.MaxY = DrawBuffer->Height;
+        TileRenderWorkThread(&Work);
+        EndTemporaryMemory(TempMem);
+    }
+    
+    
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
+    
     ui_layout Layout = BeginUIFrame(&AppState->UiState, TempMem.Arena, Input, DrawBuffer, 8.0f, AppState->UiScale.X);
     
+    
+    
+#if 1
+    
+    BeginRow(&Layout);
+    {
+        BeginColumn(&Layout);
+        EndColumn(&Layout);
+        BeginColumn(&Layout);
+        {
+            BeginRow(&Layout);
+            BeginColumn(&Layout);
+            EndColumn(&Layout);
+            EndRow(&Layout);
+            BeginRow(&Layout);
+            BeginColumn(&Layout);
+            EndColumn(&Layout);
+            EndRow(&Layout);
+            BeginRow(&Layout);
+            BeginColumn(&Layout);
+            EndColumn(&Layout);
+            EndRow(&Layout);
+            BeginRow(&Layout);
+            BeginColumn(&Layout);
+            EndColumn(&Layout);
+            EndRow(&Layout);
+        }
+        EndColumn(&Layout);
+    }
+    EndRow(&Layout);
+    
+    BeginRow(&Layout);
+    {
+        
+        BeginColumn(&Layout);
+        {
+            BeginRow(&Layout);
+            BeginColumn(&Layout);
+            EndColumn(&Layout);
+            EndRow(&Layout);
+            BeginRow(&Layout);
+            BeginColumn(&Layout);
+            EndColumn(&Layout);
+            EndRow(&Layout);
+            BeginRow(&Layout);
+            BeginColumn(&Layout);
+            EndColumn(&Layout);
+            EndRow(&Layout);
+            BeginRow(&Layout);
+            EndRow(&Layout);
+        }
+        EndColumn(&Layout);
+        
+        BeginColumn(&Layout);
+        {
+            BeginRow(&Layout);
+            {
+                
+                BeginColumn(&Layout);
+                EndColumn(&Layout);
+                
+                
+                BeginColumn(&Layout);
+                {
+                    BeginRow(&Layout);
+                    BeginColumn(&Layout);
+                    EndColumn(&Layout);
+                    EndRow(&Layout);
+                    BeginRow(&Layout);
+                    BeginColumn(&Layout);
+                    EndColumn(&Layout);
+                    EndRow(&Layout);
+                }
+                EndColumn(&Layout);
+                
+            }
+            EndRow(&Layout);
+        }
+        EndColumn(&Layout);
+        
+    }
+    EndRow(&Layout);
+    
+#else
+    
+#if 1
+    BeginRow(&Layout, LayoutType_Fill);
+    {
+        BeginColumn(&Layout, LayoutType_Fill);
+        {
+            PushStaticElement(&Layout, __COUNTER__, String("Foo"), TextLayout_MiddleMiddle);
+            PushStaticElement(&Layout, __COUNTER__, String("Bar"), TextLayout_MiddleMiddle);
+            PushStaticElement(&Layout, __COUNTER__, String("Bar"), TextLayout_MiddleMiddle);
+        }
+        EndColumn(&Layout);
+    }
+    EndRow(&Layout);
+    BeginRow(&Layout, LayoutType_Fill);
+    {
+        BeginColumn(&Layout, LayoutType_Fill);
+        {
+            PushStaticElement(&Layout, __COUNTER__, String("Foo"), TextLayout_MiddleMiddle);
+        }
+        EndColumn(&Layout);
+    }
+    EndRow(&Layout);
+#else
     BeginRow(&Layout, LayoutType_Auto);
     PushTextInputElement(&Layout, __COUNTER__, &AppState->TestString);
     SetElementMinDim(&Layout, 240, 0);
@@ -132,31 +266,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Fill);
-    
-#if 0
-    string TheString = FormatString(TempMem.Arena, "NoPad %.2f %.2f \nMiddleMiddle", AppState->TestP.X, AppState->TestP.Y);
-    editable_string EditString;
-    EditString.Length = (u32)TheString.Size;
-    EditString.Size = TheString.Size;
-    EditString.Data = TheString.Data;
-    EditString.SelectionStart = 10;
-    EditString.SelectionEnd = 5;
-    PushTextInputElement(&Layout, __COUNTER__, &EditString);
-#endif
-    
-#if 0
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(TempMem.Arena, "NoPad %.2f %.2f \nTopMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_TopMiddle);
-#endif
-    
     PushTextInputElement(&Layout, __COUNTER__, &AppState->LongString);
-    
-#if 0
-    PushStaticElement(&Layout, __COUNTER__, 
-                      FormatString(TempMem.Arena, "NoPad %.2f %.2f \nBottomMiddle", AppState->TestP.X, AppState->TestP.Y),
-                      TextLayout_BottomMiddle);
-#endif
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Auto);
@@ -177,8 +287,8 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         
         string Label = FormatString(TempMem.Arena, "Start: %d, End: %d, StartOfSelection: %d, EndOfSelection: %d\n'%S'", 
-                                    AppState->TestString.SelectionStart, 
-                                    AppState->TestString.SelectionEnd,
+                                    AppState->LongString.SelectionStart, 
+                                    AppState->LongString.SelectionEnd,
                                     SelectionStart, SelectionEnd,
                                     StringInternal(SelectionEnd - SelectionStart, Str->Data + SelectionStart));
         PushStaticElement(&Layout, __COUNTER__, Label, TextLayout_MiddleMiddle);
@@ -211,6 +321,11 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     PushScrollElement(&Layout, __COUNTER__, FormatString(TempMem.Arena, "Offset: %f , %f", AppState->LongString.Offset.X, AppState->LongString.Offset.Y),
                       &AppState->LongString.Offset);
     EndRow(&Layout);
+    
+#endif
+    
+    
+#endif
     
     EndUIFrame(&Layout, Input);
     
