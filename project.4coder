@@ -28,3 +28,14 @@ load_paths =
         { {"."}, .recursive = true, .relative = true }, .os = "win"
     },
 };
+
+command_list = {
+    { .name = "build_dependencies",
+        .out = "*compilation*", .footer_panel = true, .save_dirty_files = true, .cursor_at_end = false,
+        .cmd = {
+            { ".\build build_dependencies", .os = "win" }
+        }
+    }
+};
+
+fkey_command[6] = "build_dependencies";

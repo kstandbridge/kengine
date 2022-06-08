@@ -127,7 +127,6 @@ typedef struct ui_layout_column
 
 typedef struct ui_layout_row
 {
-    
     ui_layout_type Type;
     
     f32 MaxHeight;
@@ -140,12 +139,31 @@ typedef struct ui_layout_row
     struct ui_layout_row *Next;
 } ui_layout_row;
 
+typedef enum ui_div_type
+{
+    UI_Div_Horizontal,
+    UI_Div_Vertical,
+} ui_div_type;
+typedef struct ui_div
+{
+    ui_div_type Type;
+    
+    v2 Dim;
+    s32 ChildCount;
+    struct ui_div *LastChild;
+    struct ui_div *Parent;
+    
+    struct ui_div *Next;
+} ui_div;
+
 typedef struct ui_layout
 {
     ui_state *State;
     memory_arena *Arena;
     
     f32 Scale;
+    f32 MinRowHeight;
+    
     v2 MouseP;
     v2 dMouseP;
     f32 Padding;
@@ -163,7 +181,12 @@ typedef struct ui_layout
     ui_layout_column *CurrentColumn;
     ui_element *CurrentElement;
     
+    ui_div MainDiv;
+    ui_div *CurrentDiv;
+    
+    
 } ui_layout;
+
 
 inline b32
 InteractionsAreEqual(ui_interaction A, ui_interaction B)

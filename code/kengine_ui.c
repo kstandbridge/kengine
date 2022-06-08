@@ -9,6 +9,7 @@ BeginUIFrame(ui_state *UiState, memory_arena *Arena, app_input *Input, loaded_bi
     Result.Arena = Arena;
     
     Result.Scale = Scale;
+    Result.MinRowHeight = Platform.DEBUGGetLineAdvance()*Scale;
     Result.MouseP = V2(Input->MouseX, Input->MouseY);
     Result.dMouseP = V2Subtract(Result.MouseP, UiState->LastMouseP);
     Result.Padding = Padding;
@@ -22,6 +23,9 @@ BeginUIFrame(ui_state *UiState, memory_arena *Arena, app_input *Input, loaded_bi
     Result.LastRow = 0;
     Result.CurrentRow = Result.LastRow;
     Result.CurrentColumn = 0;
+    Result.CurrentElement = 0;
+    Result.CurrentDiv = &Result.MainDiv;
+    Result.CurrentDiv->Parent = Result.CurrentDiv;
     
     UiState->ToExecute = UiState->NextToExecute;
     ClearInteraction(&UiState->NextToExecute);
@@ -640,6 +644,72 @@ DrawUIInternal(ui_layout *Layout)
 global s32 ColArrayIndex;
 global v4 ColArray[15];
 
+
+inline void
+DrawDiv(ui_layout *Layout, ui_div *Head, v2 Dim, v2 *P)
+{
+    for(ui_div *Div = Head;
+        Div != 0;
+        Div = Div->Next)
+    {
+        f32 StartX = P->X;
+        f32 StartY = P->Y;
+        //if(Div->Type == UI_Div_Horizontal)
+        {
+            if(Div->LastChild)
+            {
+                f32 CurrentY = P->Y;
+                DrawDiv(Layout, Div->LastChild, Dim, P);
+                P->Y = CurrentY;
+                P->X -= Div->Dim.X;
+            }
+            
+            P->X -= Div->Dim.X;
+            
+            Div->Dim = V2(Dim.X / Div->Parent->ChildCount, Dim.Y);
+            
+            loaded_bitmap *DrawBuffer = PushStruct(Layout->Arena, loaded_bitmap);
+            DrawBuffer->Width = (s32)Div->Dim.X;
+            DrawBuffer->Height = (s32)Div->Dim.Y;
+            DrawBuffer->Pitch = Layout->DrawBuffer->Pitch;
+            DrawBuffer->Memory = (u8 *)Layout->DrawBuffer->Memory + (s32)P->X*BITMAP_BYTES_PER_PIXEL + (s32)P->Y*DrawBuffer->Pitch;
+            render_group *RenderGroup = AllocateRenderGroup(Layout->Arena, Megabytes(4), DrawBuffer);
+            
+            ColArray[0] = V4(0.0f, 0.0f, 1.0f, 1.0f);
+            ColArray[1] = V4(0.0f, 1.0f, 0.0f, 1.0f);
+            ColArray[2] = V4(0.0f, 1.0f, 1.0f, 1.0f);
+            ColArray[3] = V4(1.0f, 0.0f, 0.0f, 1.0f);
+            ColArray[4] = V4(1.0f, 0.0f, 1.0f, 1.0f);
+            ColArray[5] = V4(0.0f, 0.0f, 0.5f, 1.0f);
+            ColArray[6] = V4(0.0f, 0.5f, 0.0f, 1.0f);
+            ColArray[7] = V4(0.0f, 0.5f, 0.5f, 1.0f);
+            ColArray[8] = V4(0.5f, 0.0f, 0.0f, 1.0f);
+            ColArray[9] = V4(0.5f, 0.0f, 0.5f, 1.0f);
+            ColArray[10] = V4(0.0f, 0.0f, 0.3f, 1.0f);
+            ColArray[11] = V4(0.0f, 0.3f, 0.0f, 1.0f);
+            ColArray[12] = V4(0.0f, 0.3f, 0.3f, 1.0f);
+            ColArray[13] = V4(0.3f, 0.0f, 0.0f, 1.0f);
+            ColArray[14] = V4(0.3f, 0.0f, 0.3f, 1.0f);
+            
+            
+            PushClear(RenderGroup, ColArray[ColArrayIndex]);
+            ColArrayIndex = (ColArrayIndex + 1) % ArrayCount(ColArray);
+            
+            
+            tile_render_work Work;
+            ZeroStruct(Work);
+            Work.Group = RenderGroup;
+            Work.ClipRect.MinX = 0;
+            Work.ClipRect.MaxX = DrawBuffer->Width;
+            Work.ClipRect.MinY = 0;
+            Work.ClipRect.MaxY = DrawBuffer->Height;
+            TileRenderWorkThread(&Work);
+        }
+        P->X = StartX;
+        P->Y += Div->Dim.Y;
+    }
+}
+
 internal void
 IterateRowColumns(ui_layout *Layout, ui_layout_row *LastRow, v2 Dim, v2 *P)
 {
@@ -730,6 +800,76 @@ CalculateUIDims(ui_layout *Layout, ui_layout_row *LastRow, v2 RowDim)
     }
 }
 
+inline void
+BeginDiv(ui_layout *Layout, ui_div_type Type)
+{
+    ui_div *Div = PushStruct(Layout->Arena, ui_div);
+    Div->Type = Type;
+    Div->Next = Layout->CurrentDiv;
+    Layout->CurrentDiv = Div;
+    
+}
+
+inline void
+BeginChildDiv(ui_layout *Layout, ui_div_type Type)
+{
+    ui_div *Div = PushStruct(Layout->Arena, ui_div );
+    Div->Type = Type;
+    Div->Parent = Layout->CurrentDiv;
+    Div->Next = Layout->CurrentDiv->LastChild;
+    Layout->CurrentDiv->LastChild = Div;
+}
+
+inline void
+EndChildDiv(ui_layout *Layout)
+{
+    Layout->CurrentDiv = Layout->CurrentDiv->Parent;
+    ++Layout->CurrentDiv->ChildCount;
+}
+
+inline void
+EndDiv(ui_layout *Layout)
+{
+    Layout->CurrentDiv = Layout->CurrentDiv->Parent;
+    ++Layout->CurrentDiv->ChildCount;
+}
+
+inline void
+CalculateSizeForDiv(ui_layout *Layout, ui_div *Head, v2 Dim)
+{
+    for(ui_div *Div = Head;
+        Div != 0;
+        Div = Div->Next)
+    {
+        if(Div->Type == UI_Div_Horizontal)
+        {
+            Div->Dim = V2(Dim.X / Div->Parent->ChildCount, Dim.Y);
+        }
+        else
+        {
+            Assert(Div->Type == UI_Div_Vertical);
+            Div->Dim = V2(Dim.X, Dim.Y / Div->Parent->ChildCount);
+        }
+        if(Div->LastChild)
+        {
+            CalculateSizeForDiv(Layout, Div->LastChild, Div->Dim);
+        }
+    }
+}
+
+#if 0
+
+//
+// Main
+//     Sub
+//     Sub
+// End
+//
+//
+//
+
+#endif
+
 internal void
 EndUIFrame(ui_layout *Layout, app_input *Input)
 {
@@ -738,12 +878,18 @@ EndUIFrame(ui_layout *Layout, app_input *Input)
     Layout->State->LastMouseP = Layout->MouseP;
     
     
-    CalculateUIDims(Layout, Layout->LastRow, V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height / Layout->RowCount));
-    //DrawUIInternal(Layout);
-    
     ColArrayIndex = 0;
     v2 P = V2((f32)Layout->DrawBuffer->Width, 0.0f);
+    
+#if 0    
+    v2 Dim = V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height);
+    CalculateSizeForDiv(Layout, &Layout->MainDiv, Dim);
+    DrawDiv(Layout, &Layout->MainDiv, Dim, &P);
+#else
+    CalculateUIDims(Layout, Layout->LastRow, V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height / Layout->RowCount));
+    //DrawUIInternal(Layout);
     IterateRowColumns(Layout, Layout->LastRow, V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height), &P);
+#endif
 }
 
 inline void
@@ -781,6 +927,7 @@ BeginRow(ui_layout *Layout)
         ZeroStruct(*Row);
         Row->Next = Layout->LastRow;
         Layout->LastRow = Row;
+        
         ++Layout->RowCount;
         Row->Parent = Layout->CurrentRow;
         Layout->CurrentRow = Row;
@@ -804,9 +951,8 @@ BeginRow(ui_layout *Layout)
 inline void
 EndRow(ui_layout *Layout)
 {
-    Layout->CurrentRow = Layout->CurrentRow->Parent;
+    ui_layout_row *Row = Layout->CurrentRow;
     
-#if 0    
     if(Row->Type == LayoutType_Fill)
     {
         ++Layout->FillRows;
@@ -814,7 +960,11 @@ EndRow(ui_layout *Layout)
     else
     {
         Assert(Row->Type == LayoutType_Auto);
+        
     }
+    Layout->CurrentRow = Row->Parent;
+    
+#if 0    
     
     for(ui_layout_column *Column = Row->ColumnSentinal->Next;
         Column != Row->ColumnSentinal;

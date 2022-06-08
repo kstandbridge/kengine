@@ -137,49 +137,75 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     ui_layout Layout = BeginUIFrame(&AppState->UiState, TempMem.Arena, Input, DrawBuffer, 8.0f, AppState->UiScale.X);
     
     
-    
 #if 1
     
-    BeginRow(&Layout);
+#if 0
+    
+    BeginDiv(&Layout, UI_Div_Horizontal);
+    EndDiv(&Layout);
+    BeginDiv(&Layout, UI_Div_Horizontal);
+    EndDiv(&Layout);
+#else
+#endif
+    
+#if 0    
+    void DrawMenu()
     {
-        BeginColumn(&Layout);
-        EndColumn(&Layout);
-        BeginColumn(&Layout);
+        BeginRow(&Layout);
         {
-            BeginRow(&Layout);
             BeginColumn(&Layout);
+            {
+                BeginRow(&Layout);
+                {
+                    BeginColumn(&Layout);
+                    {
+                        
+                    }
+                    EndColumn(&Layout);
+                }
+                EndRow(&Layout);
+                
+                BeginRow(&Layout);
+                {
+                    BeginColumn(&Layout);
+                    {
+                        
+                    }
+                    EndColumn(&Layout);
+                }
+                EndRow(&Layout);
+            }
             EndColumn(&Layout);
-            EndRow(&Layout);
-            BeginRow(&Layout);
-            BeginColumn(&Layout);
-            EndColumn(&Layout);
-            EndRow(&Layout);
-            BeginRow(&Layout);
-            BeginColumn(&Layout);
-            EndColumn(&Layout);
-            EndRow(&Layout);
-            BeginRow(&Layout);
-            BeginColumn(&Layout);
-            EndColumn(&Layout);
-            EndRow(&Layout);
         }
-        EndColumn(&Layout);
+        EndRow(&Layout);
     }
-    EndRow(&Layout);
+    
+    BeginMenu();
+    {
+        
+    }
+    EndMenu();
+#endif
+    
     
     BeginRow(&Layout);
     {
-        
         BeginColumn(&Layout);
         {
             BeginRow(&Layout);
-            BeginColumn(&Layout);
-            EndColumn(&Layout);
+            {
+                BeginColumn(&Layout);
+                EndColumn(&Layout);
+            }
             EndRow(&Layout);
+            
             BeginRow(&Layout);
-            BeginColumn(&Layout);
-            EndColumn(&Layout);
+            {
+                BeginColumn(&Layout);
+                EndColumn(&Layout);
+            }
             EndRow(&Layout);
+            
             BeginRow(&Layout);
             BeginColumn(&Layout);
             EndColumn(&Layout);
@@ -193,10 +219,8 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         {
             BeginRow(&Layout);
             {
-                
                 BeginColumn(&Layout);
                 EndColumn(&Layout);
-                
                 
                 BeginColumn(&Layout);
                 {
@@ -218,7 +242,6 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
     }
     EndRow(&Layout);
-    
 #else
     
 #if 1
@@ -266,7 +289,9 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Fill);
+    
     PushTextInputElement(&Layout, __COUNTER__, &AppState->LongString);
+    
     EndRow(&Layout);
     
     BeginRow(&Layout, LayoutType_Auto);
