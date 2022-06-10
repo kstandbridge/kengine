@@ -63,7 +63,6 @@
 210,170 > 0,510
 
 */
-
 #include "kengine_platform.h"
 #include "kengine_shared.h"
 #include "kengine_intrinsics.h"
@@ -72,6 +71,7 @@
 #include "kengine_render_group.h"
 #include "kengine_assets.h"
 #include "kengine_ui.h"
+#include "kengine_debug.h"
 
 typedef struct colors
 {
@@ -118,7 +118,8 @@ typedef struct app_state
     memory_arena PermanentArena;
     memory_arena TransientArena;
     
-    ui_state UiState;
+    //ui_state UiState;
+    
     assets Assets;
     
     f32 Time;

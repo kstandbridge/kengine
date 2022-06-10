@@ -214,6 +214,12 @@ typedef struct platform_api
 
 typedef struct app_memory
 {
+    
+#if KENGINE_INTERNAL
+    u64 DebugStorageSize;
+    void *DebugStorage;
+#endif
+    
     u64 StorageSize;
     void *Storage;
     

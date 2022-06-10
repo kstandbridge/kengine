@@ -695,6 +695,10 @@ WinMainCRTStartup()
 #endif
             app_memory AppMemory;
             ZeroStruct(AppMemory);
+#if KENGINE_INTERNAL
+            AppMemory.DebugStorageSize = Megabytes(1024);
+            AppMemory.DebugStorage = VirtualAlloc(0, (size_t)AppMemory.DebugStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+#endif
             AppMemory.StorageSize = Megabytes(1024);
             AppMemory.Storage = VirtualAlloc(BaseAddress, (size_t)AppMemory.StorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             AppMemory.PlatformAPI.PerFrameWorkQueue = &PerFrameWorkQueue;

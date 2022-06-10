@@ -3,14 +3,23 @@
 global platform_api Platform;
 global colors Colors;
 
+#if KENGINE_INTERNAL
+global app_memory *GlobalDebugMemory;
+#endif
+
 #include "kengine_render_group.c"
 #include "kengine_ui.c"
 #include "kengine_assets.c"
+#include "kengine_debug.c"
 
 extern void
 AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *Buffer)
 {
     Platform = Memory->PlatformAPI;
+    
+#if KENGINE_INTERNAL
+    GlobalDebugMemory = Memory;
+#endif
     
 #if 1
     
@@ -65,7 +74,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         SubArena(&AppState->TransientArena, &AppState->PermanentArena, Megabytes(256));
         
-        AppState->UiState.Assets = &AppState->Assets;
+        //AppState->UiState.Assets = &AppState->Assets;
         
         AppState->UiScale = V2(0.2f, 0.0f);
         
@@ -85,6 +94,24 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         AppState->IsInitialized = true;
     }
+    
+#if KENGINE_INTERNAL
+    debug_state *DebugState = (debug_state *)Memory->DebugStorage;
+    
+    if(!DebugState->IsInitialized)
+    {
+        InitializeArena(&DebugState->Arena, Memory->DebugStorageSize - sizeof(debug_state), (u8 *)Memory->DebugStorage + sizeof(debug_state));
+        
+        DebugState->Assets = &AppState->Assets;
+        
+        DebugState->LeftEdge = 20.0f;
+        DebugState->AtY = 0.0f;
+        DebugState->FontScale = 0.2f;
+        
+        DebugState->IsInitialized = true;
+    }
+    
+#endif
     
     AppState->Time += Input->dtForFrame;
     
@@ -106,6 +133,10 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     DrawBuffer->Pitch = Buffer->Pitch;
 #endif
     
+#if KENGINE_INTERNAL
+    DEBUGStart(DrawBuffer);
+#endif
+    
     {
         temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
         
@@ -119,6 +150,20 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         {
             PushClear(RenderGroup, V4(0, 0, 0, 1));
         }
+        
+        
+#if 0
+        v2 P = V2(Buffer->Width*0.5f, Buffer->Height*0.5f);
+        f32 Angle = 0.1f*AppState->Time;
+        PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, P, V4(1, 1, 1, 1), Angle);
+#endif
+        
+#if 0
+        v2 RectP = V2((f32)Buffer->Width / 2, (f32)Buffer->Height / 2);
+        // TODO(kstandbridge): push circle?
+        DrawCircle(DrawBuffer, RectP, V2Add(RectP, V2(50, 50)), V4(1, 1, 0, 1.0f), Rectangle2i(0, Buffer->Width, 0, Buffer->Height));
+#endif
+        
         
         tile_render_work Work;
         ZeroStruct(Work);
@@ -134,244 +179,157 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
     
-    ui_layout Layout = BeginUIFrame(&AppState->UiState, TempMem.Arena, Input, DrawBuffer, 8.0f, AppState->UiScale.X);
-    
-    
-#if 1
+    ui_layout *Layout = BeginUIFrame(TempMem.Arena, DrawBuffer);
     
 #if 0
     
-    BeginDiv(&Layout, UI_Div_Horizontal);
-    EndDiv(&Layout);
-    BeginDiv(&Layout, UI_Div_Horizontal);
-    EndDiv(&Layout);
-#else
-#endif
-    
-#if 0    
-    void DrawMenu()
-    {
-        BeginRow(&Layout);
-        {
-            BeginColumn(&Layout);
-            {
-                BeginRow(&Layout);
-                {
-                    BeginColumn(&Layout);
-                    {
-                        
-                    }
-                    EndColumn(&Layout);
-                }
-                EndRow(&Layout);
-                
-                BeginRow(&Layout);
-                {
-                    BeginColumn(&Layout);
-                    {
-                        
-                    }
-                    EndColumn(&Layout);
-                }
-                EndRow(&Layout);
-            }
-            EndColumn(&Layout);
-        }
-        EndRow(&Layout);
-    }
-    
-    BeginMenu();
-    {
-        
-    }
-    EndMenu();
-#endif
-    
-    
-    BeginRow(&Layout);
-    {
-        BeginColumn(&Layout);
-        {
-            BeginRow(&Layout);
-            {
-                BeginColumn(&Layout);
-                EndColumn(&Layout);
-            }
-            EndRow(&Layout);
-            
-            BeginRow(&Layout);
-            {
-                BeginColumn(&Layout);
-                EndColumn(&Layout);
-            }
-            EndRow(&Layout);
-            
-            BeginRow(&Layout);
-            BeginColumn(&Layout);
-            EndColumn(&Layout);
-            EndRow(&Layout);
-            BeginRow(&Layout);
-            EndRow(&Layout);
-        }
-        EndColumn(&Layout);
-        
-        BeginColumn(&Layout);
-        {
-            BeginRow(&Layout);
-            {
-                BeginColumn(&Layout);
-                EndColumn(&Layout);
-                
-                BeginColumn(&Layout);
-                {
-                    BeginRow(&Layout);
-                    BeginColumn(&Layout);
-                    EndColumn(&Layout);
-                    EndRow(&Layout);
-                    BeginRow(&Layout);
-                    BeginColumn(&Layout);
-                    EndColumn(&Layout);
-                    EndRow(&Layout);
-                }
-                EndColumn(&Layout);
-                
-            }
-            EndRow(&Layout);
-        }
-        EndColumn(&Layout);
-        
-    }
-    EndRow(&Layout);
-#else
-    
-#if 1
-    BeginRow(&Layout, LayoutType_Fill);
-    {
-        BeginColumn(&Layout, LayoutType_Fill);
-        {
-            PushStaticElement(&Layout, __COUNTER__, String("Foo"), TextLayout_MiddleMiddle);
-            PushStaticElement(&Layout, __COUNTER__, String("Bar"), TextLayout_MiddleMiddle);
-            PushStaticElement(&Layout, __COUNTER__, String("Bar"), TextLayout_MiddleMiddle);
-        }
-        EndColumn(&Layout);
-    }
-    EndRow(&Layout);
-    BeginRow(&Layout, LayoutType_Fill);
-    {
-        BeginColumn(&Layout, LayoutType_Fill);
-        {
-            PushStaticElement(&Layout, __COUNTER__, String("Foo"), TextLayout_MiddleMiddle);
-        }
-        EndColumn(&Layout);
-    }
-    EndRow(&Layout);
-#else
-    BeginRow(&Layout, LayoutType_Auto);
-    PushTextInputElement(&Layout, __COUNTER__, &AppState->TestString);
-    SetElementMinDim(&Layout, 240, 0);
-    
-    string FruitLabels[Fruit_Count];
-    FruitLabels[Fruit_Unkown] = String("");
-    FruitLabels[Fruit_Apple] = String("Apple");
-    FruitLabels[Fruit_Banana] = String("Banana");
-    FruitLabels[Fruit_Orange] = String("Orange");
-    
-    PushDropDownElement(&Layout, __COUNTER__, FruitLabels, Fruit_Count, (s32 *)&AppState->TestEnum);
-    SetElementMinDim(&Layout, 240, 0);
-    
-    PushSpacerElement(&Layout);
-    if(PushButtonElement(&Layout, __COUNTER__, String("Click Me")))
-    {
-        AppState->TestP = V2Set1(0.0f);
-    }
-    PushButtonElement(&Layout, __COUNTER__, 
-                      FormatString(TempMem.Arena, "before %S after", FruitLabels + AppState->TestEnum));
-    EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Fill);
-    
-    PushTextInputElement(&Layout, __COUNTER__, &AppState->LongString);
-    
-    EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Auto);
+    BeginRow(Layout);
     {    
-        editable_string *Str = &AppState->LongString;
-        s32 SelectionStart;
-        s32 SelectionEnd;
-        if(Str->SelectionStart > Str->SelectionEnd)
-        {
-            SelectionStart = Str->SelectionEnd;
-            SelectionEnd = Str->SelectionStart;
-        }
-        else
-        {
-            SelectionStart = Str->SelectionStart;
-            SelectionEnd = Str->SelectionEnd;
-        }
+        Spacer(Layout);
         
+        BeginRow(Layout);
+        {    
+            Spacer(Layout);
+        }
+        EndRow(Layout);
         
-        string Label = FormatString(TempMem.Arena, "Start: %d, End: %d, StartOfSelection: %d, EndOfSelection: %d\n'%S'", 
-                                    AppState->LongString.SelectionStart, 
-                                    AppState->LongString.SelectionEnd,
-                                    SelectionStart, SelectionEnd,
-                                    StringInternal(SelectionEnd - SelectionStart, Str->Data + SelectionStart));
-        PushStaticElement(&Layout, __COUNTER__, Label, TextLayout_MiddleMiddle);
+        BeginRow(Layout);
+        {    
+            Spacer(Layout);
+            
+            BeginRow(Layout);
+            {
+                Spacer(Layout);
+            }
+            EndRow(Layout);
+            
+            BeginRow(Layout);
+            {
+                Spacer(Layout);
+            }
+            EndRow(Layout);
+            
+            
+            BeginRow(Layout);
+            {
+                Spacer(Layout);
+            }
+            EndRow(Layout);
+        }
+        EndRow(Layout);
+        
     }
-    EndRow(&Layout);
+    EndRow(Layout);
+#else
     
-    BeginRow(&Layout, LayoutType_Auto);
-    PushSpacerElement(&Layout);
-    PushButtonElement(&Layout, __COUNTER__, 
-                      FormatString(TempMem.Arena, "Before %s after", AppState->TestBoolean ? "true" : "false"));
-    PushSpacerElement(&Layout);
     
-    SetElementMinDim(&Layout, 512, 0);
-    PushSpacerElement(&Layout);
-    PushCheckboxElement(&Layout, __COUNTER__, String("Bas"), &AppState->TestBoolean);
-    PushSpacerElement(&Layout);
-    EndRow(&Layout);
-    
-    BeginRow(&Layout, LayoutType_Auto);
-    PushButtonElement(&Layout, __COUNTER__, String("Bottom Left"));
-    PushSpacerElement(&Layout);
-    PushScrollElement(&Layout, __COUNTER__, 
-                      FormatString(TempMem.Arena, "UI Scale: %.2f", AppState->UiScale.X),
-                      &AppState->UiScale);
-    PushSpacerElement(&Layout);
-    if(PushButtonElement(&Layout, __COUNTER__, String("Reset")))
+    BeginRow(Layout);
     {
-        AppState->LongString.Offset = V2(0, 0);
+        Label(Layout, "Show: ");
+        Checkbox(Layout, "Empty Worlds", &AppState->ShowEmptyWorlds); // Editable bool
+        Checkbox(Layout, "Local", &AppState->ShowLocal); // Editable bool
+        Checkbox(Layout, "Available", &AppState->ShowAvailable); // Editable bool
+        Spacer(Layout);
+        Label(Layout, "Filter: ");
+        Textbox(Layout, &AppState->FilterText);
     }
-    PushScrollElement(&Layout, __COUNTER__, FormatString(TempMem.Arena, "Offset: %f , %f", AppState->LongString.Offset.X, AppState->LongString.Offset.Y),
-                      &AppState->LongString.Offset);
-    EndRow(&Layout);
+    EndRow(Layout);
+    
+    BeginRow(Layout);
+    {
+        // NOTE(kstandbridge): Listview Worlds
+        Spacer(Layout);
+    }
+    EndRow(Layout);
+    
+    BeginRow(Layout);
+    {
+        BeginRow(Layout);
+        {
+            // NOTE(kstandbridge): Listview Worlds
+            Spacer(Layout);
+        }
+        EndRow(Layout);
+        
+        Splitter(Layout, &UserSettings->BuildRunSplitSize);
+        
+        BeginRow(Layout);
+        {   
+            BeginRow(Layout);
+            Checkbox(Layout, "Edit run params", &UserSettings->EditRunParams);
+            EndRow(Layout);
+            
+            BeginRow(Layout);
+            DropDown(Layout, "default");
+            EndRow(Layout);
+            
+            BeginRow(Layout);
+            {
+                Textbox(Layout, "thing.exe");
+                Button(Layout, "Copy");
+            }
+            EndRow(Layout);
+            
+            BeginRow(Layout);
+            {
+                Label(Layout, "Sync command");
+                Button(Layout, "Copy");
+            }
+            EndRow(Layout);
+            
+            BeginRow(Layout);
+            {
+                Button(Layout, "Run");
+                Button(Layout, "Sync");
+                Button(Layout, "Cancel");
+                Button(Layout, "Clean");
+                Button(Layout, "Open Folder");
+            }
+            EndRow(Layout);
+            
+            BeginRow(Layout);
+            {
+                Label(Layout, "DownloadPath");
+                Button(Layout, "Copy");
+            }
+            EndRow(Layout);
+        }
+        EndRow(Layout);
+        
+    }
+    EndRow(Layout);
+    
+    
+    
+    
+    BeginRow(Layout);
+    Textbox(Layout, &AppState->LogMessages, &AppSate->SelectedMessage);
+    EndRow(Layout);
+    
+    BeginRow(Layout);
+    {
+        Button(Layout, "Settings");
+        Button(Layout, "Settings");
+        Button(Layout, "Settings");
+        Spacer(Layout);
+        Button(Layout, "Open Remote Config");
+        Button(Layout, "Open Log");
+    }
+    EndRow(Layout);
+    
+    
     
 #endif
     
-    
-#endif
-    
-    EndUIFrame(&Layout, Input);
+    EndUIFrame(Layout);
     
     EndTemporaryMemory(TempMem);
+    
+#if KENGINE_INTERNAL
+    DEBUGEnd();
+#endif
     
     CheckArena(&AppState->PermanentArena);
     CheckArena(&AppState->TransientArena);
     CheckArena(&AppState->Assets.Arena);
-    
-    
-#if 0
-    v2 P = V2(Buffer->Width*0.5f, Buffer->Height*0.5f);
-    f32 Angle = 0.1f*AppState->Time;
-    PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, P, V4(1, 1, 1, 1), Angle);
-#endif
-    
-#if 0
-    v2 RectP = V2((f32)Buffer->Width / 2, (f32)Buffer->Height / 2);
-    // TODO(kstandbridge): push circle?
-    DrawCircle(DrawBuffer, RectP, V2Add(RectP, V2(50, 50)), V4(1, 1, 0, 1.0f), Rectangle2i(0, Buffer->Width, 0, Buffer->Height));
-#endif
-    
-    
 }
