@@ -181,16 +181,33 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     ui_layout *Layout = BeginUIFrame(TempMem.Arena, DrawBuffer);
     
-#if 0
+#if 1
     
-    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
-    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
-    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
-    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
-    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
-    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
-    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
-    //BeginRow(Layout);Spacer(Layout);EndRow(Layout);
+    BeginRow(Layout);
+    Spacer(Layout);
+    SetMaxDim(Layout, V2(0, 40));
+    EndRow(Layout);
+    
+    BeginRow(Layout);
+    Spacer(Layout);
+    EndRow(Layout);
+    
+    BeginRow(Layout);
+    Spacer(Layout);
+    EndRow(Layout);
+    
+    BeginRow(Layout);
+    Spacer(Layout);
+    SetMaxDim(Layout, V2(0, 40));
+    EndRow(Layout);
+    
+    BeginRow(Layout);
+    Spacer(Layout);
+    EndRow(Layout);
+    
+    BeginRow(Layout);
+    Spacer(Layout);
+    EndRow(Layout);
     
 #else
     

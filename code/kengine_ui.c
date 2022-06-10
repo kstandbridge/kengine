@@ -15,7 +15,6 @@ BeginRow(ui_layout *Layout)
     Layout->CurrentElement->FirstChild = Element;
     
     
-    
     Element->Parent = Layout->CurrentElement;
     Layout->CurrentElement = Element;
     
@@ -35,6 +34,7 @@ Spacer(ui_layout *Layout)
     ZeroStruct(*Element);
     Element->Next = Layout->CurrentElement->FirstChild;
     Layout->CurrentElement->FirstChild = Element;
+    
     
     ++Layout->CurrentElement->ChildCount;
     
@@ -129,22 +129,62 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
     {
         Element->Dim.X = Dim.X / ChildCount;
         Element->Dim.Y = Dim.Y;
+        
+        if((Element->MaxDim.X > 0.0f) && 
+           (Element->Dim.X > Element->MaxDim.X))
+        {
+            Element->Dim.X = Element->MaxDim.X;
+        }
+        
+        if((Element->MaxDim.Y > 0.0f) &&
+           (Element->Dim.Y > Element->MaxDim.Y))
+        {
+            Element->Dim.Y = Element->MaxDim.Y;
+        }
+        
+        
         if(Element->Type == Element_Row)
         {
             if(!RowStart)
             {
-                s32 RowCount = 1;
                 ui_element *FirstRow = Element;
-                while(FirstRow && FirstRow->Next && FirstRow->Next->Type == Element_Row)
+                s32 RowCount = 0;
+                s32 FullRowCount = 0;
+                f32 UsedHeight = 0.0f;
+                while(FirstRow != 0)
                 {
+                    if(FirstRow->Type != Element_Row)
+                    {
+                        break;
+                    }
+                    if(FirstRow->SetHeightChildCount == 0)
+                    {
+                        ++RowCount;
+                    }
+                    else
+                    {
+                        UsedHeight += FirstRow->UsedDim.Y;
+                    }
+                    ++FullRowCount;
                     FirstRow = FirstRow->Next;
-                    ++RowCount;
                 }
-                SubDim = V2(Element->Dim.X, Element->Dim.Y / RowCount);
+                SubDim = V2(Element->Dim.X, (Element->Dim.Y - UsedHeight) / RowCount);
+                
+                if((SubDim.Y*FullRowCount) < Element->Dim.Y)
+                {
+                    SubDim = V2(Element->Dim.X, Element->Dim.Y / FullRowCount);
+                }
+                
                 RowStart = true;
             }
-            
-            CalculateElementDims(Layout, Element->FirstChild, Element->ChildCount, SubDim);
+            s32 SubChildCount = (Element->ChildCount - Element->SetWidthChildCount);
+            v2 SubDimRemaining = V2(SubDim.X - Element->UsedDim.X, SubDim.Y);
+            if(SubDimRemaining.X / SubChildCount < Element->UsedDim.X)
+            {
+                SubChildCount += Element->SetWidthChildCount;
+                SubDimRemaining.X = SubDim.X;
+            }
+            CalculateElementDims(Layout, Element->FirstChild, SubChildCount, SubDimRemaining);
         }
         else
         {
@@ -156,11 +196,17 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
 internal void
 EndUIFrame(ui_layout *Layout)
 {
-    // TODO(kstandbridge): Handle UI Interactions
-    
     v2 Dim = V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height);
+    ui_element *Element = &Layout->SentinalElement;
     
-    CalculateElementDims(Layout, Layout->SentinalElement.FirstChild, Layout->SentinalElement.ChildCount, V2(Dim.X, Dim.Y));
+    s32 ChildCount = Element->ChildCount - Element->SetWidthChildCount;
+    v2 DimRemaining = V2(Dim.X - Element->UsedDim.X, Dim.Y);
+    if(Dim.X / ChildCount < Element->UsedDim.X)
+    {
+        ChildCount += Element->SetWidthChildCount;
+        DimRemaining.X = Dim.X;
+    }
+    CalculateElementDims(Layout, Element->FirstChild, ChildCount, DimRemaining);
     
     ColArrayIndex = 0;
     ColArray[0] = V4(0.0f, 0.0f, 1.0f, 1.0f);
@@ -191,6 +237,21 @@ EndUIFrame(ui_layout *Layout)
     
     v2 P = V2((f32)Layout->DrawBuffer->Width, 0.0f);
     DrawElements(Layout, Layout->SentinalElement.FirstChild, P);
+}
+
+inline void
+SetMaxDim(ui_layout *Layout, v2 Dim)
+{
+    Layout->CurrentElement->FirstChild->MaxDim = Dim;
+    Layout->CurrentElement->UsedDim = V2Add(Layout->CurrentElement->UsedDim, Dim);
+    if(Dim.X > 0.0f)
+    {
+        ++Layout->CurrentElement->SetWidthChildCount;
+    }
+    if(Dim.Y > 0.0f)
+    {
+        ++Layout->CurrentElement->SetHeightChildCount;
+    }
 }
 
 #define Label(Layout, ...) Spacer(Layout)
