@@ -15,7 +15,6 @@ typedef struct ui_element
     
     v2 Dim;
     
-    s32 RowCount;
     s32 ChildCount;
     struct ui_element *FirstChild;
     struct ui_element *Parent;

@@ -13,7 +13,6 @@ BeginRow(ui_layout *Layout)
     
     Element->Next = Layout->CurrentElement->FirstChild;
     Layout->CurrentElement->FirstChild = Element;
-    ++Layout->CurrentElement->RowCount;
     
     
     
@@ -50,6 +49,7 @@ BeginUIFrame(memory_arena *Arena, loaded_bitmap *DrawBuffer)
     
     Result->Arena = Arena;
     Result->DrawBuffer = DrawBuffer;
+    Result->SentinalElement.Dim = V2((f32)DrawBuffer->Width, (f32)DrawBuffer->Height);
     Result->CurrentElement = &Result->SentinalElement;
     
     return Result;
@@ -57,15 +57,12 @@ BeginUIFrame(memory_arena *Arena, loaded_bitmap *DrawBuffer)
 
 // TODO(kstandbridge): Ditch this crap
 global s32 ColArrayIndex;
-global v4 ColArray[15];
+global v4 ColArray[25];
 
 
 internal void
-DrawElements(ui_layout *Layout, ui_element *FirstChild, s32 RowCount, v2 Dim, v2 P)
+DrawElements(ui_layout *Layout, ui_element *FirstChild, v2 P)
 {
-    Dim;
-    RowCount;
-    b32 RowOccured = false;
     for(ui_element *Element = FirstChild;
         Element;
         Element = Element->Next)
@@ -78,7 +75,7 @@ DrawElements(ui_layout *Layout, ui_element *FirstChild, s32 RowCount, v2 Dim, v2
             f32 AdvanceX = Element->Dim.X;
             while(Element->Type == Element_Row)
             {
-                DrawElements(Layout, Element->FirstChild, Element->RowCount, Element->Dim, P);
+                DrawElements(Layout, Element->FirstChild, P);
                 P.Y += Element->FirstChild->Dim.Y;
                 if(Element->Next && Element->Next->Type == Element_Row)
                 {
@@ -122,9 +119,10 @@ DrawElements(ui_layout *Layout, ui_element *FirstChild, s32 RowCount, v2 Dim, v2
 }
 
 internal void
-CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, s32 RowCount, v2 Dim)
+CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, v2 Dim)
 {
-    RowCount;
+    b32 RowStart = false;
+    v2 SubDim = Dim;
     for(ui_element *Element = FirstChild;
         Element;
         Element = Element->Next)
@@ -133,13 +131,24 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
         Element->Dim.Y = Dim.Y;
         if(Element->Type == Element_Row)
         {
-            v2 SubDim = V2(Element->Dim.X, Element->Dim.Y);
-            if(RowCount)
+            if(!RowStart)
             {
-                SubDim.Y /= RowCount;
+                s32 RowCount = 1;
+                ui_element *FirstRow = Element;
+                while(FirstRow && FirstRow->Next && FirstRow->Next->Type == Element_Row)
+                {
+                    FirstRow = FirstRow->Next;
+                    ++RowCount;
+                }
+                SubDim = V2(Element->Dim.X, Element->Dim.Y / RowCount);
+                RowStart = true;
             }
             
-            CalculateElementDims(Layout, Element->FirstChild, Element->ChildCount, Element->RowCount,  SubDim);
+            CalculateElementDims(Layout, Element->FirstChild, Element->ChildCount, SubDim);
+        }
+        else
+        {
+            RowStart = false;
         }
     }
 }
@@ -151,7 +160,7 @@ EndUIFrame(ui_layout *Layout)
     
     v2 Dim = V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height);
     
-    CalculateElementDims(Layout, Layout->SentinalElement.FirstChild, Layout->SentinalElement.ChildCount, Layout->SentinalElement.RowCount, V2(Dim.X, Dim.Y));
+    CalculateElementDims(Layout, Layout->SentinalElement.FirstChild, Layout->SentinalElement.ChildCount, V2(Dim.X, Dim.Y));
     
     ColArrayIndex = 0;
     ColArray[0] = V4(0.0f, 0.0f, 1.0f, 1.0f);
@@ -169,9 +178,19 @@ EndUIFrame(ui_layout *Layout)
     ColArray[12] = V4(0.0f, 0.3f, 0.3f, 1.0f);
     ColArray[13] = V4(0.3f, 0.0f, 0.0f, 1.0f);
     ColArray[14] = V4(0.3f, 0.0f, 0.3f, 1.0f);
+    ColArray[15] = V4(0.0f, 0.0f, 0.75f, 1.0f);
+    ColArray[16] = V4(0.0f, 0.75f, 0.0f, 1.0f);
+    ColArray[17] = V4(0.0f, 0.75f, 0.75f, 1.0f);
+    ColArray[18] = V4(0.75f, 0.0f, 0.0f, 1.0f);
+    ColArray[19] = V4(0.75f, 0.0f, 0.75f, 1.0f);
+    ColArray[20] = V4(0.0f, 0.0f, 0.25f, 1.0f);
+    ColArray[21] = V4(0.0f, 0.25f, 0.0f, 1.0f);
+    ColArray[22] = V4(0.0f, 0.25f, 0.25f, 1.0f);
+    ColArray[23] = V4(0.25f, 0.0f, 0.0f, 1.0f);
+    ColArray[24] = V4(0.25f, 0.0f, 0.25f, 1.0f);
     
     v2 P = V2((f32)Layout->DrawBuffer->Width, 0.0f);
-    DrawElements(Layout, Layout->SentinalElement.FirstChild, Layout->SentinalElement.RowCount, Dim, P);
+    DrawElements(Layout, Layout->SentinalElement.FirstChild, P);
 }
 
 #define Label(Layout, ...) Spacer(Layout)

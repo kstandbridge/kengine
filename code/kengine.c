@@ -183,43 +183,15 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
 #if 0
     
-    BeginRow(Layout);
-    {    
-        Spacer(Layout);
-        
-        BeginRow(Layout);
-        {    
-            Spacer(Layout);
-        }
-        EndRow(Layout);
-        
-        BeginRow(Layout);
-        {    
-            Spacer(Layout);
-            
-            BeginRow(Layout);
-            {
-                Spacer(Layout);
-            }
-            EndRow(Layout);
-            
-            BeginRow(Layout);
-            {
-                Spacer(Layout);
-            }
-            EndRow(Layout);
-            
-            
-            BeginRow(Layout);
-            {
-                Spacer(Layout);
-            }
-            EndRow(Layout);
-        }
-        EndRow(Layout);
-        
-    }
-    EndRow(Layout);
+    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
+    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
+    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
+    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
+    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
+    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
+    BeginRow(Layout);Spacer(Layout);EndRow(Layout);
+    //BeginRow(Layout);Spacer(Layout);EndRow(Layout);
+    
 #else
     
     
@@ -254,52 +226,46 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         Splitter(Layout, &UserSettings->BuildRunSplitSize);
         
         BeginRow(Layout);
-        {   
-            BeginRow(Layout);
-            Checkbox(Layout, "Edit run params", &UserSettings->EditRunParams);
-            EndRow(Layout);
-            
-            BeginRow(Layout);
-            DropDown(Layout, "default");
-            EndRow(Layout);
-            
-            BeginRow(Layout);
-            {
-                Textbox(Layout, "thing.exe");
-                Button(Layout, "Copy");
-            }
-            EndRow(Layout);
-            
-            BeginRow(Layout);
-            {
-                Label(Layout, "Sync command");
-                Button(Layout, "Copy");
-            }
-            EndRow(Layout);
-            
-            BeginRow(Layout);
-            {
-                Button(Layout, "Run");
-                Button(Layout, "Sync");
-                Button(Layout, "Cancel");
-                Button(Layout, "Clean");
-                Button(Layout, "Open Folder");
-            }
-            EndRow(Layout);
-            
-            BeginRow(Layout);
-            {
-                Label(Layout, "DownloadPath");
-                Button(Layout, "Copy");
-            }
-            EndRow(Layout);
+        Checkbox(Layout, "Edit run params", &UserSettings->EditRunParams);
+        EndRow(Layout);
+        
+        BeginRow(Layout);
+        DropDown(Layout, "default");
+        EndRow(Layout);
+        
+        BeginRow(Layout);
+        {
+            Textbox(Layout, "thing.exe");
+            Button(Layout, "Copy");
+        }
+        EndRow(Layout);
+        
+        BeginRow(Layout);
+        {
+            Label(Layout, "Sync command");
+            Button(Layout, "Copy");
+        }
+        EndRow(Layout);
+        
+        BeginRow(Layout);
+        {
+            Button(Layout, "Run");
+            Button(Layout, "Sync");
+            Button(Layout, "Cancel");
+            Button(Layout, "Clean");
+            Button(Layout, "Open Folder");
+        }
+        EndRow(Layout);
+        
+        BeginRow(Layout);
+        {
+            Label(Layout, "DownloadPath");
+            Button(Layout, "Copy");
         }
         EndRow(Layout);
         
     }
     EndRow(Layout);
-    
-    
     
     
     BeginRow(Layout);
@@ -316,6 +282,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         Button(Layout, "Open Log");
     }
     EndRow(Layout);
+    
     
     
     
