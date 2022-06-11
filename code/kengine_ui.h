@@ -14,12 +14,12 @@ typedef struct ui_element
     ui_element_type Type;
     
     v2 Dim;
+    
     v2 UsedDim;
-    v2 MaxDim;
     
     s32 ChildCount;
     s32 SetWidthChildCount;
-    s32 SetHeightChildCount;
+    
     struct ui_element *FirstChild;
     struct ui_element *Parent;
     

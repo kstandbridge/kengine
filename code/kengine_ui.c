@@ -99,7 +99,7 @@ DrawElements(ui_layout *Layout, ui_element *FirstChild, v2 P)
             DrawBuffer->Pitch = Layout->DrawBuffer->Pitch;
             DrawBuffer->Memory = (u8 *)Layout->DrawBuffer->Memory + (s32)P.X*BITMAP_BYTES_PER_PIXEL + (s32)P.Y*DrawBuffer->Pitch;
             
-            DEBUGTextLine(FormatString(Layout->Arena, "At: %.02f %.02f Dim: %.02f %.02f", P.X, P.Y, Element->Dim.X, Element->Dim.Y));
+            //DEBUGTextLine(FormatString(Layout->Arena, "At: %.02f %.02f Dim: %.02f %.02f", P.X, P.Y, Element->Dim.X, Element->Dim.Y));
             
             render_group *RenderGroup = AllocateRenderGroup(Layout->Arena, Megabytes(4), DrawBuffer);
             
@@ -123,6 +123,7 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
 {
     b32 RowStart = false;
     v2 SubDim = Dim;
+    
     for(ui_element *Element = FirstChild;
         Element;
         Element = Element->Next)
@@ -130,18 +131,13 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
         Element->Dim.X = Dim.X / ChildCount;
         Element->Dim.Y = Dim.Y;
         
-        if((Element->MaxDim.X > 0.0f) && 
-           (Element->Dim.X > Element->MaxDim.X))
+        if(Element->Type != Element_Row)
         {
-            Element->Dim.X = Element->MaxDim.X;
+            if(Element->UsedDim.X > 0.0f)
+            {
+                Element->Dim.X = Element->UsedDim.X;
+            }
         }
-        
-        if((Element->MaxDim.Y > 0.0f) &&
-           (Element->Dim.Y > Element->MaxDim.Y))
-        {
-            Element->Dim.Y = Element->MaxDim.Y;
-        }
-        
         
         if(Element->Type == Element_Row)
         {
@@ -157,7 +153,7 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
                     {
                         break;
                     }
-                    if(FirstRow->SetHeightChildCount == 0)
+                    if(FirstRow->UsedDim.Y == 0.0f)
                     {
                         ++RowCount;
                     }
@@ -170,19 +166,13 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
                 }
                 SubDim = V2(Element->Dim.X, (Element->Dim.Y - UsedHeight) / RowCount);
                 
-                if((SubDim.Y*FullRowCount) < Element->Dim.Y)
-                {
-                    SubDim = V2(Element->Dim.X, Element->Dim.Y / FullRowCount);
-                }
-                
                 RowStart = true;
             }
             s32 SubChildCount = (Element->ChildCount - Element->SetWidthChildCount);
             v2 SubDimRemaining = V2(SubDim.X - Element->UsedDim.X, SubDim.Y);
-            if(SubDimRemaining.X / SubChildCount < Element->UsedDim.X)
+            if(Element->UsedDim.Y > 0.0f)
             {
-                SubChildCount += Element->SetWidthChildCount;
-                SubDimRemaining.X = SubDim.X;
+                SubDimRemaining.Y = Element->UsedDim.Y;
             }
             CalculateElementDims(Layout, Element->FirstChild, SubChildCount, SubDimRemaining);
         }
@@ -201,11 +191,7 @@ EndUIFrame(ui_layout *Layout)
     
     s32 ChildCount = Element->ChildCount - Element->SetWidthChildCount;
     v2 DimRemaining = V2(Dim.X - Element->UsedDim.X, Dim.Y);
-    if(Dim.X / ChildCount < Element->UsedDim.X)
-    {
-        ChildCount += Element->SetWidthChildCount;
-        DimRemaining.X = Dim.X;
-    }
+    
     CalculateElementDims(Layout, Element->FirstChild, ChildCount, DimRemaining);
     
     ColArrayIndex = 0;
@@ -240,17 +226,29 @@ EndUIFrame(ui_layout *Layout)
 }
 
 inline void
-SetMaxDim(ui_layout *Layout, v2 Dim)
+SetRowHeight(ui_layout *Layout, f32 Height)
 {
-    Layout->CurrentElement->FirstChild->MaxDim = Dim;
-    Layout->CurrentElement->UsedDim = V2Add(Layout->CurrentElement->UsedDim, Dim);
-    if(Dim.X > 0.0f)
+    ui_element *Row = Layout->CurrentElement;
+    Assert(Row->Type == Element_Row);
+    if(Row->Type == Element_Row)
     {
-        ++Layout->CurrentElement->SetWidthChildCount;
+        Row->UsedDim.Y = Height;
     }
-    if(Dim.Y > 0.0f)
+}
+
+inline void
+SetControlWidth(ui_layout *Layout, f32 Width)
+{
+    Assert(Width > 0.0f);
+    if(Width > 0.0f)
     {
-        ++Layout->CurrentElement->SetHeightChildCount;
+        if(Layout->CurrentElement->FirstChild->UsedDim.X == 0.0f)
+        {
+            ++Layout->CurrentElement->SetWidthChildCount;
+        }
+        
+        Layout->CurrentElement->FirstChild->UsedDim.X = Width;
+        Layout->CurrentElement->UsedDim.X += Width;
     }
 }
 

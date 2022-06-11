@@ -181,32 +181,17 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     ui_layout *Layout = BeginUIFrame(TempMem.Arena, DrawBuffer);
     
-#if 1
+#if 0
     
     BeginRow(Layout);
-    Spacer(Layout);
-    SetMaxDim(Layout, V2(0, 40));
-    EndRow(Layout);
-    
-    BeginRow(Layout);
-    Spacer(Layout);
-    EndRow(Layout);
-    
-    BeginRow(Layout);
-    Spacer(Layout);
-    EndRow(Layout);
-    
-    BeginRow(Layout);
-    Spacer(Layout);
-    SetMaxDim(Layout, V2(0, 40));
-    EndRow(Layout);
-    
-    BeginRow(Layout);
-    Spacer(Layout);
-    EndRow(Layout);
-    
-    BeginRow(Layout);
-    Spacer(Layout);
+    {    
+        Spacer(Layout);
+        Spacer(Layout);
+        Spacer(Layout);
+        SetControlWidth(Layout, 24.0f);
+        
+        BeginRow(Layout);Spacer(Layout);EndRow(Layout);
+    }
     EndRow(Layout);
     
 #else
@@ -214,6 +199,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     BeginRow(Layout);
     {
+        SetRowHeight(Layout, 28.0f);
         Label(Layout, "Show: ");
         Checkbox(Layout, "Empty Worlds", &AppState->ShowEmptyWorlds); // Editable bool
         Checkbox(Layout, "Local", &AppState->ShowLocal); // Editable bool
@@ -235,12 +221,13 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     {
         BeginRow(Layout);
         {
-            // NOTE(kstandbridge): Listview Worlds
+            // NOTE(kstandbridge): Listview Builds
             Spacer(Layout);
         }
         EndRow(Layout);
         
         Splitter(Layout, &UserSettings->BuildRunSplitSize);
+        SetControlWidth(Layout, 12.0f);
         
         BeginRow(Layout);
         Checkbox(Layout, "Edit run params", &UserSettings->EditRunParams);
@@ -254,6 +241,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         {
             Textbox(Layout, "thing.exe");
             Button(Layout, "Copy");
+            SetControlWidth(Layout, 24.0f);
         }
         EndRow(Layout);
         
@@ -261,6 +249,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         {
             Label(Layout, "Sync command");
             Button(Layout, "Copy");
+            SetControlWidth(Layout, 24.0f);
         }
         EndRow(Layout);
         
@@ -278,6 +267,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         {
             Label(Layout, "DownloadPath");
             Button(Layout, "Copy");
+            SetControlWidth(Layout, 24.0f);
         }
         EndRow(Layout);
         
@@ -286,11 +276,13 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     
     BeginRow(Layout);
+    SetRowHeight(Layout, 124.0f);
     Textbox(Layout, &AppState->LogMessages, &AppSate->SelectedMessage);
     EndRow(Layout);
     
     BeginRow(Layout);
     {
+        SetRowHeight(Layout, 28.0f);
         Button(Layout, "Settings");
         Button(Layout, "Settings");
         Button(Layout, "Settings");
