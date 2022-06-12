@@ -4,7 +4,7 @@ BeginRow(ui_layout *Layout)
 {
     ui_element *Element = PushStruct(Layout->Arena, ui_element);
     ZeroStruct(*Element);
-    
+    Element->UsedDim.Y = Layout->DefaultRowHeight;
     if((Layout->CurrentElement->FirstChild == 0) || 
        (Layout->CurrentElement->FirstChild->Type != Element_Row))
     {
@@ -68,6 +68,19 @@ Checkbox(ui_layout *Layout, string Text, b32 *Target)
     Element->Interaction.Generic = Target;
 }
 
+inline void
+Textbox(ui_layout *Layout, editable_string *Target)
+{
+    ui_element *Element = PushElement(Layout);
+    Element->Type = Element_Textbox;
+    Element->Text = StringInternal(Target->Length, Target->Data);;
+    
+    ZeroStruct(Element->Interaction);
+    Element->Interaction.ID = ++Layout->CurrentId;
+    Element->Interaction.Type = Interaction_EditableText;
+    Element->Interaction.Generic = Target;
+}
+
 internal ui_layout *
 BeginUIFrame(memory_arena *Arena, ui_state *State, app_input *Input, assets *Assets, f32 Scale, f32 Padding, loaded_bitmap *DrawBuffer)
 {
@@ -78,7 +91,10 @@ BeginUIFrame(memory_arena *Arena, ui_state *State, app_input *Input, assets *Ass
     Result->Assets = Assets;
     Result->Scale = Scale;
     Result->Padding = Padding;
+    Result->DefaultRowHeight = Platform.DEBUGGetLineAdvance()*Result->Scale;
+    
     Result->DrawBuffer = DrawBuffer;
+    
     Result->SentinalElement.Dim = V2((f32)DrawBuffer->Width, (f32)DrawBuffer->Height);
     Result->CurrentElement = &Result->SentinalElement;
     
@@ -166,6 +182,13 @@ DrawCheckbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_e
     
 }
 
+inline void
+DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_element *Element)
+{
+    State;
+    WriteLine(RenderGroup, Layout->Assets, V2Subtract(V2Set1(0), Element->TextOffset), Layout->Scale, Element->Text, Colors.LabelText);
+}
+
 internal void
 DrawElements(ui_state *State, ui_layout *Layout, ui_element *FirstChild, v2 P)
 {
@@ -234,6 +257,11 @@ DrawElements(ui_state *State, ui_layout *Layout, ui_element *FirstChild, v2 P)
                 case Element_Checkbox:
                 {
                     DrawCheckbox(State, Layout, RenderGroup, Element);
+                } break;
+                
+                case Element_Textbox:
+                {
+                    DrawTextbox(State, Layout, RenderGroup, Element);
                 } break;
                 
                 InvalidDefaultCase;
@@ -477,6 +505,17 @@ SetRowHeight(ui_layout *Layout, f32 Height)
 }
 
 inline void
+SetRowFill(ui_layout *Layout)
+{
+    ui_element *Row = Layout->CurrentElement;
+    Assert(Row->Type == Element_Row);
+    if(Row->Type == Element_Row)
+    {
+        Row->UsedDim.Y = 0.0f;
+    }
+}
+
+inline void
 SetControlWidth(ui_layout *Layout, f32 Width)
 {
     Assert(Width > 0.0f);
@@ -492,7 +531,6 @@ SetControlWidth(ui_layout *Layout, f32 Width)
     }
 }
 
-#define Textbox(Layout, ...) Spacer(Layout)
 #define Splitter(Layout, ...) Spacer(Layout)
 #define DropDown(Layout, ...) Spacer(Layout)
 #define Button(Layout, ...) Spacer(Layout)

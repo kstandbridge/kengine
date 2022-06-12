@@ -162,18 +162,19 @@ typedef struct app_state
     b32 ShowLocalWorlds;
     b32 ShowAvailableWorlds;
     b32 EditRunParams;
+    editable_string FilterText;
+    editable_string LaunchParams;
     
     loaded_bitmap TestBMP;
     loaded_bitmap TestFont;
     
-    editable_string TestString;
+    
     v2 TestP;
     s32 TestCounter;
     // TODO(kstandbridge): Switch to a float
     v2 UiScale;
     b32 TestBoolean;
     
-    editable_string LongString;
     
     fruit_type TestEnum;
     

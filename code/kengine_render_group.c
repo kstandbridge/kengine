@@ -811,7 +811,7 @@ GetTextSize(assets *Assets, f32 Scale, string Str)
 
 
 internal void
-DrawSelectedTextElement(render_group *RenderGroup, assets *Assets, v2 P, string Str, v2 TextOffset, v2 Dim, f32 Scale, v4 BorderColor, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
+DrawSelectedTextElementDep(render_group *RenderGroup, assets *Assets, v2 P, string Str, v2 TextOffset, v2 Dim, f32 Scale, v4 BorderColor, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
 {
     PushRect(RenderGroup, P, Dim, BackgroundColor, BackgroundColor);
     

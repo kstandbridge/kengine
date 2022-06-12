@@ -7,6 +7,7 @@ typedef enum ui_interaction_type
     Interaction_NOP,
     
     Interaction_EditableBool,
+    Interaction_EditableText,
     
 } ui_interaction_type;
 
@@ -19,6 +20,7 @@ typedef struct ui_interaction
     {
         void *Generic;
         b32 *Bool;
+        editable_string *Text;
     };
 } ui_interaction;
 
@@ -28,6 +30,7 @@ typedef enum ui_element_type
     Element_Spacer,
     Element_Label,
     Element_Checkbox,
+    Element_Textbox,
     
 } ui_element_type;
 
@@ -59,6 +62,7 @@ typedef struct ui_layout
     assets *Assets;
     f32 Scale;
     f32 Padding;
+    f32 DefaultRowHeight;
     
     loaded_bitmap *DrawBuffer;
     

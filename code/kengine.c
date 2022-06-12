@@ -44,19 +44,29 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         AppState->UiScale = V2(0.2f, 0.0f);
         
         AppState->ShowLocalWorlds = true;
-        AppState->TestString.Length = 1;
-        AppState->TestString.SelectionStart = 1;
-        AppState->TestString.SelectionEnd = 1;
-        AppState->TestString.Size = 32;
-        AppState->TestString.Data = PushSize(&AppState->PermanentArena, AppState->TestString.Size);
-        AppState->TestString.Data[0] = ':';
+        AppState->FilterText.Length = 1;
+        AppState->FilterText.SelectionStart = 1;
+        AppState->FilterText.SelectionEnd = 1;
+        AppState->FilterText.Size = 32;
+        AppState->FilterText.Data = PushSize(&AppState->PermanentArena, AppState->FilterText.Size);
+        AppState->FilterText.Data[0] = ':';
         
-        string TheString = String("Lorem ipsum dolor sit amet, consectetur adipiscing elit. \nDuis mattis iaculis nunc, vitae laoreet dolor. Sed condimentum,\n nulla venenatis interdum gravida, metus magna vestibulum urna,\n nec euismod lectus dui at mauris. Aenean venenatis ut ligula\n sit amet ullamcorper. Vivamus in magna tristique, sodales\n magna ac, sodales purus. Proin ut est ante. Quisque et \n sollicitudin velit. Fusce id elementum augue, non maximus\n magna. Aliquam finibus erat sit amet nibh pharetra, eget pharetra\n est convallis. Nam sodales tellus imperdiet ante hendrerit, ut\ntristique ex euismod. Morbi gravida elit orci, at ultrices\n turpis efficitur ac. Fusce dapibus auctor lorem quis tempor.\nSuspendisse at egestas justo. Nam bibendum ultricies molestie.\n Aenean lobortis vehicula ante, elementum eleifend eros congue\n eget. Phasellus placerat varius nunc non faucibus.");
-        AppState->LongString.Length = (u32)TheString.Size;
-        AppState->LongString.Size = TheString.Size;
-        AppState->LongString.Data = TheString.Data;
-        AppState->LongString.SelectionStart = 10;
-        AppState->LongString.SelectionEnd = 5;
+        {        
+            string TheString = String("Looking for build 123456789");
+            AppState->FilterText.Length = (u32)TheString.Size;
+            AppState->FilterText.Size = TheString.Size;
+            AppState->FilterText.Data = TheString.Data;
+            AppState->FilterText.SelectionStart = 10;
+            AppState->FilterText.SelectionEnd = 5;
+        }
+        {        
+            string TheString = String("Lorem ipsum dolor sit amet, consectetur adipiscing elit. \nDuis mattis iaculis nunc, vitae laoreet dolor. Sed condimentum,\n nulla venenatis interdum gravida, metus magna vestibulum urna,\n nec euismod lectus dui at mauris. Aenean venenatis ut ligula\n sit amet ullamcorper. Vivamus in magna tristique, sodales\n magna ac, sodales purus. Proin ut est ante. Quisque et \n sollicitudin velit. Fusce id elementum augue, non maximus\n magna. Aliquam finibus erat sit amet nibh pharetra, eget pharetra\n est convallis. Nam sodales tellus imperdiet ante hendrerit, ut\ntristique ex euismod. Morbi gravida elit orci, at ultrices\n turpis efficitur ac. Fusce dapibus auctor lorem quis tempor.\nSuspendisse at egestas justo. Nam bibendum ultricies molestie.\n Aenean lobortis vehicula ante, elementum eleifend eros congue\n eget. Phasellus placerat varius nunc non faucibus.");
+            AppState->LaunchParams.Length = (u32)TheString.Size;
+            AppState->LaunchParams.Size = TheString.Size;
+            AppState->LaunchParams.Data = TheString.Data;
+            AppState->LaunchParams.SelectionStart = 10;
+            AppState->LaunchParams.SelectionEnd = 5;
+        }
         
         AppState->IsInitialized = true;
     }
@@ -165,19 +175,25 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     BeginRow(Layout);
     {
-        SetRowHeight(Layout, 28.0f);
         Label(Layout, String("Show:"));
+        SetControlWidth(Layout, 64.0f);
         Checkbox(Layout, String("Empty Worlds"), &AppState->ShowEmptyWorlds); // Editable bool
+        SetControlWidth(Layout, 158.0f);
         Checkbox(Layout, String("Local"), &AppState->ShowLocalWorlds); // Editable bool
+        SetControlWidth(Layout, 80.0f);
         Checkbox(Layout, String("Available"), &AppState->ShowAvailableWorlds); // Editable bool
+        SetControlWidth(Layout, 104.0f);
         Spacer(Layout);
         Label(Layout, String("Filter:"));
+        SetControlWidth(Layout, 48.0f);
         Textbox(Layout, &AppState->FilterText);
+        SetControlWidth(Layout, 256.0f);
     }
     EndRow(Layout);
     
     BeginRow(Layout);
     {
+        //SetRowFill(Layout);
         // NOTE(kstandbridge): Listview Worlds
         Spacer(Layout);
     }
@@ -185,8 +201,11 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     BeginRow(Layout);
     {
+        SetRowFill(Layout);
+        
         BeginRow(Layout);
         {
+            SetRowFill(Layout);
             // NOTE(kstandbridge): Listview Builds
             Spacer(Layout);
         }
@@ -205,7 +224,8 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         BeginRow(Layout);
         {
-            Textbox(Layout, "thing.exe");
+            SetRowFill(Layout);
+            Textbox(Layout, &AppState->LaunchParams);
             Button(Layout, "Copy");
             SetControlWidth(Layout, 24.0f);
         }
@@ -242,13 +262,14 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     
     BeginRow(Layout);
-    SetRowHeight(Layout, 124.0f);
-    Textbox(Layout, &AppState->LogMessages, &AppSate->SelectedMessage);
+    {
+        // NOTE(kstandbridge): List of logs?
+        Spacer(Layout);
+    }
     EndRow(Layout);
     
     BeginRow(Layout);
     {
-        SetRowHeight(Layout, 28.0f);
         Button(Layout, "Settings");
         Button(Layout, "Settings");
         Button(Layout, "Settings");
