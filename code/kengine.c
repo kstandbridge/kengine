@@ -1,7 +1,9 @@
 #include "kengine.h"
 
 global platform_api Platform;
-global colors Colors;
+
+
+
 
 #if KENGINE_INTERNAL
 global app_memory *GlobalDebugMemory;
@@ -21,44 +23,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     GlobalDebugMemory = Memory;
 #endif
     
-#if 1
-    
-    Colors.Clear = RGBColor(255, 255, 255, 255);
-    
-    Colors.Text = RGBColor(0, 0, 0, 255);
-    Colors.TextBorder = RGBColor(122, 122, 122, 255);
-    Colors.SelectedTextBorder = RGBColor(0, 120, 215, 255);
-    Colors.SelectedTextBackground = RGBColor(0, 120, 215, 255);
-    Colors.SelectedText = RGBColor(255, 255, 255, 255);
-    
-    Colors.SelectedOutline = RGBColor(15, 15, 15, 255);
-    Colors.SelectedOutlineAlt = RGBColor(255, 255, 255, 255);
-    
-    Colors.CheckBoxBorder = RGBColor(51, 51, 51, 255);
-    Colors.CheckBoxBackground = RGBColor(255, 255, 255, 255);
-    Colors.CheckBoxBorderClicked = RGBColor(0, 84, 153, 255);
-    Colors.CheckBoxBackgroundClicked = RGBColor(204, 228, 247, 255);
-    
-    Colors.TextBackground = RGBColor(255, 255, 255, 255);
-    Colors.Caret = RGBColor(0, 0, 0, 255);
-    
-    Colors.HotButton = RGBColor(229, 241, 251, 255);
-    Colors.Button = RGBColor(225, 225, 225, 255);
-    Colors.ClickedButton = RGBColor(204, 228, 247, 255);
-    Colors.ButtonBorder = RGBColor(173, 173, 173, 173);
-    
-#else
-    
-    // NOTE(kstandbridge): Dark mode
-    Colors.Text = RBGColor(255, 255, 255, 255);
-    Colors.Clear = RGBColor(56, 56, 56, 255);
-    Colors.HotButton = RGBColor(69, 69, 69, 255);
-    Colors.Button = RGBColor(51, 51, 51, 255);
-    Colors.ClickedButton = RGBColor(102, 102, 102, 255);
-    Colors.ButtonBorder = RGBColor(155, 155, 155, 255);
-    Colors.Caret = RGBColor(230, 230, 230, 255);
-    
-#endif
+    SetColors();
     
     app_state *AppState = (app_state *)Memory->Storage;
     
@@ -78,6 +43,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         AppState->UiScale = V2(0.2f, 0.0f);
         
+        AppState->ShowLocalWorlds = true;
         AppState->TestString.Length = 1;
         AppState->TestString.SelectionStart = 1;
         AppState->TestString.SelectionEnd = 1;
@@ -179,7 +145,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
     
-    ui_layout *Layout = BeginUIFrame(TempMem.Arena, &AppState->Assets, 0.2f, 4.0f, DrawBuffer);
+    ui_layout *Layout = BeginUIFrame(TempMem.Arena, &AppState->UiState, Input, &AppState->Assets, 0.2f, 4.0f, DrawBuffer);
     
 #if 0
     
@@ -200,12 +166,12 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     BeginRow(Layout);
     {
         SetRowHeight(Layout, 28.0f);
-        Label(Layout, String("Show: jjj"));
-        Checkbox(Layout, "Empty Worlds", &AppState->ShowEmptyWorlds); // Editable bool
-        Checkbox(Layout, "Local", &AppState->ShowLocal); // Editable bool
-        Checkbox(Layout, "Available", &AppState->ShowAvailable); // Editable bool
+        Label(Layout, String("Show:"));
+        Checkbox(Layout, String("Empty Worlds"), &AppState->ShowEmptyWorlds); // Editable bool
+        Checkbox(Layout, String("Local"), &AppState->ShowLocalWorlds); // Editable bool
+        Checkbox(Layout, String("Available"), &AppState->ShowAvailableWorlds); // Editable bool
         Spacer(Layout);
-        Label(Layout, String("Filter: "));
+        Label(Layout, String("Filter:"));
         Textbox(Layout, &AppState->FilterText);
     }
     EndRow(Layout);
@@ -230,7 +196,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         SetControlWidth(Layout, 12.0f);
         
         BeginRow(Layout);
-        Checkbox(Layout, "Edit run params", &UserSettings->EditRunParams);
+        Checkbox(Layout, String("Edit run params"), &AppState->EditRunParams);
         EndRow(Layout);
         
         BeginRow(Layout);
@@ -297,7 +263,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
 #endif
     
-    EndUIFrame(Layout);
+    EndUIFrame(&AppState->UiState, Layout, Input);
     
     EndTemporaryMemory(TempMem);
     

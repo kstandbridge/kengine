@@ -6,7 +6,6 @@
 - draw text pass selectstart/end and color back/forground accordingly
 - editable_string ScrollOffset, if textbounds>dim then add scrolloffset to dim...
 
-- fix: selection exists left/right should go to selection start/end
 - del/backspace should clear the selection
 - textbox home/end
 - textbox ctrl+Shift home+end (find space)
@@ -44,6 +43,12 @@
 
 - we need a way to dump a struct for debugging purposes, I need to see values frame by frame, introspect to get the values to output, can be preprocessed
 - pulse based on deltatime, we could use it for the caret to fade in and out, and such animations
+- rolling string collection, use two arenas, when prim is half full write to prim and sec, when prim is full swap prim and sec, now wipe the origional prim. We'd always have 50% of messages being displayed and can continuelessly push to it.
+- add debug toggle with f12.
+- debug console
+- debug selected element details?
+- debug hot interaction details?
+- debug show fps, cpu usage, thread details, graph out how long each function is taking
 - 
 
 632,0   > 632,340
@@ -63,6 +68,10 @@
 210,170 > 0,510
 
 */
+
+
+
+
 #include "kengine_platform.h"
 #include "kengine_shared.h"
 #include "kengine_intrinsics.h"
@@ -75,31 +84,52 @@
 
 typedef struct colors
 {
+    // NOTE(kstandbridge): For now I'm intentionally creating way more colors than needed.
+    // They can be consolidated once I get a better idea of the common colors used on controls.
+    // This could be done after the dark mode pass?
+    // TODO(kstandbridge): Consolidate colors
+    
     v4 Clear;
     
-    v4 Text;
-    v4 TextBorder;
-    v4 SelectedTextBorder;
-    v4 SelectedTextBackground;
-    v4 SelectedText;
+    v4 LabelBackground;
+    v4 LabelBorder;
+    v4 LabelText;
     
-    v4 SelectedOutline;
-    v4 SelectedOutlineAlt;
-    
-    v4 CheckBoxBorder;
-    v4 CheckBoxBackground;
-    v4 CheckBoxBorderClicked;
-    v4 CheckBoxBackgroundClicked;
-    
-    v4 TextBackground;
-    v4 Caret;
-    
-    v4 HotButton;
-    v4 Button;
-    v4 ClickedButton;
-    v4 ButtonBorder;
+    v4 CheckboxBackground;
+    v4 CheckboxBorder;
+    v4 CheckboxText;
+    v4 CheckboxHotBackground;
+    v4 CheckboxHotBorder;
+    v4 CheckboxHotText;
+    v4 CheckboxClickedBackground;
+    v4 CheckboxClickedBorder;
+    v4 CheckboxClickedText;
     
 } colors;
+
+global colors Colors;
+
+inline void
+SetColors()
+{
+    Colors.Clear = RGBColor(255, 255, 255, 255);
+    
+    Colors.LabelBackground = RGBColor(255, 255, 255, 255);
+    Colors.LabelBorder = RGBColor(255, 255, 255, 255);
+    Colors.LabelText = RGBColor(0, 0, 0, 255);
+    
+    Colors.CheckboxBackground = RGBColor(255, 255, 255, 255);
+    Colors.CheckboxBorder = RGBColor(51, 51, 51, 255);
+    Colors.CheckboxText = RGBColor(0, 0, 0, 255);
+    Colors.CheckboxHotBackground = RGBColor(255, 255, 255, 255);
+    Colors.CheckboxHotBorder = RGBColor(0, 120, 215, 255);
+    Colors.CheckboxHotText = RGBColor(0, 120, 215, 255);
+    Colors.CheckboxClickedBackground = RGBColor(204, 228, 247, 255);
+    Colors.CheckboxClickedBorder = RGBColor(0, 84, 153, 255);
+    Colors.CheckboxClickedText = RGBColor(0, 84, 153, 255);
+    
+    
+}
 
 typedef enum fruit_type
 {
@@ -121,8 +151,15 @@ typedef struct app_state
     //ui_state UiState;
     
     assets Assets;
+    ui_state UiState;
     
     f32 Time;
+    
+    b32 ShowEmptyWorlds;
+    b32 ShowLocalWorlds;
+    b32 ShowAvailableWorlds;
+    b32 EditRunParams;
+    
     loaded_bitmap TestBMP;
     loaded_bitmap TestFont;
     

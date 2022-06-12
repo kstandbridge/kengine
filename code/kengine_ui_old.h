@@ -1,6 +1,6 @@
 #ifndef KENGINE_UI_H
 
-typedef enum ui_interaction_type
+typedef enum ui_interaction_type_old
 {
     UiInteraction_None,
     
@@ -29,7 +29,7 @@ typedef struct ui_interaction
     };
 } ui_interaction;
 
-typedef struct ui_state
+typedef struct ui_state_old
 {
     assets *Assets;
     

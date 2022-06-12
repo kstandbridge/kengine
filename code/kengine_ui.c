@@ -55,8 +55,21 @@ Label(ui_layout *Layout, string Text)
     Element->Text = Text;
 }
 
+inline void
+Checkbox(ui_layout *Layout, string Text, b32 *Target)
+{
+    ui_element *Element = PushElement(Layout);
+    Element->Type = Element_Checkbox;
+    Element->Text = Text;
+    
+    ZeroStruct(Element->Interaction);
+    Element->Interaction.ID = ++Layout->CurrentId;
+    Element->Interaction.Type = Interaction_EditableBool;
+    Element->Interaction.Generic = Target;
+}
+
 internal ui_layout *
-BeginUIFrame(memory_arena *Arena, assets *Assets, f32 Scale, f32 Padding, loaded_bitmap *DrawBuffer)
+BeginUIFrame(memory_arena *Arena, ui_state *State, app_input *Input, assets *Assets, f32 Scale, f32 Padding, loaded_bitmap *DrawBuffer)
 {
     ui_layout *Result = PushStruct(Arena, ui_layout);
     ZeroStruct(*Result);
@@ -68,6 +81,16 @@ BeginUIFrame(memory_arena *Arena, assets *Assets, f32 Scale, f32 Padding, loaded
     Result->DrawBuffer = DrawBuffer;
     Result->SentinalElement.Dim = V2((f32)DrawBuffer->Width, (f32)DrawBuffer->Height);
     Result->CurrentElement = &Result->SentinalElement;
+    
+    Result->CurrentId = 0;
+    
+    
+    Result->MouseP = V2(Input->MouseX, Input->MouseY);
+    Result->dMouseP = V2Subtract(Result->MouseP, State->LastMouseP);
+    
+    
+    State->ToExecute = State->NextToExecute;
+    ClearInteraction(&State->NextToExecute);
     
     return Result;
 }
@@ -87,15 +110,54 @@ inline void
 DrawLabel(ui_layout *Layout, render_group *RenderGroup, ui_element *Element)
 {
     v2 TextP = V2Set1(0);
-    v4 BackgroundColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
-    v4 BorderColor = V4(1.0f, 1.0f, 0.0f, 1.0f);
-    v4 TextColor = V4(0.0f, 0.0f, 0.0f, 1.0f);
-    DrawTextElement(RenderGroup, Layout->Assets, TextP, Element->Text, Element->TextOffset, Element->Dim, Layout->Scale, BackgroundColor, BorderColor, TextColor);
-    DEBUGTextLine(FormatString(Layout->Arena, "TextOffset: %.02f %.02f", Element->TextOffset.X, Element->TextOffset.Y));
+    
+    DrawTextElement(RenderGroup, Layout->Assets, TextP, Element->Text, Element->TextOffset, Element->Dim, Layout->Scale, 
+                    Colors.LabelBackground, Colors.LabelBorder, Colors.LabelText);
+    
+}
+
+inline void
+DrawCheckbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_element *Element)
+{
+    PushClear(RenderGroup, Colors.Clear);
+    
+    v2 CheckboxP = V2(Layout->Padding, Layout->Padding*0.75f);
+    v2 CheckboxDim = V2Set1(Platform.DEBUGGetLineAdvance()*Layout->Scale*0.75f);
+    string CheckText = (*Element->Interaction.Bool) ? String("\\2713") : String("");
+    
+    v4 CheckboxBackground = Colors.CheckboxBackground;
+    v4 CheckboxBorder = Colors.CheckboxBorder;
+    v4 CheckboxText = Colors.CheckboxText;
+    
+    
+    if(InteractionIsHot(State, Element->Interaction))
+    {
+        CheckboxBackground = Colors.CheckboxHotBackground;
+        CheckboxBorder = Colors.CheckboxHotBorder;
+        CheckboxText = Colors.CheckboxHotText;
+    }
+    
+    if(InteractionIsClicked(State, Element->Interaction))
+    {
+        CheckboxBackground = Colors.CheckboxClickedBackground;
+        CheckboxBorder = Colors.CheckboxClickedBorder;
+        CheckboxText = Colors.CheckboxClickedText;
+    }
+    
+    DrawTextElement(RenderGroup, Layout->Assets, CheckboxP, CheckText, V2Set1(-Layout->Padding), CheckboxDim, Layout->Scale, 
+                    CheckboxBackground, CheckboxBorder, CheckboxText);
+    
+    v2 TextP = V2(CheckboxP.X + CheckboxDim.X, 0);
+    DrawTextElement(RenderGroup, Layout->Assets, TextP, Element->Text, Element->TextOffset, Element->Dim, Layout->Scale, 
+                    Colors.CheckboxBackground, Colors.CheckboxBackground, Colors.CheckboxText);
+    
+    
+    
+    
 }
 
 internal void
-DrawElements(ui_layout *Layout, ui_element *FirstChild, v2 P)
+DrawElements(ui_state *State, ui_layout *Layout, ui_element *FirstChild, v2 P)
 {
     for(ui_element *Element = FirstChild;
         Element;
@@ -109,7 +171,7 @@ DrawElements(ui_layout *Layout, ui_element *FirstChild, v2 P)
             f32 AdvanceX = Element->Dim.X;
             while(Element->Type == Element_Row)
             {
-                DrawElements(Layout, Element->FirstChild, P);
+                DrawElements(State, Layout, Element->FirstChild, P);
                 P.Y += Element->FirstChild->Dim.Y;
                 if(Element->Next && Element->Next->Type == Element_Row)
                 {
@@ -126,6 +188,11 @@ DrawElements(ui_layout *Layout, ui_element *FirstChild, v2 P)
         else
         {
             P.X -= Element->Dim.X;
+            
+            if(IsInRectangle(Rectangle2(P, V2Add(P, Element->Dim)), Layout->MouseP))
+            {
+                State->NextHotInteraction = Element->Interaction;
+            }
             
             loaded_bitmap *DrawBuffer = PushStruct(Layout->Arena, loaded_bitmap);
             DrawBuffer->Width = (s32)Element->Dim.X;
@@ -152,6 +219,11 @@ DrawElements(ui_layout *Layout, ui_element *FirstChild, v2 P)
                 {
                     DrawLabel(Layout, RenderGroup, Element);
                     
+                } break;
+                
+                case Element_Checkbox:
+                {
+                    DrawCheckbox(State, Layout, RenderGroup, Element);
                 } break;
                 
                 InvalidDefaultCase;
@@ -239,8 +311,110 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
 }
 
 internal void
-EndUIFrame(ui_layout *Layout)
+EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
 {
+    
+    // NOTE(kstandbridge): Handling interactions
+    {    
+        
+        // NOTE(kstandbridge): Mouse buttons
+        u32 TransitionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
+        b32 MouseButton = Input->MouseButtons[MouseButton_Left].EndedDown;
+        if(TransitionCount % 2)
+        {
+            MouseButton = !MouseButton;
+        }
+        
+        for(u32 TransitionIndex = 0;
+            TransitionIndex <= TransitionCount;
+            ++TransitionIndex)
+        {
+            b32 MouseDown = false;
+            b32 MouseUp = false;
+            if(TransitionIndex != 0)
+            {
+                MouseDown = MouseButton;
+                MouseUp = !MouseButton;
+            }
+            
+            b32 EndInteraction = false;
+            
+            if(MouseDown)
+            {
+                State->SelectedInteraction = State->HotInteraction;
+                State->ClickedInteraction = State->HotInteraction;
+            }
+            
+            switch(State->Interaction.Type)
+            {
+                
+#if 0                
+                case UiInteraction_ImmediateButton:
+                {
+                    if(MouseUp)
+                    {
+                        Layout->State->NextToExecute = Layout->State->Interaction;
+                        EndInteraction = true;
+                    }
+                } break;
+#endif
+                
+                case Interaction_EditableBool:
+                {
+                    if(MouseUp)
+                    {
+                        *State->Interaction.Bool = !*State->Interaction.Bool;
+                        EndInteraction = true;
+                    }
+                } break;
+                
+                case Interaction_None:
+                {
+                    State->HotInteraction = State->NextHotInteraction;
+                    if(MouseDown)
+                    {
+                        State->Interaction = State->NextHotInteraction;
+                    }
+                } break;
+                
+#if 0                
+                case UiInteraction_MultipleChoiceOption:
+                {
+                    if(MouseUp)
+                    {
+                        Layout->State->NextToExecute = Layout->State->Interaction;
+                        EndInteraction = true;
+                    }
+                } break;
+#endif
+                
+                default:
+                {
+                    if(MouseUp)
+                    {
+                        EndInteraction = true;
+                    }
+                }
+            }
+            
+            if(EndInteraction)
+            {
+                ClearInteraction(&State->Interaction);
+                ClearInteraction(&State->ClickedInteraction);
+            }
+            
+            MouseButton = !MouseButton;
+        }
+        
+        ClearInteraction(&State->NextHotInteraction);
+        
+        
+        State->LastMouseP = Layout->MouseP;
+    }
+    
+    
+    
+    
     v2 Dim = V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height);
     ui_element *Element = &Layout->SentinalElement;
     
@@ -277,7 +451,8 @@ EndUIFrame(ui_layout *Layout)
     ColArray[24] = V4(0.25f, 0.0f, 0.25f, 1.0f);
     
     v2 P = V2((f32)Layout->DrawBuffer->Width, 0.0f);
-    DrawElements(Layout, Layout->SentinalElement.FirstChild, P);
+    DrawElements(State, Layout, Layout->SentinalElement.FirstChild, P);
+    
 }
 
 inline void
@@ -307,7 +482,6 @@ SetControlWidth(ui_layout *Layout, f32 Width)
     }
 }
 
-#define Checkbox(Layout, ...) Spacer(Layout)
 #define Textbox(Layout, ...) Spacer(Layout)
 #define Splitter(Layout, ...) Spacer(Layout)
 #define DropDown(Layout, ...) Spacer(Layout)

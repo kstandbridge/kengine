@@ -34,7 +34,7 @@ BeginUIFrameOld(ui_state *UiState, memory_arena *Arena, app_input *Input, loaded
 }
 
 internal void
-HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
+]HandleUIInteractionsInternal(ui_layout *Layout, app_input *Input)
 {
     // NOTE(kstandbridge): Input text
     ui_interaction SelectedInteraction = Layout->State->SelectedInteraction;
@@ -871,7 +871,7 @@ CalculateSizeForDiv(ui_layout *Layout, ui_div *Head, v2 Dim)
 #endif
 
 internal void
-EndUIFrame(ui_layout *Layout, app_input *Input)
+EndUIFrameOld(ui_layout *Layout, app_input *Input)
 {
     HandleUIInteractionsInternal(Layout, Input);
     
