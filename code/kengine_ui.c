@@ -109,11 +109,7 @@ DrawSpacer(render_group *RenderGroup)
 inline void
 DrawLabel(ui_layout *Layout, render_group *RenderGroup, ui_element *Element)
 {
-    v2 TextP = V2Set1(0);
-    
-    DrawTextElement(RenderGroup, Layout->Assets, TextP, Element->Text, Element->TextOffset, Element->Dim, Layout->Scale, 
-                    Colors.LabelBackground, Colors.LabelBorder, Colors.LabelText);
-    
+    WriteLine(RenderGroup, Layout->Assets, V2Subtract(V2Set1(0), Element->TextOffset), Layout->Scale, Element->Text, Colors.LabelText);
 }
 
 inline void
@@ -144,15 +140,29 @@ DrawCheckbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_e
         CheckboxText = Colors.CheckboxClickedText;
     }
     
-    DrawTextElement(RenderGroup, Layout->Assets, CheckboxP, CheckText, V2Set1(-Layout->Padding), CheckboxDim, Layout->Scale, 
-                    CheckboxBackground, CheckboxBorder, CheckboxText);
+    PushRect(RenderGroup, CheckboxP, CheckboxDim, CheckboxBackground, CheckboxBackground);
+    f32 Thickness = Layout->Scale*3.0f;
+    if(Thickness < 1.0f)
+    {
+        Thickness = 1.0f;
+    }
+    PushRectOutline(RenderGroup, CheckboxP, CheckboxDim, CheckboxBorder, CheckboxBorder, Thickness);
+    if(CheckText.Size > 0)
+    {
+        WriteLine(RenderGroup, Layout->Assets, V2Subtract(CheckboxP, V2Set1(-Layout->Padding)), Layout->Scale, CheckText, CheckboxText);
+    }
     
-    v2 TextP = V2(CheckboxP.X + CheckboxDim.X, 0);
-    DrawTextElement(RenderGroup, Layout->Assets, TextP, Element->Text, Element->TextOffset, Element->Dim, Layout->Scale, 
-                    Colors.CheckboxBackground, Colors.CheckboxBackground, Colors.CheckboxText);
+    v2 TextP = V2(CheckboxP.X + CheckboxDim.X + Layout->Padding*0.5f, 0);
+    v2 TextOffset = V2Subtract(TextP, Element->TextOffset);
     
+    if(InteractionIsSelected(State, Element->Interaction))
+    {
+        v2 OutlineP = V2Add(TextP, V2Set1(Layout->Padding*0.5f));
+        v2 OutlineDim = V2Add(V2Subtract(Element->TextBounds.Max, Element->TextBounds.Min), V2Set1(Layout->Padding*1.5f));
+        PushRectOutline(RenderGroup, OutlineP, OutlineDim, Colors.CheckboxSelectedBackground, Colors.CheckboxSelectedBackgroundAlt, Thickness);
+    }
     
-    
+    WriteLine(RenderGroup, Layout->Assets, TextOffset, Layout->Scale, Element->Text, Colors.CheckboxText);
     
 }
 

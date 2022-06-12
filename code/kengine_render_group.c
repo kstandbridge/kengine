@@ -514,13 +514,13 @@ PushRect(render_group *Group, v2 Offset, v2 Dim, v4 Color, v4 AltColor)
 }
 
 inline void
-PushRectOutline(render_group *Group, v2 Offset, v2 Dim, v4 Color, v4 AltColor, f32 Thickness)
+PushRectOutline(render_group *Group, v2 P, v2 Dim, v4 Color, v4 AltColor, f32 Thickness)
 {
-    PushRect(Group, Offset, V2(Dim.X, Thickness), Color, AltColor);
-    PushRect(Group, V2Add(Offset, V2(0.0f, Dim.Y - Thickness)), V2(Dim.X, Thickness), Color, AltColor);
+    PushRect(Group, P, V2(Dim.X, Thickness), Color, AltColor);
+    PushRect(Group, V2Add(P, V2(0.0f, Dim.Y - Thickness)), V2(Dim.X, Thickness), Color, AltColor);
     
-    PushRect(Group, Offset, V2(Thickness, Dim.Y), Color, AltColor);
-    PushRect(Group, V2Add(Offset, V2(Dim.X - Thickness, 0.0f)), V2(Thickness, Dim.Y), Color, AltColor);
+    PushRect(Group, P, V2(Thickness, Dim.Y), Color, AltColor);
+    PushRect(Group, V2Add(P, V2(Dim.X - Thickness, 0.0f)), V2(Thickness, Dim.Y), Color, AltColor);
 }
 
 internal render_group *
@@ -809,24 +809,6 @@ GetTextSize(assets *Assets, f32 Scale, string Str)
     return Result;
 }
 
-
-internal void
-DrawTextElement(render_group *RenderGroup, assets *Assets, v2 P, string Str, v2 TextOffset, v2 Dim, f32 Scale, v4 BackgroundColor, v4 BorderColor, v4 TextColor)
-{
-    PushRect(RenderGroup, P, Dim, BackgroundColor, BackgroundColor);
-    
-    f32 Thickness = Scale*3.0f;
-    if(Thickness < 1.0f)
-    {
-        Thickness = 1.0f;
-    }
-    PushRectOutline(RenderGroup, P, Dim, BorderColor, BorderColor, Thickness);
-    
-    if(Str.Size > 0)
-    {
-        WriteLine(RenderGroup, Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor);
-    }
-}
 
 internal void
 DrawSelectedTextElement(render_group *RenderGroup, assets *Assets, v2 P, string Str, v2 TextOffset, v2 Dim, f32 Scale, v4 BorderColor, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)

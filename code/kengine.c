@@ -110,11 +110,11 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         if(Memory->ExecutableReloaded)
         {
-            PushClear(RenderGroup, V4(1, 1, 1, 1));
+            PushClear(RenderGroup, V4(0.3f, 0.0f, 0.3f, 1.0f));
         }
         else
         {
-            PushClear(RenderGroup, V4(0, 0, 0, 1));
+            PushClear(RenderGroup, V4Set1(1.0f));
         }
         
         
