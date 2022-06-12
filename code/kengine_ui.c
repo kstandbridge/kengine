@@ -27,27 +27,44 @@ EndRow(ui_layout *Layout)
     Layout->CurrentElement = Layout->CurrentElement->Parent;
 }
 
-inline void
-Spacer(ui_layout *Layout)
+inline ui_element *
+PushElement(ui_layout *Layout)
 {
-    ui_element *Element = PushStruct(Layout->Arena, ui_element);
-    ZeroStruct(*Element);
-    Element->Next = Layout->CurrentElement->FirstChild;
-    Layout->CurrentElement->FirstChild = Element;
-    
+    ui_element *Result = PushStruct(Layout->Arena, ui_element);
+    ZeroStruct(*Result);
+    Result->Next = Layout->CurrentElement->FirstChild;
+    Layout->CurrentElement->FirstChild = Result;
     
     ++Layout->CurrentElement->ChildCount;
     
+    return Result;
+}
+
+inline void
+Spacer(ui_layout *Layout)
+{
+    ui_element *Element = PushElement(Layout);
     Element->Type = Element_Spacer;
 }
 
+inline void
+Label(ui_layout *Layout, string Text)
+{
+    ui_element *Element = PushElement(Layout);
+    Element->Type = Element_Label;
+    Element->Text = Text;
+}
+
 internal ui_layout *
-BeginUIFrame(memory_arena *Arena, loaded_bitmap *DrawBuffer)
+BeginUIFrame(memory_arena *Arena, assets *Assets, f32 Scale, f32 Padding, loaded_bitmap *DrawBuffer)
 {
     ui_layout *Result = PushStruct(Arena, ui_layout);
     ZeroStruct(*Result);
     
     Result->Arena = Arena;
+    Result->Assets = Assets;
+    Result->Scale = Scale;
+    Result->Padding = Padding;
     Result->DrawBuffer = DrawBuffer;
     Result->SentinalElement.Dim = V2((f32)DrawBuffer->Width, (f32)DrawBuffer->Height);
     Result->CurrentElement = &Result->SentinalElement;
@@ -59,6 +76,23 @@ BeginUIFrame(memory_arena *Arena, loaded_bitmap *DrawBuffer)
 global s32 ColArrayIndex;
 global v4 ColArray[25];
 
+inline void
+DrawSpacer(render_group *RenderGroup)
+{
+    PushClear(RenderGroup, ColArray[ColArrayIndex]);
+    ColArrayIndex = (ColArrayIndex + 1) % ArrayCount(ColArray);
+}
+
+inline void
+DrawLabel(ui_layout *Layout, render_group *RenderGroup, ui_element *Element)
+{
+    v2 TextP = V2Set1(0);
+    v4 BackgroundColor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+    v4 BorderColor = V4(1.0f, 1.0f, 0.0f, 1.0f);
+    v4 TextColor = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    DrawTextElement(RenderGroup, Layout->Assets, TextP, Element->Text, Element->TextOffset, Element->Dim, Layout->Scale, BackgroundColor, BorderColor, TextColor);
+    DEBUGTextLine(FormatString(Layout->Arena, "TextOffset: %.02f %.02f", Element->TextOffset.X, Element->TextOffset.Y));
+}
 
 internal void
 DrawElements(ui_layout *Layout, ui_element *FirstChild, v2 P)
@@ -100,22 +134,41 @@ DrawElements(ui_layout *Layout, ui_element *FirstChild, v2 P)
             DrawBuffer->Memory = (u8 *)Layout->DrawBuffer->Memory + (s32)P.X*BITMAP_BYTES_PER_PIXEL + (s32)P.Y*DrawBuffer->Pitch;
             
             //DEBUGTextLine(FormatString(Layout->Arena, "At: %.02f %.02f Dim: %.02f %.02f", P.X, P.Y, Element->Dim.X, Element->Dim.Y));
-            
             render_group *RenderGroup = AllocateRenderGroup(Layout->Arena, Megabytes(4), DrawBuffer);
             
-            PushClear(RenderGroup, ColArray[ColArrayIndex]);
-            ColArrayIndex = (ColArrayIndex + 1) % ArrayCount(ColArray);
+            switch(Element->Type)
+            {
+                case Element_Row:
+                {
+                    InvalidCodePath;
+                } break;
+                
+                case Element_Spacer:
+                {
+                    DrawSpacer(RenderGroup);
+                } break;
+                
+                case Element_Label:
+                {
+                    DrawLabel(Layout, RenderGroup, Element);
+                    
+                } break;
+                
+                InvalidDefaultCase;
+            }
             
-            tile_render_work Work;
-            ZeroStruct(Work);
-            Work.Group = RenderGroup;
-            Work.ClipRect.MinX = 0;
-            Work.ClipRect.MaxX = DrawBuffer->Width;
-            Work.ClipRect.MinY = 0;
-            Work.ClipRect.MaxY = DrawBuffer->Height;
-            TileRenderWorkThread(&Work);
+            tile_render_work *Work = PushStruct(Layout->Arena, tile_render_work);
+            ZeroStruct(*Work);
+            Work->Group = RenderGroup;
+            Work->ClipRect.MinX = 0;
+            Work->ClipRect.MaxX = DrawBuffer->Width;
+            Work->ClipRect.MinY = 0;
+            Work->ClipRect.MaxY = DrawBuffer->Height;
+            Platform.AddWorkEntry(Platform.PerFrameWorkQueue, TileRenderWorkThread, Work);
         }
     }
+    
+    Platform.CompleteAllWork(Platform.PerFrameWorkQueue);
 }
 
 internal void
@@ -137,6 +190,8 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
             {
                 Element->Dim.X = Element->UsedDim.X;
             }
+            Element->TextBounds = GetTextSize(Layout->Assets, Layout->Scale, Element->Text);
+            Element->TextOffset = V2(-Layout->Padding, Element->TextBounds.Min.Y - Layout->Padding);
         }
         
         if(Element->Type == Element_Row)
@@ -252,7 +307,6 @@ SetControlWidth(ui_layout *Layout, f32 Width)
     }
 }
 
-#define Label(Layout, ...) Spacer(Layout)
 #define Checkbox(Layout, ...) Spacer(Layout)
 #define Textbox(Layout, ...) Spacer(Layout)
 #define Splitter(Layout, ...) Spacer(Layout)

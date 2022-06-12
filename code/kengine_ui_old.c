@@ -1,6 +1,6 @@
 
 internal ui_layout
-BeginUIFrame(ui_state *UiState, memory_arena *Arena, app_input *Input, loaded_bitmap *DrawBuffer, f32 Padding, f32 Scale)
+BeginUIFrameOld(ui_state *UiState, memory_arena *Arena, app_input *Input, loaded_bitmap *DrawBuffer, f32 Padding, f32 Scale)
 {
     ui_layout Result;
     ZeroStruct(Result);

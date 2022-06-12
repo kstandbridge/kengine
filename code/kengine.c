@@ -179,7 +179,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
     
-    ui_layout *Layout = BeginUIFrame(TempMem.Arena, DrawBuffer);
+    ui_layout *Layout = BeginUIFrame(TempMem.Arena, &AppState->Assets, 0.2f, 4.0f, DrawBuffer);
     
 #if 0
     
@@ -200,12 +200,12 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     BeginRow(Layout);
     {
         SetRowHeight(Layout, 28.0f);
-        Label(Layout, "Show: ");
+        Label(Layout, String("Show: jjj"));
         Checkbox(Layout, "Empty Worlds", &AppState->ShowEmptyWorlds); // Editable bool
         Checkbox(Layout, "Local", &AppState->ShowLocal); // Editable bool
         Checkbox(Layout, "Available", &AppState->ShowAvailable); // Editable bool
         Spacer(Layout);
-        Label(Layout, "Filter: ");
+        Label(Layout, String("Filter: "));
         Textbox(Layout, &AppState->FilterText);
     }
     EndRow(Layout);
@@ -247,7 +247,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         BeginRow(Layout);
         {
-            Label(Layout, "Sync command");
+            Label(Layout, String("Sync command"));
             Button(Layout, "Copy");
             SetControlWidth(Layout, 24.0f);
         }
@@ -265,7 +265,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         BeginRow(Layout);
         {
-            Label(Layout, "DownloadPath");
+            Label(Layout, String("DownloadPath"));
             Button(Layout, "Copy");
             SetControlWidth(Layout, 24.0f);
         }

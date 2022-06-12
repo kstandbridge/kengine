@@ -4,8 +4,9 @@ typedef enum ui_element_type
 {
     Element_Row,
     Element_Spacer,
-    
-    
+    Element_Label
+        
+        
 } ui_element_type;
 
 typedef struct ui_element
@@ -13,8 +14,11 @@ typedef struct ui_element
     u32 Id;
     ui_element_type Type;
     
-    v2 Dim;
+    string Text;
+    rectangle2 TextBounds;
+    v2 TextOffset;
     
+    v2 Dim;
     v2 UsedDim;
     
     s32 ChildCount;
@@ -29,6 +33,9 @@ typedef struct ui_element
 typedef struct ui_layout
 {
     memory_arena *Arena;
+    assets *Assets;
+    f32 Scale;
+    f32 Padding;
     
     loaded_bitmap *DrawBuffer;
     
