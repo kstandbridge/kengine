@@ -42,7 +42,6 @@ typedef struct ui_element
     
     string Text;
     rectangle2 TextBounds;
-    v2 TextOffset;
     
     v2 Dim;
     v2 UsedDim;

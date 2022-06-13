@@ -106,6 +106,14 @@ typedef struct colors
     v4 CheckboxClickedText;
     v4 CheckboxSelectedBackground;
     v4 CheckboxSelectedBackgroundAlt;
+    
+    v4 TextboxBackground;
+    v4 TextboxBorder;
+    v4 TextboxText;
+    v4 TextboxSelectedBorder;
+    v4 TextboxSelectedBackground;
+    v4 TextboxSelectedText;
+    
 } colors;
 
 global colors Colors;
@@ -130,6 +138,13 @@ SetColors()
     Colors.CheckboxClickedText = RGBColor(0, 84, 153, 255);
     Colors.CheckboxSelectedBackground = RGBColor(255, 255, 255, 255);
     Colors.CheckboxSelectedBackgroundAlt = RGBColor(15, 15, 15, 255);
+    
+    Colors.TextboxBackground = RGBColor(255, 255, 255, 255);
+    Colors.TextboxBorder = RGBColor(122, 122, 122, 255);
+    Colors.TextboxText = RGBColor(0, 0, 0, 255);
+    Colors.TextboxSelectedBorder = RGBColor(0, 120, 215, 255);
+    Colors.TextboxSelectedBackground = RGBColor(0, 120, 215, 255);
+    Colors.TextboxSelectedText = RGBColor(255, 255, 255, 255);
     
     
 }

@@ -514,8 +514,15 @@ PushRect(render_group *Group, v2 Offset, v2 Dim, v4 Color, v4 AltColor)
 }
 
 inline void
-PushRectOutline(render_group *Group, v2 P, v2 Dim, v4 Color, v4 AltColor, f32 Thickness)
+PushRectOutline(render_group *Group, v2 P, v2 Dim, v4 Color, v4 AltColor, f32 Scale)
 {
+    f32 Thickness = Scale*3.0f;
+    if(Thickness < 1.0f)
+    {
+        Thickness = 1.0f;
+    }
+    
+    
     PushRect(Group, P, V2(Dim.X, Thickness), Color, AltColor);
     PushRect(Group, V2Add(P, V2(0.0f, Dim.Y - Thickness)), V2(Dim.X, Thickness), Color, AltColor);
     
@@ -727,7 +734,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                        (Index < SelectedEndIndex))
                     {
                         f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(CodePoint, PrevCodePoint);
-                        PushRect(RenderGroup, V2Subtract(Offset, V2(Scale, SelectedHeight*0.3f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                        PushRect(RenderGroup, V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
                         PushBitmap(RenderGroup, Bitmap, Height, Offset, SelectedTextColor, 0.0f);
                     }
                     else
@@ -738,8 +745,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                     {
                         if(SelectedStartIndex == SelectedEndIndex)
                         {
-                            BackgroundColor;
-                            PushRect(RenderGroup, V2(AtX, AtY-SelectedHeight*0.3f), V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                            PushRect(RenderGroup, V2(AtX, AtY-SelectedHeight*0.2f), V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
                         }
                     }
                 }
@@ -768,7 +774,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                     if((Index >= SelectedStartIndex) &&
                        (Index < SelectedEndIndex))
                     {
-                        PushRect(RenderGroup, V2Subtract(V2(AtX, AtY), V2(Scale, SelectedHeight*0.3f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                        PushRect(RenderGroup, V2Subtract(V2(AtX, AtY), V2(Scale, SelectedHeight*0.2f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
                     }
                     
                     if(Index == SelectedStartIndex)
@@ -790,9 +796,9 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
 }
 
 inline void
-WriteSelectedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
+WriteSelectedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
 {
-    TextOpInternal(TextOp_DrawSelectedText, RenderGroup, Assets, P, Scale, Str, TextColor, BackgroundColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight);
+    TextOpInternal(TextOp_DrawSelectedText, RenderGroup, Assets, P, Scale, Text, TextColor, BackgroundColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight);
 }
 
 inline void

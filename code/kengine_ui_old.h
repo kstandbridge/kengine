@@ -15,7 +15,7 @@ typedef enum ui_interaction_type_old
     
 } ui_interaction_type;
 
-typedef struct ui_interaction
+typedef struct ui_interaction_old
 {
     u32 ID;
     ui_interaction_type Type;

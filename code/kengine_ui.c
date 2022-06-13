@@ -4,7 +4,7 @@ BeginRow(ui_layout *Layout)
 {
     ui_element *Element = PushStruct(Layout->Arena, ui_element);
     ZeroStruct(*Element);
-    Element->UsedDim.Y = Layout->DefaultRowHeight;
+    Element->UsedDim.Y = Layout->DefaultRowHeight + Layout->Padding*2.0f;
     if((Layout->CurrentElement->FirstChild == 0) || 
        (Layout->CurrentElement->FirstChild->Type != Element_Row))
     {
@@ -116,16 +116,17 @@ global s32 ColArrayIndex;
 global v4 ColArray[25];
 
 inline void
-DrawSpacer(render_group *RenderGroup)
+DrawSpacer(ui_layout *Layout, render_group *RenderGroup, ui_element *Element)
 {
-    PushClear(RenderGroup, ColArray[ColArrayIndex]);
+    PushRect(RenderGroup, V2Set1(Layout->Padding), V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), ColArray[ColArrayIndex], ColArray[ColArrayIndex]);
     ColArrayIndex = (ColArrayIndex + 1) % ArrayCount(ColArray);
 }
 
 inline void
 DrawLabel(ui_layout *Layout, render_group *RenderGroup, ui_element *Element)
 {
-    WriteLine(RenderGroup, Layout->Assets, V2Subtract(V2Set1(0), Element->TextOffset), Layout->Scale, Element->Text, Colors.LabelText);
+    v2 TextP = V2(Layout->Padding, Layout->Padding + Element->TextBounds.Max.Y*0.5f);
+    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.LabelText);
 }
 
 inline void
@@ -133,14 +134,13 @@ DrawCheckbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_e
 {
     PushClear(RenderGroup, Colors.Clear);
     
-    v2 CheckboxP = V2(Layout->Padding, Layout->Padding*0.75f);
+    v2 CheckboxP = V2(Layout->Padding, Layout->Padding*2.0f);
     v2 CheckboxDim = V2Set1(Platform.DEBUGGetLineAdvance()*Layout->Scale*0.75f);
     string CheckText = (*Element->Interaction.Bool) ? String("\\2713") : String("");
     
     v4 CheckboxBackground = Colors.CheckboxBackground;
     v4 CheckboxBorder = Colors.CheckboxBorder;
     v4 CheckboxText = Colors.CheckboxText;
-    
     
     if(InteractionIsHot(State, Element->Interaction))
     {
@@ -157,28 +157,24 @@ DrawCheckbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_e
     }
     
     PushRect(RenderGroup, CheckboxP, CheckboxDim, CheckboxBackground, CheckboxBackground);
-    f32 Thickness = Layout->Scale*3.0f;
-    if(Thickness < 1.0f)
-    {
-        Thickness = 1.0f;
-    }
-    PushRectOutline(RenderGroup, CheckboxP, CheckboxDim, CheckboxBorder, CheckboxBorder, Thickness);
+    
+    PushRectOutline(RenderGroup, CheckboxP, CheckboxDim, CheckboxBorder, CheckboxBorder, Layout->Scale);
     if(CheckText.Size > 0)
     {
         WriteLine(RenderGroup, Layout->Assets, V2Subtract(CheckboxP, V2Set1(-Layout->Padding)), Layout->Scale, CheckText, CheckboxText);
     }
     
-    v2 TextP = V2(CheckboxP.X + CheckboxDim.X + Layout->Padding*0.5f, 0);
-    v2 TextOffset = V2Subtract(TextP, Element->TextOffset);
+    v2 TextP = V2(CheckboxP.X + CheckboxDim.X + Layout->Padding, Layout->Padding + Element->TextBounds.Max.Y*0.5f);
+    //v2 TextP = V2(CheckboxP.X + CheckboxDim.X + Layout->Padding*0.5f, 0);
     
     if(InteractionIsSelected(State, Element->Interaction))
     {
-        v2 OutlineP = V2Add(TextP, V2Set1(Layout->Padding*0.5f));
+        v2 OutlineP = V2Subtract(TextP, V2Set1(Layout->Padding*0.5f));
         v2 OutlineDim = V2Add(V2Subtract(Element->TextBounds.Max, Element->TextBounds.Min), V2Set1(Layout->Padding*1.5f));
-        PushRectOutline(RenderGroup, OutlineP, OutlineDim, Colors.CheckboxSelectedBackground, Colors.CheckboxSelectedBackgroundAlt, Thickness);
+        PushRectOutline(RenderGroup, OutlineP, OutlineDim, Colors.CheckboxSelectedBackground, Colors.CheckboxSelectedBackgroundAlt, Layout->Scale);
     }
     
-    WriteLine(RenderGroup, Layout->Assets, TextOffset, Layout->Scale, Element->Text, Colors.CheckboxText);
+    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.CheckboxText);
     
 }
 
@@ -186,7 +182,45 @@ inline void
 DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_element *Element)
 {
     State;
-    WriteLine(RenderGroup, Layout->Assets, V2Subtract(V2Set1(0), Element->TextOffset), Layout->Scale, Element->Text, Colors.LabelText);
+    
+    PushRect(RenderGroup, V2Set1(Layout->Padding), V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
+             Colors.TextboxBackground, Colors.TextboxBackground);
+    
+    v4 TextboxBorderColor = Colors.TextboxBorder;
+    if(InteractionIsSelected(State, Element->Interaction))
+    {
+        TextboxBorderColor = Colors.TextboxSelectedBorder;
+    }
+    
+    PushRectOutline(RenderGroup, V2Set1(Layout->Padding), V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
+                    TextboxBorderColor, TextboxBorderColor, Layout->Scale);
+    
+    v2 TextP = V2(Layout->Padding*2.0f, Layout->Padding + Element->TextBounds.Max.Y*0.5f);
+    
+    if(InteractionIsSelected(State, Element->Interaction))
+    {
+        editable_string *Text = Element->Interaction.Text;
+        s32 SelectionStart;
+        s32 SelectionEnd;
+        if(Text->SelectionStart > Text->SelectionEnd)
+        {
+            SelectionStart = Text->SelectionEnd;
+            SelectionEnd = Text->SelectionStart;
+        }
+        else
+        {
+            SelectionStart = Text->SelectionStart;
+            SelectionEnd = Text->SelectionEnd;
+        }
+        f32 CaretHeight = Platform.DEBUGGetLineAdvance()*Layout->Scale*0.75f;
+        WriteSelectedLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, 
+                          Colors.TextboxText, Colors.TextboxBackground, Colors.TextboxSelectedText, Colors.TextboxSelectedBackground, 
+                          SelectionStart, SelectionEnd, CaretHeight);
+    }
+    else
+    {
+        WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.TextboxText);
+    }
 }
 
 internal void
@@ -245,13 +279,12 @@ DrawElements(ui_state *State, ui_layout *Layout, ui_element *FirstChild, v2 P)
                 
                 case Element_Spacer:
                 {
-                    DrawSpacer(RenderGroup);
+                    DrawSpacer(Layout, RenderGroup, Element);
                 } break;
                 
                 case Element_Label:
                 {
                     DrawLabel(Layout, RenderGroup, Element);
-                    
                 } break;
                 
                 case Element_Checkbox:
@@ -300,8 +333,10 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
             {
                 Element->Dim.X = Element->UsedDim.X;
             }
-            Element->TextBounds = GetTextSize(Layout->Assets, Layout->Scale, Element->Text);
-            Element->TextOffset = V2(-Layout->Padding, Element->TextBounds.Min.Y - Layout->Padding);
+            if(Element->Text.Data)
+            {
+                Element->TextBounds = GetTextSize(Layout->Assets, Layout->Scale, Element->Text);
+            }
         }
         
         if(Element->Type == Element_Row)
@@ -354,6 +389,119 @@ EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
     
     // NOTE(kstandbridge): Handling interactions
     {    
+        // NOTE(kstandbridge): Input text
+        ui_interaction SelectedInteraction = State->SelectedInteraction;
+        if(Input->Text[0] != '\0')
+        {
+            if(SelectedInteraction.Type == Interaction_EditableText)
+            {
+                editable_string *Text = SelectedInteraction.Text;
+                
+                char *At = Input->Text;
+                while(*At != '\0')
+                {
+                    if(Text->Length < Text->Size)
+                    {
+                        ++Text->Length;
+                        umm Index = Text->Length;
+                        while(Index > Text->SelectionStart)
+                        {
+                            Text->Data[Index] = Text->Data[Index - 1];
+                            --Index;
+                        }
+                        Text->Data[Text->SelectionStart++] = *At;
+                        Text->SelectionEnd = Text->SelectionStart;
+                    }
+                    ++At;
+                }
+                
+            }
+        }
+        
+        // NOTE(kstandbridge): Keyboard buttons
+        for(keyboard_button_type Type = 0;
+            Type != KeyboardButton_Count;
+            ++Type)
+        {
+            u32 TransitionCount = Input->KeyboardButtons[Type].HalfTransitionCount;
+            b32 KeyboardButton = Input->KeyboardButtons[Type].EndedDown;
+            if(TransitionCount % 2)
+            {
+                KeyboardButton = !KeyboardButton;
+            }
+            
+            for(u32 TransitionIndex = 0;
+                TransitionIndex <= TransitionCount;
+                ++TransitionIndex)
+            {
+                b32 KeyboardDown = false;
+                b32 KeyboardUp = false;
+                if(TransitionIndex != 0)
+                {
+                    KeyboardDown = KeyboardButton;
+                    KeyboardUp = !KeyboardButton;
+                }
+                
+                if(KeyboardDown)
+                {
+                    if(SelectedInteraction.Type == Interaction_EditableText)
+                    {
+                        editable_string *Text = SelectedInteraction.Text;
+                        switch(Type)
+                        {
+                            case KeyboardButton_Delete:
+                            {
+                                if(Text->SelectionStart < Text->Length)
+                                {
+                                    Text->SelectionStart++;
+                                    Text->SelectionEnd = Text->SelectionStart;
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            } // NOTE(kstandbridge): No break intentional
+                            case KeyboardButton_Backspace:
+                            {
+                                if(Text->Length > 0)
+                                {
+                                    umm StartMoveIndex = Text->SelectionStart--;
+                                    while(StartMoveIndex < Text->Length)
+                                    {
+                                        Text->Data[StartMoveIndex - 1] = Text->Data[StartMoveIndex++];
+                                    }
+                                    Text->Data[--Text->Length] = '\0';
+                                    Text->SelectionEnd = Text->SelectionStart;
+                                }
+                            } break;
+                            case KeyboardButton_Right:
+                            {
+                                if(Text->SelectionStart < Text->Length)
+                                {
+                                    ++Text->SelectionStart;
+                                }
+                                if(!Input->ShiftDown)
+                                {
+                                    Text->SelectionEnd = Text->SelectionStart;
+                                }
+                            } break;
+                            case KeyboardButton_Left:
+                            {
+                                if(Text->SelectionStart > 0)
+                                {
+                                    --Text->SelectionStart;
+                                }
+                                if(!Input->ShiftDown)
+                                {
+                                    Text->SelectionEnd = Text->SelectionStart;
+                                }
+                            } break;
+                        }
+                    }
+                }
+                KeyboardButton = !KeyboardButton;
+            }
+        }
         
         // NOTE(kstandbridge): Mouse buttons
         u32 TransitionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
