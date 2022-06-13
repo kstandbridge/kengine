@@ -232,11 +232,8 @@ DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_el
         TextboxBorderColor = Colors.TextboxSelectedBorder;
     }
     
-    PushRectOutline(RenderGroup, V2Set1(Layout->Padding), V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
-                    TextboxBorderColor, TextboxBorderColor, Layout->Scale);
-    
     v2 TextP = V2(Layout->Padding*2.0f, Layout->Padding + Element->TextBounds.Max.Y*0.5f);
-    TextP.Y -= TextOffset.Y;
+    TextP = V2Add(TextP, TextOffset);
     if(InteractionIsSelected(State, Element->Interaction))
     {
         editable_string *Text = Element->Interaction.Text;
@@ -261,6 +258,14 @@ DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_el
     {
         WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.TextboxText);
     }
+    
+    
+    PushRectOutline(RenderGroup, V2Set1(Layout->Padding), V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
+                    TextboxBorderColor, TextboxBorderColor, Layout->Scale);
+    
+    v4 ClearColor = Colors.Clear;
+    PushRectOutline(RenderGroup, V2Set1(0), Element->Dim, ClearColor, ClearColor, Layout->Scale*6.0f);
+    
 }
 
 inline void
@@ -272,10 +277,12 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     string UpText = String("\\02C4");
     string DownText = String("\\02C5");
     rectangle2 TextBounds = GetTextSize(Layout->Assets, Layout->Scale, UpText);
-    v2 TextDim = V2Subtract(TextBounds.Max, TextBounds.Min);
+    v2 ArrowDim = V2Subtract(TextBounds.Max, TextBounds.Min);
+    
+    v2 TextDim = V2Subtract(Element->TextBounds.Max, Element->TextBounds.Min);
     f32 LineAdvance = Layout->DefaultRowHeight*3.0f*Layout->DeltaTime;
     
-    v2 Dim = V2(TextDim.X + Layout->Padding*2.0f, Element->Dim.Y - Layout->Padding*2.0f - Layout->Scale*6.0f);
+    v2 Dim = V2(ArrowDim.X + Layout->Padding*2.0f, Element->Dim.Y - Layout->Padding*2.0f - Layout->Scale*6.0f);
     v2 P = V2(Element->Dim.X - Layout->Padding - Layout->Scale*3.0f - Dim.X, Layout->Padding + Layout->Scale*3.0f);
     PushRect(RenderGroup, P, Dim, Colors.ScrollbarBackground, Colors.ScrollbarBackground);
     
@@ -283,9 +290,7 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     v4 ButtonTextColor;
     //v4 SliderColor = Colors.ScrollbarSlider;
     
-    
-    
-    v2 TextP = V2(P.X + Dim.X*0.5f - TextDim.X*0.5f - Layout->Padding*0.25f, P.Y + Layout->Padding*0.5f);
+    v2 TextP = V2(P.X + Dim.X*0.5f - ArrowDim.X*0.5f - Layout->Padding*0.25f, P.Y + Layout->Padding*0.5f);
     v2 ButtonP = V2(P.X, P.Y + Layout->Scale*3.0f);
     v2 ButtonDim = V2Set1(Dim.X - Layout->Scale*3.0f);
     if(IsInRectangle(Rectangle2(ButtonP, V2Add(ButtonP, ButtonDim)), MouseP))
@@ -310,8 +315,7 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     PushRect(RenderGroup, ButtonP, ButtonDim, ButtonBackColor, ButtonBackColor);
     WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, DownText, ButtonTextColor);
     
-    
-    TextP.Y = Dim.Y - TextDim.Y - Layout->Padding;
+    TextP.Y = Dim.Y - ArrowDim.Y - Layout->Padding;
     ButtonP = V2(P.X, Dim.Y - Dim.X + Layout->Padding);
     ButtonDim = V2Set1(Dim.X);
     if(IsInRectangle(Rectangle2(ButtonP, V2Add(ButtonP, ButtonDim)), MouseP))
@@ -336,8 +340,17 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     PushRect(RenderGroup, ButtonP, ButtonDim, ButtonBackColor, ButtonBackColor);
     WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, UpText, ButtonTextColor);
     
+    if(Text->Offset.Y > TextDim.Y)
+    {
+        Text->Offset.Y = TextDim.Y;
+    }
     
-    DEBUGTextLine(FormatString(Layout->Arena, "Offset %.03f / %.03f", Text->Offset.X, Text->Offset.Y));
+    f32 Min = Element->Dim.Y - Layout->DefaultRowHeight - Layout->Padding;
+    if(Text->Offset.Y < Min)
+    {
+        Text->Offset.Y = Min;
+    }
+    
 }
 
 inline void

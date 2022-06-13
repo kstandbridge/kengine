@@ -280,7 +280,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         {
             if(Button(&AppState->UiState, Layout, String("Run")))
             {
-                AppState->FilterText.Length = 0;
+                AppState->LaunchParams.Offset = V2Set1(0);
             }
             Button(&AppState->UiState, Layout, String("Sync"));
             Button(&AppState->UiState, Layout, String("Cancel"));
