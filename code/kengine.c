@@ -153,13 +153,17 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
 #if 0
     
     BeginRow(Layout);
-    {    
+    {
         Spacer(Layout);
+        Button(Layout, String("Some Text"));
+        SetControlWidth(Layout, 128.0f);
         Spacer(Layout);
+    }
+    EndRow(Layout);
+    BeginRow(Layout);
+    {
+        SetRowFill(Layout);
         Spacer(Layout);
-        SetControlWidth(Layout, 24.0f);
-        
-        BeginRow(Layout);Spacer(Layout);EndRow(Layout);
     }
     EndRow(Layout);
     
@@ -219,7 +223,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         {
             SetRowFill(Layout);
             Textbox(Layout, &AppState->LaunchParams);
-            Button(Layout, "Copy");
+            Button(&AppState->UiState, Layout, String("Copy"));
             SetControlWidth(Layout, 24.0f);
         }
         EndRow(Layout);
@@ -227,25 +231,28 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         BeginRow(Layout);
         {
             Label(Layout, String("Sync command"));
-            Button(Layout, "Copy");
+            Button(&AppState->UiState, Layout, String("Copy"));
             SetControlWidth(Layout, 24.0f);
         }
         EndRow(Layout);
         
         BeginRow(Layout);
         {
-            Button(Layout, "Run");
-            Button(Layout, "Sync");
-            Button(Layout, "Cancel");
-            Button(Layout, "Clean");
-            Button(Layout, "Open Folder");
+            if(Button(&AppState->UiState, Layout, String("Run")))
+            {
+                AppState->FilterText.Length = 0;
+            }
+            Button(&AppState->UiState, Layout, String("Sync"));
+            Button(&AppState->UiState, Layout, String("Cancel"));
+            Button(&AppState->UiState, Layout, String("Clean"));
+            Button(&AppState->UiState, Layout, String("Open Folder"));
         }
         EndRow(Layout);
         
         BeginRow(Layout);
         {
             Label(Layout, String("DownloadPath"));
-            Button(Layout, "Copy");
+            Button(&AppState->UiState, Layout, String("Copy"));
             SetControlWidth(Layout, 24.0f);
         }
         EndRow(Layout);
@@ -263,12 +270,12 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     BeginRow(Layout);
     {
-        Button(Layout, "Settings");
-        Button(Layout, "Settings");
-        Button(Layout, "Settings");
+        Button(&AppState->UiState, Layout, String("Settings"));
+        Button(&AppState->UiState, Layout, String("Feedback"));
+        Button(&AppState->UiState, Layout, String("Delete 1 Expired Build"));
         Spacer(Layout);
-        Button(Layout, "Open Remote Config");
-        Button(Layout, "Open Log");
+        Button(&AppState->UiState, Layout, String("Open Remote Config"));
+        Button(&AppState->UiState, Layout, String("Open Log"));
     }
     EndRow(Layout);
     

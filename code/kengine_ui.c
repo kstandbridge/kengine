@@ -81,6 +81,21 @@ Textbox(ui_layout *Layout, editable_string *Target)
     Element->Interaction.Generic = Target;
 }
 
+inline b32
+Button(ui_state *State, ui_layout *Layout, string Text)
+{
+    ui_element *Element = PushElement(Layout);
+    Element->Type = Element_Button;
+    Element->Text = Text;
+    
+    ZeroStruct(Element->Interaction);
+    Element->Interaction.ID = ++Layout->CurrentId;
+    Element->Interaction.Type = Interaction_ImmediateButton;
+    
+    b32 Result = InteractionsAreEqual(Element->Interaction, State->ToExecute);
+    return Result;
+}
+
 internal ui_layout *
 BeginUIFrame(memory_arena *Arena, ui_state *State, app_input *Input, assets *Assets, f32 Scale, f32 Padding, loaded_bitmap *DrawBuffer)
 {
@@ -187,7 +202,7 @@ DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_el
              Colors.TextboxBackground, Colors.TextboxBackground);
     
     v4 TextboxBorderColor = Colors.TextboxBorder;
-    //if(InteractionIsSelected(State, Element->Interaction))
+    if(InteractionIsSelected(State, Element->Interaction))
     {
         TextboxBorderColor = Colors.TextboxSelectedBorder;
     }
@@ -197,7 +212,7 @@ DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_el
     
     v2 TextP = V2(Layout->Padding*2.0f, Layout->Padding + Element->TextBounds.Max.Y*0.5f);
     
-    //if(InteractionIsSelected(State, Element->Interaction))
+    if(InteractionIsSelected(State, Element->Interaction))
     {
         editable_string *Text = Element->Interaction.Text;
         s32 SelectionStart;
@@ -217,10 +232,63 @@ DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_el
                           Colors.TextboxText, Colors.TextboxSelectedText, Colors.TextboxSelectedBackground, 
                           SelectionStart, SelectionEnd, CaretHeight);
     }
-    //else
+    else
     {
-        //WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.TextboxText);
+        WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.TextboxText);
     }
+}
+
+inline void
+DrawButton(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_element *Element)
+{
+    v4 BackgroundColor = Colors.ButtonBackground;
+    v4 BorderColor = Colors.ButtonBorder;
+    
+    if(InteractionIsClicked(State, Element->Interaction))
+    {
+        BackgroundColor = Colors.ButtonClickedBackground;
+        BorderColor = Colors.ButtonClickedBorder;
+    }
+    else if(InteractionIsHot(State, Element->Interaction))
+    {
+        BackgroundColor = Colors.ButtonHotBackground;
+        BorderColor = Colors.ButtonHotBorder;
+    }
+    else if(InteractionIsSelected(State, Element->Interaction))
+    {
+        BackgroundColor = Colors.ButtonSelectedBackground;
+        BorderColor = Colors.ButtonSelectedBorder;
+    }
+    
+    PushRect(RenderGroup, V2Set1(Layout->Padding), V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
+             BackgroundColor, BackgroundColor);
+    
+    if(!InteractionIsSelected(State, Element->Interaction))
+    {
+        PushRectOutline(RenderGroup, V2Set1(Layout->Padding), V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
+                        BorderColor, BorderColor, Layout->Scale);
+    }
+    else
+    {
+        PushRectOutline(RenderGroup, V2Set1(Layout->Padding), V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
+                        Colors.ButtonSelectedBorder, Colors.ButtonSelectedBorder, Layout->Scale*3.0f);
+        
+        f32 Thickness = Layout->Scale*3.0f;
+        if(Thickness < 1.0f)
+        {
+            Thickness = 1.0f;
+        }
+        v2 SelectedP = V2Add(V2Set1(Layout->Padding), V2Set1(Thickness*3.0f));
+        v2 SelectedDim = V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.5f));
+        SelectedDim = V2Subtract(SelectedDim, V2Set1(Thickness*4.0f));
+        PushRectOutline(RenderGroup, SelectedP, SelectedDim, Colors.ButtonSelectedBackground, Colors.ButtonSelectedBorderAlt, Layout->Scale);
+    }
+    
+    f32 TextDim = Element->TextBounds.Max.X-Element->TextBounds.Min.X;
+    v2 TextP = V2(Element->Dim.X*0.5f - TextDim*0.5f, 
+                  Layout->Padding + Element->TextBounds.Max.Y*0.5f);
+    
+    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.LabelText);
 }
 
 internal void
@@ -295,6 +363,11 @@ DrawElements(ui_state *State, ui_layout *Layout, ui_element *FirstChild, v2 P)
                 case Element_Textbox:
                 {
                     DrawTextbox(State, Layout, RenderGroup, Element);
+                } break;
+                
+                case Element_Button:
+                {
+                    DrawButton(State, Layout, RenderGroup, Element);
                 } break;
                 
                 InvalidDefaultCase;
@@ -534,16 +607,14 @@ EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
             switch(State->Interaction.Type)
             {
                 
-#if 0                
-                case UiInteraction_ImmediateButton:
+                case Interaction_ImmediateButton:
                 {
                     if(MouseUp)
                     {
-                        Layout->State->NextToExecute = Layout->State->Interaction;
+                        State->NextToExecute = State->Interaction;
                         EndInteraction = true;
                     }
                 } break;
-#endif
                 
                 case Interaction_EditableBool:
                 {
@@ -681,4 +752,3 @@ SetControlWidth(ui_layout *Layout, f32 Width)
 
 #define Splitter(Layout, ...) Spacer(Layout)
 #define DropDown(Layout, ...) Spacer(Layout)
-#define Button(Layout, ...) Spacer(Layout)

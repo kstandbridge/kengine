@@ -8,7 +8,8 @@ typedef enum ui_interaction_type
     
     Interaction_EditableBool,
     Interaction_EditableText,
-    
+    Interaction_ImmediateButton
+        
 } ui_interaction_type;
 
 typedef struct ui_interaction
@@ -31,6 +32,7 @@ typedef enum ui_element_type
     Element_Label,
     Element_Checkbox,
     Element_Textbox,
+    Element_Button,
     
 } ui_element_type;
 

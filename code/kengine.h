@@ -114,6 +114,20 @@ typedef struct colors
     v4 TextboxSelectedBackground;
     v4 TextboxSelectedText;
     
+    v4 ButtonBackground;
+    v4 ButtonBorder;
+    v4 ButtonText;
+    v4 ButtonHotBackground;
+    v4 ButtonHotBorder;
+    v4 ButtonHotText;
+    v4 ButtonClickedBackground;
+    v4 ButtonClickedBorder;
+    v4 ButtonClickedBorderAlt;
+    v4 ButtonClickedText;
+    v4 ButtonSelectedBackground;
+    v4 ButtonSelectedBorder;
+    v4 ButtonSelectedBorderAlt;
+    v4 ButtonSelectedText;
 } colors;
 
 global colors Colors;
@@ -146,6 +160,20 @@ SetColors()
     Colors.TextboxSelectedBackground = RGBColor(0, 120, 215, 255);
     Colors.TextboxSelectedText = RGBColor(255, 255, 255, 255);
     
+    Colors.ButtonBackground = RGBColor(225, 225, 225, 255);
+    Colors.ButtonBorder = RGBColor(173, 173, 173, 255);
+    Colors.ButtonText = RGBColor(0, 0, 0, 255);
+    Colors.ButtonHotBackground = RGBColor(229, 241, 251, 255);
+    Colors.ButtonHotBorder = RGBColor(0, 120, 215, 255);
+    Colors.ButtonHotText = RGBColor(0, 120, 215, 255);
+    Colors.ButtonClickedBackground = RGBColor(204, 228, 247, 255);
+    Colors.ButtonClickedBorder = RGBColor(0, 84, 153, 255);
+    Colors.ButtonClickedBorderAlt = RGBColor(60, 20, 7, 255);
+    Colors.ButtonClickedText = RGBColor(0, 84, 153, 255);
+    Colors.ButtonSelectedBackground = RGBColor(225, 225, 225, 255);
+    Colors.ButtonSelectedBorder = RGBColor(0, 120, 215, 255);
+    Colors.ButtonSelectedBorderAlt = RGBColor(17, 17, 17, 255);
+    Colors.ButtonSelectedText = RGBColor(0, 0, 0, 255);
     
 }
 
