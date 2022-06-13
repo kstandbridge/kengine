@@ -39,8 +39,6 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         
         SubArena(&AppState->TransientArena, &AppState->PermanentArena, Megabytes(256));
         
-        //AppState->UiState.Assets = &AppState->Assets;
-        
         AppState->UiScale = V2(0.2f, 0.0f);
         
         AppState->ShowLocalWorlds = true;

@@ -187,7 +187,7 @@ DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_el
              Colors.TextboxBackground, Colors.TextboxBackground);
     
     v4 TextboxBorderColor = Colors.TextboxBorder;
-    if(InteractionIsSelected(State, Element->Interaction))
+    //if(InteractionIsSelected(State, Element->Interaction))
     {
         TextboxBorderColor = Colors.TextboxSelectedBorder;
     }
@@ -197,7 +197,7 @@ DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_el
     
     v2 TextP = V2(Layout->Padding*2.0f, Layout->Padding + Element->TextBounds.Max.Y*0.5f);
     
-    if(InteractionIsSelected(State, Element->Interaction))
+    //if(InteractionIsSelected(State, Element->Interaction))
     {
         editable_string *Text = Element->Interaction.Text;
         s32 SelectionStart;
@@ -214,12 +214,12 @@ DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_el
         }
         f32 CaretHeight = Platform.DEBUGGetLineAdvance()*Layout->Scale*0.75f;
         WriteSelectedLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, 
-                          Colors.TextboxText, Colors.TextboxBackground, Colors.TextboxSelectedText, Colors.TextboxSelectedBackground, 
+                          Colors.TextboxText, Colors.TextboxSelectedText, Colors.TextboxSelectedBackground, 
                           SelectionStart, SelectionEnd, CaretHeight);
     }
-    else
+    //else
     {
-        WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.TextboxText);
+        //WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.TextboxText);
     }
 }
 

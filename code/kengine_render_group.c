@@ -670,7 +670,7 @@ typedef enum text_op_type
     TextOp_SizeText,
 } text_op_type;
 internal rectangle2
-TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
+TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
 {
     // TODO(kstandbridge): RenderGroup can be null, bad design
     
@@ -679,6 +679,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
     f32 AtX = P.X;
     f32 AtY = P.Y;
     u32 PrevCodePoint = 0;
+    b32 CaretDrawn = false;
     for(u32 Index = 0;
         Index < Str.Size;
         ++Index)
@@ -734,6 +735,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                        (Index < SelectedEndIndex))
                     {
                         f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(CodePoint, PrevCodePoint);
+                        CaretDrawn = true;
                         PushRect(RenderGroup, V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
                         PushBitmap(RenderGroup, Bitmap, Height, Offset, SelectedTextColor, 0.0f);
                     }
@@ -745,6 +747,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                     {
                         if(SelectedStartIndex == SelectedEndIndex)
                         {
+                            CaretDrawn = true;
                             PushRect(RenderGroup, V2(AtX, AtY-SelectedHeight*0.2f), V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
                         }
                     }
@@ -774,6 +777,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                     if((Index >= SelectedStartIndex) &&
                        (Index < SelectedEndIndex))
                     {
+                        CaretDrawn = true;
                         PushRect(RenderGroup, V2Subtract(V2(AtX, AtY), V2(Scale, SelectedHeight*0.2f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
                     }
                     
@@ -781,8 +785,10 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                     {
                         if(SelectedStartIndex == SelectedEndIndex)
                         {
-                            BackgroundColor;
-                            PushRect(RenderGroup, V2(AtX, AtY), V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                            CaretDrawn = true;;
+                            v2 Offset = V2(AtX, AtY);
+                            v2 CaretP = V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f));
+                            PushRect(RenderGroup, CaretP, V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
                         }
                     }
                 }
@@ -792,25 +798,35 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
         }
     }
     
+    if(Op == TextOp_DrawSelectedText)
+    {
+        if(!CaretDrawn)
+        {
+            v2 Offset = V2(AtX, AtY);
+            v2 CaretP = V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f));
+            PushRect(RenderGroup, CaretP, V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+        }
+    }
+    
     return Result;
 }
 
 inline void
-WriteSelectedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
+WriteSelectedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
 {
-    TextOpInternal(TextOp_DrawSelectedText, RenderGroup, Assets, P, Scale, Text, TextColor, BackgroundColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight);
+    TextOpInternal(TextOp_DrawSelectedText, RenderGroup, Assets, P, Scale, Text, TextColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight);
 }
 
 inline void
 WriteLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor)
 {
-    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Str, TextColor, V4Set1(0.0f), V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0);
+    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Str, TextColor, V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0);
 }
 
 inline rectangle2
 GetTextSize(assets *Assets, f32 Scale, string Str)
 {
-    rectangle2 Result = TextOpInternal(TextOp_SizeText, 0, Assets, V2Set1(0.0f), Scale, Str, V4Set1(0.0f), V4Set1(0.0f), V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0);
+    rectangle2 Result = TextOpInternal(TextOp_SizeText, 0, Assets, V2Set1(0.0f), Scale, Str, V4Set1(0.0f),  V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0);
     
     return Result;
 }
@@ -830,6 +846,6 @@ DrawSelectedTextElementDep(render_group *RenderGroup, assets *Assets, v2 P, stri
     
     if(Str.Size > 0)
     {
-        WriteSelectedLine(RenderGroup, Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor, BackgroundColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight);
+        WriteSelectedLine(RenderGroup, Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight);
     }
 }
