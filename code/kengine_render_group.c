@@ -501,12 +501,12 @@ PushBitmap(render_group *Group, loaded_bitmap *Bitmap, f32 Height, v2 Offset, v4
 }
 
 inline void
-PushRect(render_group *Group, v2 Offset, v2 Dim, v4 Color, v4 AltColor)
+PushRect(render_group *Group, v2 P, v2 Dim, v4 Color, v4 AltColor)
 {
     render_entry_rectangle *Entry = PushRenderElement(Group, render_entry_rectangle);
     if(Entry)
     {
-        Entry->P = Offset;
+        Entry->P = P;
         Entry->Color = Color;
         Entry->AltColor = AltColor;
         Entry->Dim = Dim;
@@ -670,7 +670,7 @@ typedef enum text_op_type
     TextOp_SizeText,
 } text_op_type;
 internal rectangle2
-TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
+TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight, f32 Angle)
 {
     // TODO(kstandbridge): RenderGroup can be null, bad design
     
@@ -725,7 +725,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                 if(Op == TextOp_DrawText)
                 {
                     Assert(RenderGroup);
-                    PushBitmap(RenderGroup, Bitmap, Height, Offset, TextColor, 0.0f);
+                    PushBitmap(RenderGroup, Bitmap, Height, Offset, TextColor, Angle);
                 }
                 else if(Op == TextOp_DrawSelectedText)
                 {
@@ -814,19 +814,25 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
 inline void
 WriteSelectedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
 {
-    TextOpInternal(TextOp_DrawSelectedText, RenderGroup, Assets, P, Scale, Text, TextColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight);
+    TextOpInternal(TextOp_DrawSelectedText, RenderGroup, Assets, P, Scale, Text, TextColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight, 0.0f);
 }
 
 inline void
-WriteLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor)
+WriteLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor)
 {
-    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Str, TextColor, V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0);
+    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Text, TextColor, V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0, 0.0f);
+}
+
+inline void
+WriteRotatedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor, f32 Angle)
+{
+    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Text, TextColor, V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0, Angle);
 }
 
 inline rectangle2
-GetTextSize(assets *Assets, f32 Scale, string Str)
+GetTextSize(assets *Assets, f32 Scale, string Text)
 {
-    rectangle2 Result = TextOpInternal(TextOp_SizeText, 0, Assets, V2Set1(0.0f), Scale, Str, V4Set1(0.0f),  V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0);
+    rectangle2 Result = TextOpInternal(TextOp_SizeText, 0, Assets, V2Set1(0.0f), Scale, Text, V4Set1(0.0f),  V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0, 0.0f);
     
     return Result;
 }

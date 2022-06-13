@@ -8,6 +8,7 @@ typedef enum ui_interaction_type
     
     Interaction_EditableBool,
     Interaction_EditableText,
+    Interaction_EditableMultilineText,
     Interaction_ImmediateButton
         
 } ui_interaction_type;
@@ -32,6 +33,7 @@ typedef enum ui_element_type
     Element_Label,
     Element_Checkbox,
     Element_Textbox,
+    Element_MultilineTextbox,
     Element_Button,
     
 } ui_element_type;
@@ -74,6 +76,7 @@ typedef struct ui_layout
     u32 CurrentId;
     v2 MouseP;
     v2 dMouseP;
+    f32 DeltaTime;
     
 } ui_layout;
 

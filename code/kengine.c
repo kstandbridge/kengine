@@ -264,7 +264,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         BeginRow(Layout);
         {
             SetRowFill(Layout);
-            Textbox(Layout, &AppState->LaunchParams);
+            MultilineTextbox(Layout, &AppState->LaunchParams);
         }
         EndRow(Layout);
         

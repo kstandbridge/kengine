@@ -128,6 +128,18 @@ typedef struct colors
     v4 ButtonSelectedBorder;
     v4 ButtonSelectedBorderAlt;
     v4 ButtonSelectedText;
+    
+    v4 ScrollbarText;
+    v4 ScrollbarBackground;
+    v4 ScrollbarSlider;
+    v4 ScrollbarHotText;
+    v4 ScrollbarHotBackground;
+    v4 ScrollbarHotSlider;
+    v4 ScrollbarClickedText;
+    v4 ScrollbarClickedBackground;
+    v4 ScrollbarClickedSlider;
+    
+    
 } colors;
 
 global colors Colors;
@@ -174,6 +186,16 @@ SetColors()
     Colors.ButtonSelectedBorder = RGBColor(0, 120, 215, 255);
     Colors.ButtonSelectedBorderAlt = RGBColor(17, 17, 17, 255);
     Colors.ButtonSelectedText = RGBColor(0, 0, 0, 255);
+    
+    Colors.ScrollbarText = RGBColor(96, 96, 96, 255);
+    Colors.ScrollbarBackground = RGBColor(240, 240, 240, 255);
+    Colors.ScrollbarSlider = RGBColor(205, 205, 205, 255);
+    Colors.ScrollbarHotText = RGBColor(0, 0, 0, 255);
+    Colors.ScrollbarHotBackground = RGBColor(218, 218, 218, 255);
+    Colors.ScrollbarHotSlider = RGBColor(166, 166, 166, 255);
+    Colors.ScrollbarClickedText = RGBColor(255, 255, 255, 255);
+    Colors.ScrollbarClickedBackground = RGBColor(96, 96, 96, 255);
+    Colors.ScrollbarClickedSlider = RGBColor(96, 96, 96, 255);
     
 }
 
