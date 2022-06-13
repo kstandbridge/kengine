@@ -1,5 +1,13 @@
 
 inline void
+SetRowWidth(ui_layout *Layout, f32 Width)
+{
+    Layout->CurrentElement->Parent->SetWidthChildCount = 1;
+    Layout->CurrentElement->Parent->UsedDim.X = Width;
+    Layout->CurrentElement->Dim.X = Width;
+}
+
+inline void
 BeginRow(ui_layout *Layout)
 {
     ui_element *Element = PushStruct(Layout->Arena, ui_element);
@@ -19,12 +27,19 @@ BeginRow(ui_layout *Layout)
     Layout->CurrentElement = Element;
     
     Element->Type = Element_Row;
+    
+    if((Element->Next) &&
+       (Element->Next->Dim.X > 0.0f))
+    {
+        SetRowWidth(Layout, Element->Next->Dim.X);
+    }
 }
 
 inline void
 EndRow(ui_layout *Layout)
 {
     Layout->CurrentElement = Layout->CurrentElement->Parent;
+    
 }
 
 inline ui_element *
@@ -397,7 +412,11 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
         Element;
         Element = Element->Next)
     {
-        Element->Dim.X = Dim.X / ChildCount;
+        if(Element->Dim.X == 0)
+        {
+            Element->Dim.X = Dim.X / ChildCount;
+        }
+        
         Element->Dim.Y = Dim.Y;
         
         if(Element->Type != Element_Row)
@@ -441,12 +460,15 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
                 
                 RowStart = true;
             }
+            
+            
             s32 SubChildCount = (Element->ChildCount - Element->SetWidthChildCount);
             v2 SubDimRemaining = V2(SubDim.X - Element->UsedDim.X, SubDim.Y);
             if(Element->UsedDim.Y > 0.0f)
             {
                 SubDimRemaining.Y = Element->UsedDim.Y;
             }
+            
             CalculateElementDims(Layout, Element->FirstChild, SubChildCount, SubDimRemaining);
         }
         else
@@ -733,7 +755,6 @@ SetRowFill(ui_layout *Layout)
         Row->UsedDim.Y = 0.0f;
     }
 }
-
 inline void
 SetControlWidth(ui_layout *Layout, f32 Width)
 {

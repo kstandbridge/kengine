@@ -19,7 +19,7 @@ typedef struct debug_state
 } debug_state;
 
 
-internal void DEBUGTextLine(string Str);
+internal void DEBUGTextLine(string Text);
 
 #define KENGINE_DEBUG_H
 #endif //KENGINE_DEBUG_H

@@ -151,19 +151,61 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     ui_layout *Layout = BeginUIFrame(TempMem.Arena, &AppState->UiState, Input, &AppState->Assets, 0.2f, 4.0f, DrawBuffer);
     
 #if 0
+    BeginRow(Layout);
+    SetRowFill(Layout);
+    {    
+        Spacer(Layout);
+        SetControlWidth(Layout, 42.0f);
+        
+        
+        BeginRow(Layout);
+        {
+            SetRowFill(Layout);
+            Textbox(Layout, &AppState->LaunchParams);
+            
+            BeginRow(Layout);
+            SetRowWidth(Layout, Layout->DefaultRowHeight);
+            Button(&AppState->UiState, Layout, String("U"));
+            EndRow(Layout);
+            
+            BeginRow(Layout);
+            //SetRowWidth(Layout, Layout->DefaultRowHeight);
+            SetRowFill(Layout);
+            Spacer(Layout);
+            EndRow(Layout);
+            
+            BeginRow(Layout);
+            //SetRowWidth(Layout, Layout->DefaultRowHeight);
+            Button(&AppState->UiState, Layout, String("D"));
+            EndRow(Layout);
+            
+        }
+        EndRow(Layout);
+        
+    }
+    
+    EndRow(Layout);
+    
     
     BeginRow(Layout);
     {
-        Spacer(Layout);
-        Button(Layout, String("Some Text"));
-        SetControlWidth(Layout, 128.0f);
-        Spacer(Layout);
-    }
-    EndRow(Layout);
-    BeginRow(Layout);
-    {
+        SetRowFill(Layout);
+        Textbox(Layout, &AppState->LaunchParams);
+        
+        BeginRow(Layout);
+        SetRowWidth(Layout, Layout->DefaultRowHeight);
+        Button(&AppState->UiState, Layout, String("U"));
+        EndRow(Layout);
+        
+        BeginRow(Layout);
         SetRowFill(Layout);
         Spacer(Layout);
+        EndRow(Layout);
+        
+        BeginRow(Layout);
+        Button(&AppState->UiState, Layout, String("D"));
+        EndRow(Layout);
+        
     }
     EndRow(Layout);
     
@@ -223,8 +265,6 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         {
             SetRowFill(Layout);
             Textbox(Layout, &AppState->LaunchParams);
-            Button(&AppState->UiState, Layout, String("Copy"));
-            SetControlWidth(Layout, 24.0f);
         }
         EndRow(Layout);
         

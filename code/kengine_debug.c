@@ -9,11 +9,11 @@ DEBUGGetState()
 }
 
 internal void
-DEBUGTextLine(string Str)
+DEBUGTextLine(string Text)
 {
     debug_state *DebugState = DEBUGGetState();
     
-    WriteLine(DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Str, V4Set1(1));
+    WriteLine(DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(0, 0, 0, 1));
     
     DebugState->AtY += Platform.DEBUGGetLineAdvance()*DebugState->FontScale;
 }

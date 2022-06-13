@@ -952,7 +952,7 @@ BeginRow(ui_layout *Layout)
 
 #if 0
 inline void
-EndRow(ui_layout *Layout)
+EndRowOld(ui_layout *Layout)
 {
     ui_layout_row *Row = Layout->CurrentRow;
     
