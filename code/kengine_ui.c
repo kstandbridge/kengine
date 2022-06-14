@@ -327,7 +327,6 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     f32 SliderRemaining = SliderDim.Y*0.25f;
     SliderP.Y += (1.0f - Calculated)*SliderRemaining;
     SliderDim.Y *= 0.75f;
-    DEBUGTextLine(FormatString(Layout->Arena, "Max %.03f Min %.03f Actual %.03f Calc %.03f", Max, Min, Text->Offset.Y, Calculated));
     
     if(IsInRectangle(Rectangle2(SliderP, V2Add(SliderP, SliderDim)), MouseP))
     {
@@ -628,7 +627,8 @@ EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
         ui_interaction SelectedInteraction = State->SelectedInteraction;
         if(Input->Text[0] != '\0')
         {
-            if(SelectedInteraction.Type == Interaction_EditableText)
+            if((SelectedInteraction.Type == Interaction_EditableText) ||
+               (SelectedInteraction.Type == Interaction_EditableMultilineText))
             {
                 editable_string *Text = SelectedInteraction.Text;
                 
@@ -649,7 +649,6 @@ EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
                     }
                     ++At;
                 }
-                
             }
         }
         
@@ -679,7 +678,8 @@ EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
                 
                 if(KeyboardDown)
                 {
-                    if(SelectedInteraction.Type == Interaction_EditableText)
+                    if((SelectedInteraction.Type == Interaction_EditableText) ||
+                       (SelectedInteraction.Type == Interaction_EditableMultilineText))
                     {
                         editable_string *Text = SelectedInteraction.Text;
                         switch(Type)
