@@ -319,9 +319,6 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     }
     EndRow(Layout);
     
-    
-    
-    
 #endif
     
     EndUIFrame(&AppState->UiState, Layout, Input);
@@ -329,6 +326,8 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     EndTemporaryMemory(TempMem);
     
 #if KENGINE_INTERNAL
+    
+    
     DEBUGEnd();
 #endif
     

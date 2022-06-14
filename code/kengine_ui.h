@@ -76,6 +76,8 @@ typedef struct ui_layout
     u32 CurrentId;
     v2 MouseP;
     v2 dMouseP;
+    f32 MouseZ;
+    
     f32 DeltaTime;
     
 } ui_layout;

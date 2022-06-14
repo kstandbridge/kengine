@@ -561,6 +561,11 @@ Win32ProcessPendingMessages(app_input *Input)
                 
             } break;
             
+            case WM_MOUSEWHEEL:
+            {
+                Input->MouseZ = GET_WHEEL_DELTA_WPARAM(Msg.wParam);
+            } break;
+            
             default: 
             {
                 TranslateMessage(&Msg);
@@ -746,19 +751,14 @@ WinMainCRTStartup()
                 NewInput->ShiftDown = (GetKeyState(VK_SHIFT) & (1 << 15));
                 NewInput->AltDown = (GetKeyState(VK_MENU) & (1 << 15));
                 NewInput->ControlDown = (GetKeyState(VK_CONTROL) & (1 << 15));
+                NewInput->MouseZ = 0;
                 Win32ProcessPendingMessages(NewInput);
-                
-                if(WasPressed(NewInput->KeyboardButtons[KeyboardButton_Return]) && NewInput->AltDown)
-                {
-                    
-                }
                 
                 POINT MouseP;
                 GetCursorPos(&MouseP);
                 ScreenToClient(WindowHwnd, &MouseP);
                 NewInput->MouseX = (f32)MouseP.x;
                 NewInput->MouseY = (f32)((GlobalBackbuffer.Height - 1) - MouseP.y);
-                NewInput->MouseZ = 0; // TODO(kstandbridge): Get mousewheel position
                 
                 // NOTE(kstandbridge): The order of these needs to match the order on enum app_input_mouse_button_type
                 DWORD ButtonVKs[MouseButton_Count] =

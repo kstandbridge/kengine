@@ -146,6 +146,7 @@ BeginUIFrame(memory_arena *Arena, ui_state *State, app_input *Input, assets *Ass
     
     Result->MouseP = V2(Input->MouseX, Input->MouseY);
     Result->dMouseP = V2Subtract(Result->MouseP, State->LastMouseP);
+    Result->MouseZ = Input->MouseZ;
     Result->DeltaTime = Input->dtForFrame;
     
     State->ToExecute = State->NextToExecute;
@@ -339,6 +340,8 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     }
     PushRect(RenderGroup, ButtonP, ButtonDim, ButtonBackColor, ButtonBackColor);
     WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, UpText, ButtonTextColor);
+    
+    Text->Offset.Y -= LineAdvance*(Layout->MouseZ*0.05f);
     
     if(Text->Offset.Y > TextDim.Y)
     {
