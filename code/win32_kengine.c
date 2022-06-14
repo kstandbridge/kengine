@@ -669,7 +669,7 @@ SetClipboardText(string Text)
             HGLOBAL GlobalCopy = GlobalAlloc(GMEM_MOVEABLE, (Text.Size + 1) * sizeof(char));
             Assert(GlobalCopy);
             LPTSTR StringCopy = (LPTSTR)GlobalLock(GlobalCopy);
-            memcpy(StringCopy, Text.Data, Text.Size * sizeof(char));
+            Copy(Text.Size * sizeof(char), Text.Data, StringCopy);
             StringCopy[Text.Size] = '\0';
             GlobalUnlock(GlobalCopy);
             
