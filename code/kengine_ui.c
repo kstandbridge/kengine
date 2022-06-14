@@ -289,7 +289,7 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     
     v4 ButtonBackColor;
     v4 ButtonTextColor;
-    //v4 SliderColor = Colors.ScrollbarSlider;
+    v4 SliderColor;
     
     v2 TextP = V2(P.X + Dim.X*0.5f - ArrowDim.X*0.5f - Layout->Padding*0.25f, P.Y + Layout->Padding*0.5f);
     v2 ButtonP = V2(P.X, P.Y + Layout->Scale*3.0f);
@@ -315,6 +315,37 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     }
     PushRect(RenderGroup, ButtonP, ButtonDim, ButtonBackColor, ButtonBackColor);
     WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, DownText, ButtonTextColor);
+    
+    v2 SliderP = V2Add(ButtonP, V2(Layout->Padding*0.25f, ButtonDim.Y));
+    
+    
+    f32 Max = TextDim.Y;
+    f32 Min = Element->Dim.Y - Layout->DefaultRowHeight - Layout->Padding;
+    
+    v2 SliderDim = V2Subtract(Dim, V2(Layout->Padding*0.5f, ButtonDim.Y*2.0f));
+    f32 Calculated = ((Text->Offset.Y - Min) / (Max - Min));
+    f32 SliderRemaining = SliderDim.Y*0.25f;
+    SliderP.Y += (1.0f - Calculated)*SliderRemaining;
+    SliderDim.Y *= 0.75f;
+    DEBUGTextLine(FormatString(Layout->Arena, "Max %.03f Min %.03f Actual %.03f Calc %.03f", Max, Min, Text->Offset.Y, Calculated));
+    
+    if(IsInRectangle(Rectangle2(SliderP, V2Add(SliderP, SliderDim)), MouseP))
+    {
+        if(InteractionIsClicked(State, Element->Interaction))
+        {
+            SliderColor = Colors.ScrollbarClickedSlider;
+            Text->Offset.Y -= Layout->dMouseP.Y;
+        }
+        else
+        {
+            SliderColor = Colors.ScrollbarHotSlider;
+        }
+    }
+    else
+    {
+        SliderColor = Colors.ScrollbarSlider;
+    }
+    PushRect(RenderGroup, SliderP, SliderDim, SliderColor, SliderColor);
     
     TextP.Y = Dim.Y - ArrowDim.Y - Layout->Padding;
     ButtonP = V2(P.X, Dim.Y - Dim.X + Layout->Padding);
@@ -346,12 +377,10 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
         Text->Offset.Y -= LineAdvance*(Layout->MouseZ*0.05f);
     }
     
-    if(Text->Offset.Y > TextDim.Y)
+    if(Text->Offset.Y > Max)
     {
-        Text->Offset.Y = TextDim.Y;
+        Text->Offset.Y = Max;
     }
-    
-    f32 Min = Element->Dim.Y - Layout->DefaultRowHeight - Layout->Padding;
     if(Text->Offset.Y < Min)
     {
         Text->Offset.Y = Min;
