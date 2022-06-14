@@ -731,6 +731,52 @@ EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
                                     Text->SelectionEnd = Text->SelectionStart;
                                 }
                             } break;
+                            
+                            case KeyboardButton_Home:
+                            {
+                                if(Input->ControlDown)
+                                {
+                                    Text->SelectionStart = 0;
+                                    Text->SelectionEnd = 0;
+                                    Text->Offset.Y = 0.0f;
+                                }
+                                else
+                                {
+                                    u32 Index = Text->SelectionEnd;
+                                    while(Index > 0 && Text->Data[Index] != '\n')
+                                    {
+                                        --Index;
+                                    }
+                                    if(Text->Data[Index] == '\n')
+                                    {
+                                        ++Index;
+                                    }
+                                    Text->SelectionStart = Index;
+                                    Text->SelectionEnd = Index;
+                                }
+                            } break;
+                            
+                            case KeyboardButton_End:
+                            {
+                                if(Input->ControlDown)
+                                {
+                                    Text->SelectionStart = Text->Length;
+                                    Text->SelectionEnd = Text->Length;
+                                    Text->Offset.Y = F32Max;
+                                }
+                                else
+                                {
+                                    u32 Index = Text->SelectionEnd;
+                                    while(Index < Text->Length && Text->Data[Index] != '\n')
+                                    {
+                                        ++Index;
+                                    }
+                                    Text->SelectionStart = Index;
+                                    Text->SelectionEnd = Index;
+                                }
+                            } break;
+                            
+                            
                             case KeyboardButton_A:
                             {
                                 if(Input->ControlDown)

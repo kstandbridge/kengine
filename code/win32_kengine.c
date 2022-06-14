@@ -485,6 +485,9 @@ Win32ProcessPendingMessages(app_input *Input)
                     case VK_DOWN:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Down, IsDown); } break;
                     case VK_RIGHT:  { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Right, IsDown); } break;
                     case VK_ESCAPE: { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Escape, IsDown); } break;
+                    case VK_HOME: { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Home, IsDown); } break;
+                    case VK_END: { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_End, IsDown); } break;
+                    
                     
                     case 'A': { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_A, IsDown); } break;
                     case 'C': { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_C, IsDown); } break;

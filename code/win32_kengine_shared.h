@@ -95,8 +95,6 @@ typedef struct platform_work_queue
 internal void
 AddWorkEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data)
 {
-    // TODO(casey): Switch to InterlockedCompareExchange eventually
-    // so that any thread can add?
     u32 NewNextEntryToWrite = (Queue->NextEntryToWrite + 1) % ArrayCount(Queue->Entries);
     Assert(NewNextEntryToWrite != Queue->NextEntryToRead);
     platform_work_queue_entry *Entry = Queue->Entries + Queue->NextEntryToWrite;
