@@ -146,6 +146,8 @@ typedef enum keyboard_button_type
     KeyboardButton_Down,
     KeyboardButton_Right,
     KeyboardButton_Escape,
+    KeyboardButton_A,
+    KeyboardButton_C,
     
     KeyboardButton_Count,
 } keyboard_button_type;
@@ -186,6 +188,7 @@ typedef void platform_add_work_entry(platform_work_queue *Queue, platform_work_q
 typedef void platform_complete_all_work(platform_work_queue *Queue);
 
 typedef string get_command_line_args(memory_arena *Arena);
+typedef b32 set_clipboard_test(string Text);
 
 typedef string debug_read_entire_file(memory_arena *Arena, char *FilePath);
 typedef loaded_bitmap debug_get_glyph_for_codepoint(memory_arena *Arena, u32 Codepoint);
@@ -201,6 +204,7 @@ typedef struct platform_api
     platform_complete_all_work *CompleteAllWork;
     
     get_command_line_args *GetCommandLineArgs;
+    set_clipboard_test *SetClipboardText;
     
     debug_read_entire_file *DEBUGReadEntireFile;
     debug_get_glyph_for_codepoint *DEBUGGetGlyphForCodePoint;

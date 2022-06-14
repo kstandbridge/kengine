@@ -485,6 +485,9 @@ Win32ProcessPendingMessages(app_input *Input)
                     case VK_DOWN:   { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Down, IsDown); } break;
                     case VK_RIGHT:  { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Right, IsDown); } break;
                     case VK_ESCAPE: { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_Escape, IsDown); } break;
+                    
+                    case 'A': { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_A, IsDown); } break;
+                    case 'C': { ProcessInputMessage(Input->KeyboardButtons + KeyboardButton_C, IsDown); } break;
                 }
                 
                 if(IsDown)
@@ -654,6 +657,33 @@ GetCommandLineArgs(memory_arena *Arena)
     return Result;
 }
 
+internal b32
+SetClipboardText(string Text)
+{
+    b32 Result = false;
+    
+    if(OpenClipboard(0))
+    {
+        if(EmptyClipboard())
+        {
+            HGLOBAL GlobalCopy = GlobalAlloc(GMEM_MOVEABLE, (Text.Size + 1) * sizeof(char));
+            Assert(GlobalCopy);
+            LPTSTR StringCopy = (LPTSTR)GlobalLock(GlobalCopy);
+            memcpy(StringCopy, Text.Data, Text.Size * sizeof(char));
+            StringCopy[Text.Size] = '\0';
+            GlobalUnlock(GlobalCopy);
+            
+            HANDLE CopyHandle = SetClipboardData(CF_TEXT, GlobalCopy);
+            Assert(CopyHandle);
+            Result = true;
+            
+            CloseClipboard();
+        }
+    }
+    
+    return Result;
+}
+
 internal void
 CatStrings(size_t SourceACount, char *SourceA,
            size_t SourceBCount, char *SourceB,
@@ -766,6 +796,7 @@ WinMainCRTStartup()
             AppMemory.PlatformAPI.DEBUGGetLineAdvance = DEBUGGetLineAdvance;
             
             AppMemory.PlatformAPI.GetCommandLineArgs = GetCommandLineArgs;
+            AppMemory.PlatformAPI.SetClipboardText = SetClipboardText;
             
             app_input Input[2];
             ZeroArray(ArrayCount(Input), Input);

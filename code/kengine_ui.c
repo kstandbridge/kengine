@@ -731,6 +731,41 @@ EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
                                     Text->SelectionEnd = Text->SelectionStart;
                                 }
                             } break;
+                            case KeyboardButton_A:
+                            {
+                                if(Input->ControlDown)
+                                {
+                                    Text->SelectionStart = 0;
+                                    Text->SelectionEnd = Text->Length;
+                                }
+                            } break;
+                            
+                            case KeyboardButton_C:
+                            {
+                                if(Input->ControlDown)
+                                {
+                                    s32 SelectedCharacters = Text->SelectionStart - Text->SelectionEnd;
+                                    s32 TotalCharaceters = SelectedCharacters;
+                                    if(TotalCharaceters < 0)
+                                    {
+                                        TotalCharaceters *= -1;
+                                    }
+                                    s32 StartOfSelection;
+                                    if(Text->SelectionEnd > Text->SelectionStart)
+                                    {
+                                        StartOfSelection = Text->SelectionEnd + SelectedCharacters;
+                                    }
+                                    else
+                                    {
+                                        StartOfSelection = Text->SelectionEnd;
+                                    }
+                                    
+                                    string SelectedText = StringInternal(TotalCharaceters, Text->Data + StartOfSelection);
+                                    
+                                    Platform.SetClipboardText(SelectedText);
+                                }
+                            } break;
+                            
                         }
                     }
                 }
