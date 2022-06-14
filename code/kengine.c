@@ -106,6 +106,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     DEBUGStart(DrawBuffer);
 #endif
     
+#if 1
     {
         temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
         
@@ -144,6 +145,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         TileRenderWorkThread(&Work);
         EndTemporaryMemory(TempMem);
     }
+#endif
     
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);

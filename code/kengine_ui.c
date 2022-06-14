@@ -181,7 +181,7 @@ DrawCheckbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_e
     v2 CheckboxP = V2(Layout->Padding, Layout->Padding*2.0f);
     v2 CheckboxDim = V2Set1(Platform.DEBUGGetLineAdvance()*Layout->Scale*0.75f);
     string CheckText = (*Element->Interaction.Bool) ? String("\\2713") : String("");
-    
+    //
     v4 CheckboxBackground = Colors.CheckboxBackground;
     v4 CheckboxBorder = Colors.CheckboxBorder;
     v4 CheckboxText = Colors.CheckboxText;

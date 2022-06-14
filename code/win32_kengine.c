@@ -33,6 +33,9 @@ typedef struct win32_offscreen_buffer
 
 typedef struct app_code
 {
+    char EXEFileName[MAX_PATH];
+    char *OnePastLastEXEFileNameSlash;
+    
     HMODULE Library;
     FILETIME LastDLLWriteTime;
     
@@ -651,6 +654,52 @@ GetCommandLineArgs(memory_arena *Arena)
     return Result;
 }
 
+internal void
+CatStrings(size_t SourceACount, char *SourceA,
+           size_t SourceBCount, char *SourceB,
+           char *Dest)
+{
+    for(int Index = 0;
+        Index < SourceACount;
+        ++Index)
+    {
+        *Dest++ = *SourceA++;
+    }
+    
+    for(int Index = 0;
+        Index < SourceBCount;
+        ++Index)
+    {
+        *Dest++ = *SourceB++;
+    }
+    
+    *Dest++ = 0;
+}
+
+internal void
+BuildEXEPathFileName(app_code  *State, char *FileName, char *Dest)
+{
+    // TODO(kstandbridge): Replace this with string format
+    CatStrings(State->OnePastLastEXEFileNameSlash - State->EXEFileName, State->EXEFileName,
+               GetNullTerminiatedStringLength(FileName), FileName, Dest);
+}
+
+internal void
+GetEXEFileName(app_code *Code)
+{
+    DWORD SizeOfFilename = GetModuleFileNameA(0, Code->EXEFileName, sizeof(Code->EXEFileName));
+    Code->OnePastLastEXEFileNameSlash = Code->EXEFileName;
+    for(char *Scan = Code->EXEFileName;
+        *Scan;
+        ++Scan)
+    {
+        if(*Scan == '\\')
+        {
+            Code->OnePastLastEXEFileNameSlash = Scan + 1;
+        }
+    }
+}
+
 s32 __stdcall
 WinMainCRTStartup()
 {
@@ -662,7 +711,7 @@ WinMainCRTStartup()
     GlobalPerfCountFrequency = PerfCountFrequencyResult.QuadPart;
     LARGE_INTEGER LastCounter = Win32GetWallClock();
     
-#define MonitorRefreshHz 60
+#define MonitorRefreshHz 30
 #define AppUpdateHz (MonitorRefreshHz / 2)
     f32 TargetSecondsPerFrame = 1.0f / (f32)AppUpdateHz;
     
@@ -723,12 +772,19 @@ WinMainCRTStartup()
             app_input *NewInput = &Input[0];
             app_input *OldInput = &Input[1];
             
-            char *SourceAppCodeDLLFullPath = "D:/build/kengine.dll";
-            char *TempAppCodeDLLFullPath = "D:/build/kengine_temp.dll";
-            char *AppCodeLockFullPath = "D:/build/lock.tmp";
-            
             app_code AppCode; // = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
             ZeroStruct(AppCode);
+            
+            GetEXEFileName(&AppCode);
+            
+            char SourceAppCodeDLLFullPath[MAX_PATH];
+            BuildEXEPathFileName(&AppCode, "kengine.dll", SourceAppCodeDLLFullPath);
+            
+            char TempAppCodeDLLFullPath[MAX_PATH];
+            BuildEXEPathFileName(&AppCode, "kengine_temp.dll", TempAppCodeDLLFullPath);
+            
+            char AppCodeLockFullPath[MAX_PATH];
+            BuildEXEPathFileName(&AppCode, "lock.tmp", AppCodeLockFullPath);
             
             GlobalIsRunning = true;
             while(GlobalIsRunning)
