@@ -728,8 +728,7 @@ WinMainCRTStartup()
             char *AppCodeLockFullPath = "D:/build/lock.tmp";
             
             app_code AppCode; // = Win32LoadAppCode(SourceAppCodeDLLFullPath, TempAppCodeDLLFullPath, AppCodeLockFullPath);
-            
-            
+            ZeroStruct(AppCode);
             
             GlobalIsRunning = true;
             while(GlobalIsRunning)
