@@ -341,7 +341,10 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     PushRect(RenderGroup, ButtonP, ButtonDim, ButtonBackColor, ButtonBackColor);
     WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, UpText, ButtonTextColor);
     
-    Text->Offset.Y -= LineAdvance*(Layout->MouseZ*0.05f);
+    if(InteractionIsHot(State, Element->Interaction))
+    {
+        Text->Offset.Y -= LineAdvance*(Layout->MouseZ*0.05f);
+    }
     
     if(Text->Offset.Y > TextDim.Y)
     {
