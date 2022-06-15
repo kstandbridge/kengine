@@ -106,6 +106,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     DEBUGStart(DrawBuffer);
 #endif
     
+    // TODO(kstandbridge): We shouldn't have to clear the screen, this is wasted effort
 #if 1
     {
         temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);

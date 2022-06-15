@@ -294,6 +294,8 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     v2 TextP = V2(P.X + Dim.X*0.5f - ArrowDim.X*0.5f - Layout->Padding*0.25f, P.Y + Layout->Padding*0.5f);
     v2 ButtonP = V2(P.X, P.Y + Layout->Scale*3.0f);
     v2 ButtonDim = V2Set1(Dim.X - Layout->Scale*3.0f);
+    
+    // TODO(kstandbridge): This shouldn't be done at the drawing stage.
     if(IsInRectangle(Rectangle2(ButtonP, V2Add(ButtonP, ButtonDim)), MouseP))
     {
         if(InteractionIsClicked(State, Element->Interaction))
@@ -328,6 +330,7 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     SliderP.Y += (1.0f - Calculated)*SliderRemaining;
     SliderDim.Y *= 0.75f;
     
+    // TODO(kstandbridge): This shouldn't be done at the drawing stage.
     if(IsInRectangle(Rectangle2(SliderP, V2Add(SliderP, SliderDim)), MouseP))
     {
         if(InteractionIsClicked(State, Element->Interaction))
@@ -349,6 +352,8 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     TextP.Y = Dim.Y - ArrowDim.Y - Layout->Padding;
     ButtonP = V2(P.X, Dim.Y - Dim.X + Layout->Padding);
     ButtonDim = V2Set1(Dim.X);
+    
+    // TODO(kstandbridge): This shouldn't be done at the drawing stage.
     if(IsInRectangle(Rectangle2(ButtonP, V2Add(ButtonP, ButtonDim)), MouseP))
     {
         if(InteractionIsClicked(State, Element->Interaction))
@@ -371,6 +376,7 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
     PushRect(RenderGroup, ButtonP, ButtonDim, ButtonBackColor, ButtonBackColor);
     WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, UpText, ButtonTextColor);
     
+    // TODO(kstandbridge): This shouldn't be done at the drawing stage.
     if(InteractionIsHot(State, Element->Interaction))
     {
         Text->Offset.Y -= LineAdvance*(Layout->MouseZ*0.05f);
@@ -820,6 +826,7 @@ EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
         }
         
         // NOTE(kstandbridge): Mouse buttons
+        // TODO(kstandbridge): Is mouse wheel an interaction?
         u32 TransitionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
         b32 MouseButton = Input->MouseButtons[MouseButton_Left].EndedDown;
         if(TransitionCount % 2)
@@ -914,44 +921,50 @@ EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
     
     
     
+    // NOTE(kstandbridge): Figure out the sizes ready for drawing
+    {    
+        v2 Dim = V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height);
+        ui_element *Element = &Layout->SentinalElement;
+        
+        s32 ChildCount = Element->ChildCount - Element->SetWidthChildCount;
+        v2 DimRemaining = V2(Dim.X - Element->UsedDim.X, Dim.Y);
+        
+        CalculateElementDims(Layout, Element->FirstChild, ChildCount, DimRemaining);
+    }
     
-    v2 Dim = V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height);
-    ui_element *Element = &Layout->SentinalElement;
     
-    s32 ChildCount = Element->ChildCount - Element->SetWidthChildCount;
-    v2 DimRemaining = V2(Dim.X - Element->UsedDim.X, Dim.Y);
-    
-    CalculateElementDims(Layout, Element->FirstChild, ChildCount, DimRemaining);
-    
-    ColArrayIndex = 0;
-    ColArray[0] = V4(0.0f, 0.0f, 1.0f, 1.0f);
-    ColArray[1] = V4(0.0f, 1.0f, 0.0f, 1.0f);
-    ColArray[2] = V4(0.0f, 1.0f, 1.0f, 1.0f);
-    ColArray[3] = V4(1.0f, 0.0f, 0.0f, 1.0f);
-    ColArray[4] = V4(1.0f, 0.0f, 1.0f, 1.0f);
-    ColArray[5] = V4(0.0f, 0.0f, 0.5f, 1.0f);
-    ColArray[6] = V4(0.0f, 0.5f, 0.0f, 1.0f);
-    ColArray[7] = V4(0.0f, 0.5f, 0.5f, 1.0f);
-    ColArray[8] = V4(0.5f, 0.0f, 0.0f, 1.0f);
-    ColArray[9] = V4(0.5f, 0.0f, 0.5f, 1.0f);
-    ColArray[10] = V4(0.0f, 0.0f, 0.3f, 1.0f);
-    ColArray[11] = V4(0.0f, 0.3f, 0.0f, 1.0f);
-    ColArray[12] = V4(0.0f, 0.3f, 0.3f, 1.0f);
-    ColArray[13] = V4(0.3f, 0.0f, 0.0f, 1.0f);
-    ColArray[14] = V4(0.3f, 0.0f, 0.3f, 1.0f);
-    ColArray[15] = V4(0.0f, 0.0f, 0.75f, 1.0f);
-    ColArray[16] = V4(0.0f, 0.75f, 0.0f, 1.0f);
-    ColArray[17] = V4(0.0f, 0.75f, 0.75f, 1.0f);
-    ColArray[18] = V4(0.75f, 0.0f, 0.0f, 1.0f);
-    ColArray[19] = V4(0.75f, 0.0f, 0.75f, 1.0f);
-    ColArray[20] = V4(0.0f, 0.0f, 0.25f, 1.0f);
-    ColArray[21] = V4(0.0f, 0.25f, 0.0f, 1.0f);
-    ColArray[22] = V4(0.0f, 0.25f, 0.25f, 1.0f);
-    ColArray[23] = V4(0.25f, 0.0f, 0.0f, 1.0f);
-    ColArray[24] = V4(0.25f, 0.0f, 0.25f, 1.0f);
-    
-    v2 P = V2((f32)Layout->DrawBuffer->Width, 0.0f);
-    DrawElements(State, Layout, Layout->SentinalElement.FirstChild, P);
+    // NOTE(kstandbridge): Draw all the elements
+    {    
+        ColArrayIndex = 0;
+        ColArray[0] = V4(0.0f, 0.0f, 1.0f, 1.0f);
+        ColArray[1] = V4(0.0f, 1.0f, 0.0f, 1.0f);
+        ColArray[2] = V4(0.0f, 1.0f, 1.0f, 1.0f);
+        ColArray[3] = V4(1.0f, 0.0f, 0.0f, 1.0f);
+        ColArray[4] = V4(1.0f, 0.0f, 1.0f, 1.0f);
+        ColArray[5] = V4(0.0f, 0.0f, 0.5f, 1.0f);
+        ColArray[6] = V4(0.0f, 0.5f, 0.0f, 1.0f);
+        ColArray[7] = V4(0.0f, 0.5f, 0.5f, 1.0f);
+        ColArray[8] = V4(0.5f, 0.0f, 0.0f, 1.0f);
+        ColArray[9] = V4(0.5f, 0.0f, 0.5f, 1.0f);
+        ColArray[10] = V4(0.0f, 0.0f, 0.3f, 1.0f);
+        ColArray[11] = V4(0.0f, 0.3f, 0.0f, 1.0f);
+        ColArray[12] = V4(0.0f, 0.3f, 0.3f, 1.0f);
+        ColArray[13] = V4(0.3f, 0.0f, 0.0f, 1.0f);
+        ColArray[14] = V4(0.3f, 0.0f, 0.3f, 1.0f);
+        ColArray[15] = V4(0.0f, 0.0f, 0.75f, 1.0f);
+        ColArray[16] = V4(0.0f, 0.75f, 0.0f, 1.0f);
+        ColArray[17] = V4(0.0f, 0.75f, 0.75f, 1.0f);
+        ColArray[18] = V4(0.75f, 0.0f, 0.0f, 1.0f);
+        ColArray[19] = V4(0.75f, 0.0f, 0.75f, 1.0f);
+        ColArray[20] = V4(0.0f, 0.0f, 0.25f, 1.0f);
+        ColArray[21] = V4(0.0f, 0.25f, 0.0f, 1.0f);
+        ColArray[22] = V4(0.0f, 0.25f, 0.25f, 1.0f);
+        ColArray[23] = V4(0.25f, 0.0f, 0.0f, 1.0f);
+        ColArray[24] = V4(0.25f, 0.0f, 0.25f, 1.0f);
+        
+        v2 P = V2((f32)Layout->DrawBuffer->Width, 0.0f);
+        DrawElements(State, Layout, Layout->SentinalElement.FirstChild, P);
+    }
     
 }
 

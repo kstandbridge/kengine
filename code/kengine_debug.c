@@ -42,6 +42,7 @@ DEBUGEnd()
     Work.ClipRect.MaxX = Work.Group->OutputTarget->Width;
     Work.ClipRect.MinY = 0;
     Work.ClipRect.MaxY = Work.Group->OutputTarget->Height;
+    // TODO(kstandbridge): This could be threaded
     TileRenderWorkThread(&Work);
     
     EndTemporaryMemory(DebugState->TempMem);
