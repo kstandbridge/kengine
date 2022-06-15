@@ -18,32 +18,32 @@ IF NOT EXIST data mkdir data
 IF NOT EXIST ..\build mkdir ..\build
 pushd ..\build
 
-del kengine_*.pdb > NUL 2> NUL
-
 if "%~1"=="build_dependencies" (
 	
 	del win32_*.pdb > NUL 2> NUL
 
 	REM Preprocessor
-	cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_preprocessor.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
+	cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\win32_kengine_preprocessor.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
 	if !ERRORLEVEL! neq 0 ( goto cleanup )
 	pushd ..\kengine\code
 	..\..\build\win32_kengine_preprocessor.exe > kengine_generated.h
 	popd
 
 	REM Unit tests
-	cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine_tests.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
+	cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\win32_kengine_tests.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
 	if !ERRORLEVEL! neq 0 ( goto cleanup )
 	win32_kengine_tests.exe
 
 	REM Win32 platform
-	cl %CommonCompilerFlags% -MTd ..\kengine\code\win32_kengine.c /link /NODEFAULTLIB /SUBSYSTEM:windows %CommonLinkerFlags% Gdi32.lib User32.lib Winmm.lib
+	cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\win32_kengine.c /link /NODEFAULTLIB /SUBSYSTEM:windows %CommonLinkerFlags% Gdi32.lib User32.lib Winmm.lib
 
 ) else (
 
+	del kengine_*.pdb > NUL 2> NUL
+
 	REM App
 	echo WAITING FOR PDB > lock.tmp
-	cl %CommonCompilerFlags% ..\kengine\code\kengine.c -LD /link %CommonLinkerFlags% Imm32.lib -PDB:kengine_%random%.pdb -EXPORT:AppUpdateAndRender User32.lib
+	cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\kengine.c -LD /link %CommonLinkerFlags% Imm32.lib -PDB:kengine_%random%.pdb -EXPORT:AppUpdateAndRender User32.lib
 	del lock.tmp
 
 	del /q *.exp

@@ -670,7 +670,7 @@ typedef enum text_op_type
     TextOp_SizeText,
 } text_op_type;
 internal rectangle2
-TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight, f32 Angle)
+TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight, f32 Angle, rectangle2 ClipRect)
 {
     // TODO(kstandbridge): RenderGroup can be null, bad design
     
@@ -725,32 +725,40 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                 if(Op == TextOp_DrawText)
                 {
                     Assert(RenderGroup);
-                    PushBitmap(RenderGroup, Bitmap, Height, Offset, TextColor, Angle);
+                    
+                    if(IsInRectangle(ClipRect, Offset))
+                    {
+                        PushBitmap(RenderGroup, Bitmap, Height, Offset, TextColor, Angle);
+                    }
                 }
                 else if(Op == TextOp_DrawSelectedText)
                 {
-                    
                     Assert(RenderGroup);
-                    if((Index >= SelectedStartIndex) &&
-                       (Index < SelectedEndIndex))
-                    {
-                        f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(CodePoint, PrevCodePoint);
-                        CaretDrawn = true;
-                        PushRect(RenderGroup, V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
-                        PushBitmap(RenderGroup, Bitmap, Height, Offset, SelectedTextColor, 0.0f);
-                    }
-                    else
-                    {
-                        PushBitmap(RenderGroup, Bitmap, Height, Offset, TextColor, 0.0f);
-                    }
-                    if(Index == SelectedStartIndex)
-                    {
-                        if(SelectedStartIndex == SelectedEndIndex)
+                    
+                    if(IsInRectangle(ClipRect, Offset))
+                    {                        
+                        if((Index >= SelectedStartIndex) &&
+                           (Index < SelectedEndIndex))
                         {
+                            f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(CodePoint, PrevCodePoint);
                             CaretDrawn = true;
-                            PushRect(RenderGroup, V2(AtX, AtY-SelectedHeight*0.2f), V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                            PushRect(RenderGroup, V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                            PushBitmap(RenderGroup, Bitmap, Height, Offset, SelectedTextColor, 0.0f);
+                        }
+                        else
+                        {
+                            PushBitmap(RenderGroup, Bitmap, Height, Offset, TextColor, 0.0f);
+                        }
+                        if(Index == SelectedStartIndex)
+                        {
+                            if(SelectedStartIndex == SelectedEndIndex)
+                            {
+                                CaretDrawn = true;
+                                PushRect(RenderGroup, V2(AtX, AtY-SelectedHeight*0.2f), V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                            }
                         }
                     }
+                    
                 }
                 else
                 {
@@ -774,21 +782,25 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                 {
                     // TODO(kstandbridge): Duplicated code
                     Assert(RenderGroup);
-                    if((Index >= SelectedStartIndex) &&
-                       (Index < SelectedEndIndex))
-                    {
-                        CaretDrawn = true;
-                        PushRect(RenderGroup, V2Subtract(V2(AtX, AtY), V2(Scale, SelectedHeight*0.2f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
-                    }
-                    
-                    if(Index == SelectedStartIndex)
-                    {
-                        if(SelectedStartIndex == SelectedEndIndex)
+                    v2 Offset = V2(AtX, AtY);
+                    if(IsInRectangle(ClipRect, Offset))
+                    {                        
+                        if((Index >= SelectedStartIndex) &&
+                           (Index < SelectedEndIndex))
                         {
-                            CaretDrawn = true;;
-                            v2 Offset = V2(AtX, AtY);
-                            v2 CaretP = V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f));
-                            PushRect(RenderGroup, CaretP, V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                            CaretDrawn = true;
+                            
+                            PushRect(RenderGroup, V2Subtract(V2(AtX, AtY), V2(Scale, SelectedHeight*0.2f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                        }
+                        
+                        if(Index == SelectedStartIndex)
+                        {
+                            if(SelectedStartIndex == SelectedEndIndex)
+                            {
+                                CaretDrawn = true;;
+                                v2 CaretP = V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f));
+                                PushRect(RenderGroup, CaretP, V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+                            }
                         }
                     }
                 }
@@ -803,8 +815,11 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
         if(!CaretDrawn)
         {
             v2 Offset = V2(AtX, AtY);
-            v2 CaretP = V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f));
-            PushRect(RenderGroup, CaretP, V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+            if(IsInRectangle(ClipRect, Offset))
+            {
+                v2 CaretP = V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f));
+                PushRect(RenderGroup, CaretP, V2(3.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor);
+            }
         }
     }
     
@@ -812,46 +827,27 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
 }
 
 inline void
-WriteSelectedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
+WriteSelectedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight, rectangle2 ClipRect)
 {
-    TextOpInternal(TextOp_DrawSelectedText, RenderGroup, Assets, P, Scale, Text, TextColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight, 0.0f);
+    TextOpInternal(TextOp_DrawSelectedText, RenderGroup, Assets, P, Scale, Text, TextColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight, 0.0f, ClipRect);
 }
 
 inline void
-WriteLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor)
+WriteLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor, rectangle2 ClipRect)
 {
-    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Text, TextColor, V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0, 0.0f);
+    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Text, TextColor, V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0, 0.0f, ClipRect);
 }
 
 inline void
-WriteRotatedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor, f32 Angle)
+WriteRotatedLine(render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Text, v4 TextColor, f32 Angle, rectangle2 ClipRect)
 {
-    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Text, TextColor, V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0, Angle);
+    TextOpInternal(TextOp_DrawText, RenderGroup, Assets, P, Scale, Text, TextColor, V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0, Angle, ClipRect);
 }
 
 inline rectangle2
 GetTextSize(assets *Assets, f32 Scale, string Text)
 {
-    rectangle2 Result = TextOpInternal(TextOp_SizeText, 0, Assets, V2Set1(0.0f), Scale, Text, V4Set1(0.0f),  V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0, 0.0f);
+    rectangle2 Result = TextOpInternal(TextOp_SizeText, 0, Assets, V2Set1(0.0f), Scale, Text, V4Set1(0.0f),  V4Set1(0.0f), V4Set1(0.0f), 0, 0, 0, 0.0f, InfinityRectangle2());
     
     return Result;
-}
-
-
-internal void
-DrawSelectedTextElementDep(render_group *RenderGroup, assets *Assets, v2 P, string Str, v2 TextOffset, v2 Dim, f32 Scale, v4 BorderColor, v4 TextColor, v4 BackgroundColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight)
-{
-    PushRect(RenderGroup, P, Dim, BackgroundColor, BackgroundColor);
-    
-    f32 Thickness = Scale*3.0f;
-    if(Thickness < 1.0f)
-    {
-        Thickness = 1.0f;
-    }
-    PushRectOutline(RenderGroup, P, Dim, BorderColor, BorderColor, Thickness);
-    
-    if(Str.Size > 0)
-    {
-        WriteSelectedLine(RenderGroup, Assets, V2Subtract(P, TextOffset), Scale, Str, TextColor, SelectedTextColor, SelectedBackgroundColor, SelectedStartIndex, SelectedEndIndex, SelectedHeight);
-    }
 }

@@ -177,6 +177,17 @@ InvertedInfinityRectangle2()
 }
 
 inline rectangle2
+InfinityRectangle2()
+{
+    rectangle2 Result;
+    
+    Result.Min.X = Result.Min.Y = -F32Max;
+    Result.Max.X = Result.Max.Y = F32Max;
+    
+    return Result;
+}
+
+inline rectangle2
 RectMinDim(v2 Min, v2 Dim)
 {
     rectangle2 Result;
@@ -186,7 +197,6 @@ RectMinDim(v2 Min, v2 Dim)
     
     return Result;
 }
-
 
 inline rectangle2
 Union(rectangle2 A, rectangle2 B)

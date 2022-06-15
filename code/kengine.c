@@ -84,137 +84,31 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     AppState->Time += Input->dtForFrame;
     
-#if 1
     loaded_bitmap DrawBufferInteral;
     loaded_bitmap *DrawBuffer = &DrawBufferInteral;
     DrawBuffer->Memory = Buffer->Memory;
     DrawBuffer->Width = Buffer->Width;
     DrawBuffer->Height = Buffer->Height;
     DrawBuffer->Pitch = Buffer->Pitch;
-#else
-    loaded_bitmap DrawBufferInteral;
-    loaded_bitmap *DrawBuffer = &DrawBufferInteral;
-    s32 Y = 320;
-    s32 X = 240;
-    DrawBuffer->Memory = (u8 *)Buffer->Memory + X*BITMAP_BYTES_PER_PIXEL + Y*Buffer->Pitch;
-    DrawBuffer->Width = 1024;
-    DrawBuffer->Height = 768;
-    DrawBuffer->Pitch = Buffer->Pitch;
-#endif
     
 #if KENGINE_INTERNAL
     DEBUGStart(DrawBuffer);
 #endif
     
-    // TODO(kstandbridge): We shouldn't have to clear the screen, this is wasted effort
-#if 1
-    {
-        temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
-        
-        render_group *RenderGroup = AllocateRenderGroup(TempMem.Arena, Megabytes(4), DrawBuffer);
-        
-        if(Memory->ExecutableReloaded)
-        {
-            PushClear(RenderGroup, V4(0.3f, 0.0f, 0.3f, 1.0f));
-        }
-        else
-        {
-            PushClear(RenderGroup, V4Set1(1.0f));
-        }
-        
-        
-#if 0
-        v2 P = V2(Buffer->Width*0.5f, Buffer->Height*0.5f);
-        f32 Angle = 0.1f*AppState->Time;
-        PushBitmap(RenderGroup, &AppState->TestBMP, (f32)AppState->TestBMP.Height, P, V4(1, 1, 1, 1), Angle);
-#endif
-        
-#if 0
-        v2 RectP = V2((f32)Buffer->Width / 2, (f32)Buffer->Height / 2);
-        // TODO(kstandbridge): push circle?
-        DrawCircle(DrawBuffer, RectP, V2Add(RectP, V2(50, 50)), V4(1, 1, 0, 1.0f), Rectangle2i(0, Buffer->Width, 0, Buffer->Height));
-#endif
-        
-        
-        tile_render_work Work;
-        ZeroStruct(Work);
-        Work.Group = RenderGroup;
-        Work.ClipRect.MinX = 0;
-        Work.ClipRect.MaxX = DrawBuffer->Width;
-        Work.ClipRect.MinY = 0;
-        Work.ClipRect.MaxY = DrawBuffer->Height;
-        TileRenderWorkThread(&Work);
-        EndTemporaryMemory(TempMem);
-    }
-#endif
-    
-    
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
     
-    ui_layout *Layout = BeginUIFrame(TempMem.Arena, &AppState->UiState, Input, &AppState->Assets, 0.2f, 4.0f, DrawBuffer);
+    ui_state *UiState = &AppState->UiState;
+    
+    ui_layout *Layout = BeginUIFrame(TempMem.Arena, UiState, Input, &AppState->Assets, 0.2f, 4.0f, DrawBuffer);
     
 #if 0
     BeginRow(Layout);
-    SetRowFill(Layout);
-    {    
-        Spacer(Layout);
-        SetControlWidth(Layout, 42.0f);
-        
-        
-        BeginRow(Layout);
-        {
-            SetRowFill(Layout);
-            Textbox(Layout, &AppState->LaunchParams);
-            
-            BeginRow(Layout);
-            SetRowWidth(Layout, Layout->DefaultRowHeight);
-            Button(&AppState->UiState, Layout, String("U"));
-            EndRow(Layout);
-            
-            BeginRow(Layout);
-            //SetRowWidth(Layout, Layout->DefaultRowHeight);
-            SetRowFill(Layout);
-            Spacer(Layout);
-            EndRow(Layout);
-            
-            BeginRow(Layout);
-            //SetRowWidth(Layout, Layout->DefaultRowHeight);
-            Button(&AppState->UiState, Layout, String("D"));
-            EndRow(Layout);
-            
-        }
-        EndRow(Layout);
-        
-    }
-    
-    EndRow(Layout);
-    
-    
-    BeginRow(Layout);
-    {
-        SetRowFill(Layout);
-        Textbox(Layout, &AppState->LaunchParams);
-        
-        BeginRow(Layout);
-        SetRowWidth(Layout, Layout->DefaultRowHeight);
-        Button(&AppState->UiState, Layout, String("U"));
-        EndRow(Layout);
-        
-        BeginRow(Layout);
-        SetRowFill(Layout);
-        Spacer(Layout);
-        EndRow(Layout);
-        
-        BeginRow(Layout);
-        Button(&AppState->UiState, Layout, String("D"));
-        EndRow(Layout);
-        
-    }
+    Button(UiState, Layout, String("Foobarbas"));
+    Button(UiState, Layout, String("Foo bar bas"));
+    Button(UiState, Layout, String("Foo bar bas"));
     EndRow(Layout);
     
 #else
-    
-    
     BeginRow(Layout);
     {
         Label(Layout, String("Show:"));
@@ -274,28 +168,28 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         BeginRow(Layout);
         {
             Label(Layout, String("Sync command"));
-            Button(&AppState->UiState, Layout, String("Copy"));
+            Button(UiState, Layout, String("Copy"));
             SetControlWidth(Layout, 24.0f);
         }
         EndRow(Layout);
         
         BeginRow(Layout);
         {
-            if(Button(&AppState->UiState, Layout, String("Run")))
+            if(Button(UiState, Layout, String("Run")))
             {
                 AppState->LaunchParams.Offset = V2Set1(0);
             }
-            Button(&AppState->UiState, Layout, String("Sync"));
-            Button(&AppState->UiState, Layout, String("Cancel"));
-            Button(&AppState->UiState, Layout, String("Clean"));
-            Button(&AppState->UiState, Layout, String("Open Folder"));
+            Button(UiState, Layout, String("Sync"));
+            Button(UiState, Layout, String("Cancel"));
+            Button(UiState, Layout, String("Clean"));
+            Button(UiState, Layout, String("Open Folder"));
         }
         EndRow(Layout);
         
         BeginRow(Layout);
         {
             Label(Layout, String("DownloadPath"));
-            Button(&AppState->UiState, Layout, String("Copy"));
+            Button(UiState, Layout, String("Copy"));
             SetControlWidth(Layout, 24.0f);
         }
         EndRow(Layout);
@@ -313,24 +207,21 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     BeginRow(Layout);
     {
-        Button(&AppState->UiState, Layout, String("Settings"));
-        Button(&AppState->UiState, Layout, String("Feedback"));
-        Button(&AppState->UiState, Layout, String("Delete 1 Expired Build"));
+        Button(UiState, Layout, String("Settings"));
+        Button(UiState, Layout, String("Feedback"));
+        Button(UiState, Layout, String("Delete 1 Expired Build"));
         Spacer(Layout);
-        Button(&AppState->UiState, Layout, String("Open Remote Config"));
-        Button(&AppState->UiState, Layout, String("Open Log"));
+        Button(UiState, Layout, String("Open Remote Config"));
+        Button(UiState, Layout, String("Open Log"));
     }
     EndRow(Layout);
-    
 #endif
     
-    EndUIFrame(&AppState->UiState, Layout, Input);
+    EndUIFrame(UiState, Layout, Input);
     
     EndTemporaryMemory(TempMem);
     
 #if KENGINE_INTERNAL
-    
-    
     DEBUGEnd();
 #endif
     

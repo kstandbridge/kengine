@@ -9,11 +9,17 @@ DEBUGGetState()
 }
 
 internal void
-DEBUGTextLine(string Text)
+DEBUGTextLine(char *Format, ...)
 {
     debug_state *DebugState = DEBUGGetState();
     
-    WriteLine(DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(0, 0, 0, 1));
+    va_list ArgsList;
+    
+    va_start(ArgsList, Format);
+    string Text = FormatStringInternal(&DebugState->Arena, Format, ArgsList);
+    va_end(ArgsList);
+    
+    WriteLine(DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(0, 0, 0, 1), InfinityRectangle2());
     
     DebugState->AtY += Platform.DEBUGGetLineAdvance()*DebugState->FontScale;
 }
@@ -35,15 +41,7 @@ DEBUGEnd()
 {
     debug_state *DebugState = DEBUGGetState();
     
-    tile_render_work Work;
-    ZeroStruct(Work);
-    Work.Group = DebugState->RenderGroup;
-    Work.ClipRect.MinX = 0;
-    Work.ClipRect.MaxX = Work.Group->OutputTarget->Width;
-    Work.ClipRect.MinY = 0;
-    Work.ClipRect.MaxY = Work.Group->OutputTarget->Height;
-    // TODO(kstandbridge): This could be threaded
-    TileRenderWorkThread(&Work);
+    RenderGroupToOutput(DebugState->RenderGroup);
     
     EndTemporaryMemory(DebugState->TempMem);
 }
