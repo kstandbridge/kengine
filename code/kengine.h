@@ -2,6 +2,7 @@
 
 /* TODO(kstandbridge): 
 
+- textbox instead of cropping text so short, draw text first then draw border after
 - DrawMultilineTextbox should only be drawing, any updates to the state need to be done in enduiframe. Perhaps split the textbox into seperate interactions, up/down buttons, scroll bars, is mousewheel an interaction?
 - add padding to all sides of view ports
 - draw text pass selectstart/end and color back/forground accordingly
@@ -80,7 +81,7 @@
 #include "kengine_math.h"
 #include "kengine_render_group.h"
 #include "kengine_assets.h"
-#include "kengine_ui.h"
+#include "kengine_interface.h"
 #include "kengine_debug.h"
 
 typedef enum fruit_type
@@ -103,7 +104,7 @@ typedef struct app_state
     //ui_state UiState;
     
     assets Assets;
-    ui_state UiState;
+    interface_state InterfaceState;
     
     f32 Time;
     

@@ -226,6 +226,29 @@ ToUppercase(char Char)
     return(Result);
 }
 
+inline void
+ToUpperCamelCase(string *Text)
+{
+    u32 ToSkip = 0;
+    Text->Data[0] = ToUppercase(Text->Data[0]);
+    for(u32 Index = 0;
+        Index < Text->Size;
+        ++Index)
+    {
+        if(Text->Data[Index + ToSkip] == '_')
+        {
+            Text->Data[Index + ToSkip + 1] = ToUppercase(Text->Data[Index + ToSkip + 1]);
+            ++ToSkip;
+        }
+        
+        if(ToSkip)
+        {
+            Text->Data[Index] = Text->Data[Index + ToSkip];
+        }
+    }
+    Text->Size -= ToSkip;
+}
+
 inline b32
 StringsAreEqual(string A, string B)
 {

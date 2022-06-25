@@ -227,6 +227,17 @@ RunV2Tests(memory_arena *Arena)
     }
 }
 
+inline void
+RunUpperCamelCaseTests(memory_arena *Arena)
+{
+    {
+        string Expected = String("UpperCamelCase");
+        string Actual = FormatString(Arena, "upper_camel_case");
+        ToUpperCamelCase(&Actual);
+        ASSERT(StringsAreEqual(Expected, Actual));
+    }
+}
+
 internal b32
 RunAllTests(memory_arena *Arena)
 {
@@ -238,6 +249,7 @@ RunAllTests(memory_arena *Arena)
     RunFormatStringStringTypeTests(Arena);
     RunFormatStringPercentTests(Arena);
     RunV2Tests(Arena);
+    RunUpperCamelCaseTests(Arena);
     
     b32 Result = (FailedTests == 0);
     return Result;

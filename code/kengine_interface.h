@@ -1,6 +1,6 @@
-#ifndef KENGINE_UI_H
+#ifndef KENGINE_INTERFACE_H
 
-typedef enum ui_interaction_type
+typedef enum interaction_type
 {
     Interaction_None,
     
@@ -11,12 +11,12 @@ typedef enum ui_interaction_type
     Interaction_EditableMultilineText,
     Interaction_ImmediateButton
         
-} ui_interaction_type;
+} interaction_type;
 
-typedef struct ui_interaction
+typedef struct interaction
 {
-    u32 ID;
-    ui_interaction_type Type;
+    interface_id ID;
+    interaction_type Type;
     
     union
     {
@@ -24,9 +24,9 @@ typedef struct ui_interaction
         b32 *Bool;
         editable_string *Text;
     };
-} ui_interaction;
+} interaction;
 
-typedef enum ui_element_type
+typedef enum element_type
 {
     Element_Row,
     Element_Spacer,
@@ -36,13 +36,12 @@ typedef enum ui_element_type
     Element_MultilineTextbox,
     Element_Button,
     
-} ui_element_type;
+} element_type;
 
-typedef struct ui_element
+typedef struct element
 {
-    u32 Id;
-    ui_element_type Type;
-    ui_interaction Interaction;
+    element_type Type;
+    interaction Interaction;
     
     string Text;
     rectangle2 TextBounds;
@@ -53,13 +52,13 @@ typedef struct ui_element
     s32 ChildCount;
     s32 SetWidthChildCount;
     
-    struct ui_element *FirstChild;
-    struct ui_element *Parent;
+    struct element *FirstChild;
+    struct element *Parent;
     
-    struct ui_element *Next;
-} ui_element;
+    struct element *Next;
+} element;
 
-typedef struct ui_layout
+typedef struct layout
 {
     memory_arena *Arena;
     assets *Assets;
@@ -70,8 +69,8 @@ typedef struct ui_layout
     loaded_bitmap *DrawBuffer;
     
     s32 ChildCount;
-    ui_element SentinalElement;
-    ui_element *CurrentElement;
+    element SentinalElement;
+    element *CurrentElement;
     
     u32 CurrentId;
     v2 MouseP;
@@ -80,31 +79,40 @@ typedef struct ui_layout
     
     f32 DeltaTime;
     
-} ui_layout;
+} layout;
 
-typedef struct ui_state
+typedef struct interface_state
 {
     assets *Assets;
     
     v2 LastMouseP;
     
-    ui_interaction Interaction;
+    interaction Interaction;
     
-    ui_interaction HotInteraction;
-    ui_interaction NextHotInteraction;
+    interaction HotInteraction;
+    interaction NextHotInteraction;
     
-    ui_interaction ToExecute;
-    ui_interaction NextToExecute;
+    interaction ToExecute;
+    interaction NextToExecute;
     
-    ui_interaction SelectedInteraction;
-    ui_interaction ClickedInteraction;
+    interface_id SelectedID;
     
-} ui_state;
+    interaction ClickedInteraction;
+    
+} interface_state;
 
 inline b32
-InteractionsAreEqual(ui_interaction A, ui_interaction B)
+InterfaceIdsAreEqual(interface_id A, interface_id B)
 {
-    b32 Result = ((A.ID == B.ID) &&
+    b32 Result = (A.ID == B.ID);
+    
+    return Result;
+}
+
+inline b32
+InteractionsAreEqual(interaction A, interaction B)
+{
+    b32 Result = (InterfaceIdsAreEqual(A.ID, B.ID) &&
                   (A.Type == B.Type) &&
                   (A.Generic == B.Generic));
     
@@ -112,7 +120,7 @@ InteractionsAreEqual(ui_interaction A, ui_interaction B)
 }
 
 inline b32
-InteractionIsToExecute(ui_state *State, ui_interaction A)
+InteractionIsToExecute(interface_state *State, interaction A)
 {
     b32 Result = InteractionsAreEqual(State->ToExecute, A);
     
@@ -125,7 +133,7 @@ InteractionIsToExecute(ui_state *State, ui_interaction A)
 }
 
 inline b32
-InteractionIsNextToExecute(ui_state *State, ui_interaction A)
+InteractionIsNextToExecute(interface_state *State, interaction A)
 {
     b32 Result = InteractionsAreEqual(State->NextToExecute, A);
     
@@ -138,7 +146,7 @@ InteractionIsNextToExecute(ui_state *State, ui_interaction A)
 }
 
 inline b32
-InteractionIsHot(ui_state *State, ui_interaction A)
+InteractionIsHot(interface_state *State, interaction A)
 {
     b32 Result = InteractionsAreEqual(State->HotInteraction, A);
     
@@ -151,20 +159,7 @@ InteractionIsHot(ui_state *State, ui_interaction A)
 }
 
 inline b32
-InteractionIsSelected(ui_state *State, ui_interaction A)
-{
-    b32 Result = InteractionsAreEqual(State->SelectedInteraction, A);
-    
-    if(A.Type == Interaction_None)
-    {
-        Result = false;
-    }
-    
-    return Result;
-}
-
-inline b32
-InteractionIsClicked(ui_state *State, ui_interaction A)
+InteractionIsClicked(interface_state *State, interaction A)
 {
     b32 Result = InteractionsAreEqual(State->ClickedInteraction, A);
     
@@ -177,7 +172,7 @@ InteractionIsClicked(ui_state *State, ui_interaction A)
 }
 
 inline void
-ClearInteraction(ui_interaction *Interaction)
+ClearInteraction(interaction *Interaction)
 {
     Interaction->Type = Interaction_None;
     Interaction->Generic = 0;
@@ -301,5 +296,5 @@ SetColors()
     
 }
 
-#define KENGINE_UI_H
-#endif //KENGINE_UI_H
+#define KENGINE_INTERFACE_H
+#endif //KENGINE_INTERFACE_H

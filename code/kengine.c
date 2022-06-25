@@ -10,7 +10,7 @@ global app_memory *GlobalDebugMemory;
 #endif
 
 #include "kengine_render_group.c"
-#include "kengine_ui.c"
+#include "kengine_interface.c"
 #include "kengine_assets.c"
 #include "kengine_debug.c"
 
@@ -97,127 +97,129 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
     
-    ui_state *UiState = &AppState->UiState;
+    interface_state *InterfaceState = &AppState->InterfaceState;
     
-    ui_layout *Layout = BeginUIFrame(TempMem.Arena, UiState, Input, &AppState->Assets, 0.2f, 4.0f, DrawBuffer);
+    layout Layout = BeginUIFrame(TempMem.Arena, InterfaceState, Input, &AppState->Assets, 0.2f, 4.0f, DrawBuffer);
+    // TODO(kstandbridge): should be able to hide this somewhere
+    Layout.CurrentElement = &Layout.SentinalElement;
     
 #if 0
-    BeginRow(Layout);
-    Button(UiState, Layout, String("Foobarbas"));
-    Button(UiState, Layout, String("Foo bar bas"));
-    Button(UiState, Layout, String("Foo bar bas"));
-    EndRow(Layout);
+    BeginRow(&Layout);
+    Button(InterfaceState, &Layout, String("Foobarbas"));
+    Button(InterfaceState, &Layout, String("Foo bar bas"));
+    Button(InterfaceState, &Layout, String("Foo bar bas"));
+    EndRow(&Layout);
     
 #else
-    BeginRow(Layout);
+    BeginRow(&Layout);
     {
-        Label(Layout, String("Show:"));
-        SetControlWidth(Layout, 64.0f);
-        Checkbox(Layout, String("Empty Worlds"), &AppState->ShowEmptyWorlds); // Editable bool
-        SetControlWidth(Layout, 158.0f);
-        Checkbox(Layout, String("Local"), &AppState->ShowLocalWorlds); // Editable bool
-        SetControlWidth(Layout, 80.0f);
-        Checkbox(Layout, String("Available"), &AppState->ShowAvailableWorlds); // Editable bool
-        SetControlWidth(Layout, 104.0f);
-        Spacer(Layout);
-        Label(Layout, String("Filter:"));
-        SetControlWidth(Layout, 48.0f);
-        Textbox(Layout, &AppState->FilterText);
-        SetControlWidth(Layout, 256.0f);
+        Label(&Layout, String("Show:"));
+        SetControlWidth(&Layout, 64.0f);
+        Checkbox(&Layout, String("Empty Worlds"), &AppState->ShowEmptyWorlds); // Editable bool
+        SetControlWidth(&Layout, 158.0f);
+        Checkbox(&Layout, String("Local"), &AppState->ShowLocalWorlds); // Editable bool
+        SetControlWidth(&Layout, 80.0f);
+        Checkbox(&Layout, String("Available"), &AppState->ShowAvailableWorlds); // Editable bool
+        SetControlWidth(&Layout, 104.0f);
+        Spacer(&Layout);
+        Label(&Layout, String("Filter:"));
+        SetControlWidth(&Layout, 48.0f);
+        Textbox(&Layout, &AppState->FilterText);
+        SetControlWidth(&Layout, 256.0f);
     }
-    EndRow(Layout);
+    EndRow(&Layout);
     
-    BeginRow(Layout);
+    BeginRow(&Layout);
     {
-        //SetRowFill(Layout);
+        //SetRowFill(&Layout);
         // NOTE(kstandbridge): Listview Worlds
-        Spacer(Layout);
+        Spacer(&Layout);
     }
-    EndRow(Layout);
+    EndRow(&Layout);
     
-    BeginRow(Layout);
+    BeginRow(&Layout);
     {
-        SetRowFill(Layout);
+        SetRowFill(&Layout);
         
-        BeginRow(Layout);
+        BeginRow(&Layout);
         {
-            SetRowFill(Layout);
+            SetRowFill(&Layout);
             // NOTE(kstandbridge): Listview Builds
-            Spacer(Layout);
+            Spacer(&Layout);
         }
-        EndRow(Layout);
+        EndRow(&Layout);
         
-        Splitter(Layout, &UserSettings->BuildRunSplitSize);
-        SetControlWidth(Layout, 12.0f + Layout->Padding*2.0f);
+        Splitter(&Layout, &UserSettings->BuildRunSplitSize);
+        SetControlWidth(&Layout, 12.0f + Layout.Padding*2.0f);
         
-        BeginRow(Layout);
-        Checkbox(Layout, String("Edit run params"), &AppState->EditRunParams);
-        EndRow(Layout);
+        BeginRow(&Layout);
+        Checkbox(&Layout, String("Edit run params"), &AppState->EditRunParams);
+        EndRow(&Layout);
         
-        BeginRow(Layout);
-        DropDown(Layout, "default");
-        EndRow(Layout);
+        BeginRow(&Layout);
+        DropDown(&Layout, "default");
+        EndRow(&Layout);
         
-        BeginRow(Layout);
+        BeginRow(&Layout);
         {
-            SetRowFill(Layout);
-            MultilineTextbox(Layout, &AppState->LaunchParams);
+            SetRowFill(&Layout);
+            MultilineTextbox(&Layout, &AppState->LaunchParams);
         }
-        EndRow(Layout);
+        EndRow(&Layout);
         
-        BeginRow(Layout);
+        BeginRow(&Layout);
         {
-            Label(Layout, String("Sync command"));
-            Button(UiState, Layout, String("Copy"));
-            SetControlWidth(Layout, 24.0f);
+            Label(&Layout, String("Sync command"));
+            Button(InterfaceState, &Layout, String("Copy"));
+            SetControlWidth(&Layout, 24.0f);
         }
-        EndRow(Layout);
+        EndRow(&Layout);
         
-        BeginRow(Layout);
+        BeginRow(&Layout);
         {
-            if(Button(UiState, Layout, String("Run")))
+            if(Button(InterfaceState, &Layout, String("Run")))
             {
                 AppState->LaunchParams.Offset = V2Set1(0);
             }
-            Button(UiState, Layout, String("Sync"));
-            Button(UiState, Layout, String("Cancel"));
-            Button(UiState, Layout, String("Clean"));
-            Button(UiState, Layout, String("Open Folder"));
+            Button(InterfaceState, &Layout, String("Sync"));
+            Button(InterfaceState, &Layout, String("Cancel"));
+            Button(InterfaceState, &Layout, String("Clean"));
+            Button(InterfaceState, &Layout, String("Open Folder"));
         }
-        EndRow(Layout);
+        EndRow(&Layout);
         
-        BeginRow(Layout);
+        BeginRow(&Layout);
         {
-            Label(Layout, String("DownloadPath"));
-            Button(UiState, Layout, String("Copy"));
-            SetControlWidth(Layout, 24.0f);
+            Label(&Layout, String("DownloadPath"));
+            Button(InterfaceState, &Layout, String("Copy"));
+            SetControlWidth(&Layout, 24.0f);
         }
-        EndRow(Layout);
+        EndRow(&Layout);
         
     }
-    EndRow(Layout);
+    EndRow(&Layout);
     
     
-    BeginRow(Layout);
+    BeginRow(&Layout);
     {
         // NOTE(kstandbridge): List of logs?
-        Spacer(Layout);
+        Spacer(&Layout);
     }
-    EndRow(Layout);
+    EndRow(&Layout);
     
-    BeginRow(Layout);
+    BeginRow(&Layout);
     {
-        Button(UiState, Layout, String("Settings"));
-        Button(UiState, Layout, String("Feedback"));
-        Button(UiState, Layout, String("Delete 1 Expired Build"));
-        Spacer(Layout);
-        Button(UiState, Layout, String("Open Remote Config"));
-        Button(UiState, Layout, String("Open Log"));
+        Button(InterfaceState, &Layout, String("Settings"));
+        Button(InterfaceState, &Layout, String("Feedback"));
+        Button(InterfaceState, &Layout, String("Delete 1 Expired Build"));
+        Spacer(&Layout);
+        Button(InterfaceState, &Layout, String("Open Remote Config"));
+        Button(InterfaceState, &Layout, String("Open Log"));
     }
-    EndRow(Layout);
+    EndRow(&Layout);
 #endif
     
-    EndUIFrame(UiState, Layout, Input);
+    EndUIFrame(InterfaceState, &Layout, Input);
     
     EndTemporaryMemory(TempMem);
     

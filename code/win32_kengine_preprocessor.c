@@ -343,8 +343,8 @@ ParseIntrospectable(c_tokenizer *Tokenizer)
             Assert(StringsAreEqual(String("struct"), Token.Str));
             Token = GetNextCTokenInternal(Tokenizer);
             StructName = Token.Str;
-            // TODO(kstandbridge): UpperCamelCase function?
             string UpperCamelStruct = PushStringInternal(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+            ToUpperCamelCase(&UpperCamelStruct);
             UpperCamelStruct.Data[0] = ToUppercase(UpperCamelStruct.Data[0]);
             if(RequireCToken(Tokenizer, CToken_OpenBrace))
             {

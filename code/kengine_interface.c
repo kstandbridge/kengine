@@ -1,6 +1,6 @@
 
 inline void
-SetRowWidth(ui_layout *Layout, f32 Width)
+SetRowWidth(layout *Layout, f32 Width)
 {
     Layout->CurrentElement->Parent->SetWidthChildCount = 1;
     Layout->CurrentElement->Parent->UsedDim.X = Width;
@@ -8,9 +8,9 @@ SetRowWidth(ui_layout *Layout, f32 Width)
 }
 
 inline void
-BeginRow(ui_layout *Layout)
+BeginRow(layout *Layout)
 {
-    ui_element *Element = PushStruct(Layout->Arena, ui_element);
+    element *Element = PushStruct(Layout->Arena, element);
     ZeroStruct(*Element);
     Element->UsedDim.Y = Layout->DefaultRowHeight + Layout->Padding*2.0f;
     if((Layout->CurrentElement->FirstChild == 0) || 
@@ -36,16 +36,16 @@ BeginRow(ui_layout *Layout)
 }
 
 inline void
-EndRow(ui_layout *Layout)
+EndRow(layout *Layout)
 {
     Layout->CurrentElement = Layout->CurrentElement->Parent;
     
 }
 
-inline ui_element *
-PushElement(ui_layout *Layout)
+inline element *
+PushElement(layout *Layout)
 {
-    ui_element *Result = PushStruct(Layout->Arena, ui_element);
+    element *Result = PushStruct(Layout->Arena, element);
     ZeroStruct(*Result);
     Result->Next = Layout->CurrentElement->FirstChild;
     Layout->CurrentElement->FirstChild = Result;
@@ -56,98 +56,97 @@ PushElement(ui_layout *Layout)
 }
 
 inline void
-Spacer(ui_layout *Layout)
+Spacer(layout *Layout)
 {
-    ui_element *Element = PushElement(Layout);
+    element *Element = PushElement(Layout);
     Element->Type = Element_Spacer;
 }
 
 inline void
-Label(ui_layout *Layout, string Text)
+Label(layout *Layout, string Text)
 {
-    ui_element *Element = PushElement(Layout);
+    element *Element = PushElement(Layout);
     Element->Type = Element_Label;
     Element->Text = Text;
 }
 
 inline void
-Checkbox(ui_layout *Layout, string Text, b32 *Target)
+Checkbox(layout *Layout, string Text, b32 *Target)
 {
-    ui_element *Element = PushElement(Layout);
+    element *Element = PushElement(Layout);
     Element->Type = Element_Checkbox;
     Element->Text = Text;
     
     ZeroStruct(Element->Interaction);
-    Element->Interaction.ID = ++Layout->CurrentId;
+    Element->Interaction.ID = InterfaceId(++Layout->CurrentId);
     Element->Interaction.Type = Interaction_EditableBool;
     Element->Interaction.Generic = Target;
 }
 
 inline void
-Textbox(ui_layout *Layout, editable_string *Target)
+Textbox(layout *Layout, editable_string *Target)
 {
-    ui_element *Element = PushElement(Layout);
+    element *Element = PushElement(Layout);
     Element->Type = Element_Textbox;
     Element->Text = StringInternal(Target->Length, Target->Data);;
     
     ZeroStruct(Element->Interaction);
-    Element->Interaction.ID = ++Layout->CurrentId;
+    Element->Interaction.ID = InterfaceId(++Layout->CurrentId);
     Element->Interaction.Type = Interaction_EditableText;
     Element->Interaction.Generic = Target;
 }
 
 inline void
-MultilineTextbox(ui_layout *Layout, editable_string *Target)
+MultilineTextbox(layout *Layout, editable_string *Target)
 {
-    ui_element *Element = PushElement(Layout);
+    element *Element = PushElement(Layout);
     Element->Type = Element_MultilineTextbox;
     Element->Text = StringInternal(Target->Length, Target->Data);;
     
     ZeroStruct(Element->Interaction);
-    Element->Interaction.ID = ++Layout->CurrentId;
+    Element->Interaction.ID = InterfaceId(++Layout->CurrentId);
     Element->Interaction.Type = Interaction_EditableMultilineText;
     Element->Interaction.Generic = Target;
 }
 
 inline b32
-Button(ui_state *State, ui_layout *Layout, string Text)
+Button(interface_state *State, layout *Layout, string Text)
 {
-    ui_element *Element = PushElement(Layout);
+    element *Element = PushElement(Layout);
     Element->Type = Element_Button;
     Element->Text = Text;
     
     ZeroStruct(Element->Interaction);
-    Element->Interaction.ID = ++Layout->CurrentId;
+    Element->Interaction.ID = InterfaceId(++Layout->CurrentId);
     Element->Interaction.Type = Interaction_ImmediateButton;
     
     b32 Result = InteractionsAreEqual(Element->Interaction, State->ToExecute);
     return Result;
 }
 
-internal ui_layout *
-BeginUIFrame(memory_arena *Arena, ui_state *State, app_input *Input, assets *Assets, f32 Scale, f32 Padding, loaded_bitmap *DrawBuffer)
+inline layout
+BeginUIFrame(memory_arena *Arena, interface_state *State, app_input *Input, assets *Assets, f32 Scale, f32 Padding, loaded_bitmap *DrawBuffer)
 {
-    ui_layout *Result = PushStruct(Arena, ui_layout);
-    ZeroStruct(*Result);
+    layout Result;
+    ZeroStruct(Result);
     
-    Result->Arena = Arena;
-    Result->Assets = Assets;
-    Result->Scale = Scale;
-    Result->Padding = Padding;
-    Result->DefaultRowHeight = Platform.DEBUGGetLineAdvance()*Result->Scale;
+    Result.Arena = Arena;
+    Result.Assets = Assets;
+    Result.Scale = Scale;
+    Result.Padding = Padding;
+    Result.DefaultRowHeight = Platform.DEBUGGetLineAdvance()*Result.Scale;
     
-    Result->DrawBuffer = DrawBuffer;
+    Result.DrawBuffer = DrawBuffer;
     
-    Result->SentinalElement.Dim = V2((f32)DrawBuffer->Width, (f32)DrawBuffer->Height);
-    Result->CurrentElement = &Result->SentinalElement;
+    Result.SentinalElement.Dim = V2((f32)DrawBuffer->Width, (f32)DrawBuffer->Height);
     
-    Result->CurrentId = 0;
+    Result.CurrentId = 0;
     
     
-    Result->MouseP = V2(Input->MouseX, Input->MouseY);
-    Result->dMouseP = V2Subtract(Result->MouseP, State->LastMouseP);
-    Result->MouseZ = Input->MouseZ;
-    Result->DeltaTime = Input->dtForFrame;
+    Result.MouseP = V2(Input->MouseX, Input->MouseY);
+    Result.dMouseP = V2Subtract(Result.MouseP, State->LastMouseP);
+    Result.MouseZ = Input->MouseZ;
+    Result.DeltaTime = Input->dtForFrame;
     
     State->ToExecute = State->NextToExecute;
     ClearInteraction(&State->NextToExecute);
@@ -160,14 +159,14 @@ global s32 ColArrayIndex;
 global v4 ColArray[25];
 
 inline void
-DrawSpacer(ui_layout *Layout, render_group *RenderGroup, ui_element *Element, v2 Offset)
+DrawSpacer(layout *Layout, render_group *RenderGroup, element *Element, v2 Offset)
 {
     PushRect(RenderGroup, V2Add(Offset, V2Set1(Layout->Padding)), V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), ColArray[ColArrayIndex], ColArray[ColArrayIndex]);
     ColArrayIndex = (ColArrayIndex + 1) % ArrayCount(ColArray);
 }
 
 inline void
-DrawLabel(ui_layout *Layout, render_group *RenderGroup, ui_element *Element, v2 Offset)
+DrawLabel(layout *Layout, render_group *RenderGroup, element *Element, v2 Offset)
 {
     v2 TextP = V2(Layout->Padding, Layout->Padding + Element->TextBounds.Max.Y*0.5f);
     TextP = V2Add(TextP, Offset);
@@ -175,7 +174,7 @@ DrawLabel(ui_layout *Layout, render_group *RenderGroup, ui_element *Element, v2 
 }
 
 inline void
-DrawCheckbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_element *Element, v2 Offset)
+DrawCheckbox(interface_state *State, layout *Layout, render_group *RenderGroup, element *Element, v2 Offset)
 {
     v2 CheckboxP = V2(Layout->Padding, Layout->Padding*2.0f);
     CheckboxP = V2Add(CheckboxP, Offset);
@@ -210,7 +209,7 @@ DrawCheckbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_e
     
     v2 TextP = V2(CheckboxP.X + CheckboxDim.X + Layout->Padding, Offset.Y + Layout->Padding + Element->TextBounds.Max.Y*0.5f);
     
-    if(InteractionIsSelected(State, Element->Interaction))
+    if(InterfaceIdsAreEqual(State->SelectedID, Element->Interaction.ID))
     {
         v2 OutlineP = V2Subtract(TextP, V2(Layout->Padding*0.5f, Layout->Padding*1.5f));
         v2 OutlineDim = V2Add(Element->TextBounds.Max, V2(Layout->Padding*1.5f, Layout->Padding*3.0f));
@@ -222,13 +221,13 @@ DrawCheckbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_e
 }
 
 inline void
-DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_element *Element, v2 TextOffset, v2 Offset)
+DrawTextbox(interface_state *State, layout *Layout, render_group *RenderGroup, element *Element, v2 TextOffset, v2 Offset)
 {
     PushRect(RenderGroup, V2Add(Offset, V2Set1(Layout->Padding)), V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
              Colors.TextboxBackground, Colors.TextboxBackground);
     
     v4 TextboxBorderColor = Colors.TextboxBorder;
-    if(InteractionIsSelected(State, Element->Interaction))
+    if(InterfaceIdsAreEqual(State->SelectedID, Element->Interaction.ID))
     {
         TextboxBorderColor = Colors.TextboxSelectedBorder;
     }
@@ -241,7 +240,7 @@ DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_el
     v2 TextClipMax = V2Add(TextClipMin, V2Subtract(Element->Dim, V2Set1(Layout->Padding*7.0f)));
     rectangle2 TextClip = Rectangle2(TextClipMin, TextClipMax); 
     
-    if(InteractionIsSelected(State, Element->Interaction))
+    if(InterfaceIdsAreEqual(State->SelectedID, Element->Interaction.ID))
     {
         editable_string *Text = Element->Interaction.Text;
         s32 SelectionStart;
@@ -272,7 +271,7 @@ DrawTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_el
 }
 
 inline void
-DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_element *Element, v2 Offset)
+DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *RenderGroup, element *Element, v2 Offset)
 {
     editable_string *Text = Element->Interaction.Text;
     DrawTextbox(State, Layout, RenderGroup, Element, Text->Offset, Offset);
@@ -397,7 +396,7 @@ DrawMultilineTextbox(ui_state *State, ui_layout *Layout, render_group *RenderGro
 }
 
 inline void
-DrawButton(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_element *Element, v2 Offset)
+DrawButton(interface_state *State, layout *Layout, render_group *RenderGroup, element *Element, v2 Offset)
 {
     v4 BackgroundColor = Colors.ButtonBackground;
     v4 BorderColor = Colors.ButtonBorder;
@@ -412,7 +411,7 @@ DrawButton(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_ele
         BackgroundColor = Colors.ButtonHotBackground;
         BorderColor = Colors.ButtonHotBorder;
     }
-    else if(InteractionIsSelected(State, Element->Interaction))
+    else if(InterfaceIdsAreEqual(State->SelectedID, Element->Interaction.ID))
     {
         BackgroundColor = Colors.ButtonSelectedBackground;
         BorderColor = Colors.ButtonSelectedBorder;
@@ -422,7 +421,7 @@ DrawButton(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_ele
     PushRect(RenderGroup, PaddedOffset, V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
              BackgroundColor, BackgroundColor);
     
-    if(!InteractionIsSelected(State, Element->Interaction))
+    if(!InterfaceIdsAreEqual(State->SelectedID, Element->Interaction.ID))
     {
         PushRectOutline(RenderGroup, PaddedOffset, V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
                         BorderColor, BorderColor, Layout->Scale);
@@ -451,9 +450,9 @@ DrawButton(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_ele
 }
 
 internal void
-DrawElements(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_element *FirstChild, v2 P)
+DrawElements(interface_state *State, layout *Layout, render_group *RenderGroup, element *FirstChild, v2 P)
 {
-    for(ui_element *Element = FirstChild;
+    for(element *Element = FirstChild;
         Element;
         Element = Element->Next)
     {
@@ -532,12 +531,12 @@ DrawElements(ui_state *State, ui_layout *Layout, render_group *RenderGroup, ui_e
 }
 
 internal void
-CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, v2 Dim)
+CalculateElementDims(layout *Layout, element *FirstChild, s32 ChildCount, v2 Dim)
 {
     b32 RowStart = false;
     v2 SubDim = Dim;
     
-    for(ui_element *Element = FirstChild;
+    for(element *Element = FirstChild;
         Element;
         Element = Element->Next)
     {
@@ -564,7 +563,7 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
         {
             if(!RowStart)
             {
-                ui_element *FirstRow = Element;
+                element *FirstRow = Element;
                 s32 RowCount = 0;
                 s32 FullRowCount = 0;
                 f32 UsedHeight = 0.0f;
@@ -608,305 +607,317 @@ CalculateElementDims(ui_layout *Layout, ui_element *FirstChild, s32 ChildCount, 
 }
 
 internal void
-EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
+Interact(interface_state *State, layout *Layout, app_input *Input)
 {
-    
-    // NOTE(kstandbridge): Handling interactions
-    {    
-        // NOTE(kstandbridge): Input text
-        ui_interaction SelectedInteraction = State->SelectedInteraction;
-        if(Input->Text[0] != '\0')
+    // NOTE(kstandbridge): Input text
+    // TODO(kstandbridge): Input text
+#if 0    
+    interaction SelectedInteraction = State->SelectedInteraction;
+    if(Input->Text[0] != '\0')
+    {
+        if((SelectedInteraction.Type == Interaction_EditableText) ||
+           (SelectedInteraction.Type == Interaction_EditableMultilineText))
         {
-            if((SelectedInteraction.Type == Interaction_EditableText) ||
-               (SelectedInteraction.Type == Interaction_EditableMultilineText))
-            {
-                editable_string *Text = SelectedInteraction.Text;
-                
-                char *At = Input->Text;
-                while(*At != '\0')
-                {
-                    if(Text->Length < Text->Size)
-                    {
-                        ++Text->Length;
-                        umm Index = Text->Length;
-                        while(Index > Text->SelectionStart)
-                        {
-                            Text->Data[Index] = Text->Data[Index - 1];
-                            --Index;
-                        }
-                        Text->Data[Text->SelectionStart++] = *At;
-                        Text->SelectionEnd = Text->SelectionStart;
-                    }
-                    ++At;
-                }
-            }
-        }
-        
-        // NOTE(kstandbridge): Keyboard buttons
-        for(keyboard_button_type Type = 0;
-            Type != KeyboardButton_Count;
-            ++Type)
-        {
-            u32 TransitionCount = Input->KeyboardButtons[Type].HalfTransitionCount;
-            b32 KeyboardButton = Input->KeyboardButtons[Type].EndedDown;
-            if(TransitionCount % 2)
-            {
-                KeyboardButton = !KeyboardButton;
-            }
+            editable_string *Text = SelectedInteraction.Text;
             
-            for(u32 TransitionIndex = 0;
-                TransitionIndex <= TransitionCount;
-                ++TransitionIndex)
+            char *At = Input->Text;
+            while(*At != '\0')
             {
-                b32 KeyboardDown = false;
-                b32 KeyboardUp = false;
-                if(TransitionIndex != 0)
+                if(Text->Length < Text->Size)
                 {
-                    KeyboardDown = KeyboardButton;
-                    KeyboardUp = !KeyboardButton;
-                }
-                
-                if(KeyboardDown)
-                {
-                    if((SelectedInteraction.Type == Interaction_EditableText) ||
-                       (SelectedInteraction.Type == Interaction_EditableMultilineText))
+                    ++Text->Length;
+                    umm Index = Text->Length;
+                    while(Index > Text->SelectionStart)
                     {
-                        editable_string *Text = SelectedInteraction.Text;
-                        switch(Type)
-                        {
-                            case KeyboardButton_Delete:
-                            {
-                                if(Text->SelectionStart < Text->Length)
-                                {
-                                    Text->SelectionStart++;
-                                    Text->SelectionEnd = Text->SelectionStart;
-                                }
-                                else
-                                {
-                                    break;
-                                }
-                            } // NOTE(kstandbridge): No break intentional
-                            case KeyboardButton_Backspace:
-                            {
-                                if(Text->Length > 0)
-                                {
-                                    umm StartMoveIndex = Text->SelectionStart--;
-                                    while(StartMoveIndex < Text->Length)
-                                    {
-                                        Text->Data[StartMoveIndex - 1] = Text->Data[StartMoveIndex++];
-                                    }
-                                    Text->Data[--Text->Length] = '\0';
-                                    Text->SelectionEnd = Text->SelectionStart;
-                                }
-                            } break;
-                            case KeyboardButton_Right:
-                            {
-                                if(Text->SelectionStart < Text->Length)
-                                {
-                                    ++Text->SelectionStart;
-                                }
-                                if(!Input->ShiftDown)
-                                {
-                                    Text->SelectionEnd = Text->SelectionStart;
-                                }
-                            } break;
-                            case KeyboardButton_Left:
-                            {
-                                if(Text->SelectionStart > 0)
-                                {
-                                    --Text->SelectionStart;
-                                }
-                                if(!Input->ShiftDown)
-                                {
-                                    Text->SelectionEnd = Text->SelectionStart;
-                                }
-                            } break;
-                            
-                            case KeyboardButton_Home:
-                            {
-                                if(Input->ControlDown)
-                                {
-                                    Text->SelectionStart = 0;
-                                    Text->SelectionEnd = 0;
-                                    Text->Offset.Y = 0.0f;
-                                }
-                                else
-                                {
-                                    u32 Index = Text->SelectionEnd;
-                                    while(Index > 0 && Text->Data[Index] != '\n')
-                                    {
-                                        --Index;
-                                    }
-                                    if(Text->Data[Index] == '\n')
-                                    {
-                                        ++Index;
-                                    }
-                                    Text->SelectionStart = Index;
-                                    Text->SelectionEnd = Index;
-                                }
-                            } break;
-                            
-                            case KeyboardButton_End:
-                            {
-                                if(Input->ControlDown)
-                                {
-                                    Text->SelectionStart = Text->Length;
-                                    Text->SelectionEnd = Text->Length;
-                                    Text->Offset.Y = F32Max;
-                                }
-                                else
-                                {
-                                    u32 Index = Text->SelectionEnd;
-                                    while(Index < Text->Length && Text->Data[Index] != '\n')
-                                    {
-                                        ++Index;
-                                    }
-                                    Text->SelectionStart = Index;
-                                    Text->SelectionEnd = Index;
-                                }
-                            } break;
-                            
-                            
-                            case KeyboardButton_A:
-                            {
-                                if(Input->ControlDown)
-                                {
-                                    Text->SelectionStart = 0;
-                                    Text->SelectionEnd = Text->Length;
-                                }
-                            } break;
-                            
-                            case KeyboardButton_C:
-                            {
-                                if(Input->ControlDown)
-                                {
-                                    s32 SelectedCharacters = Text->SelectionStart - Text->SelectionEnd;
-                                    s32 TotalCharaceters = SelectedCharacters;
-                                    if(TotalCharaceters < 0)
-                                    {
-                                        TotalCharaceters *= -1;
-                                    }
-                                    s32 StartOfSelection;
-                                    if(Text->SelectionEnd > Text->SelectionStart)
-                                    {
-                                        StartOfSelection = Text->SelectionEnd + SelectedCharacters;
-                                    }
-                                    else
-                                    {
-                                        StartOfSelection = Text->SelectionEnd;
-                                    }
-                                    
-                                    string SelectedText = StringInternal(TotalCharaceters, Text->Data + StartOfSelection);
-                                    
-                                    Platform.SetClipboardText(SelectedText);
-                                }
-                            } break;
-                            
-                        }
+                        Text->Data[Index] = Text->Data[Index - 1];
+                        --Index;
                     }
+                    Text->Data[Text->SelectionStart++] = *At;
+                    Text->SelectionEnd = Text->SelectionStart;
                 }
-                KeyboardButton = !KeyboardButton;
+                ++At;
             }
         }
-        
-        // NOTE(kstandbridge): Mouse buttons
-        // TODO(kstandbridge): Is mouse wheel an interaction?
-        u32 TransitionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
-        b32 MouseButton = Input->MouseButtons[MouseButton_Left].EndedDown;
+    }
+#endif
+    
+    // NOTE(kstandbridge): Keyboard buttons
+    for(keyboard_button_type Type = 0;
+        Type != KeyboardButton_Count;
+        ++Type)
+    {
+        u32 TransitionCount = Input->KeyboardButtons[Type].HalfTransitionCount;
+        b32 KeyboardButton = Input->KeyboardButtons[Type].EndedDown;
         if(TransitionCount % 2)
         {
-            MouseButton = !MouseButton;
+            KeyboardButton = !KeyboardButton;
         }
         
         for(u32 TransitionIndex = 0;
             TransitionIndex <= TransitionCount;
             ++TransitionIndex)
         {
-            b32 MouseDown = false;
-            b32 MouseUp = false;
+            b32 KeyboardDown = false;
+            b32 KeyboardUp = false;
             if(TransitionIndex != 0)
             {
-                MouseDown = MouseButton;
-                MouseUp = !MouseButton;
+                KeyboardDown = KeyboardButton;
+                KeyboardUp = !KeyboardButton;
             }
             
-            b32 EndInteraction = false;
-            
-            if(MouseDown)
+            if(KeyboardDown)
             {
-                State->SelectedInteraction = State->HotInteraction;
-                State->ClickedInteraction = State->HotInteraction;
-            }
-            
-            switch(State->Interaction.Type)
-            {
-                
-                case Interaction_ImmediateButton:
-                {
-                    if(MouseUp)
-                    {
-                        State->NextToExecute = State->Interaction;
-                        EndInteraction = true;
-                    }
-                } break;
-                
-                case Interaction_EditableBool:
-                {
-                    if(MouseUp)
-                    {
-                        *State->Interaction.Bool = !*State->Interaction.Bool;
-                        EndInteraction = true;
-                    }
-                } break;
-                
-                case Interaction_None:
-                {
-                    State->HotInteraction = State->NextHotInteraction;
-                    if(MouseDown)
-                    {
-                        State->Interaction = State->NextHotInteraction;
-                    }
-                } break;
-                
+                // TODO(kstandbridge): Input text
 #if 0                
-                case UiInteraction_MultipleChoiceOption:
+                if((SelectedInteraction.Type == Interaction_EditableText) ||
+                   (SelectedInteraction.Type == Interaction_EditableMultilineText))
                 {
-                    if(MouseUp)
+                    editable_string *Text = SelectedInteraction.Text;
+                    switch(Type)
                     {
-                        Layout->State->NextToExecute = Layout->State->Interaction;
-                        EndInteraction = true;
-                    }
-                } break;
-#endif
-                
-                default:
-                {
-                    if(MouseUp)
-                    {
-                        EndInteraction = true;
+                        case KeyboardButton_Delete:
+                        {
+                            if(Text->SelectionStart < Text->Length)
+                            {
+                                Text->SelectionStart++;
+                                Text->SelectionEnd = Text->SelectionStart;
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        } // NOTE(kstandbridge): No break intentional
+                        case KeyboardButton_Backspace:
+                        {
+                            if(Text->Length > 0)
+                            {
+                                umm StartMoveIndex = Text->SelectionStart--;
+                                while(StartMoveIndex < Text->Length)
+                                {
+                                    Text->Data[StartMoveIndex - 1] = Text->Data[StartMoveIndex++];
+                                }
+                                Text->Data[--Text->Length] = '\0';
+                                Text->SelectionEnd = Text->SelectionStart;
+                            }
+                        } break;
+                        case KeyboardButton_Right:
+                        {
+                            if(Text->SelectionStart < Text->Length)
+                            {
+                                ++Text->SelectionStart;
+                            }
+                            if(!Input->ShiftDown)
+                            {
+                                Text->SelectionEnd = Text->SelectionStart;
+                            }
+                        } break;
+                        case KeyboardButton_Left:
+                        {
+                            if(Text->SelectionStart > 0)
+                            {
+                                --Text->SelectionStart;
+                            }
+                            if(!Input->ShiftDown)
+                            {
+                                Text->SelectionEnd = Text->SelectionStart;
+                            }
+                        } break;
+                        
+                        case KeyboardButton_Home:
+                        {
+                            if(Input->ControlDown)
+                            {
+                                Text->SelectionStart = 0;
+                                Text->SelectionEnd = 0;
+                                Text->Offset.Y = 0.0f;
+                            }
+                            else
+                            {
+                                u32 Index = Text->SelectionEnd;
+                                while(Index > 0 && Text->Data[Index] != '\n')
+                                {
+                                    --Index;
+                                }
+                                if(Text->Data[Index] == '\n')
+                                {
+                                    ++Index;
+                                }
+                                Text->SelectionStart = Index;
+                                Text->SelectionEnd = Index;
+                            }
+                        } break;
+                        
+                        case KeyboardButton_End:
+                        {
+                            if(Input->ControlDown)
+                            {
+                                Text->SelectionStart = Text->Length;
+                                Text->SelectionEnd = Text->Length;
+                                Text->Offset.Y = F32Max;
+                            }
+                            else
+                            {
+                                u32 Index = Text->SelectionEnd;
+                                while(Index < Text->Length && Text->Data[Index] != '\n')
+                                {
+                                    ++Index;
+                                }
+                                Text->SelectionStart = Index;
+                                Text->SelectionEnd = Index;
+                            }
+                        } break;
+                        
+                        
+                        case KeyboardButton_A:
+                        {
+                            if(Input->ControlDown)
+                            {
+                                Text->SelectionStart = 0;
+                                Text->SelectionEnd = Text->Length;
+                            }
+                        } break;
+                        
+                        case KeyboardButton_C:
+                        {
+                            if(Input->ControlDown)
+                            {
+                                s32 SelectedCharacters = Text->SelectionStart - Text->SelectionEnd;
+                                s32 TotalCharaceters = SelectedCharacters;
+                                if(TotalCharaceters < 0)
+                                {
+                                    TotalCharaceters *= -1;
+                                }
+                                s32 StartOfSelection;
+                                if(Text->SelectionEnd > Text->SelectionStart)
+                                {
+                                    StartOfSelection = Text->SelectionEnd + SelectedCharacters;
+                                }
+                                else
+                                {
+                                    StartOfSelection = Text->SelectionEnd;
+                                }
+                                
+                                string SelectedText = StringInternal(TotalCharaceters, Text->Data + StartOfSelection);
+                                
+                                Platform.SetClipboardText(SelectedText);
+                            }
+                        } break;
+                        
                     }
                 }
+#endif
+                
             }
-            
-            if(EndInteraction)
-            {
-                ClearInteraction(&State->Interaction);
-                ClearInteraction(&State->ClickedInteraction);
-            }
-            
-            MouseButton = !MouseButton;
+            KeyboardButton = !KeyboardButton;
+        }
+    }
+    
+    // NOTE(kstandbridge): Mouse buttons
+    // TODO(kstandbridge): Is mouse wheel an interaction?
+    u32 TransitionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
+    b32 MouseButton = Input->MouseButtons[MouseButton_Left].EndedDown;
+    if(TransitionCount % 2)
+    {
+        MouseButton = !MouseButton;
+    }
+    
+    for(u32 TransitionIndex = 0;
+        TransitionIndex <= TransitionCount;
+        ++TransitionIndex)
+    {
+        b32 MouseDown = false;
+        b32 MouseUp = false;
+        if(TransitionIndex != 0)
+        {
+            MouseDown = MouseButton;
+            MouseUp = !MouseButton;
         }
         
-        ClearInteraction(&State->NextHotInteraction);
+        b32 EndInteraction = false;
         
+        if(MouseDown)
+        {
+            // TODO(kstandbridge): Selected / clicked 
+#if 0            
+            State->SelectedInteraction = State->HotInteraction;
+            State->ClickedInteraction = State->HotInteraction;
+#endif
+        }
         
-        State->LastMouseP = Layout->MouseP;
+        switch(State->Interaction.Type)
+        {
+            
+            case Interaction_ImmediateButton:
+            {
+                if(MouseUp)
+                {
+                    State->NextToExecute = State->Interaction;
+                    EndInteraction = true;
+                }
+            } break;
+            
+            case Interaction_EditableBool:
+            {
+                if(MouseUp)
+                {
+                    *State->Interaction.Bool = !*State->Interaction.Bool;
+                    EndInteraction = true;
+                }
+            } break;
+            
+            case Interaction_None:
+            {
+                State->HotInteraction = State->NextHotInteraction;
+                if(MouseDown)
+                {
+                    State->Interaction = State->NextHotInteraction;
+                }
+            } break;
+            
+#if 0                
+            case UiInteraction_MultipleChoiceOption:
+            {
+                if(MouseUp)
+                {
+                    Layout->State->NextToExecute = Layout->State->Interaction;
+                    EndInteraction = true;
+                }
+            } break;
+#endif
+            
+            default:
+            {
+                if(MouseUp)
+                {
+                    EndInteraction = true;
+                }
+            }
+        }
+        
+        if(EndInteraction)
+        {
+            ClearInteraction(&State->Interaction);
+            ClearInteraction(&State->ClickedInteraction);
+        }
+        
+        MouseButton = !MouseButton;
     }
+    
+    ClearInteraction(&State->NextHotInteraction);
+    
+    
+    State->LastMouseP = Layout->MouseP;
+}
+
+internal void
+EndUIFrame(interface_state *State, layout *Layout, app_input *Input)
+{
+    Interact(State, Layout, Input);
     
     // NOTE(kstandbridge): Figure out the sizes ready for drawing
     {    
         v2 Dim = V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height);
-        ui_element *Element = &Layout->SentinalElement;
+        element *Element = &Layout->SentinalElement;
         
         s32 ChildCount = Element->ChildCount - Element->SetWidthChildCount;
         v2 DimRemaining = V2(Dim.X - Element->UsedDim.X, Dim.Y);
@@ -957,9 +968,9 @@ EndUIFrame(ui_state *State, ui_layout *Layout, app_input *Input)
 }
 
 inline void
-SetRowHeight(ui_layout *Layout, f32 Height)
+SetRowHeight(layout *Layout, f32 Height)
 {
-    ui_element *Row = Layout->CurrentElement;
+    element *Row = Layout->CurrentElement;
     Assert(Row->Type == Element_Row);
     if(Row->Type == Element_Row)
     {
@@ -968,9 +979,9 @@ SetRowHeight(ui_layout *Layout, f32 Height)
 }
 
 inline void
-SetRowFill(ui_layout *Layout)
+SetRowFill(layout *Layout)
 {
-    ui_element *Row = Layout->CurrentElement;
+    element *Row = Layout->CurrentElement;
     Assert(Row->Type == Element_Row);
     if(Row->Type == Element_Row)
     {
@@ -978,7 +989,7 @@ SetRowFill(ui_layout *Layout)
     }
 }
 inline void
-SetControlWidth(ui_layout *Layout, f32 Width)
+SetControlWidth(layout *Layout, f32 Width)
 {
     Assert(Width > 0.0f);
     if(Width > 0.0f)

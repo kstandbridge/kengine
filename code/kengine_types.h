@@ -104,6 +104,12 @@ typedef struct temporary_memory
     memory_index Used;
 } temporary_memory;
 
+introspect(ctor);
+typedef struct interface_id
+{
+    u32 ID;
+} interface_id;
+
 introspect(ctor, set1, math);
 typedef struct v2
 {
