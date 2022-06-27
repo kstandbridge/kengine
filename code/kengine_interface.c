@@ -192,14 +192,12 @@ DrawCheckbox(interface_state *State, layout *Layout, render_group *RenderGroup, 
         CheckboxText = Colors.CheckboxHotText;
     }
     
-#if 0    
     if(InteractionIsClicked(State, Element->Interaction))
     {
         CheckboxBackground = Colors.CheckboxClickedBackground;
         CheckboxBorder = Colors.CheckboxClickedBorder;
         CheckboxText = Colors.CheckboxClickedText;
     }
-#endif
     
     PushRect(RenderGroup, CheckboxP, CheckboxDim, CheckboxBackground, CheckboxBackground);
     
@@ -303,7 +301,6 @@ DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *Rende
     if(IsInRectangle(Rectangle2(ButtonP, V2Add(ButtonP, ButtonDim)), Layout->MouseP))
     {
         
-#if 0        
         if(InteractionIsClicked(State, Element->Interaction))
         {
             ButtonBackColor = Colors.ScrollbarClickedBackground;
@@ -311,8 +308,6 @@ DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *Rende
             Text->Offset.Y += LineAdvance;
         }
         else
-#endif
-        
         {
             ButtonBackColor = Colors.ScrollbarHotBackground;
             ButtonTextColor = Colors.ScrollbarHotText;
@@ -342,15 +337,12 @@ DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *Rende
     if(IsInRectangle(Rectangle2(SliderP, V2Add(SliderP, SliderDim)), Layout->MouseP))
     {
         
-#if 0        
         if(InteractionIsClicked(State, Element->Interaction))
         {
             SliderColor = Colors.ScrollbarClickedSlider;
             Text->Offset.Y -= Layout->dMouseP.Y;
         }
         else
-#endif
-        
         {
             SliderColor = Colors.ScrollbarHotSlider;
         }
@@ -368,8 +360,6 @@ DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *Rende
     // TODO(kstandbridge): This shouldn't be done at the drawing stage.
     if(IsInRectangle(Rectangle2(ButtonP, V2Add(ButtonP, ButtonDim)), Layout->MouseP))
     {
-        
-#if 0        
         if(InteractionIsClicked(State, Element->Interaction))
         {
             ButtonBackColor = Colors.ScrollbarClickedBackground;
@@ -377,8 +367,6 @@ DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *Rende
             Text->Offset.Y -= LineAdvance;
         }
         else
-#endif
-        
         {
             ButtonBackColor = Colors.ScrollbarHotBackground;
             ButtonTextColor = Colors.ScrollbarHotText;
@@ -415,15 +403,12 @@ DrawButton(interface_state *State, layout *Layout, render_group *RenderGroup, el
     v4 BackgroundColor = Colors.ButtonBackground;
     v4 BorderColor = Colors.ButtonBorder;
     
-#if 0    
     if(InteractionIsClicked(State, Element->Interaction))
     {
         BackgroundColor = Colors.ButtonClickedBackground;
         BorderColor = Colors.ButtonClickedBorder;
     }
-    else 
-#endif
-    if(InteractionIsHot(State, Element->Interaction))
+    else if(InteractionIsHot(State, Element->Interaction))
     {
         BackgroundColor = Colors.ButtonHotBackground;
         BorderColor = Colors.ButtonHotBorder;
@@ -870,6 +855,7 @@ MouseButtonInteract(interface_state *State, layout *Layout, app_input *Input)
         
         if(MouseDown)
         {
+            State->ClickedInteraction = State->HotInteraction;
             State->SelectedInteraction = State->HotInteraction;
         }
         
@@ -927,6 +913,7 @@ MouseButtonInteract(interface_state *State, layout *Layout, app_input *Input)
         
         if(EndInteraction)
         {
+            ClearInteraction(&State->ClickedInteraction);
             ClearInteraction(&State->Interaction);
         }
         

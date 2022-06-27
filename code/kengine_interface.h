@@ -98,6 +98,7 @@ typedef struct interface_state
     interaction ToExecute;
     interaction NextToExecute;
     
+    interaction ClickedInteraction;
     interaction SelectedInteraction;
     
 } interface_state;
@@ -121,32 +122,6 @@ InteractionsAreEqual(interaction A, interaction B)
 }
 
 inline b32
-InteractionIsToExecute(interface_state *State, interaction A)
-{
-    b32 Result = InteractionsAreEqual(State->ToExecute, A);
-    
-    if(A.Type == Interaction_None)
-    {
-        Result = false;
-    }
-    
-    return Result;
-}
-
-inline b32
-InteractionIsNextToExecute(interface_state *State, interaction A)
-{
-    b32 Result = InteractionsAreEqual(State->NextToExecute, A);
-    
-    if(A.Type == Interaction_None)
-    {
-        Result = false;
-    }
-    
-    return Result;
-}
-
-inline b32
 InteractionIsHot(interface_state *State, interaction A)
 {
     b32 Result = InteractionsAreEqual(State->HotInteraction, A);
@@ -163,6 +138,19 @@ inline b32
 InteractionIsSelected(interface_state *State, interaction A)
 {
     b32 Result = InteractionsAreEqual(State->SelectedInteraction, A);
+    
+    if(A.Type == Interaction_None)
+    {
+        Result = false;
+    }
+    
+    return Result;
+}
+
+inline b32
+InteractionIsClicked(interface_state *State, interaction A)
+{
+    b32 Result = InteractionsAreEqual(State->ClickedInteraction, A);
     
     if(A.Type == Interaction_None)
     {
