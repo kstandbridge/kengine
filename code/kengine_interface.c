@@ -92,7 +92,7 @@ Textbox(layout *Layout, editable_string *Target)
     
     ZeroStruct(Element->Interaction);
     Element->Interaction.ID = InterfaceId(++Layout->CurrentId);
-    Element->Interaction.Type = Interaction_EditableText;
+    Element->Interaction.Type = Interaction_Textbox;
     Element->Interaction.Generic = Target;
 }
 
@@ -105,7 +105,7 @@ MultilineTextbox(layout *Layout, editable_string *Target)
     
     ZeroStruct(Element->Interaction);
     Element->Interaction.ID = InterfaceId(++Layout->CurrentId);
-    Element->Interaction.Type = Interaction_EditableMultilineText;
+    Element->Interaction.Type = Interaction_Textbox;
     Element->Interaction.Generic = Target;
 }
 
@@ -192,12 +192,14 @@ DrawCheckbox(interface_state *State, layout *Layout, render_group *RenderGroup, 
         CheckboxText = Colors.CheckboxHotText;
     }
     
+#if 0    
     if(InteractionIsClicked(State, Element->Interaction))
     {
         CheckboxBackground = Colors.CheckboxClickedBackground;
         CheckboxBorder = Colors.CheckboxClickedBorder;
         CheckboxText = Colors.CheckboxClickedText;
     }
+#endif
     
     PushRect(RenderGroup, CheckboxP, CheckboxDim, CheckboxBackground, CheckboxBackground);
     
@@ -209,7 +211,7 @@ DrawCheckbox(interface_state *State, layout *Layout, render_group *RenderGroup, 
     
     v2 TextP = V2(CheckboxP.X + CheckboxDim.X + Layout->Padding, Offset.Y + Layout->Padding + Element->TextBounds.Max.Y*0.5f);
     
-    if(InterfaceIdsAreEqual(State->SelectedID, Element->Interaction.ID))
+    if(InteractionIsSelected(State, Element->Interaction))
     {
         v2 OutlineP = V2Subtract(TextP, V2(Layout->Padding*0.5f, Layout->Padding*1.5f));
         v2 OutlineDim = V2Add(Element->TextBounds.Max, V2(Layout->Padding*1.5f, Layout->Padding*3.0f));
@@ -227,7 +229,7 @@ DrawTextbox(interface_state *State, layout *Layout, render_group *RenderGroup, e
              Colors.TextboxBackground, Colors.TextboxBackground);
     
     v4 TextboxBorderColor = Colors.TextboxBorder;
-    if(InterfaceIdsAreEqual(State->SelectedID, Element->Interaction.ID))
+    if(InteractionIsSelected(State, Element->Interaction))
     {
         TextboxBorderColor = Colors.TextboxSelectedBorder;
     }
@@ -240,7 +242,7 @@ DrawTextbox(interface_state *State, layout *Layout, render_group *RenderGroup, e
     v2 TextClipMax = V2Add(TextClipMin, V2Subtract(Element->Dim, V2Set1(Layout->Padding*7.0f)));
     rectangle2 TextClip = Rectangle2(TextClipMin, TextClipMax); 
     
-    if(InterfaceIdsAreEqual(State->SelectedID, Element->Interaction.ID))
+    if(InteractionIsSelected(State, Element->Interaction))
     {
         editable_string *Text = Element->Interaction.Text;
         s32 SelectionStart;
@@ -300,6 +302,8 @@ DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *Rende
     // TODO(kstandbridge): This shouldn't be done at the drawing stage.
     if(IsInRectangle(Rectangle2(ButtonP, V2Add(ButtonP, ButtonDim)), Layout->MouseP))
     {
+        
+#if 0        
         if(InteractionIsClicked(State, Element->Interaction))
         {
             ButtonBackColor = Colors.ScrollbarClickedBackground;
@@ -307,6 +311,8 @@ DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *Rende
             Text->Offset.Y += LineAdvance;
         }
         else
+#endif
+        
         {
             ButtonBackColor = Colors.ScrollbarHotBackground;
             ButtonTextColor = Colors.ScrollbarHotText;
@@ -335,12 +341,16 @@ DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *Rende
     // TODO(kstandbridge): This shouldn't be done at the drawing stage.
     if(IsInRectangle(Rectangle2(SliderP, V2Add(SliderP, SliderDim)), Layout->MouseP))
     {
+        
+#if 0        
         if(InteractionIsClicked(State, Element->Interaction))
         {
             SliderColor = Colors.ScrollbarClickedSlider;
             Text->Offset.Y -= Layout->dMouseP.Y;
         }
         else
+#endif
+        
         {
             SliderColor = Colors.ScrollbarHotSlider;
         }
@@ -358,6 +368,8 @@ DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *Rende
     // TODO(kstandbridge): This shouldn't be done at the drawing stage.
     if(IsInRectangle(Rectangle2(ButtonP, V2Add(ButtonP, ButtonDim)), Layout->MouseP))
     {
+        
+#if 0        
         if(InteractionIsClicked(State, Element->Interaction))
         {
             ButtonBackColor = Colors.ScrollbarClickedBackground;
@@ -365,6 +377,8 @@ DrawMultilineTextbox(interface_state *State, layout *Layout, render_group *Rende
             Text->Offset.Y -= LineAdvance;
         }
         else
+#endif
+        
         {
             ButtonBackColor = Colors.ScrollbarHotBackground;
             ButtonTextColor = Colors.ScrollbarHotText;
@@ -401,17 +415,20 @@ DrawButton(interface_state *State, layout *Layout, render_group *RenderGroup, el
     v4 BackgroundColor = Colors.ButtonBackground;
     v4 BorderColor = Colors.ButtonBorder;
     
+#if 0    
     if(InteractionIsClicked(State, Element->Interaction))
     {
         BackgroundColor = Colors.ButtonClickedBackground;
         BorderColor = Colors.ButtonClickedBorder;
     }
-    else if(InteractionIsHot(State, Element->Interaction))
+    else 
+#endif
+    if(InteractionIsHot(State, Element->Interaction))
     {
         BackgroundColor = Colors.ButtonHotBackground;
         BorderColor = Colors.ButtonHotBorder;
     }
-    else if(InterfaceIdsAreEqual(State->SelectedID, Element->Interaction.ID))
+    else if(InteractionIsSelected(State, Element->Interaction))
     {
         BackgroundColor = Colors.ButtonSelectedBackground;
         BorderColor = Colors.ButtonSelectedBorder;
@@ -421,7 +438,7 @@ DrawButton(interface_state *State, layout *Layout, render_group *RenderGroup, el
     PushRect(RenderGroup, PaddedOffset, V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
              BackgroundColor, BackgroundColor);
     
-    if(!InterfaceIdsAreEqual(State->SelectedID, Element->Interaction.ID))
+    if(!InteractionIsSelected(State, Element->Interaction))
     {
         PushRectOutline(RenderGroup, PaddedOffset, V2Subtract(Element->Dim, V2Set1(Layout->Padding*2.0f)), 
                         BorderColor, BorderColor, Layout->Scale);
@@ -607,18 +624,14 @@ CalculateElementDims(layout *Layout, element *FirstChild, s32 ChildCount, v2 Dim
 }
 
 internal void
-Interact(interface_state *State, layout *Layout, app_input *Input)
+KeyboardInteract(interface_state *State, layout *Layout, app_input *Input)
 {
-    // NOTE(kstandbridge): Input text
-    // TODO(kstandbridge): Input text
-#if 0    
-    interaction SelectedInteraction = State->SelectedInteraction;
+    Layout;
     if(Input->Text[0] != '\0')
     {
-        if((SelectedInteraction.Type == Interaction_EditableText) ||
-           (SelectedInteraction.Type == Interaction_EditableMultilineText))
+        if(State->SelectedInteraction.Type == Interaction_Textbox)
         {
-            editable_string *Text = SelectedInteraction.Text;
+            editable_string *Text = State->SelectedInteraction.Text;
             
             char *At = Input->Text;
             while(*At != '\0')
@@ -639,7 +652,6 @@ Interact(interface_state *State, layout *Layout, app_input *Input)
             }
         }
     }
-#endif
     
     // NOTE(kstandbridge): Keyboard buttons
     for(keyboard_button_type Type = 0;
@@ -667,12 +679,9 @@ Interact(interface_state *State, layout *Layout, app_input *Input)
             
             if(KeyboardDown)
             {
-                // TODO(kstandbridge): Input text
-#if 0                
-                if((SelectedInteraction.Type == Interaction_EditableText) ||
-                   (SelectedInteraction.Type == Interaction_EditableMultilineText))
+                if(State->SelectedInteraction.Type == Interaction_Textbox)
                 {
-                    editable_string *Text = SelectedInteraction.Text;
+                    editable_string *Text = State->SelectedInteraction.Text;
                     switch(Type)
                     {
                         case KeyboardButton_Delete:
@@ -805,29 +814,53 @@ Interact(interface_state *State, layout *Layout, app_input *Input)
                         
                     }
                 }
-#endif
-                
             }
             KeyboardButton = !KeyboardButton;
         }
     }
-    
-    // NOTE(kstandbridge): Mouse buttons
-    // TODO(kstandbridge): Is mouse wheel an interaction?
-    u32 TransitionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
+}
+
+internal void
+MouseMoveInteract(interface_state *State, layout *Layout, app_input *Input)
+{
+    Input;
+    switch(State->Interaction.Type)
+    {
+        
+        // TODO(kstandbridge): Drag
+        // TODO(kstandbridge): Resize
+        // TODO(kstandbridge): Move
+        
+        case Interaction_TextboxSelecting:
+        {
+            DEBUGTextLine("SetEndTextFromPos( %.03f / %.03f )", Layout->MouseP.X, Layout->MouseP.Y);
+        } break;
+    }
+}
+
+internal void
+MouseButtonInteract(interface_state *State, layout *Layout, app_input *Input)
+{
+    Layout;
+    u32 HalfTransitionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
     b32 MouseButton = Input->MouseButtons[MouseButton_Left].EndedDown;
-    if(TransitionCount % 2)
+    if(HalfTransitionCount % 2)
     {
         MouseButton = !MouseButton;
     }
     
     for(u32 TransitionIndex = 0;
-        TransitionIndex <= TransitionCount;
+        TransitionIndex <= HalfTransitionCount;
         ++TransitionIndex)
     {
+        b32 MouseMove = false;
         b32 MouseDown = false;
         b32 MouseUp = false;
-        if(TransitionIndex != 0)
+        if(TransitionIndex == 0)
+        {
+            MouseMove = true;
+        }
+        else
         {
             MouseDown = MouseButton;
             MouseUp = !MouseButton;
@@ -837,15 +870,33 @@ Interact(interface_state *State, layout *Layout, app_input *Input)
         
         if(MouseDown)
         {
-            // TODO(kstandbridge): Selected / clicked 
-#if 0            
             State->SelectedInteraction = State->HotInteraction;
-            State->ClickedInteraction = State->HotInteraction;
-#endif
         }
         
         switch(State->Interaction.Type)
         {
+            case Interaction_EditableBool:
+            {
+                if(MouseUp)
+                {
+                    *State->Interaction.Bool = !*State->Interaction.Bool;
+                    EndInteraction = true;
+                }
+            } break;
+            
+            case Interaction_Textbox:
+            {
+                State->Interaction.Type = Interaction_TextboxSelecting;
+            } break;
+            
+            case Interaction_TextboxSelecting:
+            {
+                if(MouseUp)
+                {
+                    State->Interaction.Type = Interaction_Textbox;
+                    EndInteraction = true;
+                }
+            } break;
             
             case Interaction_ImmediateButton:
             {
@@ -856,34 +907,14 @@ Interact(interface_state *State, layout *Layout, app_input *Input)
                 }
             } break;
             
-            case Interaction_EditableBool:
-            {
-                if(MouseUp)
-                {
-                    *State->Interaction.Bool = !*State->Interaction.Bool;
-                    EndInteraction = true;
-                }
-            } break;
-            
             case Interaction_None:
             {
                 State->HotInteraction = State->NextHotInteraction;
                 if(MouseDown)
                 {
-                    State->Interaction = State->NextHotInteraction;
+                    State->Interaction = State->HotInteraction;
                 }
             } break;
-            
-#if 0                
-            case UiInteraction_MultipleChoiceOption:
-            {
-                if(MouseUp)
-                {
-                    Layout->State->NextToExecute = Layout->State->Interaction;
-                    EndInteraction = true;
-                }
-            } break;
-#endif
             
             default:
             {
@@ -891,29 +922,29 @@ Interact(interface_state *State, layout *Layout, app_input *Input)
                 {
                     EndInteraction = true;
                 }
-            }
+            } break;
         }
         
         if(EndInteraction)
         {
             ClearInteraction(&State->Interaction);
-            ClearInteraction(&State->ClickedInteraction);
         }
         
         MouseButton = !MouseButton;
     }
-    
-    ClearInteraction(&State->NextHotInteraction);
-    
-    
-    State->LastMouseP = Layout->MouseP;
+}
+
+internal void
+Interact(interface_state *State, layout *Layout, app_input *Input)
+{
+    KeyboardInteract(State, Layout, Input);
+    MouseMoveInteract(State, Layout, Input);
+    MouseButtonInteract(State, Layout, Input);
 }
 
 internal void
 EndUIFrame(interface_state *State, layout *Layout, app_input *Input)
 {
-    Interact(State, Layout, Input);
-    
     // NOTE(kstandbridge): Figure out the sizes ready for drawing
     {    
         v2 Dim = V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height);
@@ -965,6 +996,8 @@ EndUIFrame(interface_state *State, layout *Layout, app_input *Input)
         
     }
     
+    Interact(State, Layout, Input);
+    State->LastMouseP = Layout->MouseP;
 }
 
 inline void

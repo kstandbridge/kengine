@@ -180,6 +180,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
             if(Button(InterfaceState, &Layout, String("Run")))
             {
                 AppState->LaunchParams.Offset = V2Set1(0);
+                DEBUGTextLine("Pressed");
             }
             Button(InterfaceState, &Layout, String("Sync"));
             Button(InterfaceState, &Layout, String("Cancel"));

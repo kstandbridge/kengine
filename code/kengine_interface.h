@@ -7,10 +7,13 @@ typedef enum interaction_type
     Interaction_NOP,
     
     Interaction_EditableBool,
+    Interaction_ImmediateButton,
+    
+    Interaction_Textbox,
+    Interaction_TextboxSelecting,
+    
     Interaction_EditableText,
-    Interaction_EditableMultilineText,
-    Interaction_ImmediateButton
-        
+    
 } interaction_type;
 
 typedef struct interaction
@@ -95,9 +98,7 @@ typedef struct interface_state
     interaction ToExecute;
     interaction NextToExecute;
     
-    interface_id SelectedID;
-    
-    interaction ClickedInteraction;
+    interaction SelectedInteraction;
     
 } interface_state;
 
@@ -159,9 +160,9 @@ InteractionIsHot(interface_state *State, interaction A)
 }
 
 inline b32
-InteractionIsClicked(interface_state *State, interaction A)
+InteractionIsSelected(interface_state *State, interaction A)
 {
-    b32 Result = InteractionsAreEqual(State->ClickedInteraction, A);
+    b32 Result = InteractionsAreEqual(State->SelectedInteraction, A);
     
     if(A.Type == Interaction_None)
     {
