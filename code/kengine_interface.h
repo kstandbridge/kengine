@@ -7,12 +7,14 @@ typedef enum interaction_type
     Interaction_NOP,
     
     Interaction_EditableBool,
+    Interaction_ContinousButton,
     Interaction_ImmediateButton,
     
     Interaction_Textbox,
     Interaction_TextboxSelecting,
     
     Interaction_EditableText,
+    Interaction_EditableFloat,
     
 } interaction_type;
 
@@ -26,8 +28,17 @@ typedef struct interaction
         void *Generic;
         b32 *Bool;
         editable_string *Text;
+        f32 *Float;
     };
 } interaction;
+
+typedef struct element_padding
+{
+    f32 Top;
+    f32 Right;
+    f32 Bottom;
+    f32 Left;
+} element_padding;
 
 typedef enum element_type
 {
@@ -36,8 +47,8 @@ typedef enum element_type
     Element_Label,
     Element_Checkbox,
     Element_Textbox,
-    Element_MultilineTextbox,
     Element_Button,
+    Element_VerticleSlider,
     
 } element_type;
 
@@ -54,6 +65,7 @@ typedef struct element
     
     s32 ChildCount;
     s32 SetWidthChildCount;
+    element_padding Padding;
     
     struct element *FirstChild;
     struct element *Parent;
@@ -66,7 +78,7 @@ typedef struct layout
     memory_arena *Arena;
     assets *Assets;
     f32 Scale;
-    f32 Padding;
+    f32 DefaultPadding;
     f32 DefaultRowHeight;
     
     loaded_bitmap *DrawBuffer;

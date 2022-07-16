@@ -99,15 +99,41 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     interface_state *InterfaceState = &AppState->InterfaceState;
     
-    layout Layout = BeginUIFrame(TempMem.Arena, InterfaceState, Input, &AppState->Assets, 0.2f, 4.0f, DrawBuffer);
+    layout Layout = BeginUIFrame(TempMem.Arena, InterfaceState, Input, &AppState->Assets, 0.2f, 2.0f, DrawBuffer);
     // TODO(kstandbridge): should be able to hide this somewhere
     Layout.CurrentElement = &Layout.SentinalElement;
     
-#if 0
+#if 1
+    
     BeginRow(&Layout);
-    Button(InterfaceState, &Layout, String("Foobarbas"));
-    Button(InterfaceState, &Layout, String("Foo bar bas"));
-    Button(InterfaceState, &Layout, String("Foo bar bas"));
+    SetRowFill(&Layout);
+    Textbox(&Layout, &AppState->LaunchParams);
+    SetControlPadding(&Layout, Layout.DefaultPadding, 0.0f, Layout.DefaultPadding, Layout.DefaultPadding);
+    
+    f32 LineAdvanceForFrame = Layout.DefaultRowHeight*3.0f*Input->dtForFrame;
+    BeginRow(&Layout);
+    SetRowWidth(&Layout, Layout.DefaultRowHeight);
+    if(ContinousButton(InterfaceState, &Layout, String("U")))
+    {
+        AppState->LaunchParams.Offset.Y += LineAdvanceForFrame;
+    }
+    SetControlPadding(&Layout, Layout.DefaultPadding, Layout.DefaultPadding, 0.0f, 0.0f);
+    EndRow(&Layout);
+    
+    BeginRow(&Layout);
+    SetRowFill(&Layout);
+    VerticleSlider(&Layout, &AppState->LaunchParams.Offset.Y);
+    SetControlPadding(&Layout, 0.0f, Layout.DefaultPadding, 0.0f, 0.0f);
+    EndRow(&Layout);
+    
+    BeginRow(&Layout);
+    if(ContinousButton(InterfaceState, &Layout, String("D")))
+    {
+        AppState->LaunchParams.Offset.Y -= LineAdvanceForFrame;
+    }
+    SetControlPadding(&Layout, 0.0f, Layout.DefaultPadding, Layout.DefaultPadding, 0.0f);
+    EndRow(&Layout);
+    
     EndRow(&Layout);
     
 #else
@@ -150,7 +176,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         EndRow(&Layout);
         
         Splitter(&Layout, &UserSettings->BuildRunSplitSize);
-        SetControlWidth(&Layout, 12.0f + Layout.Padding*2.0f);
+        SetControlWidth(&Layout, 12.0f + Layout.DefaultPadding*2.0f);
         
         BeginRow(&Layout);
         Checkbox(&Layout, String("Edit run params"), &AppState->EditRunParams);
