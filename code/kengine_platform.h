@@ -109,15 +109,18 @@ ZeroSize(memory_index Size, void *Ptr)
 }
 
 
-#define BITMAP_BYTES_PER_PIXEL 4
-typedef struct app_offscreen_buffer
+typedef struct app_render_commands
 {
-    // NOTE(kstandbridge): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
-    void *Memory;
-    s32 Width;
-    s32 Height;
-    s32 Pitch;
-} app_offscreen_buffer;
+    u32 Width;
+    u32 Height;
+    
+    umm MaxPushBufferSize;
+    umm PushBufferSize;
+    u8 *PushBufferBase;
+    
+    u32 PushBufferElementCount;
+    umm SortEntryAt;
+} app_render_commands;
 
 typedef struct app_button_state
 {
@@ -234,7 +237,7 @@ typedef struct app_memory
     platform_api PlatformAPI;
 } app_memory;
 
-typedef void app_update_and_render(app_memory *Memory, app_input *Input, app_offscreen_buffer *Buffer);
+typedef void app_update_frame(app_memory *Memory, app_input *Input, app_render_commands *RenderCommands);
 
 
 #define KENGINE_PLATFORM_H

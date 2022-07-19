@@ -35,15 +35,16 @@ typedef struct render_entry_rectangle
     v2 Dim;
 } render_entry_rectangle;
 
+typedef struct tile_sort_entry
+{
+    f32 SortKey;
+    umm PushBufferOffset;
+} tile_sort_entry;
+
 typedef struct render_group
 {
-    loaded_bitmap *OutputTarget;
-    
-    memory_index MaxPushBufferSize;
-    memory_index PushBufferSize;
-    u8 *PushBufferBase;
-    
-    v2 ScreenCenter;
+    struct assets *Assets;
+    app_render_commands *Commands;
     
 } render_group;
 

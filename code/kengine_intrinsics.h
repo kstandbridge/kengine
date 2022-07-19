@@ -35,6 +35,8 @@ CeilReal32ToInt32(f32 Real32)
     return Result;
 }
 
+#if 0
+// TODO(kstandbridge): write our own Cos/Sin
 inline f32
 Sin(f32 Angle)
 {
@@ -48,6 +50,7 @@ Cos(f32 Angle)
     f32 Result = _mm_cvtss_f32(_mm_cos_ps(_mm_set_ss(Angle)));
     return Result;
 }
+#endif
 
 typedef struct bit_scan_result
 {

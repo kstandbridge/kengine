@@ -15,7 +15,7 @@ global app_memory *GlobalDebugMemory;
 #include "kengine_debug.c"
 
 extern void
-AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *Buffer)
+AppUpdateFrame(app_memory *Memory, app_input *Input, app_render_commands *RenderCommands)
 {
     Platform = Memory->PlatformAPI;
     
@@ -31,7 +31,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     {
         InitializeArena(&AppState->PermanentArena, Memory->StorageSize - sizeof(app_state), (u8 *)Memory->Storage + sizeof(app_state));
         
-        AppState->TestBMP = LoadBMP(&AppState->PermanentArena, "test_tree.bmp");
+        //AppState->TestBMP = LoadBMP(&AppState->PermanentArena, "test_tree.bmp");
         AppState->TestFont = Platform.DEBUGGetGlyphForCodePoint(&AppState->PermanentArena, 'K');
         AppState->TestP = V2(500.0f, 500.0f);
         
@@ -84,26 +84,20 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     
     AppState->Time += Input->dtForFrame;
     
-    loaded_bitmap DrawBufferInteral;
-    loaded_bitmap *DrawBuffer = &DrawBufferInteral;
-    DrawBuffer->Memory = Buffer->Memory;
-    DrawBuffer->Width = Buffer->Width;
-    DrawBuffer->Height = Buffer->Height;
-    DrawBuffer->Pitch = Buffer->Pitch;
-    
 #if KENGINE_INTERNAL
-    DEBUGStart(DrawBuffer);
+    DEBUGStart();
 #endif
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TransientArena);
     
     interface_state *InterfaceState = &AppState->InterfaceState;
     
-    layout Layout = BeginUIFrame(TempMem.Arena, InterfaceState, Input, &AppState->Assets, 0.2f, 2.0f, DrawBuffer);
+    layout Layout = BeginUIFrame(TempMem.Arena, InterfaceState, Input, &AppState->Assets, 0.2f, 2.0f, RenderCommands);
+    
     // TODO(kstandbridge): should be able to hide this somewhere
     Layout.CurrentElement = &Layout.SentinalElement;
     
-#if 1
+#if 0
     
     BeginRow(&Layout);
     SetRowFill(&Layout);
@@ -137,6 +131,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
     EndRow(&Layout);
     
 #else
+    
     BeginRow(&Layout);
     {
         Label(&Layout, String("Show:"));
@@ -189,7 +184,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         BeginRow(&Layout);
         {
             SetRowFill(&Layout);
-            MultilineTextbox(&Layout, &AppState->LaunchParams);
+            Textbox(&Layout, &AppState->LaunchParams);
         }
         EndRow(&Layout);
         
@@ -244,6 +239,7 @@ AppUpdateAndRender(app_memory *Memory, app_input *Input, app_offscreen_buffer *B
         Button(InterfaceState, &Layout, String("Open Log"));
     }
     EndRow(&Layout);
+    
 #endif
     
     EndUIFrame(InterfaceState, &Layout, Input);

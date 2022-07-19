@@ -1,4 +1,5 @@
 
+#if 0
 internal loaded_bitmap
 LoadBMP(memory_arena *Arena, char *FileName)
 {
@@ -82,3 +83,4 @@ LoadBMP(memory_arena *Arena, char *FileName)
     
     return(Result);
 }
+#endif

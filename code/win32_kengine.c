@@ -1,9 +1,8 @@
-#include "kengine_platform.h"
-#include "kengine_shared.h"
-#include "kengine_generated.h"
-#include "kengine_intrinsics.h"
-#include "kengine_math.h"
-#include "win32_kengine_shared.h"
+#include "win32_kengine.h"
+
+global platform_api Platform;
+
+#include "kengine_render.c"
 
 internal s32
 Win32DisplayLastError()
@@ -19,28 +18,6 @@ Win32DisplayLastError()
     
     return Result;
 }
-
-typedef struct win32_offscreen_buffer
-{
-    // NOTE(kstandbridge): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
-    BITMAPINFO Info;
-    void *Memory;
-    
-    s32 Width;
-    s32 Height;
-    s32 Pitch;
-} win32_offscreen_buffer;
-
-typedef struct app_code
-{
-    char EXEFileName[MAX_PATH];
-    char *OnePastLastEXEFileNameSlash;
-    
-    HMODULE Library;
-    FILETIME LastDLLWriteTime;
-    
-    app_update_and_render *AppUpdateAndRender;
-} app_code;
 
 
 global b32 GlobalIsRunning;
@@ -624,7 +601,7 @@ Win32UnloadAppCode(app_code *AppCode)
         AppCode->Library = 0;
     }
     
-    AppCode->AppUpdateAndRender = 0;
+    AppCode->AppUpdateFrame = 0;
 }
 
 internal app_code
@@ -643,7 +620,7 @@ Win32LoadAppCode(char *SourceDLLName, char *TempDLLName, char *LockName)
         Result.Library = LoadLibraryA(TempDLLName);
         if(Result.Library)
         {
-            Result.AppUpdateAndRender = (app_update_and_render *)GetProcAddress(Result.Library, "AppUpdateAndRender");
+            Result.AppUpdateFrame = (app_update_frame *)GetProcAddress(Result.Library, "AppUpdateFrame");
         }
     }
     
@@ -801,6 +778,8 @@ WinMainCRTStartup()
             AppMemory.PlatformAPI.GetCommandLineArgs = GetCommandLineArgs;
             AppMemory.PlatformAPI.SetClipboardText = SetClipboardText;
             
+            Platform = AppMemory.PlatformAPI;
+            
             app_input Input[2];
             ZeroArray(ArrayCount(Input), Input);
             app_input *NewInput = &Input[0];
@@ -819,6 +798,12 @@ WinMainCRTStartup()
             
             char AppCodeLockFullPath[MAX_PATH];
             BuildEXEPathFileName(&AppCode, "lock.tmp", AppCodeLockFullPath);
+            
+            umm CurrentSortMemorySize = Megabytes(1);
+            void *SortMemory = VirtualAlloc(0, CurrentSortMemorySize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            
+            umm PushBufferSize = Megabytes(4);
+            void *PushBuffer = VirtualAlloc(0, PushBufferSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             
             GlobalIsRunning = true;
             while(GlobalIsRunning)
@@ -899,26 +884,50 @@ WinMainCRTStartup()
                 
                 // NOTE(kstandbridge): Render
                 
-                app_offscreen_buffer AppBuffer;
-                ZeroStruct(AppBuffer);
-                AppBuffer.Memory = GlobalBackbuffer.Memory;
-                AppBuffer.Width = GlobalBackbuffer.Width;
-                AppBuffer.Height = GlobalBackbuffer.Height;
-                AppBuffer.Pitch = GlobalBackbuffer.Pitch;
+                // TODO(kstandbridge): preprocessor to generate rendercommands ctor
+                app_render_commands RenderCommands;
+                RenderCommands.Width = GlobalBackbuffer.Width;
+                RenderCommands.Height = GlobalBackbuffer.Height;
+                RenderCommands.MaxPushBufferSize = PushBufferSize;
+                RenderCommands.PushBufferSize = 0;
+                RenderCommands.PushBufferBase = (u8 *)PushBuffer;
+                RenderCommands.PushBufferElementCount = 0;
+                RenderCommands.SortEntryAt = PushBufferSize;
                 
-                if(AppCode.AppUpdateAndRender)
+                if(AppCode.AppUpdateFrame)
                 {
-                    AppCode.AppUpdateAndRender(&AppMemory, NewInput, &AppBuffer);
+                    AppCode.AppUpdateFrame(&AppMemory, NewInput, &RenderCommands);
                 }
                 
+                umm NeededSortMemorySize = RenderCommands.PushBufferElementCount * sizeof(tile_sort_entry);
+                if(CurrentSortMemorySize < NeededSortMemorySize)
+                {
+                    VirtualFree(SortMemory, 0, MEM_FREE);
+                    CurrentSortMemorySize = NeededSortMemorySize;
+                    SortMemory = VirtualAlloc(0, CurrentSortMemorySize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+                }
+                
+                // TODO(kstandbridge): Enable element sorting
+                SortRenderCommands(&RenderCommands, SortMemory);
+                
+                loaded_bitmap OutputTarget;
+                ZeroStruct(OutputTarget);
+                OutputTarget.Memory = GlobalBackbuffer.Memory;
+                OutputTarget.Width = GlobalBackbuffer.Width;
+                OutputTarget.Height = GlobalBackbuffer.Height;
+                OutputTarget.Pitch = GlobalBackbuffer.Pitch;
+                
                 HDC DeviceContext = GetDC(WindowHwnd);
+                
+                SoftwareRenderCommands(Platform.PerFrameWorkQueue, &RenderCommands, &OutputTarget);
+                
                 StretchDIBits(DeviceContext, 0, 0, GlobalBackbuffer.Width, GlobalBackbuffer.Height, 0, 0, GlobalBackbuffer.Width, GlobalBackbuffer.Height, GlobalBackbuffer.Memory, &GlobalBackbuffer.Info, DIB_RGB_COLORS, SRCCOPY);
+                
                 ReleaseDC(WindowHwnd, DeviceContext);
                 
                 app_input *Temp = NewInput;
                 NewInput = OldInput;
                 OldInput = Temp;
-                
             }
             
         }

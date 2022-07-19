@@ -20,8 +20,8 @@
 #endif
 
 #if COMPILER_MSVC
-#include <intrin.h>
-//#include <immintrin.h>
+//#include <intrin.h>
+#include <immintrin.h>
 #elif COMPILER_LLVM
 #include <x86intrin.h>
 #else

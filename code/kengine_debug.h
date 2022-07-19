@@ -12,9 +12,11 @@ typedef struct debug_state
     
     b32 IsInitialized;
     
+    app_render_commands *RenderCommands;
+    
     // NOTE(kstandbridge): Transient
     temporary_memory TempMem;
-    render_group *RenderGroup;
+    render_group RenderGroup;
     
 } debug_state;
 

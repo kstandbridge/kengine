@@ -81,7 +81,7 @@ typedef struct layout
     f32 DefaultPadding;
     f32 DefaultRowHeight;
     
-    loaded_bitmap *DrawBuffer;
+    app_render_commands *RenderCommands;
     
     s32 ChildCount;
     element SentinalElement;

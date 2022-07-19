@@ -154,7 +154,7 @@ VerticleSlider(layout *Layout, f32 *Target)
 }
 
 inline layout
-BeginUIFrame(memory_arena *Arena, interface_state *State, app_input *Input, assets *Assets, f32 Scale, f32 DefaultPadding, loaded_bitmap *DrawBuffer)
+BeginUIFrame(memory_arena *Arena, interface_state *State, app_input *Input, assets *Assets, f32 Scale, f32 DefaultPadding, app_render_commands *RenderCommands)
 {
     layout Result;
     ZeroStruct(Result);
@@ -165,12 +165,10 @@ BeginUIFrame(memory_arena *Arena, interface_state *State, app_input *Input, asse
     Result.DefaultPadding = DefaultPadding;
     Result.DefaultRowHeight = Platform.DEBUGGetLineAdvance()*Result.Scale;
     
-    Result.DrawBuffer = DrawBuffer;
+    Result.RenderCommands = RenderCommands;
     
-    Result.SentinalElement.Dim = V2((f32)DrawBuffer->Width, (f32)DrawBuffer->Height);
-    
+    Result.SentinalElement.Dim = V2((f32)Result.RenderCommands->Width, (f32)Result.RenderCommands->Height);
     Result.CurrentId = 0;
-    
     
     Result.MouseP = V2(Input->MouseX, Input->MouseY);
     Result.dMouseP = V2Subtract(Result.MouseP, State->LastMouseP);
@@ -194,7 +192,7 @@ DrawSpacer(render_group *RenderGroup, element *Element, v2 Offset)
     PushRect(RenderGroup, 
              V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
              V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-             ColArray[ColArrayIndex], ColArray[ColArrayIndex]);
+             ColArray[ColArrayIndex], ColArray[ColArrayIndex], 0.0f);
     ColArrayIndex = (ColArrayIndex + 1) % ArrayCount(ColArray);
 }
 
@@ -205,11 +203,11 @@ DrawLabel(layout *Layout, render_group *RenderGroup, element *Element, v2 Offset
     PushRect(RenderGroup, 
              V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
              V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-             Colors.LabelBackground, Colors.LabelBackground);
+             Colors.LabelBackground, Colors.LabelBackground, 0.0f);
     
     v2 TextP = V2(Padding->Left, Padding->Bottom + Element->TextBounds.Max.Y*0.5f);
     TextP = V2Add(TextP, Offset);
-    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.LabelText, Rectangle2(Offset, V2Add(Offset, Element->Dim)));
+    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.LabelText, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 1.0f);
 }
 
 inline void
@@ -239,16 +237,16 @@ DrawCheckbox(interface_state *State, layout *Layout, render_group *RenderGroup, 
         CheckboxText = Colors.CheckboxClickedText;
     }
     
-    PushRect(RenderGroup, CheckboxP, CheckboxDim, CheckboxBackground, CheckboxBackground);
+    PushRect(RenderGroup, CheckboxP, CheckboxDim, CheckboxBackground, CheckboxBackground, 0.0f);
     
-    PushRectOutline(RenderGroup, CheckboxP, CheckboxDim, CheckboxBorder, CheckboxBorder, Layout->Scale);
+    PushRectOutline(RenderGroup, CheckboxP, CheckboxDim, CheckboxBorder, CheckboxBorder, Layout->Scale, 1.0f);
     if(CheckText.Size > 0)
     {
         v2 CheckTextP = V2Add(CheckboxP, V2Multiply(CheckboxDim, V2Set1(0.5f)));
         rectangle2 CheckTextRect = GetTextSize(Layout->Assets, Layout->Scale, CheckText);
         v2 CheckTextDim = V2Subtract(CheckTextRect.Max, CheckTextRect.Min);
         CheckTextP = V2Subtract(CheckTextP, V2Multiply(CheckTextDim, V2Set1(0.5f)));
-        WriteLine(RenderGroup, Layout->Assets, CheckTextP, Layout->Scale, CheckText, CheckboxText, Rectangle2(Offset, V2Add(Offset, Element->Dim)));
+        WriteLine(RenderGroup, Layout->Assets, CheckTextP, Layout->Scale, CheckText, CheckboxText, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 2.0f);
     }
     
     rectangle2 CheckTextRect = GetTextSize(Layout->Assets, Layout->Scale, Element->Text);
@@ -260,10 +258,10 @@ DrawCheckbox(interface_state *State, layout *Layout, render_group *RenderGroup, 
     {
         v2 OutlineP = V2Subtract(TextP, V2((Padding->Left + Padding->Right)*0.5f, (Padding->Top + Padding->Bottom)*1.5f));
         v2 OutlineDim = V2Add(Element->TextBounds.Max, V2((Padding->Left + Padding->Right)*1.5f, (Padding->Top + Padding->Bottom)*3.0f));
-        PushRectOutline(RenderGroup, OutlineP, OutlineDim, Colors.CheckboxSelectedBackground, Colors.CheckboxSelectedBackgroundAlt, Layout->Scale);
+        PushRectOutline(RenderGroup, OutlineP, OutlineDim, Colors.CheckboxSelectedBackground, Colors.CheckboxSelectedBackgroundAlt, Layout->Scale, 3.0f);
     }
     
-    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.CheckboxText, Rectangle2(Offset, V2Add(Offset, Element->Dim)));
+    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.CheckboxText, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 4.0f);
     
 }
 
@@ -277,7 +275,7 @@ DrawTextbox(interface_state *State, layout *Layout, render_group *RenderGroup, e
     PushRect(RenderGroup, 
              V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
              V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-             Colors.TextboxBackground, Colors.TextboxBackground);
+             Colors.TextboxBackground, Colors.TextboxBackground, 0.0f);
     
     v4 TextboxBorderColor = Colors.TextboxBorder;
     if(InteractionIsSelected(State, Element->Interaction))
@@ -311,17 +309,17 @@ DrawTextbox(interface_state *State, layout *Layout, render_group *RenderGroup, e
         f32 CaretHeight = Platform.DEBUGGetLineAdvance()*Layout->Scale*0.75f;
         WriteSelectedLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, 
                           Colors.TextboxText, Colors.TextboxSelectedText, Colors.TextboxSelectedBackground, 
-                          SelectionStart, SelectionEnd, CaretHeight, TextClip);
+                          SelectionStart, SelectionEnd, CaretHeight, TextClip, 1.0f);
     }
     else
     {
-        WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.TextboxText, TextClip);
+        WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.TextboxText, TextClip, 1.0f);
     }
     
     PushRectOutline(RenderGroup, 
                     V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
                     V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-                    TextboxBorderColor, TextboxBorderColor, Layout->Scale);
+                    TextboxBorderColor, TextboxBorderColor, Layout->Scale, 2.0f);
 }
 
 inline void
@@ -343,7 +341,7 @@ DrawMultilineTextboxDeprecated(interface_state *State, layout *Layout, render_gr
     v2 Dim = V2(ArrowDim.X + (Padding->Left + Padding->Right)*2.0f, Element->Dim.Y - (Padding->Top + Padding->Bottom)*2.0f - Layout->Scale*6.0f);
     v2 P = V2(Element->Dim.X - (Padding->Left + Padding->Right) - Layout->Scale*3.0f - Dim.X, (Padding->Top + Padding->Bottom) + Layout->Scale*3.0f);
     P = V2Add(P, Offset);
-    PushRect(RenderGroup, P, Dim, Colors.ScrollbarBackground, Colors.ScrollbarBackground);
+    PushRect(RenderGroup, P, Dim, Colors.ScrollbarBackground, Colors.ScrollbarBackground, 0.0f);
     
     v4 ButtonBackColor;
     v4 ButtonTextColor;
@@ -374,8 +372,8 @@ DrawMultilineTextboxDeprecated(interface_state *State, layout *Layout, render_gr
         ButtonBackColor = Colors.ScrollbarBackground;
         ButtonTextColor = Colors.ScrollbarText;
     }
-    PushRect(RenderGroup, ButtonP, ButtonDim, ButtonBackColor, ButtonBackColor);
-    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, DownText, ButtonTextColor, Rectangle2(Offset, V2Add(Offset, Element->Dim)));
+    PushRect(RenderGroup, ButtonP, ButtonDim, ButtonBackColor, ButtonBackColor, 1.0f);
+    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, DownText, ButtonTextColor, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 2.0f);
     
     v2 SliderP = V2Add(ButtonP, V2((Padding->Left + Padding->Right)*0.25f, ButtonDim.Y));
     
@@ -407,7 +405,7 @@ DrawMultilineTextboxDeprecated(interface_state *State, layout *Layout, render_gr
     {
         SliderColor = Colors.ScrollbarSlider;
     }
-    PushRect(RenderGroup, SliderP, SliderDim, SliderColor, SliderColor);
+    PushRect(RenderGroup, SliderP, SliderDim, SliderColor, SliderColor, 3.0f);
     
     TextP.Y = Dim.Y - ArrowDim.Y - (Padding->Top + Padding->Bottom);
     ButtonP = V2(P.X, Dim.Y - Dim.X + (Padding->Top + Padding->Bottom));
@@ -433,8 +431,8 @@ DrawMultilineTextboxDeprecated(interface_state *State, layout *Layout, render_gr
         ButtonBackColor = Colors.ScrollbarBackground;
         ButtonTextColor = Colors.ScrollbarText;
     }
-    PushRect(RenderGroup, ButtonP, ButtonDim, ButtonBackColor, ButtonBackColor);
-    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, UpText, ButtonTextColor, Rectangle2(Offset, V2Add(Offset, Element->Dim)));
+    PushRect(RenderGroup, ButtonP, ButtonDim, ButtonBackColor, ButtonBackColor, 4.0f);
+    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, UpText, ButtonTextColor, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 5.0f);
     
     // TODO(kstandbridge): This shouldn't be done at the drawing stage.
     if(InteractionIsHot(State, Element->Interaction))
@@ -481,21 +479,21 @@ DrawButton(interface_state *State, layout *Layout, render_group *RenderGroup, el
     PushRect(RenderGroup, 
              V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
              V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-             BackgroundColor, BackgroundColor);
+             BackgroundColor, BackgroundColor, 0.0f);
     
     if(!InteractionIsSelected(State, Element->Interaction))
     {
         PushRectOutline(RenderGroup, 
                         V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
                         V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-                        BorderColor, BorderColor, Layout->Scale);
+                        BorderColor, BorderColor, Layout->Scale, 1.0f);
     }
     else
     {
         PushRectOutline(RenderGroup, 
                         V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
                         V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-                        Colors.ButtonSelectedBorder, Colors.ButtonSelectedBorder, Layout->Scale*3.0f);
+                        Colors.ButtonSelectedBorder, Colors.ButtonSelectedBorder, Layout->Scale*3.0f, 1.0f);
         
         f32 Thickness = Layout->Scale*3.0f;
         if(Thickness < 1.0f)
@@ -505,13 +503,13 @@ DrawButton(interface_state *State, layout *Layout, render_group *RenderGroup, el
         v2 SelectedP = V2Add(V2Add(Offset, V2(Padding->Left, Padding->Bottom)), V2Set1(Thickness*3.0f));
         v2 SelectedDim = V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right)*2.5f, (Padding->Top + Padding->Bottom)*2.5f));
         SelectedDim = V2Subtract(SelectedDim, V2Set1(Thickness*4.0f));
-        PushRectOutline(RenderGroup, SelectedP, SelectedDim, Colors.ButtonSelectedBackground, Colors.ButtonSelectedBorderAlt, Layout->Scale);
+        PushRectOutline(RenderGroup, SelectedP, SelectedDim, Colors.ButtonSelectedBackground, Colors.ButtonSelectedBorderAlt, Layout->Scale, 2.0f);
     }
     
     v2 TextDim = V2Subtract(Element->TextBounds.Max, Element->TextBounds.Min);
     v2 TextP = V2(Element->Dim.X*0.5f - TextDim.X*0.5f, Element->Dim.Y*0.5f - TextDim.Y*0.5f);
     TextP = V2Add(TextP, Offset);
-    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.LabelText, Rectangle2(Offset, V2Add(Offset, Element->Dim)));
+    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.LabelText, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 3.0f);
     
 }
 
@@ -524,7 +522,7 @@ DrawSlider(interface_state *State, layout *Layout, render_group *RenderGroup, el
     PushRect(RenderGroup, 
              V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
              V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-             ColArray[ColArrayIndex], ColArray[ColArrayIndex]);
+             ColArray[ColArrayIndex], ColArray[ColArrayIndex], 0.0f);
     ColArrayIndex = (ColArrayIndex + 1) % ArrayCount(ColArray);
 }
 
@@ -1008,7 +1006,7 @@ Interact(interface_state *State, layout *Layout, app_input *Input)
 {
     KeyboardInteract(State, Layout, Input);
     MouseMoveInteract(State, Layout, Input);
-    if(IsInRectangle(Rectangle2(V2Set1(0.0f), V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height)), Layout->MouseP))
+    if(IsInRectangle(Rectangle2(V2Set1(0.0f), V2((f32)Layout->RenderCommands->Width, (f32)Layout->RenderCommands->Height)), Layout->MouseP))
     {
         MouseButtonInteract(State, Layout, Input);
     }
@@ -1019,7 +1017,7 @@ EndUIFrame(interface_state *State, layout *Layout, app_input *Input)
 {
     // NOTE(kstandbridge): Figure out the sizes ready for drawing
     {    
-        v2 Dim = V2((f32)Layout->DrawBuffer->Width, (f32)Layout->DrawBuffer->Height);
+        v2 Dim = V2((f32)Layout->RenderCommands->Width, (f32)Layout->RenderCommands->Height);
         element *Element = &Layout->SentinalElement;
         
         s32 ChildCount = Element->ChildCount - Element->SetWidthChildCount;
@@ -1060,14 +1058,14 @@ EndUIFrame(interface_state *State, layout *Layout, app_input *Input)
         ColArray[23] = V4(0.25f, 0.0f, 0.0f, 1.0f);
         ColArray[24] = V4(0.25f, 0.0f, 0.25f, 1.0f);
         
-        render_group *RenderGroup = AllocateRenderGroup(Layout->Arena, Megabytes(4), Layout->DrawBuffer);
+        render_group RenderGroup = BeginRenderGroup(Layout->Assets, Layout->RenderCommands);
         
-        PushClear(RenderGroup, Colors.Clear);
+        PushClear(&RenderGroup, Colors.Clear);
         
-        v2 P = V2((f32)Layout->DrawBuffer->Width - Layout->DefaultPadding, Layout->DefaultPadding);
-        DrawElements(State, Layout, RenderGroup, Layout->SentinalElement.FirstChild, P);
+        v2 P = V2((f32)Layout->RenderCommands->Width - Layout->DefaultPadding, Layout->DefaultPadding);
+        DrawElements(State, Layout, &RenderGroup, Layout->SentinalElement.FirstChild, P);
         
-        RenderGroupToOutput(RenderGroup);
+        EndRenderGroup(&RenderGroup);
         
     }
     

@@ -19,13 +19,13 @@ DEBUGTextLine(char *Format, ...)
     string Text = FormatStringInternal(&DebugState->Arena, Format, ArgsList);
     va_end(ArgsList);
     
-    WriteLine(DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(0, 0, 0, 1), InfinityRectangle2());
+    WriteLine(&DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(0, 0, 0, 1), InfinityRectangle2(), F32Max);
     
     DebugState->AtY += Platform.DEBUGGetLineAdvance()*DebugState->FontScale;
 }
 
 internal void
-DEBUGStart(loaded_bitmap *DrawBuffer)
+DEBUGStart()
 {
     debug_state *DebugState = DEBUGGetState();
     
@@ -33,7 +33,7 @@ DEBUGStart(loaded_bitmap *DrawBuffer)
     DebugState->FontScale = 0.4f;
     
     DebugState->TempMem = BeginTemporaryMemory(&DebugState->Arena);
-    DebugState->RenderGroup = AllocateRenderGroup(DebugState->TempMem.Arena, Megabytes(4), DrawBuffer);
+    DebugState->RenderGroup = BeginRenderGroup(DebugState->Assets, DebugState->RenderCommands);
 }
 
 internal void
@@ -41,7 +41,7 @@ DEBUGEnd()
 {
     debug_state *DebugState = DEBUGGetState();
     
-    RenderGroupToOutput(DebugState->RenderGroup);
+    EndRenderGroup(&DebugState->RenderGroup);
     
     EndTemporaryMemory(DebugState->TempMem);
 }
