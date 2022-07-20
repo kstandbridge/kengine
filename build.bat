@@ -11,6 +11,10 @@ REM local variable is initialized but not referenced
 set CommonCompilerFlags=-wd4189 %CommonCompilerFlags%
 REM nonstandard extension used: nameless struct/union
 set CommonCompilerFlags=-wd4201 %CommonCompilerFlags%
+REM 'type cast': pointer truncation
+set CommonCompilerFlags=-wd4311 %CommonCompilerFlags%
+REM 'type cast': conversion
+set CommonCompilerFlags=-wd4312 %CommonCompilerFlags%
 
 set CommonLinkerFlags=-STACK:0x100000,0x100000 -incremental:no -opt:ref kernel32.lib
 
@@ -35,7 +39,7 @@ if "%~1"=="build_dependencies" (
 	win32_kengine_tests.exe
 
 	REM Win32 platform
-	cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\win32_kengine.c /link /NODEFAULTLIB /SUBSYSTEM:windows %CommonLinkerFlags% Gdi32.lib User32.lib Winmm.lib
+	cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\win32_kengine.c /link /NODEFAULTLIB /SUBSYSTEM:windows %CommonLinkerFlags% Gdi32.lib User32.lib opengl32.lib
 
 ) else (
 

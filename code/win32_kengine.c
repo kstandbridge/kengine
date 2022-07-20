@@ -2,7 +2,55 @@
 
 global platform_api Platform;
 
+global GLuint GlobalBlitTextureHandle;
+
+#define WGL_DRAW_TO_WINDOW_ARB                  0x2001
+#define WGL_ACCELERATION_ARB                    0x2003
+#define WGL_SUPPORT_OPENGL_ARB                  0x2010
+#define WGL_DOUBLE_BUFFER_ARB                   0x2011
+#define WGL_PIXEL_TYPE_ARB                      0x2013
+
+#define WGL_TYPE_RGBA_ARB                       0x202B
+#define WGL_FULL_ACCELERATION_ARB               0x2027
+
+#define WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB        0x20A9
+
+typedef HGLRC WINAPI wgl_create_context_attribs_arb(HDC hDC, HGLRC hShareContext,
+                                                    const int *attribList);
+
+typedef BOOL WINAPI wgl_get_pixel_format_attrib_iv_arb(HDC hdc,
+                                                       int iPixelFormat,
+                                                       int iLayerPlane,
+                                                       UINT nAttributes,
+                                                       const int *piAttributes,
+                                                       int *piValues);
+
+typedef BOOL WINAPI wgl_get_pixel_format_attrib_fv_arb(HDC hdc,
+                                                       int iPixelFormat,
+                                                       int iLayerPlane,
+                                                       UINT nAttributes,
+                                                       const int *piAttributes,
+                                                       FLOAT *pfValues);
+
+typedef BOOL WINAPI wgl_choose_pixel_format_arb(HDC hdc,
+                                                const int *piAttribIList,
+                                                const FLOAT *pfAttribFList,
+                                                UINT nMaxFormats,
+                                                int *piFormats,
+                                                UINT *nNumFormats);
+
+typedef BOOL WINAPI wgl_swap_interval_ext(int interval);
+typedef const char * WINAPI wgl_get_extensions_string_ext(void);
+
+global wgl_create_context_attribs_arb *wglCreateContextAttribsARB;
+global wgl_choose_pixel_format_arb *wglChoosePixelFormatARB;
+global wgl_swap_interval_ext *wglSwapIntervalEXT;
+global wgl_get_extensions_string_ext *wglGetExtensionsStringEXT;
+global b32 OpenGLSupportsSRGBFramebuffer;
+global GLuint OpenGLDefaultInternalTextureFormat;
+global b32 HardwareRendering = false;
 #include "kengine_render.c"
+#include "kengine_opengl.c"
 
 internal s32
 Win32DisplayLastError()
@@ -73,15 +121,16 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         SelectObject(FontDeviceContext, Bitmap);
         SetBkColor(FontDeviceContext, RGB(0, 0, 0));
         
+#if 0
         NONCLIENTMETRICS NonClientMetrics;
         NonClientMetrics.cbSize = sizeof(NONCLIENTMETRICS);
         if(SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, NonClientMetrics.cbSize, &NonClientMetrics, 0))
         {
             LOGFONTA LogFont = NonClientMetrics.lfMessageFont;
             // TODO(kstandbridge): Figure out how to specify pixels properly here
-            s32 FontHeight = 128;
-            //s32 PointSize = 72;
-            //s32 FontHeight = -MulDiv(PointSize, GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
+            //s32 FontHeight = 128;
+            s32 PointSize = 12;
+            s32 FontHeight = -MulDiv(PointSize, GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
             //s32 FontHeight = LogFont.lfHeight;
             FontHandle = CreateFontA(FontHeight, LogFont.lfWidth, LogFont.lfEscapement, LogFont.lfOrientation,
                                      LogFont.lfWeight, LogFont.lfItalic, LogFont.lfUnderline, LogFont.lfStrikeOut, 
@@ -89,11 +138,14 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                                      LogFont.lfPitchAndFamily, LogFont.lfFaceName);
         }
         else
+#endif
         {
-            // NOTE(kstandbridge): Failed to load system font so just use arial
-            AddFontResourceExA("c:/Windows/Fonts/arial.ttf", FR_PRIVATE, 0);
-            s32 Height = 128; // TODO(kstandbridge): Figure out how to specify pixels properly here
-            FontHandle = CreateFontA(Height, 0, 0, 0,
+            // NOTE(kstandbridge): Failed to load system font so just use segoeui
+            AddFontResourceExA("c:/Windows/Fonts/segoeui.ttf", FR_PRIVATE, 0);
+            //s32 PointSize = 14;
+            //s32 FontHeight = -MulDiv(PointSize, GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
+            s32 FontHeight = 128;
+            FontHandle = CreateFontA(FontHeight, 0, 0, 0,
                                      FW_NORMAL, // NOTE(kstandbridge): Weight
                                      FALSE, // NOTE(kstandbridge): Italic
                                      FALSE, // NOTE(kstandbridge): Underline
@@ -103,7 +155,7 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                                      CLIP_DEFAULT_PRECIS, 
                                      ANTIALIASED_QUALITY,
                                      DEFAULT_PITCH|FF_DONTCARE,
-                                     "Arial");
+                                     "Segoe UI");
         }
         
         SelectObject(FontDeviceContext, FontHandle);
@@ -141,6 +193,7 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         BoundHeight = MAX_FONT_HEIGHT;
     }
     
+    //SetBkMode(FontDeviceContext, TRANSPARENT);
     SetTextColor(FontDeviceContext, RGB(255, 255, 255));
     TextOutW(FontDeviceContext, PreStepX, 0, &CheesePoint, 1);
     
@@ -159,6 +212,12 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
             X < BoundWidth;
             ++X)
         {
+            
+#if 0            
+            COLORREF RefPixel = GetPixel(FontDeviceContext, X, Y);
+            Assert(RefPixel == *Pixel);
+#endif
+            
             if(*Pixel != 0)
             {
                 if(MinX > X)
@@ -241,10 +300,15 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                     Alpha = 0.0f;
                 }
                 
+#if 0
                 v4 Texel = V4((f32)((Pixel & RedMask) >> RedShiftDown),
                               (f32)((Pixel & GreenMask) >> GreenShiftDown),
                               (f32)((Pixel & BlueMask) >> BlueShiftDown),
                               Alpha);
+#else
+                f32 Gray = (f32)(Pixel & 0xFF);
+                v4 Texel = V4(255.0f, 255.0f, 255.0f, Gray);
+#endif
                 
                 Texel = SRGB255ToLinear1(Texel);
                 Texel.R *= Texel.A;
@@ -286,7 +350,7 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         GlobalCodePointHoriziontalAdvance[GlyphIndex*MAX_GLYPH_COUNT + OtherGlyphIndex] += CharAdvance - KerningChange;
         if(OtherGlyphIndex != 0)
         {
-            //GlobalCodePointHoriziontalAdvance[OtherGlyphIndex*MAX_GLYPH_COUNT + GlyphIndex] += KerningChange;
+            GlobalCodePointHoriziontalAdvance[OtherGlyphIndex*MAX_GLYPH_COUNT + GlyphIndex] += KerningChange;
         }
     }
     
@@ -323,6 +387,165 @@ DEBUGGetLineAdvance()
     f32 Result = (f32)GlobalTextMetric.tmAscent + (f32)GlobalTextMetric.tmDescent + (f32)GlobalTextMetric.tmDescent;
     
     return Result;
+}
+
+internal void
+Win32SetPixelFormat(HDC WindowDC)
+{
+    s32 SuggestedPixelFormatIndex = 0;
+    GLuint ExtendedPick = 0;
+    if(wglChoosePixelFormatARB)
+    {
+        int IntAttribList[] =
+        {
+            WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+            WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+            WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+            WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+            WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+            WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, GL_TRUE,
+            0,
+        };
+        
+        if(!OpenGLDefaultInternalTextureFormat)
+        {
+            IntAttribList[10] = 0;
+        }
+        
+        wglChoosePixelFormatARB(WindowDC, IntAttribList, 0, 1, 
+                                &SuggestedPixelFormatIndex, &ExtendedPick);
+    }
+    
+    if(!ExtendedPick)
+    {
+        PIXELFORMATDESCRIPTOR DesiredPixelFormat;
+        DesiredPixelFormat.nSize = sizeof(DesiredPixelFormat);
+        DesiredPixelFormat.nVersion = 1;
+        DesiredPixelFormat.iPixelType = PFD_TYPE_RGBA;
+        DesiredPixelFormat.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER;
+        DesiredPixelFormat.cColorBits = 32;
+        DesiredPixelFormat.cAlphaBits = 8;
+        DesiredPixelFormat.iLayerType = PFD_MAIN_PLANE;
+        
+        SuggestedPixelFormatIndex = ChoosePixelFormat(WindowDC, &DesiredPixelFormat);
+    }
+    
+    PIXELFORMATDESCRIPTOR SuggestedPixelFormat;
+    DescribePixelFormat(WindowDC, SuggestedPixelFormatIndex,
+                        sizeof(SuggestedPixelFormat), &SuggestedPixelFormat);
+    SetPixelFormat(WindowDC, SuggestedPixelFormatIndex, &SuggestedPixelFormat);
+}
+
+internal void
+Win32LoadWGLExtensions()
+{
+    WNDCLASSA WindowClass;
+    ZeroStruct(WindowClass);
+    
+    WindowClass.lpfnWndProc = DefWindowProcA;
+    WindowClass.hInstance = GetModuleHandle(0);
+    WindowClass.lpszClassName = "kEngineWGLLoader";
+    
+    if(RegisterClassA(&WindowClass))
+    {
+        HWND Window = CreateWindowExA(
+                                      0,
+                                      WindowClass.lpszClassName,
+                                      "kEngine",
+                                      0,
+                                      CW_USEDEFAULT,
+                                      CW_USEDEFAULT,
+                                      CW_USEDEFAULT,
+                                      CW_USEDEFAULT,
+                                      0,
+                                      0,
+                                      WindowClass.hInstance,
+                                      0);
+        
+        HDC WindowDC = GetDC(Window);
+        Win32SetPixelFormat(WindowDC);
+        HGLRC OpenGLRC = wglCreateContext(WindowDC);
+        if(wglMakeCurrent(WindowDC, OpenGLRC))        
+        {
+            wglChoosePixelFormatARB = 
+            (wgl_choose_pixel_format_arb *)wglGetProcAddress("wglChoosePixelFormatARB");
+            wglCreateContextAttribsARB =
+            (wgl_create_context_attribs_arb *)wglGetProcAddress("wglCreateContextAttribsARB");
+            wglSwapIntervalEXT = (wgl_swap_interval_ext *)wglGetProcAddress("wglSwapIntervalEXT");
+            wglGetExtensionsStringEXT = (wgl_get_extensions_string_ext *)wglGetProcAddress("wglGetExtensionsStringEXT");
+            
+            if(wglGetExtensionsStringEXT)
+            {
+                char *Extensions = (char *)wglGetExtensionsStringEXT();
+                char *At = Extensions;
+                while(*At)
+                {
+                    while(IsWhitespace(*At)) {++At;}
+                    char *End = At;
+                    while(*End && !IsWhitespace(*End)) {++End;}
+                    
+                    umm Count = End - At;        
+                    
+                    if(0) {}
+                    else if(StringsAreEqual(StringInternal(Count, (u8 *)At), String("WGL_EXT_framebuffer_sRGB"))) {OpenGLSupportsSRGBFramebuffer = true;}
+                    
+                    At = End;
+                }
+            }
+            
+            wglMakeCurrent(0, 0);
+        }
+        
+        wglDeleteContext(OpenGLRC);
+        ReleaseDC(Window, WindowDC);
+        DestroyWindow(Window);
+    }
+}
+
+s32 Win32OpenGLAttribs[] =
+{
+    WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+    WGL_CONTEXT_MINOR_VERSION_ARB, 0,
+    WGL_CONTEXT_FLAGS_ARB, 0 // NOTE(kstandbridge): Enable for testing WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
+#if KENGINE_INTERNAL
+    |WGL_CONTEXT_DEBUG_BIT_ARB
+#endif
+    ,
+    WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+    0,
+};
+
+
+internal HGLRC
+Win32InitOpenGL(HDC WindowDC)
+{
+    Win32LoadWGLExtensions();
+    
+    b32 ModernContext = true;
+    HGLRC OpenGLRC = 0;
+    if(wglCreateContextAttribsARB)
+    {
+        Win32SetPixelFormat(WindowDC);
+        OpenGLRC = wglCreateContextAttribsARB(WindowDC, 0, Win32OpenGLAttribs);
+    }
+    
+    if(!OpenGLRC)
+    {
+        ModernContext = false;
+        OpenGLRC = wglCreateContext(WindowDC);
+    }
+    
+    if(wglMakeCurrent(WindowDC, OpenGLRC))
+    {
+        OpenGLInit(ModernContext);
+        if(wglSwapIntervalEXT)
+        {
+            wglSwapIntervalEXT(1);
+        }
+        HardwareRendering = true;
+    }
+    
+    return OpenGLRC;
 }
 
 inline b32
@@ -721,13 +944,6 @@ WinMainCRTStartup()
     GlobalPerfCountFrequency = PerfCountFrequencyResult.QuadPart;
     LARGE_INTEGER LastCounter = Win32GetWallClock();
     
-#define MonitorRefreshHz 30
-#define AppUpdateHz (MonitorRefreshHz / 2)
-    f32 TargetSecondsPerFrame = 1.0f / (f32)AppUpdateHz;
-    
-    UINT DesiredSchedulerMS = 1;
-    b32 SleepIsGranular = (timeBeginPeriod(DesiredSchedulerMS) == TIMERR_NOERROR);
-    
     WNDCLASSEXA WindowClass = {sizeof(WNDCLASSEXA)};
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
@@ -746,6 +962,17 @@ WinMainCRTStartup()
         if(WindowHwnd)
         {
             ShowWindow(WindowHwnd, SW_SHOW);
+            HDC OpenGLDC = GetDC(WindowHwnd);
+            HGLRC OpenGLRC = Win32InitOpenGL(OpenGLDC);
+            
+            u32 MonitorRefreshHz = 60;
+            u32 Win32RefreshRate = GetDeviceCaps(OpenGLDC, VREFRESH);
+            if(Win32RefreshRate > 1)
+            {
+                MonitorRefreshHz = Win32RefreshRate;
+            }
+            f32 AppUpdateHz = (f32)(MonitorRefreshHz);
+            
             
             platform_work_queue PerFrameWorkQueue;
             MakeQueue(&PerFrameWorkQueue, 6);
@@ -808,6 +1035,9 @@ WinMainCRTStartup()
             GlobalIsRunning = true;
             while(GlobalIsRunning)
             {
+                u32 ExpectedFramesPerUpdate = 1;
+                f32 TargetSecondsPerFrame = (f32)ExpectedFramesPerUpdate / (f32)AppUpdateHz;
+                
                 AppMemory.ExecutableReloaded = false;
                 FILETIME NewDLLWriteTime = Win32GetLastWriteTime(SourceAppCodeDLLFullPath);
                 if(CompareFileTime(&NewDLLWriteTime, &AppCode.LastDLLWriteTime) != 0)
@@ -853,35 +1083,6 @@ WinMainCRTStartup()
                     ProcessInputMessage(&NewInput->MouseButtons[ButtonIndex],
                                         GetKeyState(ButtonVKs[ButtonIndex]) & (1 << 15));
                 }
-                
-                LARGE_INTEGER WorkCounter = Win32GetWallClock();
-                f32 WorkSecondsElapsed = Win32GetSecondsElapsed(LastCounter, WorkCounter);
-                
-                f32 SecondsElapsedForFrame = WorkSecondsElapsed;
-                if (SecondsElapsedForFrame < TargetSecondsPerFrame)
-                {
-                    if (SleepIsGranular)
-                    {
-                        DWORD SleepMS = (DWORD)(1000.0f * (TargetSecondsPerFrame -
-                                                           SecondsElapsedForFrame));
-                        if (SleepMS > 0)
-                        {
-                            Sleep(SleepMS);
-                        }
-                    }
-                    
-                    while (SecondsElapsedForFrame < TargetSecondsPerFrame)
-                    {
-                        SecondsElapsedForFrame = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock());
-                        
-                        _mm_pause();
-                    }
-                }
-                
-                NewInput->dtForFrame = SecondsElapsedForFrame;
-                LARGE_INTEGER EndCounter = Win32GetWallClock();
-                LastCounter = EndCounter;
-                
                 // NOTE(kstandbridge): Render
                 
                 // TODO(kstandbridge): preprocessor to generate rendercommands ctor
@@ -909,21 +1110,31 @@ WinMainCRTStartup()
                 
                 // TODO(kstandbridge): Enable element sorting
                 SortRenderCommands(&RenderCommands, SortMemory);
-                
-                loaded_bitmap OutputTarget;
-                ZeroStruct(OutputTarget);
-                OutputTarget.Memory = GlobalBackbuffer.Memory;
-                OutputTarget.Width = GlobalBackbuffer.Width;
-                OutputTarget.Height = GlobalBackbuffer.Height;
-                OutputTarget.Pitch = GlobalBackbuffer.Pitch;
-                
                 HDC DeviceContext = GetDC(WindowHwnd);
-                
-                SoftwareRenderCommands(Platform.PerFrameWorkQueue, &RenderCommands, &OutputTarget);
-                
-                StretchDIBits(DeviceContext, 0, 0, GlobalBackbuffer.Width, GlobalBackbuffer.Height, 0, 0, GlobalBackbuffer.Width, GlobalBackbuffer.Height, GlobalBackbuffer.Memory, &GlobalBackbuffer.Info, DIB_RGB_COLORS, SRCCOPY);
-                
+                if(HardwareRendering)
+                {
+                    OpenGLRenderCommands(&RenderCommands);
+                    SwapBuffers(DeviceContext);
+                }
+                else
+                {
+                    loaded_bitmap OutputTarget;
+                    ZeroStruct(OutputTarget);
+                    OutputTarget.Memory = GlobalBackbuffer.Memory;
+                    OutputTarget.Width = GlobalBackbuffer.Width;
+                    OutputTarget.Height = GlobalBackbuffer.Height;
+                    OutputTarget.Pitch = GlobalBackbuffer.Pitch;
+                    
+                    
+                    SoftwareRenderCommands(Platform.PerFrameWorkQueue, &RenderCommands, &OutputTarget);
+                    
+                    StretchDIBits(DeviceContext, 0, 0, GlobalBackbuffer.Width, GlobalBackbuffer.Height, 0, 0, GlobalBackbuffer.Width, GlobalBackbuffer.Height, GlobalBackbuffer.Memory, &GlobalBackbuffer.Info, DIB_RGB_COLORS, SRCCOPY);
+                    
+                }
                 ReleaseDC(WindowHwnd, DeviceContext);
+                
+                LARGE_INTEGER EndCounter = Win32GetWallClock();
+                LastCounter = EndCounter;
                 
                 app_input *Temp = NewInput;
                 NewInput = OldInput;

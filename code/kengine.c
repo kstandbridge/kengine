@@ -72,10 +72,8 @@ AppUpdateFrame(app_memory *Memory, app_input *Input, app_render_commands *Render
         InitializeArena(&DebugState->Arena, Memory->DebugStorageSize - sizeof(debug_state), (u8 *)Memory->DebugStorage + sizeof(debug_state));
         
         DebugState->Assets = &AppState->Assets;
-        
+        DebugState->RenderCommands = RenderCommands;
         DebugState->LeftEdge = 20.0f;
-        DebugState->AtY = 0.0f;
-        DebugState->FontScale = 0.2f;
         
         DebugState->IsInitialized = true;
     }
@@ -92,7 +90,7 @@ AppUpdateFrame(app_memory *Memory, app_input *Input, app_render_commands *Render
     
     interface_state *InterfaceState = &AppState->InterfaceState;
     
-    layout Layout = BeginUIFrame(TempMem.Arena, InterfaceState, Input, &AppState->Assets, 0.2f, 2.0f, RenderCommands);
+    layout Layout = BeginUIFrame(TempMem.Arena, InterfaceState, Input, &AppState->Assets, 0.25f, 2.0f, RenderCommands);
     
     // TODO(kstandbridge): should be able to hide this somewhere
     Layout.CurrentElement = &Layout.SentinalElement;

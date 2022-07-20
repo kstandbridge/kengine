@@ -44,13 +44,11 @@ typedef struct app_state
     loaded_bitmap TestBMP;
     loaded_bitmap TestFont;
     
-    
     v2 TestP;
     s32 TestCounter;
     // TODO(kstandbridge): Switch to a float
     v2 UiScale;
     b32 TestBoolean;
-    
     
     fruit_type TestEnum;
     

@@ -30,7 +30,7 @@ DEBUGStart()
     debug_state *DebugState = DEBUGGetState();
     
     DebugState->AtY = 20.0f;
-    DebugState->FontScale = 0.4f;
+    DebugState->FontScale = 0.25f;
     
     DebugState->TempMem = BeginTemporaryMemory(&DebugState->Arena);
     DebugState->RenderGroup = BeginRenderGroup(DebugState->Assets, DebugState->RenderCommands);

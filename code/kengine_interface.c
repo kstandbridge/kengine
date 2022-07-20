@@ -1023,8 +1023,8 @@ EndUIFrame(interface_state *State, layout *Layout, app_input *Input)
         s32 ChildCount = Element->ChildCount - Element->SetWidthChildCount;
         v2 DimRemaining = V2(Dim.X - Element->UsedDim.X, Dim.Y);
         
-        DimRemaining.X -= Layout->DefaultPadding *2.0f;
-        DimRemaining.Y -= Layout->DefaultPadding *2.0f;
+        DimRemaining.X -= Layout->DefaultPadding*2.0f;
+        DimRemaining.Y -= Layout->DefaultPadding*2.0f;
         
         CalculateElementDims(Layout, Element->FirstChild, ChildCount, DimRemaining);
     }

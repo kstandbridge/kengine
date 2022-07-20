@@ -4,9 +4,11 @@
 #include "kengine_shared.h"
 #include "kengine_generated.h"
 #include "kengine_intrinsics.h"
-#include "kengine_math.h"
 #include "win32_kengine_shared.h"
+#include "kengine_math.h"
 #include "kengine_render_group.h"
+
+#include <gl/gl.h>
 
 
 typedef struct win32_offscreen_buffer

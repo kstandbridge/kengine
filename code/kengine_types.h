@@ -177,6 +177,7 @@ typedef struct loaded_bitmap
     f32 WidthOverHeight;
     
     s32 Pitch;
+    void *TextureHandle;
 } loaded_bitmap;
 
 
