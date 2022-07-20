@@ -267,16 +267,33 @@ OpenGLRenderCommands(app_render_commands *RenderCommands)
                     RenderEntry->Bitmap->TextureHandle = AllocateTexture(RenderEntry->Bitmap->Width, RenderEntry->Bitmap->Height, RenderEntry->Bitmap->Memory);
                 }
                 
+                
                 glBindTexture(GL_TEXTURE_2D, (GLuint)RenderEntry->Bitmap->TextureHandle);
                 OpenGLRectangle(MinP, MaxP, RenderEntry->Color);
                 
             } break;
             case RenderGroupEntry_render_entry_rectangle:
             {
-                render_entry_rectangle *RenderEntry = (render_entry_rectangle *)EntryData;
                 glDisable(GL_TEXTURE_2D);
+                render_entry_rectangle *RenderEntry = (render_entry_rectangle *)EntryData;
                 OpenGLRectangle(RenderEntry->P, V2Add(RenderEntry->P, RenderEntry->Dim), RenderEntry->Color);
                 glEnable(GL_TEXTURE_2D);
+            } break;
+            
+            case RenderGroupEntry_render_entry_text:
+            {
+                render_entry_text *RenderEntry = (render_entry_text *)EntryData;
+                v2 P = RenderEntry->P;
+                v4 Color = RenderEntry->Color;
+                string Text = RenderEntry->Text;
+                
+                glDisable(GL_TEXTURE_2D);
+                glRasterPos2f(P.X, P.Y); 
+                glColor4f(Color.R, Color.G, Color.B, Color.A);
+                glListBase(1000);
+                glCallLists((GLsizei)Text.Size, GL_UNSIGNED_BYTE, Text.Data);
+                glEnable(GL_TEXTURE_2D);
+                
             } break;
             
             

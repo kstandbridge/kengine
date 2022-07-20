@@ -208,6 +208,7 @@ DrawLabel(layout *Layout, render_group *RenderGroup, element *Element, v2 Offset
     v2 TextP = V2(Padding->Left, Padding->Bottom + Element->TextBounds.Max.Y*0.5f);
     TextP = V2Add(TextP, Offset);
     WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.LabelText, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 1.0f);
+    //PushText(RenderGroup, TextP, Colors.LabelText, Element->Text, 1.0f);
 }
 
 inline void
@@ -216,7 +217,7 @@ DrawCheckbox(interface_state *State, layout *Layout, render_group *RenderGroup, 
     element_padding *Padding = &Element->Padding;
     v2 CheckboxP = V2(Padding->Left, Padding->Bottom*2.0f);
     CheckboxP = V2Add(CheckboxP, Offset);
-    v2 CheckboxDim = V2Set1(Platform.DEBUGGetLineAdvance()*Layout->Scale*0.75f);
+    v2 CheckboxDim = V2Set1(Platform.DEBUGGetLineAdvance()*Layout->Scale*1.0f);
     string CheckText = (*Element->Interaction.Bool) ? String("\\2713") : String("");
     
     v4 CheckboxBackground = Colors.CheckboxBackground;
@@ -238,8 +239,7 @@ DrawCheckbox(interface_state *State, layout *Layout, render_group *RenderGroup, 
     }
     
     PushRect(RenderGroup, CheckboxP, CheckboxDim, CheckboxBackground, CheckboxBackground, 0.0f);
-    
-    PushRectOutline(RenderGroup, CheckboxP, CheckboxDim, CheckboxBorder, CheckboxBorder, Layout->Scale, 1.0f);
+    PushRectOutline(RenderGroup, CheckboxP, CheckboxDim, CheckboxBorder, CheckboxBorder, Layout->Scale*0.25f, 1.0f);
     if(CheckText.Size > 0)
     {
         v2 CheckTextP = V2Add(CheckboxP, V2Multiply(CheckboxDim, V2Set1(0.5f)));
@@ -249,20 +249,10 @@ DrawCheckbox(interface_state *State, layout *Layout, render_group *RenderGroup, 
         WriteLine(RenderGroup, Layout->Assets, CheckTextP, Layout->Scale, CheckText, CheckboxText, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 2.0f);
     }
     
-    rectangle2 CheckTextRect = GetTextSize(Layout->Assets, Layout->Scale, Element->Text);
-    v2 CheckTextDim = V2Subtract(CheckTextRect.Max, CheckTextRect.Min);
-    v2 TextP = V2(CheckboxP.X + CheckboxDim.X + Padding->Left + Padding->Right, 
-                  CheckboxP.Y + (CheckboxDim.Y*0.5f) - (CheckTextDim.Y*0.5f));
-    
-    if(InteractionIsSelected(State, Element->Interaction))
-    {
-        v2 OutlineP = V2Subtract(TextP, V2((Padding->Left + Padding->Right)*0.5f, (Padding->Top + Padding->Bottom)*1.5f));
-        v2 OutlineDim = V2Add(Element->TextBounds.Max, V2((Padding->Left + Padding->Right)*1.5f, (Padding->Top + Padding->Bottom)*3.0f));
-        PushRectOutline(RenderGroup, OutlineP, OutlineDim, Colors.CheckboxSelectedBackground, Colors.CheckboxSelectedBackgroundAlt, Layout->Scale, 3.0f);
-    }
-    
-    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.CheckboxText, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 4.0f);
-    
+    v2 TextP = V2(Padding->Left, Padding->Bottom + Element->TextBounds.Max.Y*0.5f);
+    TextP.X += CheckboxDim.X + Padding->Left + Padding->Right;
+    TextP = V2Add(TextP, Offset);
+    WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.LabelText, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 1.0f);
 }
 
 inline void
@@ -313,6 +303,7 @@ DrawTextbox(interface_state *State, layout *Layout, render_group *RenderGroup, e
     }
     else
     {
+        //PushText(RenderGroup, TextP, Colors.TextboxText, Element->Text, 4.0f);
         WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.TextboxText, TextClip, 1.0f);
     }
     
@@ -486,14 +477,14 @@ DrawButton(interface_state *State, layout *Layout, render_group *RenderGroup, el
         PushRectOutline(RenderGroup, 
                         V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
                         V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-                        BorderColor, BorderColor, Layout->Scale, 1.0f);
+                        BorderColor, BorderColor, Layout->Scale*0.25f, 1.0f);
     }
     else
     {
         PushRectOutline(RenderGroup, 
                         V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
                         V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-                        Colors.ButtonSelectedBorder, Colors.ButtonSelectedBorder, Layout->Scale*3.0f, 1.0f);
+                        Colors.ButtonSelectedBorder, Colors.ButtonSelectedBorder, Layout->Scale*0.25f, 1.0f);
         
         f32 Thickness = Layout->Scale*3.0f;
         if(Thickness < 1.0f)
@@ -510,6 +501,7 @@ DrawButton(interface_state *State, layout *Layout, render_group *RenderGroup, el
     v2 TextP = V2(Element->Dim.X*0.5f - TextDim.X*0.5f, Element->Dim.Y*0.5f - TextDim.Y*0.5f);
     TextP = V2Add(TextP, Offset);
     WriteLine(RenderGroup, Layout->Assets, TextP, Layout->Scale, Element->Text, Colors.LabelText, Rectangle2(Offset, V2Add(Offset, Element->Dim)), 3.0f);
+    //PushText(RenderGroup, TextP, Colors.LabelText, Element->Text, 3.0f);
     
 }
 

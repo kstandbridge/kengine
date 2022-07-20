@@ -120,43 +120,20 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         HBITMAP Bitmap = CreateDIBSection(FontDeviceContext, &Info, DIB_RGB_COLORS, &FontBits, 0, 0);
         SelectObject(FontDeviceContext, Bitmap);
         SetBkColor(FontDeviceContext, RGB(0, 0, 0));
-        
-#if 0
-        NONCLIENTMETRICS NonClientMetrics;
-        NonClientMetrics.cbSize = sizeof(NONCLIENTMETRICS);
-        if(SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, NonClientMetrics.cbSize, &NonClientMetrics, 0))
-        {
-            LOGFONTA LogFont = NonClientMetrics.lfMessageFont;
-            // TODO(kstandbridge): Figure out how to specify pixels properly here
-            //s32 FontHeight = 128;
-            s32 PointSize = 12;
-            s32 FontHeight = -MulDiv(PointSize, GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
-            //s32 FontHeight = LogFont.lfHeight;
-            FontHandle = CreateFontA(FontHeight, LogFont.lfWidth, LogFont.lfEscapement, LogFont.lfOrientation,
-                                     LogFont.lfWeight, LogFont.lfItalic, LogFont.lfUnderline, LogFont.lfStrikeOut, 
-                                     LogFont.lfCharSet, LogFont.lfOutPrecision, LogFont.lfClipPrecision, LogFont.lfQuality, 
-                                     LogFont.lfPitchAndFamily, LogFont.lfFaceName);
-        }
-        else
-#endif
-        {
-            // NOTE(kstandbridge): Failed to load system font so just use segoeui
-            AddFontResourceExA("c:/Windows/Fonts/segoeui.ttf", FR_PRIVATE, 0);
-            //s32 PointSize = 14;
-            //s32 FontHeight = -MulDiv(PointSize, GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
-            s32 FontHeight = 128;
-            FontHandle = CreateFontA(FontHeight, 0, 0, 0,
-                                     FW_NORMAL, // NOTE(kstandbridge): Weight
-                                     FALSE, // NOTE(kstandbridge): Italic
-                                     FALSE, // NOTE(kstandbridge): Underline
-                                     FALSE, // NOTE(kstandbridge): Strikeout
-                                     DEFAULT_CHARSET, 
-                                     OUT_DEFAULT_PRECIS,
-                                     CLIP_DEFAULT_PRECIS, 
-                                     ANTIALIASED_QUALITY,
-                                     DEFAULT_PITCH|FF_DONTCARE,
-                                     "Segoe UI");
-        }
+        AddFontResourceExA("c:/Windows/Fonts/segoeui.ttf", FR_PRIVATE, 0);
+        s32 PointSize = 11;
+        s32 FontHeight = -MulDiv(PointSize, GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
+        FontHandle = CreateFontA(FontHeight, 0, 0, 0,
+                                 FW_NORMAL, // NOTE(kstandbridge): Weight
+                                 FALSE, // NOTE(kstandbridge): Italic
+                                 FALSE, // NOTE(kstandbridge): Underline
+                                 FALSE, // NOTE(kstandbridge): Strikeout
+                                 DEFAULT_CHARSET, 
+                                 OUT_DEFAULT_PRECIS,
+                                 CLIP_DEFAULT_PRECIS, 
+                                 NONANTIALIASED_QUALITY,
+                                 DEFAULT_PITCH|FF_DONTCARE,
+                                 "Segoe UI");
         
         SelectObject(FontDeviceContext, FontHandle);
         GetTextMetrics(FontDeviceContext, &GlobalTextMetric);
@@ -308,13 +285,16 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
 #else
                 f32 Gray = (f32)(Pixel & 0xFF);
                 v4 Texel = V4(255.0f, 255.0f, 255.0f, Gray);
+                
 #endif
                 
+#if 0                
                 Texel = SRGB255ToLinear1(Texel);
                 Texel.R *= Texel.A;
                 Texel.G *= Texel.A;
                 Texel.B *= Texel.A;
                 Texel = Linear1ToSRGB255(Texel);
+#endif
                 
                 *Dest++ = (((u32)(Texel.A + 0.5f) << 24) |
                            ((u32)(Texel.R + 0.5f) << 16) |
@@ -965,6 +945,25 @@ WinMainCRTStartup()
             HDC OpenGLDC = GetDC(WindowHwnd);
             HGLRC OpenGLRC = Win32InitOpenGL(OpenGLDC);
             
+            s32 PointSize = 8;
+            s32 FontHeight = -MulDiv(PointSize, GetDeviceCaps(OpenGLDC, LOGPIXELSY), 72);
+            HFONT FontHandle = CreateFontA(FontHeight, 0, 0, 0,
+                                           FW_NORMAL, // NOTE(kstandbridge): Weight
+                                           FALSE, // NOTE(kstandbridge): Italic
+                                           FALSE, // NOTE(kstandbridge): Underline
+                                           FALSE, // NOTE(kstandbridge): Strikeout
+                                           DEFAULT_CHARSET, 
+                                           OUT_DEFAULT_PRECIS,
+                                           CLIP_DEFAULT_PRECIS, 
+                                           ANTIALIASED_QUALITY,
+                                           DEFAULT_PITCH|FF_DONTCARE,
+                                           "Segoe UI");
+            
+            HFONT OldFont = (HFONT)SelectObject(OpenGLDC, FontHandle);
+            wglUseFontBitmaps(OpenGLDC, 0, 255, 1000);
+            SelectObject(OpenGLDC, OldFont);
+            DeleteObject(FontHandle);
+            
             u32 MonitorRefreshHz = 60;
             u32 Win32RefreshRate = GetDeviceCaps(OpenGLDC, VREFRESH);
             if(Win32RefreshRate > 1)
@@ -1113,7 +1112,28 @@ WinMainCRTStartup()
                 HDC DeviceContext = GetDC(WindowHwnd);
                 if(HardwareRendering)
                 {
+#if 1                    
                     OpenGLRenderCommands(&RenderCommands);
+#else
+                    glViewport(0, 0, RenderCommands.Width, RenderCommands.Height);
+                    
+                    glEnable(GL_TEXTURE_2D);
+                    glEnable(GL_BLEND);
+                    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                    
+                    glMatrixMode(GL_TEXTURE);
+                    glLoadIdentity();
+                    
+                    OpenGLSetScreenspace(RenderCommands.Width, RenderCommands.Height);
+                    
+                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                    glClear(GL_COLOR_BUFFER_BIT);
+                    
+                    glRasterPos2f(30.0f, 300.0f); 
+                    glListBase(1000);
+                    glCallLists (26, GL_UNSIGNED_BYTE, "Hello Windows OpenGL World");
+#endif
+                    
                     SwapBuffers(DeviceContext);
                 }
                 else

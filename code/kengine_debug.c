@@ -19,7 +19,14 @@ DEBUGTextLine(char *Format, ...)
     string Text = FormatStringInternal(&DebugState->Arena, Format, ArgsList);
     va_end(ArgsList);
     
+#if 0
     WriteLine(&DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(0, 0, 0, 1), InfinityRectangle2(), F32Max);
+#else
+    PushText(&DebugState->RenderGroup, V2(DebugState->LeftEdge, DebugState->AtY), V4(0, 0, 0, 1), Text, F32Max);
+    DebugState->AtY += Platform.DEBUGGetLineAdvance()*DebugState->FontScale;
+    WriteLine(&DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(0, 0, 0, 1), InfinityRectangle2(), F32Max);
+    
+#endif
     
     DebugState->AtY += Platform.DEBUGGetLineAdvance()*DebugState->FontScale;
 }
@@ -30,7 +37,7 @@ DEBUGStart()
     debug_state *DebugState = DEBUGGetState();
     
     DebugState->AtY = 20.0f;
-    DebugState->FontScale = 0.25f;
+    DebugState->FontScale = 1.0f;
     
     DebugState->TempMem = BeginTemporaryMemory(&DebugState->Arena);
     DebugState->RenderGroup = BeginRenderGroup(DebugState->Assets, DebugState->RenderCommands);

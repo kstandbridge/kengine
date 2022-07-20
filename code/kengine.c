@@ -90,13 +90,16 @@ AppUpdateFrame(app_memory *Memory, app_input *Input, app_render_commands *Render
     
     interface_state *InterfaceState = &AppState->InterfaceState;
     
-    layout Layout = BeginUIFrame(TempMem.Arena, InterfaceState, Input, &AppState->Assets, 0.25f, 2.0f, RenderCommands);
+    layout Layout = BeginUIFrame(TempMem.Arena, InterfaceState, Input, &AppState->Assets, 1.0f, 2.0f, RenderCommands);
     
     // TODO(kstandbridge): should be able to hide this somewhere
     Layout.CurrentElement = &Layout.SentinalElement;
     
 #if 0
     
+    DEBUGTextLine("kstandbridge VAWAV whatever");
+    
+#if 0
     BeginRow(&Layout);
     SetRowFill(&Layout);
     Textbox(&Layout, &AppState->LaunchParams);
@@ -127,6 +130,7 @@ AppUpdateFrame(app_memory *Memory, app_input *Input, app_render_commands *Render
     EndRow(&Layout);
     
     EndRow(&Layout);
+#endif
     
 #else
     

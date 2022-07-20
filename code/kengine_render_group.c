@@ -88,6 +88,18 @@ PushRectOutline(render_group *Group, v2 P, v2 Dim, v4 Color, v4 AltColor, f32 Sc
     PushRect(Group, V2Add(P, V2(Dim.X - Thickness, 0.0f)), V2(Thickness, Dim.Y), Color, AltColor, SortKey);
 }
 
+inline void
+PushText(render_group *Group, v2 P, v4 Color, string Text, f32 SortKey)
+{
+    render_entry_text *Entry = PushRenderElement(Group, render_entry_text, SortKey);
+    if(Entry)
+    {
+        Entry->P = P;
+        Entry->Color = Color;
+        Entry->Text = Text;
+    }
+}
+
 internal render_group
 BeginRenderGroup(assets *Assets, app_render_commands *RenderCommands)
 {
@@ -117,6 +129,8 @@ internal rectangle2
 TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P, f32 Scale, string Str, v4 TextColor, v4 SelectedTextColor, v4 SelectedBackgroundColor, u32 SelectedStartIndex, u32 SelectedEndIndex, f32 SelectedHeight, f32 Angle, rectangle2 ClipRect,
                f32 SortKey)
 {
+    
+    
     // TODO(kstandbridge): RenderGroup can be null, bad design
     
     rectangle2 Result = InvertedInfinityRectangle2();
@@ -165,7 +179,7 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                 
                 loaded_bitmap *Bitmap = Assets->Glyphs + CodePoint;
                 Assert(Bitmap->Memory);
-                f32 Height = Scale*Bitmap->Height;
+                f32 Height = (f32)Bitmap->Height;
                 v2 Offset = V2(AtX, AtY);
                 if(Op == TextOp_DrawText)
                 {
@@ -187,8 +201,10 @@ TextOpInternal(text_op_type Op, render_group *RenderGroup, assets *Assets, v2 P,
                         {
                             f32 AdvanceX = Scale*Platform.DEBUGGetHorizontalAdvanceForPair(CodePoint, PrevCodePoint);
                             CaretDrawn = true;
+                            
                             PushRect(RenderGroup, V2Subtract(Offset, V2(Scale, SelectedHeight*0.2f)), V2(AdvanceX + Scale*2.0f, SelectedHeight), SelectedBackgroundColor, SelectedBackgroundColor, SortKey);
-                            PushBitmap(RenderGroup, Bitmap, Height, Offset, SelectedTextColor, 0.0f, SortKey);
+                            
+                            PushBitmap(RenderGroup, Bitmap, Height, Offset, SelectedTextColor, 0.0f, SortKey + 0.5f);
                         }
                         else
                         {

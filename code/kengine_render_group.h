@@ -5,6 +5,7 @@ typedef enum render_group_entry_type
     RenderGroupEntry_render_entry_clear,
     RenderGroupEntry_render_entry_bitmap,
     RenderGroupEntry_render_entry_rectangle,
+    RenderGroupEntry_render_entry_text,
 } render_group_entry_type;
 
 typedef struct render_group_entry_header
@@ -34,6 +35,13 @@ typedef struct render_entry_rectangle
     v2 P;
     v2 Dim;
 } render_entry_rectangle;
+
+typedef struct render_entry_text
+{
+    v2 P;
+    v4 Color;
+    string Text;
+} render_entry_text;
 
 typedef struct tile_sort_entry
 {
