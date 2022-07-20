@@ -288,10 +288,12 @@ OpenGLRenderCommands(app_render_commands *RenderCommands)
                 string Text = RenderEntry->Text;
                 
                 glDisable(GL_TEXTURE_2D);
-                glRasterPos2f(P.X, P.Y); 
+                
                 glColor4f(Color.R, Color.G, Color.B, Color.A);
+                glRasterPos2f(P.X, P.Y); 
                 glListBase(1000);
                 glCallLists((GLsizei)Text.Size, GL_UNSIGNED_BYTE, Text.Data);
+                
                 glEnable(GL_TEXTURE_2D);
                 
             } break;

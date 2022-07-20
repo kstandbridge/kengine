@@ -170,7 +170,7 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         BoundHeight = MAX_FONT_HEIGHT;
     }
     
-    //SetBkMode(FontDeviceContext, TRANSPARENT);
+    SetBkMode(FontDeviceContext, TRANSPARENT);
     SetTextColor(FontDeviceContext, RGB(255, 255, 255));
     TextOutW(FontDeviceContext, PreStepX, 0, &CheesePoint, 1);
     
@@ -276,25 +276,24 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                 {
                     Alpha = 0.0f;
                 }
-                
-#if 0
+#if 1
+                else
+                {
+                    Alpha = (f32)(Pixel & 0xFF);
+                }
+                v4 Texel = V4(255.0f, 255.0f, 255.0f, Alpha);
+#else
                 v4 Texel = V4((f32)((Pixel & RedMask) >> RedShiftDown),
                               (f32)((Pixel & GreenMask) >> GreenShiftDown),
                               (f32)((Pixel & BlueMask) >> BlueShiftDown),
                               Alpha);
-#else
-                f32 Gray = (f32)(Pixel & 0xFF);
-                v4 Texel = V4(255.0f, 255.0f, 255.0f, Gray);
-                
 #endif
                 
-#if 0                
                 Texel = SRGB255ToLinear1(Texel);
                 Texel.R *= Texel.A;
                 Texel.G *= Texel.A;
                 Texel.B *= Texel.A;
                 Texel = Linear1ToSRGB255(Texel);
-#endif
                 
                 *Dest++ = (((u32)(Texel.A + 0.5f) << 24) |
                            ((u32)(Texel.R + 0.5f) << 16) |
