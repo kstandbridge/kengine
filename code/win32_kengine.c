@@ -73,12 +73,11 @@ global s64 GlobalPerfCountFrequency;
 global win32_offscreen_buffer GlobalBackbuffer;
 
 #define MAX_GLYPH_COUNT 5000
-global f32 *GlobalCodePointHoriziontalAdvance;
-global u32 *GlobalGlyphIndexFromCodePoint;
 global KERNINGPAIR *GlobalKerningPairs;
 global DWORD GlobalKerningPairCount;
 global TEXTMETRIC GlobalTextMetric;
 
+global HDC FontDeviceContext;
 internal loaded_bitmap
 DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
 {
@@ -88,20 +87,12 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
     
     local_persist b32 FontInitialized;
     local_persist VOID *FontBits;
-    local_persist HDC FontDeviceContext;
+    
     local_persist HFONT FontHandle;
     
     local_persist u32 CurrentGlyphIndex = 0;
     if(!FontInitialized)
     {
-        memory_index CodePointSize = sizeof(f32) * MAX_GLYPH_COUNT * MAX_GLYPH_COUNT;
-        GlobalCodePointHoriziontalAdvance = PushSize(Arena, CodePointSize);
-        ZeroSize(CodePointSize, GlobalCodePointHoriziontalAdvance);
-        
-        memory_index GlyphIndexSize = sizeof(u32)*(MAX_GLYPH_COUNT * MAX_GLYPH_COUNT + 1);
-        GlobalGlyphIndexFromCodePoint = PushSize(Arena, GlyphIndexSize);
-        ZeroSize(GlyphIndexSize, GlobalGlyphIndexFromCodePoint);
-        
         FontDeviceContext = CreateCompatibleDC(GetDC(0));
         
         BITMAPINFO Info;
@@ -131,7 +122,7 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                                  DEFAULT_CHARSET, 
                                  OUT_DEFAULT_PRECIS,
                                  CLIP_DEFAULT_PRECIS, 
-                                 NONANTIALIASED_QUALITY,
+                                 ANTIALIASED_QUALITY,
                                  DEFAULT_PITCH|FF_DONTCARE,
                                  "Segoe UI");
         
@@ -237,26 +228,6 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         
         memset(Result.Memory, 0, Result.Height*Result.Pitch);
         
-        u32 RedMask = 0xff;
-        u32 GreenMask = 0xff00;
-        u32 BlueMask = 0xff0000;
-        u32 AlphaMask = 0xff000000;        
-        
-        bit_scan_result RedScan = FindLeastSignificantSetBit(RedMask);
-        bit_scan_result GreenScan = FindLeastSignificantSetBit(GreenMask);
-        bit_scan_result BlueScan = FindLeastSignificantSetBit(BlueMask);
-        bit_scan_result AlphaScan = FindLeastSignificantSetBit(AlphaMask);
-        
-        Assert(RedScan.Found);
-        Assert(GreenScan.Found);
-        Assert(BlueScan.Found);
-        Assert(AlphaScan.Found);
-        
-        s32 RedShiftDown = (s32)RedScan.Index;
-        s32 GreenShiftDown = (s32)GreenScan.Index;
-        s32 BlueShiftDown = (s32)BlueScan.Index;
-        s32 AlphaShiftDown = (s32)AlphaScan.Index;
-        
         u8 *DestRow = (u8 *)Result.Memory + (Result.Height - 1 - 1)*Result.Pitch;
         u32 *SourceRow = (u32 *)FontBits + (MAX_FONT_HEIGHT - 1 - MinY)*MAX_FONT_WIDTH;
         for(s32 Y = MinY;
@@ -271,23 +242,13 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
             {
                 u32 Pixel = *Source;
                 
-                f32 Alpha = 255.0f;
+                f32 Alpha = (f32)(Pixel & 0xFF);
                 if(Pixel == 0)
                 {
                     Alpha = 0.0f;
                 }
-#if 1
-                else
-                {
-                    Alpha = (f32)(Pixel & 0xFF);
-                }
+                
                 v4 Texel = V4(255.0f, 255.0f, 255.0f, Alpha);
-#else
-                v4 Texel = V4((f32)((Pixel & RedMask) >> RedShiftDown),
-                              (f32)((Pixel & GreenMask) >> GreenShiftDown),
-                              (f32)((Pixel & BlueMask) >> BlueShiftDown),
-                              Alpha);
-#endif
                 
                 Texel = SRGB255ToLinear1(Texel);
                 Texel.R *= Texel.A;
@@ -299,8 +260,6 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                            ((u32)(Texel.R + 0.5f) << 16) |
                            ((u32)(Texel.G + 0.5f) << 8) |
                            ((u32)(Texel.B + 0.5f) << 0));
-                
-                
                 
                 ++Source;
             }
@@ -316,33 +275,15 @@ DEBUGGetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         
     }
     
-    u32 GlyphIndex = GlobalGlyphIndexFromCodePoint[CodePoint] = ++CurrentGlyphIndex;
-    
-    INT ThisWidth;
-    GetCharWidth32W(FontDeviceContext, CodePoint, CodePoint, &ThisWidth);
-    f32 CharAdvance = (f32)ThisWidth;
-    
-    for(u32 OtherGlyphIndex = 0;
-        OtherGlyphIndex < MAX_GLYPH_COUNT;
-        ++OtherGlyphIndex)
-    {
-        GlobalCodePointHoriziontalAdvance[GlyphIndex*MAX_GLYPH_COUNT + OtherGlyphIndex] += CharAdvance - KerningChange;
-        if(OtherGlyphIndex != 0)
-        {
-            GlobalCodePointHoriziontalAdvance[OtherGlyphIndex*MAX_GLYPH_COUNT + GlyphIndex] += KerningChange;
-        }
-    }
-    
     return Result;
 }
 
 internal f32
 DEBUGGetHorizontalAdvanceForPair(u32 PrevCodePoint, u32 CodePoint)
 {
-    u32 PrevGlyphIndex = GlobalGlyphIndexFromCodePoint[PrevCodePoint];
-    u32 GlyphIndex = GlobalGlyphIndexFromCodePoint[CodePoint];
-    
-    f32 Result = GlobalCodePointHoriziontalAdvance[PrevGlyphIndex*MAX_GLYPH_COUNT + GlyphIndex];
+    INT ThisWidth;
+    GetCharWidth32W(FontDeviceContext, PrevCodePoint, CodePoint, &ThisWidth);
+    f32 Result = (f32)ThisWidth; 
     
     for(DWORD KerningPairIndex = 0;
         KerningPairIndex < GlobalKerningPairCount;

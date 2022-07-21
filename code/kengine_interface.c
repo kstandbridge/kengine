@@ -278,7 +278,7 @@ DrawTextbox(interface_state *State, layout *Layout, render_group *RenderGroup, e
     TextP = V2Add(TextP, TextOffset);
     
     v2 TextClipMin = V2Add(Offset, V2((Padding->Left + Padding->Right)*2.0f, (Padding->Top + Padding->Bottom)*2.0f));
-    v2 TextClipMax = V2Add(TextClipMin, V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right)*7.0f, (Padding->Top + Padding->Bottom)*7.0f)));
+    v2 TextClipMax = V2Add(TextClipMin, V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right)*2.0f, (Padding->Top + Padding->Bottom)*2.0f)));
     rectangle2 TextClip = Rectangle2(TextClipMin, TextClipMax); 
     
     if(InteractionIsSelected(State, Element->Interaction))
@@ -310,7 +310,7 @@ DrawTextbox(interface_state *State, layout *Layout, render_group *RenderGroup, e
     PushRectOutline(RenderGroup, 
                     V2Add(Offset, V2(Padding->Left, Padding->Bottom)), 
                     V2Subtract(Element->Dim, V2((Padding->Left + Padding->Right), (Padding->Top + Padding->Bottom))), 
-                    TextboxBorderColor, TextboxBorderColor, Layout->Scale, 2.0f);
+                    TextboxBorderColor, TextboxBorderColor, Layout->Scale*0.25f, 2.0f);
 }
 
 inline void

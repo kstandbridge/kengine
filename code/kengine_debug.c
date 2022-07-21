@@ -19,21 +19,7 @@ DEBUGTextLine(char *Format, ...)
     string Text = FormatStringInternal(&DebugState->Arena, Format, ArgsList);
     va_end(ArgsList);
     
-#if 0
-    WriteLine(&DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(0, 0, 0, 1), InfinityRectangle2(), F32Max);
-#else
-    //PushText(&DebugState->RenderGroup, V2(DebugState->LeftEdge, DebugState->AtY), V4(1, 1, 1, 1), Text, F32Max);
-    
-    WriteLine(&DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(1, 1, 0, 1), InfinityRectangle2(), F32Max);
-    DebugState->AtY += Platform.DEBUGGetLineAdvance()*DebugState->FontScale;
-    
     WriteLine(&DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(1, 1, 1, 1), InfinityRectangle2(), F32Max);
-    DebugState->AtY += Platform.DEBUGGetLineAdvance()*DebugState->FontScale;
-    
-    WriteLine(&DebugState->RenderGroup, DebugState->Assets, V2(DebugState->LeftEdge, DebugState->AtY), DebugState->FontScale, Text, V4(0, 0, 0, 1), InfinityRectangle2(), F32Max);
-    
-#endif
-    
     DebugState->AtY += Platform.DEBUGGetLineAdvance()*DebugState->FontScale;
 }
 

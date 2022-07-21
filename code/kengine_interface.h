@@ -245,7 +245,7 @@ global colors Colors;
 inline void
 SetColors()
 {
-    Colors.Clear = RGBColor(0, 120, 215, 255);
+    Colors.Clear = RGBColor(255, 255, 255, 255);
     
     Colors.LabelBackground = RGBColor(255, 255, 255, 255);
     Colors.LabelBorder = RGBColor(255, 255, 255, 255);

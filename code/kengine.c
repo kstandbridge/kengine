@@ -95,13 +95,8 @@ AppUpdateFrame(app_memory *Memory, app_input *Input, app_render_commands *Render
     // TODO(kstandbridge): should be able to hide this somewhere
     Layout.CurrentElement = &Layout.SentinalElement;
     
-#if 1
-    
-    DEBUGTextLine("kstandbridge VAWAV whatever");
-    
-    
-    
 #if 0
+    
     BeginRow(&Layout);
     SetRowFill(&Layout);
     Textbox(&Layout, &AppState->LaunchParams);
@@ -132,7 +127,6 @@ AppUpdateFrame(app_memory *Memory, app_input *Input, app_render_commands *Render
     EndRow(&Layout);
     
     EndRow(&Layout);
-#endif
     
 #else
     
