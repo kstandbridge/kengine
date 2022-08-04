@@ -51,6 +51,7 @@ FindGetProcessAddress(HMODULE Module)
 }
 
 global HMODULE Kernel32;
+global HMODULE User32;
 
 internal void *
 GetProcAddressA(HMODULE Module, char *ProcName)

@@ -13,17 +13,27 @@ IF NOT EXIST data mkdir data
 IF NOT EXIST ..\build mkdir ..\build
 pushd ..\build
 
-echo WAITING FOR PDB > lock.tmp
 
+REM Preprocessor
 cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\win32_kengine_preprocessor.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
 pushd ..\kengine\code
 ..\..\build\win32_kengine_preprocessor.exe win32_kengine_types.h > win32_kengine_generated.c
 ..\..\build\win32_kengine_preprocessor.exe kengine_types.h > kengine_generated.c
 popd
 
+REM Unit tests
 cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\win32_kengine_tests.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
 win32_kengine_tests.exe
 
+REM Win32 platform
+cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\win32_kengine.c /link /NODEFAULTLIB /SUBSYSTEM:windows %CommonLinkerFlags%
+
+
+REM Application
+echo WAITING FOR PDB > lock.tmp
+REM cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\kengine.c -LD /link %CommonLinkerFlags% -PDB:kengine_%random%.pdb -EXPORT:AppUpdateFrame
 del lock.tmp
+
+del /q *.obj
 
 popd

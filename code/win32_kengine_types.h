@@ -1,6 +1,14 @@
 #ifndef WIN32_KENGINE_TYPES_H
 
-typedef void * HMODULE;
+#define DECLARE_HANDLE(name) struct name##__{int unused;}; typedef struct name##__ *name
+DECLARE_HANDLE(HINSTANCE);
+DECLARE_HANDLE(HICON);
+DECLARE_HANDLE(HCURSOR);
+DECLARE_HANDLE(HBRUSH);
+DECLARE_HANDLE(HWND);
+DECLARE_HANDLE(HMENU);
+
+typedef HINSTANCE HMODULE;      /* HMODULEs can be used in place of HINSTANCEs */
 typedef void * HANDLE;
 
 typedef __int64 LONG_PTR;
@@ -8,6 +16,10 @@ typedef unsigned __int64 ULONG_PTR;
 
 typedef __int64 LONGLONG;
 typedef unsigned __int64 ULONGLONG;
+
+typedef ULONG_PTR           WPARAM;
+typedef LONG_PTR            LPARAM;
+typedef LONG_PTR            LRESULT;
 
 typedef struct _IMAGE_DOS_HEADER 
 {                                    // DOS .EXE header
@@ -198,6 +210,41 @@ typedef union _LARGE_INTEGER
     LONGLONG QuadPart;
 } LARGE_INTEGER;
 
+typedef LRESULT __stdcall wnd_proc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam);
+
+typedef struct tagWNDCLASSEXA
+{
+    u32       cbSize;
+    u32       style;
+    wnd_proc *lpfnWndProc;
+    s32       cbClsExtra;
+    s32       cbWndExtra;
+    HINSTANCE hInstance;
+    HICON     hIcon;
+    HCURSOR   hCursor;
+    HBRUSH    hbrBackground;
+    char      *lpszMenuName;
+    char      *lpszClassName;
+    HICON     hIconSm;
+} WNDCLASSEXA, *PWNDCLASSEXA, *NPWNDCLASSEXA, *LPWNDCLASSEXA;
+
+typedef struct tagPOINT
+{
+    s32 x;
+    s32 y;
+} POINT;
+
+typedef struct tagMSG 
+{
+    HWND        hwnd;
+    u32         message;
+    WPARAM      wParam;
+    LPARAM      lParam;
+    u32         time;
+    POINT       pt;
+    u32       lPrivate;
+} MSG;
+
 #define GENERIC_READ                     (0x80000000L)
 #define GENERIC_WRITE                    (0x40000000L)
 #define GENERIC_EXECUTE                  (0x20000000L)
@@ -211,6 +258,30 @@ typedef union _LARGE_INTEGER
 #define MEM_RESERVE                     0x00002000  
 
 #define PAGE_READWRITE          0x04    
+
+#define WM_CLOSE                        0x0010
+#define WM_QUIT                         0x0012
+
+#define PM_REMOVE           0x0001
+
+#define WS_OVERLAPPED       0x00000000L
+#define WS_CAPTION          0x00C00000L     /* WS_BORDER | WS_DLGFRAME  */
+#define WS_SYSMENU          0x00080000L
+#define WS_THICKFRAME       0x00040000L
+
+#define WS_MINIMIZEBOX      0x00020000L
+#define WS_MAXIMIZEBOX      0x00010000L
+
+#define WS_OVERLAPPEDWINDOW (WS_OVERLAPPED     | \
+WS_CAPTION        | \
+WS_SYSMENU        | \
+WS_THICKFRAME     | \
+WS_MINIMIZEBOX    | \
+WS_MAXIMIZEBOX)
+
+#define CW_USEDEFAULT       ((int)0x80000000)
+
+#define SW_SHOW             5
 
 introspect(win32, Kernel32);
 typedef void * virtual_alloc(void *Address, umm Size, u32 AllocationType, u32 Protect);
@@ -232,6 +303,24 @@ introspect(win32, Kernel32);
 typedef b32 read_file(HANDLE File, void *Buffer, u32 BytesToRead, u32 *BytesRead, OVERLAPPED *Overlapped);
 introspect(win32, Kernel32);
 typedef b32 close_handle(HANDLE Object);
+introspect(win32, Kernel32);
+typedef HMODULE get_module_handle_a(char *ModuleName);
+
+introspect(win32, User32);
+typedef b32 register_class_ex_a(WNDCLASSEXA *WindowClass);
+introspect(win32, User32);
+typedef LRESULT def_window_proc_a(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam);
+introspect(win32, User32);
+typedef HWND create_window_ex_a(u32 ExStyle, char *ClassName, char *WindowName, u32 Style, s32 X, s32 Y, s32 Width, s32 Height, HWND Parent, HMENU Menu, HINSTANCE Instance, void *Param);
+introspect(win32, User32);
+typedef b32 peek_message_a(MSG *Message, HWND Handle, u32 MessageFilterMin, u32 MessageFilterMax, u32 RemoveMessage);
+introspect(win32, User32);
+typedef b32 translate_message(MSG *Message);
+introspect(win32, User32);
+typedef b32 dispatch_message_a(MSG *Message);
+introspect(win32, User32);
+typedef b32 show_window(HWND Window, s32 ShowCommand);
+
 
 #define WIN32_KENGINE_TYPES_H
 #endif //WIN32_KENGINE_TYPES_H

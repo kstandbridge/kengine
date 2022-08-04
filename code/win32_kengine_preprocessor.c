@@ -579,7 +579,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     ConsoleOut(Tokenizer->Arena, "{\n");
     if(HasResult)
     {
-        ConsoleOut(Tokenizer->Arena, "    %S Result;\n", ReturnType);
+        ConsoleOut(Tokenizer->Arena, "    %S Result;\n\n", ReturnType);
     }
     ConsoleOut(Tokenizer->Arena, "    Assert(%S);\n", Library);
     ConsoleOut(Tokenizer->Arena, "    local_persist %S *Func = 0;\n", FunctionType);
@@ -595,7 +595,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     }
     else
     {
-        ConsoleOut(Tokenizer->Arena, "    Func(%S);\n\n", ParametersWithoutTypes);
+        ConsoleOut(Tokenizer->Arena, "    Func(%S);\n", ParametersWithoutTypes);
     }
     ConsoleOut(Tokenizer->Arena, "}\n");
 }
