@@ -1,6 +1,7 @@
 #ifndef KENGINE_PLATFORM_H
 
 #include <stdarg.h>
+#include <immintrin.h>
 
 #define introspect(...)
 #include "kengine_types.h"

@@ -644,64 +644,57 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
             }
         }
         
-        if(RequireCToken(Tokenizer, CTokenType_Semicolon))
+        if(IsWin32)
         {
-            if(IsWin32)
-            {
-                GenerateFunctionPointer(Tokenizer, Parameter);
-            }
-            else
-            {
-                char *Start = 0;
-                string StructName;
-                Token = GetNextCToken(Tokenizer);
-                Assert(StringsAreEqual(String("typedef"), Token.Str));
-                Token = GetNextCToken(Tokenizer);
-                Assert(StringsAreEqual(String("struct"), Token.Str));
-                Token = GetNextCToken(Tokenizer);
-                StructName = Token.Str;
-                string UpperCamelStruct = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
-                ToUpperCamelCase(&UpperCamelStruct);
-                UpperCamelStruct.Data[0] = ToUppercase(UpperCamelStruct.Data[0]);
-                if(RequireCToken(Tokenizer, CTokenType_OpenBrace))
-                {
-                    Start = Tokenizer->At;
-                    
-                    if(IsCtor)
-                    {
-                        GenerateMethod(Tokenizer, GenerateMethod_Ctor, StructName, UpperCamelStruct);
-                    }
-                    
-                    if(IsSet1)
-                    {
-                        Tokenizer->At = Start;
-                        GenerateMethod(Tokenizer, GenerateMethod_Set1, StructName, UpperCamelStruct);
-                    }
-                    
-                    if(IsMath)
-                    {
-                        Tokenizer->At = Start;
-                        GenerateMethod(Tokenizer, GenerateMethod_MathAdd, StructName, UpperCamelStruct);
-                        
-                        Tokenizer->At = Start;
-                        GenerateMethod(Tokenizer, GenerateMethod_MathSubtract, StructName, UpperCamelStruct);
-                        
-                        Tokenizer->At = Start;
-                        GenerateMethod(Tokenizer, GenerateMethod_MathMultiply, StructName, UpperCamelStruct);
-                        
-                        Tokenizer->At = Start;
-                        GenerateMethod(Tokenizer, GenerateMethod_MathDivide, StructName, UpperCamelStruct);
-                    }
-                }
-                else
-                {
-                    // TODO(kstandbridge): Error missing open brace on introspect
-                }
-            }
+            GenerateFunctionPointer(Tokenizer, Parameter);
         }
         else
         {
-            // TODO(kstandbridge): Error missing semicolon on introspect
+            char *Start = 0;
+            string StructName;
+            Token = GetNextCToken(Tokenizer);
+            Assert(StringsAreEqual(String("typedef"), Token.Str));
+            Token = GetNextCToken(Tokenizer);
+            Assert(StringsAreEqual(String("struct"), Token.Str));
+            Token = GetNextCToken(Tokenizer);
+            StructName = Token.Str;
+            string UpperCamelStruct = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+            ToUpperCamelCase(&UpperCamelStruct);
+            UpperCamelStruct.Data[0] = ToUppercase(UpperCamelStruct.Data[0]);
+            if(RequireCToken(Tokenizer, CTokenType_OpenBrace))
+            {
+                Start = Tokenizer->At;
+                
+                if(IsCtor)
+                {
+                    GenerateMethod(Tokenizer, GenerateMethod_Ctor, StructName, UpperCamelStruct);
+                }
+                
+                if(IsSet1)
+                {
+                    Tokenizer->At = Start;
+                    GenerateMethod(Tokenizer, GenerateMethod_Set1, StructName, UpperCamelStruct);
+                }
+                
+                if(IsMath)
+                {
+                    Tokenizer->At = Start;
+                    GenerateMethod(Tokenizer, GenerateMethod_MathAdd, StructName, UpperCamelStruct);
+                    
+                    Tokenizer->At = Start;
+                    GenerateMethod(Tokenizer, GenerateMethod_MathSubtract, StructName, UpperCamelStruct);
+                    
+                    Tokenizer->At = Start;
+                    GenerateMethod(Tokenizer, GenerateMethod_MathMultiply, StructName, UpperCamelStruct);
+                    
+                    Tokenizer->At = Start;
+                    GenerateMethod(Tokenizer, GenerateMethod_MathDivide, StructName, UpperCamelStruct);
+                }
+            }
+            else
+            {
+                // TODO(kstandbridge): Error missing open brace on introspect
+            }
         }
     }
     else

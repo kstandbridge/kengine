@@ -197,5 +197,35 @@ switch(Tokenizer->At[0])
 - [x] Struct ctor generation
 - [x] Struct math operation generation
 - [x] Memory management, arena, temporary memory
-- [ ] Create window
+- [x] Create window
+- [x] Create a display buffer and render background color
+- [x] Draw a rectangle
+- [ ] Push buffer rendering
+- [ ] Thread pool
+- [ ] Update code moved to DLL and loaded dynamically
+- [ ] Draw a glyph
+- [ ] Draw a string
+- [ ] Text element
+- [ ] Mouse input
+- [ ] Interaction framework
+- [ ] ActionButton
+- [ ] ToggleButton
+- [ ] Circular buffer for strings
+- [ ] Debug section with console
+- [ ] Debug output to console
+- [ ] Replace all TODO errors with debug output to console
+- [ ] Tab control
+- [ ] Debug values tab to show hot interaction details
+- [ ] Keyboard input
+- [ ] TextBox and editable string
+- [ ] Caret navigation Left/Right/Up/Down/Home/End
+- [ ] Text selection with keyboard
+- [ ] Text selection with mouse
+- [ ] Profile tab to show last frame time
+- [ ] Profile frame timing graph
+- [ ] Profile frame selection to show thread breakdown
+- [ ] Arena memory usage tab
+- [ ] Arena memory types breakdown
+- [ ] OpenGL rendering
+- [ ] DirectX rendering
 - [ ] Dynamically growing memory arenas
