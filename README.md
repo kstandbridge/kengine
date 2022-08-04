@@ -172,7 +172,7 @@ switch(Tokenizer->At[0])
 ```
 
 # Milestone goals
-- [ ] Preprocessor framework
+- [x] Preprocessor framework
 - [ ] Unit test framework
 - [ ] Win32 platform layer
 - [ ] DLL hot loading
@@ -188,10 +188,10 @@ switch(Tokenizer->At[0])
 - [x] Output to console/file
 - [x] Read file
 - [x] Introspection framework
-- [ ] Introspect input files from command line
-- [ ] Introspect win32 apis
-- [ ] String utilities, equals, uppercase, camelcase, etc
-- [ ] Parse source file and tokenize
+- [x] Introspect input files from command line
+- [x] Introspect win32 apis
+- [x] String utilities, equals, uppercase, camelcase, etc
+- [x] Parse source file and tokenize
 - [ ] Unit test macros
 - [ ] Win32 API function pointer generation
 - [ ] Struct ctor generation

@@ -212,10 +212,26 @@ typedef union _LARGE_INTEGER
 
 #define PAGE_READWRITE          0x04    
 
-// TODO(kstandbridge): LoadLibraryA
+introspect(win32, Kernel32);
+typedef char * get_command_line_a();
+introspect(win32, Kernel32);
+typedef void * virtual_alloc(void *Address, umm Size, u32 AllocationType, u32 Protect);
+introspect(win32, Kernel32);
 typedef HMODULE load_library_a(char *FileName);
-
-
+introspect(win32, Kernel32);
+typedef void exit_process(u32 ExitCode);
+introspect(win32, Kernel32);
+typedef HANDLE get_std_handle(u32 StdHandle);
+introspect(win32, Kernel32);
+typedef b32 write_file(HANDLE FileHandle, void *Buffer, u32 BytesToWrite, u32 *BytesWritten, OVERLAPPED *Overlapped);
+introspect(win32, Kernel32);
+typedef HANDLE create_file_a(char *FileName, u32 DesiredAccess, u32 ShareMode, SECURITY_ATTRIBUTES *SecurityAttributes, u32 CreationDisposition, u32 FlagsAndAttributes, HANDLE TemplateFile);
+introspect(win32, Kernel32);
+typedef b32 get_file_size_ex(HANDLE File, LARGE_INTEGER *FileSize);
+introspect(win32, Kernel32);
+typedef b32 read_file(HANDLE File, void *Buffer, u32 BytesToRead, u32 *BytesRead, OVERLAPPED *Overlapped);
+introspect(win32, Kernel32);
+typedef b32 close_handle(HANDLE Object);
 
 #define WIN32_KENGINE_TYPES_H
 #endif //WIN32_KENGINE_TYPES_H

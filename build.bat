@@ -12,6 +12,10 @@ pushd ..\build
 echo WAITING FOR PDB > lock.tmp
 
 cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\win32_kengine_preprocessor.c /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
+pushd ..\kengine\code
+..\..\build\win32_kengine_preprocessor.exe win32_kengine_types.h > win32_kengine_generated.c
+..\..\build\win32_kengine_preprocessor.exe kengine_types.h > kengine_generated.c
+popd
 
 del lock.tmp
 

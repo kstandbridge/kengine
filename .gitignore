@@ -1,2 +1,3 @@
 kengine.ctm
-code/kengine_generated.h
+code/kengine_generated.c
+code/win32_kengine_generated.c

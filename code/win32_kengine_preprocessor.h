@@ -6,22 +6,22 @@
 
 typedef enum c_token_type
 {
-    CToken_Unknown,
+    CTokenType_Unknown,
     
-    CToken_OpenParen,    
-    CToken_CloseParen,    
-    CToken_Colon,    
-    CToken_Semicolon,    
-    CToken_Asterisk,    
-    CToken_OpenBracket,    
-    CToken_CloseBracket,    
-    CToken_OpenBrace,    
-    CToken_CloseBrace,
+    CTokenType_OpenParen,    
+    CTokenType_CloseParen,    
+    CTokenType_Colon,    
+    CTokenType_Semicolon,    
+    CTokenType_Asterisk,    
+    CTokenType_OpenBracket,    
+    CTokenType_CloseBracket,    
+    CTokenType_OpenBrace,    
+    CTokenType_CloseBrace,
     
-    CToken_String,
-    CToken_Identifier,
+    CTokenType_String,
+    CTokenType_Identifier,
     
-    CToken_EndOfStream
+    CTokenType_EndOfStream
 } c_token_type;
 
 typedef struct c_token
