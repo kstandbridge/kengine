@@ -5,6 +5,7 @@
 #include "kengine_string.h"
 #include "kengine_intrinsics.h"
 #include "kengine_math.h"
+#include "kengine_renderer.h"
 
 typedef struct win32_offscreen_buffer
 {

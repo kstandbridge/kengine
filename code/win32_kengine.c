@@ -4,6 +4,8 @@
 #include "kengine_generated.c"
 #include "win32_kengine_generated.c"
 #include "kengine_renderer_software.c"
+#include "kengine_sort.c"
+#include "kengine_renderer.c"
 
 internal void
 Win32LoadLibraries()
@@ -162,6 +164,12 @@ WinMainCRTStartup()
         {
             ShowWindow(Win32State->Window, SW_SHOW);
             
+            u32 PushBufferSize = Megabytes(64);
+            void *PushBuffer = VirtualAlloc(0, PushBufferSize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+            
+            render_commands Commands_ = RenderCommands(PushBufferSize, 0, PushBuffer, 0, PushBufferSize);
+            render_commands *Commands = &Commands_;
+            
             Win32State->IsRunning = true;
             while(Win32State->IsRunning)
             {
@@ -179,8 +187,37 @@ WinMainCRTStartup()
                 OutputTarget.Pitch = Backbuffer->Pitch;
                 
                 // TODO(kstandbridge): Do some rendering
-                DrawRectangle(&OutputTarget, V2(10, 10), V2(100, 100), V4(1.0f, 0.5f, 0.0f, 1.0f), 
+                
+#if 0                
+                DrawRectangle(&OutputTarget, V2(10.0f, 10.0f), V2(100, 100), V4(1.0f, 0.5f, 0.0f, 1.0f), 
                               Rectangle2i(0, Backbuffer->Width, 0, Backbuffer->Height));
+#else
+                render_group RenderGroup;
+                RenderGroup.Commands = Commands;
+                PushRenderEntryClear(&RenderGroup, V4(1.0f, 0.5f, 0.0f, 1.0f), 1.0f);
+                
+                sort_entry *SortEntries = (sort_entry *)(Commands->PushBufferBase + Commands->SortEntryAt);
+                sort_entry *SortEntry = SortEntries;
+                for(u32 SortEntryIndex = 0;
+                    SortEntryIndex < Commands->PushBufferElementCount;
+                    ++SortEntryIndex, ++SortEntry)
+                {
+                    render_group_command_header *Header = (render_group_command_header *)(Commands->PushBufferBase + SortEntry->Index);
+                    void *Data = (u8 *)Header + sizeof(*Header);
+                    switch(Header->Type)
+                    {
+                        case RenderGroupCommandType_Clear:
+                        {
+                            render_group_command_clear *Command = (render_group_command_clear *)Data;
+                            DrawRectangle(&OutputTarget, V2(0.0f, 0.0f), V2((f32)Backbuffer->Width, (f32)Backbuffer->Height), Command->Color, 
+                                          Rectangle2i(0, Backbuffer->Width, 0, Backbuffer->Height));
+                        } break;
+                        
+                        InvalidDefaultCase;
+                    }
+                }
+                
+#endif
                 
                 if(!StretchDIBits(DeviceContext, 0, 0, Backbuffer->Width, Backbuffer->Height, 0, 0, Backbuffer->Width, Backbuffer->Height,
                                   Backbuffer->Memory, &Backbuffer->Info, DIB_RGB_COLORS, SRCCOPY))

@@ -1,6 +1,26 @@
 #ifndef KENGINE_MATH_H
 
 //
+// NOTE(kstandbridge): Scalar operations
+//
+inline u32
+SafeTruncateU64ToU32(u64 Value)
+{
+    Assert(Value <= U32Max);
+    u32 Result = (u32)Value;
+    return(Result);
+}
+
+inline u16
+SafeTruncateU32ToU16(u32 Value)
+{
+    Assert(Value <= U16Max);
+    u16 Result = (u16)Value;
+    return(Result);
+}
+
+
+//
 // NOTE(kstandbridge): rectangle2i operations
 //
 

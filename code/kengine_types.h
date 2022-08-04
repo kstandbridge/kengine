@@ -68,6 +68,12 @@ introspect(ctor, set1, math) typedef struct v4
     f32 A;
 } v4;
 
+introspect(ctor) typedef struct rectangle2
+{
+    v2 Min;
+    v2 Max;
+} rectangle2;
+
 introspect(ctor) typedef struct rectangle2i
 {
     s32 MinX;
@@ -76,7 +82,20 @@ introspect(ctor) typedef struct rectangle2i
     s32 MaxY;
 } rectangle2i;
 
+introspect(ctor) typedef struct render_commands
+{
+    u32 MaxPushBufferSize;
+    u32 PushBufferSize;
+    u8 *PushBufferBase;
+    
+    u32 PushBufferElementCount;
+    u32 SortEntryAt;
+    
+    
+} render_commands;
 
+
+// TODO(kstandbridge): Where should loaded_bitmap live?
 #define BITMAP_BYTES_PER_PIXEL 4
 typedef struct loaded_bitmap
 {

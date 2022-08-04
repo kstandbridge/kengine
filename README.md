@@ -200,9 +200,10 @@ switch(Tokenizer->At[0])
 - [x] Create window
 - [x] Create a display buffer and render background color
 - [x] Draw a rectangle
-- [ ] Push buffer rendering
-- [ ] Thread pool
+- [x] Push buffer rendering
+- [ ] Introspect structs without double naming
 - [ ] Update code moved to DLL and loaded dynamically
+- [ ] Thread pool
 - [ ] Draw a glyph
 - [ ] Draw a string
 - [ ] Text element

@@ -395,6 +395,12 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op, string SnakeStruct
         {
             string Type = Token.Str;
             Token = GetNextCToken(Tokenizer);
+            b32 IsPointer = false;
+            if(Token.Type == CTokenType_Asterisk)
+            {
+                IsPointer = true;
+                Token = GetNextCToken(Tokenizer);
+            }
             
             switch(Op)
             {
@@ -405,7 +411,14 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op, string SnakeStruct
                         ConsoleOut(Tokenizer->Arena, ", ");
                     }
                     FirstParam = false;
-                    ConsoleOut(Tokenizer->Arena, "%S %S", Type, Token.Str);
+                    if(IsPointer)
+                    {
+                        ConsoleOut(Tokenizer->Arena, "%S *%S", Type, Token.Str);
+                    }
+                    else
+                    {
+                        ConsoleOut(Tokenizer->Arena, "%S %S", Type, Token.Str);
+                    }
                 } break;
                 case GenerateMethod_Set1:
                 {
@@ -440,6 +453,13 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op, string SnakeStruct
         else if(Token.Type == CTokenType_Identifier)
         {
             Token = GetNextCToken(Tokenizer);
+            b32 IsPointer = false;
+            if(Token.Type == CTokenType_Asterisk)
+            {
+                IsPointer = true;
+                Token = GetNextCToken(Tokenizer);
+            }
+            
             string Var = Token.Str;
             switch(Op)
             {
