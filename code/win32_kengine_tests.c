@@ -1,9 +1,8 @@
-#include "kengine_platform.h"
-#include "kengine_intrinsics.h"
-#include "kengine_generated.h"
-#include "kengine_math.h"
-#include "kengine_shared.h"
-#include "win32_kengine_shared.h"
+#include "win32_kengine_tests.h"
+#include "win32_kengine_shared.c"
+
+#include "win32_kengine_generated.c"
+#include "kengine_generated.c"
 
 global s32 TotalTests;
 global s32 FailedTests;
@@ -16,6 +15,38 @@ if(!(Expression))                      \
 ConsoleOut(Arena, "%s(%d): failed assert!\n", \
 __FILE__, __LINE__);        \
 }
+
+internal b32
+ConsoleOut_(string Text)
+{
+    u32 Result = 0;
+    
+    HANDLE OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    Assert(OutputHandle != INVALID_HANDLE_VALUE);
+    
+    WriteFile(OutputHandle, Text.Data, (u32)Text.Size, &Result, 0);
+    Assert(Result == Text.Size);
+    
+    return Result;
+}
+
+
+internal b32
+ConsoleOut(memory_arena *Arena, char *Format, ...)
+{
+    format_string_state StringState = BeginFormatString(Arena);
+    
+    va_list ArgList;
+    va_start(ArgList, Format);
+    AppendFormatString_(&StringState, Format, ArgList);
+    va_end(ArgList);
+    
+    string Text = EndFormatString(&StringState);
+    
+    b32 Result = ConsoleOut_(Text);
+    return Result;
+}
+
 
 inline void
 RunStringsAreEqualTests(memory_arena *Arena)
@@ -56,11 +87,6 @@ RunFormatStringSignedDecimalIntegerTests(memory_arena *Arena)
         string B = FormatString(Arena, "before %d after", S32Min);
         ASSERT(StringsAreEqual(A, B));
     }
-    {
-        string A = String("before 9223372036854775807 after");
-        string B = FormatString(Arena, "before %ld after", S64Max);
-        ASSERT(StringsAreEqual(A, B));
-    }
 }
 
 inline void
@@ -74,11 +100,6 @@ RunFormatStringUnsignedDecimalIntegerTests(memory_arena *Arena)
     {
         string A = String("before 0 after");
         string B = FormatString(Arena, "before %u after", U32Min);
-        ASSERT(StringsAreEqual(A, B));
-    }
-    {
-        string A = String("before 18446744073709551615 after");
-        string B = FormatString(Arena, "before %lu after", U64Max);
         ASSERT(StringsAreEqual(A, B));
     }
 }
@@ -258,31 +279,29 @@ RunAllTests(memory_arena *Arena)
 s32 __stdcall
 mainCRTStartup()
 {
-#if 0    
-    char Numbers[] = "0123456789";
-    double Value = 0.1234567890123456789f;
+    Kernel32 = FindModuleBase(_ReturnAddress());
+    Assert(Kernel32);
     
-    for(s32 Index = 0;
-        Index < 20;
-        ++Index)
-    {
-        s32 Integar = (s32)Value;
-        Value -= Integar;
-        
-        char Output[2];
-        Output[0] = Numbers[Integar];
-        Output[1] = '\0';
-        OutputDebugStringA(Output);
-        
-        Value *= 10;
-    }
+#if KENGINE_INTERNAL
+    void *BaseAddress = (void *)Terabytes(2);
+#else
+    void *BaseAddress = 0;
 #endif
     
-    memory_arena ArenaInternal = AllocateArena(Megabytes(8));
-    memory_arena *Arena = &ArenaInternal;
+    u64 MemoryBlockSize = Megabytes(16);
+    void *MemoryBlock = VirtualAlloc(BaseAddress, MemoryBlockSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    Assert(MemoryBlock);
+    
+    memory_arena Arena_;
+    memory_arena *Arena = &Arena_;
+    InitializeArena(Arena, MemoryBlockSize, MemoryBlock);
     
     b32 Result = RunAllTests(Arena);
     ConsoleOut(Arena, "Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);
     
-    ExitProcess(Result);
+    ExitProcess(0);
+    
+    InvalidCodePath;
+    
+    return 0;
 }

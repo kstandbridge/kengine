@@ -1,124 +1,5 @@
-#ifndef KENGINE_SHARED_H
+#ifndef KENGINE_STRING_H
 
-#include <stdarg.h>
-
-// NOTE(kstandbridge): Memory
-
-inline void
-InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
-{
-    Arena->Size = Size;
-    Arena->Base = (u8 *)Base;
-    Arena->Used = 0;
-    Arena->TempCount = 0;
-}
-
-
-inline memory_index
-GetAlignmentOffset(memory_arena *Arena, memory_index Alignment)
-{
-    memory_index AlignmentOffset = 0;
-    
-    memory_index ResultPointer = (memory_index)Arena->Base + Arena->Used;
-    memory_index AlignmentMask = Alignment - 1;
-    if(ResultPointer & AlignmentMask)
-    {
-        AlignmentOffset = Alignment - (ResultPointer & AlignmentMask);
-    }
-    
-    return(AlignmentOffset);
-}
-
-
-inline void *
-Copy(memory_index Size, void *SourceInit, void *DestInit)
-{
-    u8 *Source = (u8 *)SourceInit;
-    u8 *Dest = (u8 *)DestInit;
-    while(Size--) {*Dest++ = *Source++;}
-    
-    return(DestInit);
-}
-
-
-inline temporary_memory
-BeginTemporaryMemory(memory_arena *Arena)
-{
-    temporary_memory Result;
-    
-    Result.Arena = Arena;
-    Result.Used = Arena->Used;
-    
-    ++Arena->TempCount;
-    
-    return(Result);
-}
-
-inline void
-EndTemporaryMemory(temporary_memory TempMem)
-{
-    memory_arena *Arena = TempMem.Arena;
-    Assert(Arena->Used >= TempMem.Used);
-    Arena->Used = TempMem.Used;
-    Assert(Arena->TempCount > 0);
-    --Arena->TempCount;
-}
-
-inline void
-CheckArena(memory_arena *Arena)
-{
-    Assert(Arena->TempCount == 0);
-}
-
-#define PushStruct(Arena, type) (type *)PushSizeInternal(Arena, sizeof(type), 4)
-#define PushArray(Arena, Count, type) (type *)PushSizeInternal(Arena, (Count)*sizeof(type), 4)
-#define PushSize(Arena, Size) PushSizeInternal(Arena, Size, 4)
-#define PushCopy(Arena, Size, Source) Copy(Size, Source, PushSizeInternal(Arena, Size, 4))
-inline void *
-PushSizeInternal(memory_arena *Arena, memory_index SizeInit, memory_index Alignment)
-{
-    memory_index Size = SizeInit;
-    
-    memory_index AlignmentOffset = GetAlignmentOffset(Arena, Alignment);
-    Size += AlignmentOffset;
-    
-    Assert((Arena->Used + Size) <= Arena->Size);
-    void *Result = Arena->Base + Arena->Used + AlignmentOffset;
-    Arena->Used += Size;
-    
-    Assert(Size >= SizeInit);
-    
-    return(Result);
-}
-
-inline u8 *
-BeginPushSize(memory_arena *Arena)
-{
-    memory_index AlignmentOffset = GetAlignmentOffset(Arena, 4);
-    
-    u8 *Result = Arena->Base + Arena->Used + AlignmentOffset;
-    ++Arena->TempCount;
-    
-    return Result;
-}
-
-inline void
-EndPushSize(memory_arena *Arena, memory_index Size)
-{
-    --Arena->TempCount;
-    PushSizeInternal(Arena, Size, 4);
-}
-
-inline void
-SubArena(memory_arena *Result, memory_arena *Arena, memory_index Size)
-{
-    Result->Size = Size;
-    Result->Base = (u8 *)PushSizeInternal(Arena, Size, 16);
-    Result->Used = 0;
-    Result->TempCount = 0;
-}
-
-// NOTE(kstandbridge): String
 
 inline b32
 IsEndOfLine(char C)
@@ -272,9 +153,10 @@ StringsAreEqual(string A, string B)
     return Result;
 }
 
-#define String(Str) StringInternal(GetNullTerminiatedStringLength(Str), (u8 *)Str)
+
+#define String(Str) String_(sizeof(Str) - 1, (u8 *)Str)
 inline string
-StringInternal(umm Length, u8 *Data)
+String_(umm Length, u8 *Data)
 {
     string Result;
     
@@ -284,9 +166,9 @@ StringInternal(umm Length, u8 *Data)
     return Result;
 }
 
-#define PushString(Arena, Str) PushStringInternal(Arena, GetNullTerminiatedStringLength(Str), (u8 *)Str)
+#define PushString(Arena, Str) PushString_(Arena, sizeof(Str) - 1, (u8 *)Str)
 inline string
-PushStringInternal(memory_arena *Arena, umm Length, u8 *Data)
+PushString_(memory_arena *Arena, umm Length, u8 *Data)
 {
     string Result;
     
@@ -321,22 +203,24 @@ typedef struct format_string_token
     string Str;
 } format_string_token;
 
-typedef struct format_string_tokenizer
+
+typedef struct format_string_state
 {
-    char *At;
-    string *Output;
+    memory_arena *Arena;
+    string Result;
     char *Tail;
-} format_string_tokenizer;
+    char *At;
+} format_string_state;
 
 inline format_string_token
-GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
+GetNextFormatStringToken(format_string_state *State)
 {
     format_string_token Result;
     ZeroStruct(Result);
     
-    Result.Str = StringInternal(1, (u8 *)Tokenizer->At);
-    char C = Tokenizer->At[0];
-    ++Tokenizer->At;
+    Result.Str = String_(1, (u8 *)State->At);
+    char C = State->At[0];
+    ++State->At;
     switch(C)
     {
         case '\0': { Result.Type = FormatStringToken_EndOfStream; } break;
@@ -354,14 +238,14 @@ GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
         
         default:
         {
-            while(Tokenizer->At[0] &&
-                  Tokenizer->At[0] != '%' &&
-                  !IsWhitespace(Tokenizer->At[0]))
+            while(State->At[0] &&
+                  State->At[0] != '%' &&
+                  !IsWhitespace(State->At[0]))
             {
-                ++Tokenizer->At;
+                ++State->At;
             }
             
-            Result.Str.Size = Tokenizer->At - (char *)Result.Str.Data;
+            Result.Str.Size = State->At - (char *)Result.Str.Data;
             
             Result.Type = FormatStringToken_Unknown;
         } break;
@@ -376,20 +260,20 @@ GetNextFormatStringTokenInternal(format_string_tokenizer *Tokenizer)
 
 global char Digits[] = "0123456789";
 inline void
-FormatStringParseU64Internal(format_string_tokenizer *Tokenizer, u64 Value)
+FormatStringParseU64(format_string_state *State, u64 Value)
 {
     u32 Base = 10;
     
-    char *Start = Tokenizer->Tail;
+    char *Start = State->Tail;
     do
     {
         u64 DigitIndex = (Value % Base);
         char Digit = Digits[DigitIndex];
-        *Tokenizer->Tail++ = Digit;
+        *State->Tail++ = Digit;
         
         Value /= Base;
     } while(Value != 0);
-    char *End = Tokenizer->Tail;
+    char *End = State->Tail;
     
     while(Start < End)
     {
@@ -402,19 +286,19 @@ FormatStringParseU64Internal(format_string_tokenizer *Tokenizer, u64 Value)
 }
 
 inline void
-FormatStringParseF64Interal(format_string_tokenizer *Tokenizer, f64 Value, u32 Precision)
+FormatStringParseF64(format_string_state *State, f64 Value, u32 Precision)
 {
     if(Value < 0)
     {
-        *Tokenizer->Tail++ = '-';
+        *State->Tail++ = '-';
         Value = -Value;;
     }
     
     u64 IntegerPart = (u64)Value;
     Value -= (f64)IntegerPart;
-    FormatStringParseU64Internal(Tokenizer, IntegerPart);
+    FormatStringParseU64(State, IntegerPart);
     
-    *Tokenizer->Tail++ = '.';
+    *State->Tail++ = '.';
     
     // TODO(kstandbridge): Note that this is NOT an accurate way to do this!
     for(u32 PrecisionIndex = 0;
@@ -425,27 +309,18 @@ FormatStringParseF64Interal(format_string_tokenizer *Tokenizer, f64 Value, u32 P
         u32 Integer = (u32)Value;
         Value -= (f32)Integer;
         char Digit = Digits[Integer];
-        *Tokenizer->Tail++ = Digit;
+        *State->Tail++ = Digit;
     }
 }
 
-inline string
-FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
+internal void
+AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
 {
-    string Result;
-    ZeroStruct(Result);
-    Result.Data = BeginPushSize(Arena);
-    
-    format_string_tokenizer Tokenizer;
-    ZeroStruct(Tokenizer);
-    Tokenizer.At = Format;
-    Tokenizer.Output = &Result;
-    Tokenizer.Tail = (char *)Result.Data;
-    
+    State->At = Format;
     b32 Parsing = true;
     while(Parsing)
     {
-        format_string_token Token = GetNextFormatStringTokenInternal(&Tokenizer);
+        format_string_token Token = GetNextFormatStringToken(State);
         switch(Token.Type)
         {
             case FormatStringToken_EndOfStream:
@@ -455,10 +330,10 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
             
             case FormatStringToken_Specifier:
             {
-                if(Tokenizer.At[0] == '%')
+                if(State->At[0] == '%')
                 {
-                    *Tokenizer.Tail++ = '%';
-                    ++Tokenizer.At;
+                    *State->Tail++ = '%';
+                    ++State->At;
                 }
                 else
                 {                
@@ -470,7 +345,7 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                     while(ParsingParam)
                     {
                         
-                        format_string_token ParamToken = GetNextFormatStringTokenInternal(&Tokenizer);
+                        format_string_token ParamToken = GetNextFormatStringToken(State);
                         switch(ParamToken.Type)
                         {
                             
@@ -482,7 +357,7 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                             case FormatStringToken_PrecisionSpecifier:
                             {
                                 PrecisionSpecified = true;
-                                format_string_token PrecisionToken = GetNextFormatStringTokenInternal(&Tokenizer);
+                                format_string_token PrecisionToken = GetNextFormatStringToken(State);
                                 
                                 Precision = 0;
                                 
@@ -492,7 +367,7 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                                     Precision += (*PrecisionToken.Str.Data - '0');
                                     ++PrecisionToken.Str.Data;
                                 }
-                                --Tokenizer.At;
+                                --State->At;
                                 
                                 break;
                             }
@@ -512,9 +387,9 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                                 if(IsNegative)
                                 {
                                     Value = -Value;
-                                    *Tokenizer.Tail++ = '-';
+                                    *State->Tail++ = '-';
                                 }
-                                FormatStringParseU64Internal(&Tokenizer, Value);
+                                FormatStringParseU64(State, Value);
                             } break;
                             
                             case FormatStringToken_UnsignedDecimalInteger:
@@ -522,15 +397,15 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                                 ParsingParam = false;
                                 
                                 u64 Value = ReadVarArgUnsignedInteger(IntegerLength, ArgList);
-                                FormatStringParseU64Internal(&Tokenizer, Value);
+                                FormatStringParseU64(State, Value);
                             } break;
                             
                             case FormatStringToken_DecimalFloatingPoint:
                             {
                                 ParsingParam = false;
-                                
+                                FloatLength; // NOTE(kstandbridge): local variable is initialized but not referenced.
                                 f64 Value = ReadVarArgFloat(FloatLength, ArgList);
-                                FormatStringParseF64Interal(&Tokenizer, Value, Precision);
+                                FormatStringParseF64(State, Value, Precision);
                             } break;
                             
                             case FormatStringToken_StringOfCharacters:
@@ -542,14 +417,14 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                                 {
                                     while(At[0] != '\0' && Precision--)
                                     {
-                                        *Tokenizer.Tail++ = *At++;
+                                        *State->Tail++ = *At++;
                                     }
                                 }
                                 else
                                 {
                                     while(At[0] != '\0')
                                     {
-                                        *Tokenizer.Tail++ = *At++;
+                                        *State->Tail++ = *At++;
                                     }
                                 }
                             } break;
@@ -571,7 +446,7 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
                                             break;
                                         }
                                     }
-                                    *Tokenizer.Tail++ = Str.Data[Index];
+                                    *State->Tail++ = Str.Data[Index];
                                 }
                                 
                             } break;
@@ -595,7 +470,7 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
             {
                 while(Token.Str.Size)
                 {
-                    *Tokenizer.Tail++ = *Token.Str.Data++;
+                    *State->Tail++ = *Token.Str.Data++;
                     --Token.Str.Size;
                 }
             } break;
@@ -603,22 +478,60 @@ FormatStringInternal(memory_arena *Arena, char *Format, va_list ArgList)
     }
     va_end(ArgList);
     
-    Result.Size = Tokenizer.Tail - (char *)Result.Data;
-    EndPushSize(Arena, Result.Size);
+    State->Result.Size = State->Tail - (char *)State->Result.Data;
+}
+
+internal void
+AppendStringFormat(format_string_state *State, char *Format, ...)
+{
+    va_list ArgList;
+    
+    va_start(ArgList, Format);
+    AppendFormatString_(State, Format, ArgList);
+    va_end(ArgList);
+    
+}
+
+internal format_string_state
+BeginFormatString(memory_arena *Arena)
+{
+    format_string_state Result;
+    Result.Arena = Arena;
+    ++Arena->TempCount;
+    
+    Result.Result.Size = 0;
+    Result.Result.Size = (Result.Result.Size + 1)*sizeof(char);
+    Result.Result.Data = (u8 *)PushSize(Arena, Result.Result.Size);
+    Result.Tail = (char *)Result.Result.Data;
+    
+    return Result;
+}
+
+internal string
+EndFormatString(format_string_state *State)
+{
+    string Result = State->Result;
+    
+    State->Arena->Used += Result.Size;
+    --State->Arena->TempCount;
+    
     return Result;
 }
 
 internal string
 FormatString(memory_arena *Arena, char *Format, ...)
 {
-    va_list ArgList;
+    format_string_state StringState = BeginFormatString(Arena);
     
+    va_list ArgList;
     va_start(ArgList, Format);
-    string Result = FormatStringInternal(Arena, Format, ArgList);
+    AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
+    
+    string Result = EndFormatString(&StringState);
     
     return Result;
 }
 
-#define KENGINE_SHARED_H
-#endif //KENGINE_SHARED_H
+#define KENGINE_STRING_H
+#endif //KENGINE_STRING_H
