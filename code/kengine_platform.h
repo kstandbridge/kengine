@@ -1,5 +1,8 @@
 #ifndef KENGINE_PLATFORM_H
 
+#include <stdarg.h>
+
+#define introspect(...)
 #include "kengine_types.h"
 
 #if KENGINE_SLOW
@@ -14,18 +17,6 @@
 #define InvalidDefaultCase default: {InvalidCodePath;} break
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
-
-#define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
-#define ZeroArray(Count, Pointer) ZeroSize(Count*sizeof((Pointer)[0]), Pointer)
-inline void
-ZeroSize(u64 Size, void *Ptr)
-{
-    u8 *Byte = (u8 *)Ptr;
-    while(Size--)
-    {
-        *Byte++ = 0;
-    }
-}
 
 // NOTE(kstandbridge): CRT stuff
 

@@ -187,10 +187,12 @@ switch(Tokenizer->At[0])
 # TODOs
 - [x] Output to console/file
 - [x] Read file
+- [x] Introspection framework
+- [ ] Introspect input files from command line
+- [ ] Introspect win32 apis
 - [ ] String utilities, equals, uppercase, camelcase, etc
 - [ ] Parse source file and tokenize
 - [ ] Unit test macros
-- [ ] Introspection framework
 - [ ] Win32 API function pointer generation
 - [ ] Struct ctor generation
 - [ ] Struct math operation generation
