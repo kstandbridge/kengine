@@ -17,5 +17,15 @@ Intersect(rectangle2i A, rectangle2i B)
     return(Result);
 }
 
+
+inline b32
+HasArea(rectangle2i A)
+{
+    b32 Result = ((A.MinX < A.MaxX) && (A.MinY < A.MaxY));
+    
+    return Result;
+}
+
+
 #define KENGINE_MATH_H
 #endif //KENGINE_MATH_H
