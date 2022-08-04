@@ -495,7 +495,7 @@ AppendStringFormat(format_string_state *State, char *Format, ...)
 internal format_string_state
 BeginFormatString(memory_arena *Arena)
 {
-    format_string_state Result = {0};
+    format_string_state Result;
     Result.Arena = Arena;
     ++Arena->TempCount;
     

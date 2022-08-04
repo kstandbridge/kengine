@@ -491,89 +491,112 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     ToUpperCamelCase(&FunctionName);
     Token = GetNextCToken(Tokenizer);
     Assert(Token.Type == CTokenType_OpenParen);
-    ConsoleOut(Tokenizer->Arena, "internal %S\n", ReturnType);
+    ConsoleOut(Tokenizer->Arena, "\ninternal %S\n", ReturnType);
     ConsoleOut(Tokenizer->Arena, "%S(", FunctionName);
     Token = GetNextCToken(Tokenizer);
     b32 FirstParamFound = false;
     b32 TypeNameToggle = false;
-    format_string_state StringState = BeginFormatString(Tokenizer->Arena);
-    char *At = Tokenizer->At;
-    while(Token.Type != CTokenType_CloseParen)
+    string Parameters;
+    ZeroStruct(Parameters);
+    string ParametersWithoutTypes;
+    ZeroStruct(ParametersWithoutTypes);
+    if(Token.Type == CTokenType_CloseParen)
     {
-        if(Token.Type == CTokenType_Identifier)
-        {
-            if(!FirstParamFound)
-            {
-                FirstParamFound = true;
-            }
-            else
-            {
-                if(!TypeNameToggle)
-                {
-                    AppendStringFormat(&StringState, ", ");
-                }
-                else
-                {
-                    AppendStringFormat(&StringState, " ");
-                }
-            }
-            TypeNameToggle = !TypeNameToggle;
-            AppendStringFormat(&StringState, "%S", Token.Str);
-        }
-        else if(Token.Type == CTokenType_Asterisk)
-        {
-            AppendStringFormat(&StringState, " *");
-        }
-        
         Token = GetNextCToken(Tokenizer);
     }
-    string Parameters = EndFormatString(&StringState);
-    Tokenizer->At = At;
-    FirstParamFound = false;
-    StringState = BeginFormatString(Tokenizer->Arena);
-    Token = GetNextCToken(Tokenizer);
-    while(Token.Type != CTokenType_CloseParen)
+    else
     {
-        if(Token.Type == CTokenType_Identifier)
+        format_string_state StringState = BeginFormatString(Tokenizer->Arena);
+        char *At = Tokenizer->At;
+        while(Token.Type != CTokenType_CloseParen)
         {
-            if(!FirstParamFound)
+            if(Token.Type == CTokenType_Identifier)
             {
-                FirstParamFound = true;
-            }
-            else
-            {
-                if(!TypeNameToggle)
+                if(!FirstParamFound)
                 {
-                    AppendStringFormat(&StringState, ", ");
+                    FirstParamFound = true;
                 }
                 else
                 {
-                    //AppendStringFormat(&StringState, " ");
+                    if(!TypeNameToggle)
+                    {
+                        AppendStringFormat(&StringState, ", ");
+                    }
+                    else
+                    {
+                        AppendStringFormat(&StringState, " ");
+                    }
                 }
-            }
-            TypeNameToggle = !TypeNameToggle;
-            if(TypeNameToggle)
-            {
+                TypeNameToggle = !TypeNameToggle;
                 AppendStringFormat(&StringState, "%S", Token.Str);
             }
+            else if(Token.Type == CTokenType_Asterisk)
+            {
+                AppendStringFormat(&StringState, " *");
+            }
+            
+            Token = GetNextCToken(Tokenizer);
         }
-        
+        Parameters = EndFormatString(&StringState);
+        Tokenizer->At = At;
+        FirstParamFound = false;
+        StringState = BeginFormatString(Tokenizer->Arena);
         Token = GetNextCToken(Tokenizer);
+        while(Token.Type != CTokenType_CloseParen)
+        {
+            if(Token.Type == CTokenType_Identifier)
+            {
+                if(!FirstParamFound)
+                {
+                    FirstParamFound = true;
+                }
+                else
+                {
+                    if(!TypeNameToggle)
+                    {
+                        AppendStringFormat(&StringState, ", ");
+                    }
+                    else
+                    {
+                        //AppendStringFormat(&StringState, " ");
+                    }
+                }
+                TypeNameToggle = !TypeNameToggle;
+                if(TypeNameToggle)
+                {
+                    AppendStringFormat(&StringState, "%S", Token.Str);
+                }
+            }
+            
+            Token = GetNextCToken(Tokenizer);
+        }
+        ParametersWithoutTypes = EndFormatString(&StringState);
     }
-    string ParametersWithoutTypes = EndFormatString(&StringState);
+    
+    b32 HasResult = !StringsAreEqual(String("void"), ReturnType);
+    
     ConsoleOut(Tokenizer->Arena, "%S)\n", Parameters);
     ConsoleOut(Tokenizer->Arena, "{\n");
-    ConsoleOut(Tokenizer->Arena, "    typedef %S %S(%S);\n\n", ReturnType, FunctionType, Parameters);
-    ConsoleOut(Tokenizer->Arena, "    %S Result;\n", ReturnType);
+    if(HasResult)
+    {
+        ConsoleOut(Tokenizer->Arena, "    %S Result;\n", ReturnType);
+    }
     ConsoleOut(Tokenizer->Arena, "    Assert(%S);\n", Library);
-    ConsoleOut(Tokenizer->Arena, "    local_persist (%S *)Func = 0;\n", FunctionType);
+    ConsoleOut(Tokenizer->Arena, "    local_persist %S *Func = 0;\n", FunctionType);
     ConsoleOut(Tokenizer->Arena, "    if(!Func);\n");
     ConsoleOut(Tokenizer->Arena, "    {\n");
     ConsoleOut(Tokenizer->Arena, "         Func = (%S *)GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, FunctionName);
     ConsoleOut(Tokenizer->Arena, "    }\n");
     ConsoleOut(Tokenizer->Arena, "    Assert(Func);\n");
-    ConsoleOut(Tokenizer->Arena, "    Result = Func(%S);\n\n", ParametersWithoutTypes);
-    ConsoleOut(Tokenizer->Arena, "    return Result\n");
+    if(HasResult)
+    {
+        ConsoleOut(Tokenizer->Arena, "    Result = Func(%S);\n\n", ParametersWithoutTypes);
+        ConsoleOut(Tokenizer->Arena, "    return Result;\n");
+    }
+    else
+    {
+        ConsoleOut(Tokenizer->Arena, "    Func(%S);\n\n", ParametersWithoutTypes);
+    }
     ConsoleOut(Tokenizer->Arena, "}\n");
 }
 

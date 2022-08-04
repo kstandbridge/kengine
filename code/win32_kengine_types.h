@@ -213,9 +213,9 @@ typedef union _LARGE_INTEGER
 #define PAGE_READWRITE          0x04    
 
 introspect(win32, Kernel32);
-typedef char * get_command_line_a();
-introspect(win32, Kernel32);
 typedef void * virtual_alloc(void *Address, umm Size, u32 AllocationType, u32 Protect);
+introspect(win32, Kernel32);
+typedef char * get_command_line_a();
 introspect(win32, Kernel32);
 typedef HMODULE load_library_a(char *FileName);
 introspect(win32, Kernel32);

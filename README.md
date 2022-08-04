@@ -173,7 +173,7 @@ switch(Tokenizer->At[0])
 
 # Milestone goals
 - [x] Preprocessor framework
-- [ ] Unit test framework
+- [x] Unit test framework
 - [ ] Win32 platform layer
 - [ ] DLL hot loading
 - [ ] Software rendering
@@ -192,9 +192,10 @@ switch(Tokenizer->At[0])
 - [x] Introspect win32 apis
 - [x] String utilities, equals, uppercase, camelcase, etc
 - [x] Parse source file and tokenize
-- [ ] Unit test macros
-- [ ] Win32 API function pointer generation
-- [ ] Struct ctor generation
-- [ ] Struct math operation generation
-- [ ] Memory management, arena, temporary memory
+- [x] Unit test macros
+- [x] Win32 API function pointer generation
+- [x] Struct ctor generation
+- [x] Struct math operation generation
+- [x] Memory management, arena, temporary memory
+- [ ] Create window
 - [ ] Dynamically growing memory arenas
