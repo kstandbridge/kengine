@@ -8,10 +8,24 @@
 #define Assert(...)
 #endif
 
+#include "kengine_memory.h"
+
 #define InvalidCodePath Assert(!"InvalidCodePath")
 #define InvalidDefaultCase default: {InvalidCodePath;} break
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+
+#define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
+#define ZeroArray(Count, Pointer) ZeroSize(Count*sizeof((Pointer)[0]), Pointer)
+inline void
+ZeroSize(u64 Size, void *Ptr)
+{
+    u8 *Byte = (u8 *)Ptr;
+    while(Size--)
+    {
+        *Byte++ = 0;
+    }
+}
 
 // NOTE(kstandbridge): CRT stuff
 

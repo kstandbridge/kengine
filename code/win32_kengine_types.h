@@ -2,8 +2,11 @@
 
 typedef void * HMODULE;
 typedef void * HANDLE;
+
 typedef __int64 LONG_PTR;
 typedef unsigned __int64 ULONG_PTR;
+
+typedef __int64 LONGLONG;
 typedef unsigned __int64 ULONGLONG;
 
 typedef struct _IMAGE_DOS_HEADER 
@@ -155,7 +158,8 @@ typedef struct _IMAGE_EXPORT_DIRECTORY
 #define STD_OUTPUT_HANDLE   ((u32)-11)
 #define STD_ERROR_HANDLE    ((u32)-12)
 
-typedef struct _OVERLAPPED {
+typedef struct _OVERLAPPED 
+{
     ULONG_PTR Internal;
     ULONG_PTR InternalHigh;
     union 
@@ -172,8 +176,46 @@ typedef struct _OVERLAPPED {
     HANDLE  hEvent;
 } OVERLAPPED, *LPOVERLAPPED;
 
+typedef struct _SECURITY_ATTRIBUTES 
+{
+    u32 nLength;
+    void *lpSecurityDescriptor;
+    b32 bInheritHandle;
+} SECURITY_ATTRIBUTES, *PSECURITY_ATTRIBUTES, *LPSECURITY_ATTRIBUTES;
+
+typedef union _LARGE_INTEGER 
+{
+    struct 
+    {
+        u32 LowPart;
+        s64 HighPart;
+    } DUMMYSTRUCTNAME;
+    struct 
+    {
+        u32 LowPart;
+        s64 HighPart;
+    } u;
+    LONGLONG QuadPart;
+} LARGE_INTEGER;
+
+#define GENERIC_READ                     (0x80000000L)
+#define GENERIC_WRITE                    (0x40000000L)
+#define GENERIC_EXECUTE                  (0x20000000L)
+#define GENERIC_ALL                      (0x10000000L)
+
+#define FILE_SHARE_READ                 0x00000001
+
+#define OPEN_EXISTING       3
+
+#define MEM_COMMIT                      0x00001000  
+#define MEM_RESERVE                     0x00002000  
+
+#define PAGE_READWRITE          0x04    
+
 // TODO(kstandbridge): LoadLibraryA
 typedef HMODULE load_library_a(char *FileName);
+
+
 
 #define WIN32_KENGINE_TYPES_H
 #endif //WIN32_KENGINE_TYPES_H

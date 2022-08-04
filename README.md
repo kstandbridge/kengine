@@ -186,9 +186,10 @@ switch(Tokenizer->At[0])
 
 # TODOs
 - [x] Output to console/file
-- [ ] Unit test macros
+- [x] Read file
 - [ ] String utilities, equals, uppercase, camelcase, etc
 - [ ] Parse source file and tokenize
+- [ ] Unit test macros
 - [ ] Introspection framework
 - [ ] Win32 API function pointer generation
 - [ ] Struct ctor generation

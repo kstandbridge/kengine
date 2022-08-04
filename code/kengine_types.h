@@ -17,6 +17,9 @@ typedef double f64;
 #define true 1
 #define false 0
 
+typedef __int64 smm;
+typedef unsigned __int64 umm;
+
 #define U8Max 255
 #define U16Max 65535
 #define S32Min ((s32)0x80000000)
@@ -39,6 +42,12 @@ typedef double f64;
 #define Megabytes(Value) (Kilobytes(Value)*1024LL)
 #define Gigabytes(Value) (Megabytes(Value)*1024LL)
 #define Terabytes(Value) (Gigabytes(Value)*1024LL)
+
+typedef struct
+{
+    umm Size;
+    u8 *Data;
+} string;
 
 #define KENGINE_TYPES_H
 #endif //KENGINE_TYPES_H
