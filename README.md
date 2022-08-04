@@ -185,7 +185,7 @@ switch(Tokenizer->At[0])
 - [ ] Server side socket framework using I/O Completion Ports
 
 # TODOs
-- [ ] Output to console/file
+- [x] Output to console/file
 - [ ] Unit test macros
 - [ ] String utilities, equals, uppercase, camelcase, etc
 - [ ] Parse source file and tokenize
