@@ -15,6 +15,7 @@ patterns =
     "*.sh",
     "*.4coder",
     "*.txt",
+    "*.md",
 };
 
 blacklist_patterns =
