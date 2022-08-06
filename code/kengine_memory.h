@@ -12,7 +12,7 @@ ZeroSize(u64 Size, void *Ptr)
     }
 }
 
-typedef struct memory_arena
+typedef struct
 {
     u64 Size;
     u8 *Base;

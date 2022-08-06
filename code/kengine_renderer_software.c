@@ -168,6 +168,13 @@ SoftwareRenderCommands(render_commands *Commands, loaded_bitmap *OutputTarget)
                               Rectangle2i(0, OutputTarget->Width, 0, OutputTarget->Height));
             } break;
             
+            case RenderGroupCommandType_Rectangle:
+            {
+                render_group_command_rectangle *Command = (render_group_command_rectangle *)Data;
+                DrawRectangle(OutputTarget, Command->Bounds.Min, Command->Bounds.Max, Command->Color, 
+                              Rectangle2i(0, OutputTarget->Width, 0, OutputTarget->Height));
+            } break;
+            
             InvalidDefaultCase;
         }
     }

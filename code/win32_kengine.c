@@ -351,6 +351,9 @@ WinMainCRTStartup()
                     Win32State->AppUpdateFrame(&Commands);
                 }
                 
+                sort_entry *Entries = (sort_entry *)(Commands.PushBufferBase + Commands.SortEntryAt);
+                BubbleSort(Commands.PushBufferElementCount, Entries);
+                
                 // NOTE(kstandbridge): Software renderer path
                 {                
                     SoftwareRenderCommands(&Commands, &OutputTarget);

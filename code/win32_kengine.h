@@ -5,9 +5,9 @@
 #include "kengine_string.h"
 #include "kengine_intrinsics.h"
 #include "kengine_math.h"
-#include "kengine_renderer.h"
+#include "kengine_renderer_shared.h"
 
-typedef struct win32_offscreen_buffer
+typedef struct
 {
     // NOTE(kstandbridge): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
     BITMAPINFO Info;
@@ -18,7 +18,7 @@ typedef struct win32_offscreen_buffer
     s32 Pitch;
 } win32_offscreen_buffer;
 
-typedef struct win32_state
+typedef struct
 {
     b32 IsRunning;
     HWND Window;

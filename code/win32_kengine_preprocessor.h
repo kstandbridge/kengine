@@ -4,7 +4,7 @@
 #include "win32_kengine_types.h"
 #include "kengine_string.h"
 
-typedef enum c_token_type
+typedef enum
 {
     CTokenType_Unknown,
     
@@ -24,7 +24,7 @@ typedef enum c_token_type
     CTokenType_EndOfStream
 } c_token_type;
 
-typedef struct c_token
+typedef struct
 {
     c_token_type Type;
     
@@ -32,7 +32,7 @@ typedef struct c_token
     
 } c_token;
 
-typedef struct c_tokenizer
+typedef struct
 {
     memory_arena *Arena;
     char *At;

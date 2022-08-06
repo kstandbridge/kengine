@@ -1,35 +1,19 @@
 #ifndef KENGINE_RENDERER_H
 
-typedef struct render_group
+typedef struct
 {
     render_commands *Commands;
     u16 CurrentClipRectIndex;
 } render_group;
 
-typedef enum render_group_command_type
-{
-    RenderGroupCommandType_Clear,
-} render_group_command_type;
-
-typedef struct render_group_command_header
-{
-    u16 Type;
-    u16 ClipRectIndex;
-} render_group_command_header;
-
-typedef struct render_group_command_clear
-{
-    v4 Color;
-} render_group_command_clear;
-
-typedef struct object_transform
+typedef struct
 {
     v3 OffsetP;
     f32 Scale;
     f32 SortBias;
 } object_transform;
 
-typedef struct entity_basis_p_result
+typedef struct
 {
     v2 P;
     f32 Scale;

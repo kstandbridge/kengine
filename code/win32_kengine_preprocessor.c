@@ -338,7 +338,7 @@ RequireCToken(c_tokenizer *Tokenizer, c_token_type DesiredType)
     return Result;
 }
 
-typedef enum generate_method_op
+typedef enum
 {
     GenerateMethod_Ctor,
     GenerateMethod_Set1,

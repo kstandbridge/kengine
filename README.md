@@ -60,7 +60,7 @@ typedef double f64;
 Types should always be snake_case, variables and function names UpperCamelCase regardless of scope. Try to be descriptive, and avoid using single letters, use Width instead of W. Can short form when its more obvious, Dim instead of Dimensions
 
 ```C
-typedef struct window_dimensions
+typedef struct
 {
     s32 Width;
     s32 Height
@@ -71,7 +71,7 @@ This does not apply to math operations: x y P dt. As the code needs to be concis
 Enums should UpperCamelCase the type name then UpperCamelCase the value split by an underscore
 
 ```C
-typedef enum element_type
+typedef enum
 {
     ElementType_Row,
     ElementType_Spacer,
@@ -204,6 +204,10 @@ switch(Tokenizer->At[0])
 - [x] Introspect structs without double naming
 - [x] Clean up introspect generate function pointers (double loop)
 - [x] Update code moved to DLL and loaded dynamically
+- [x] Sort render commands
+- [ ] Render clipping
+- [ ] Orthographic projection
+- [ ] Perspective projection
 - [ ] Clean up introspect generate methods (double loop)
 - [ ] Thread pool
 - [ ] Draw a glyph

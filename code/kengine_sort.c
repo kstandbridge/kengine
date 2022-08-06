@@ -1,5 +1,5 @@
 
-typedef struct sort_entry
+typedef struct
 {
     f32 SortKey;
     u32 Index;

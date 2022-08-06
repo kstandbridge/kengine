@@ -178,7 +178,7 @@ PushString_(memory_arena *Arena, umm Length, u8 *Data)
     return Result;
 }
 
-typedef enum format_string_token_type
+typedef enum
 {
     FormatStringToken_Unknown,
     
@@ -196,7 +196,7 @@ typedef enum format_string_token_type
     FormatStringToken_EndOfStream,
 } format_string_token_type;
 
-typedef struct format_string_token
+typedef struct
 {
     format_string_token_type Type;
     
@@ -204,7 +204,7 @@ typedef struct format_string_token
 } format_string_token;
 
 
-typedef struct format_string_state
+typedef struct
 {
     memory_arena *Arena;
     string Result;
