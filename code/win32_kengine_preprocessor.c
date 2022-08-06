@@ -349,9 +349,76 @@ typedef enum generate_method_op
 } generate_method_op;
 
 internal void
-GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op, string SnakeStruct, string UpperCamelStruct)
+GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
 {
-    char *Start = Tokenizer->At;;
+    char *Start = Tokenizer->At;
+    
+    
+    format_string_state StringState = BeginFormatString(Tokenizer->Arena);
+    
+    b32 FirstParam = true;
+    c_token Token;
+    for(;;)
+    {
+        Token = GetNextCToken(Tokenizer);
+        if((Token.Type == CTokenType_EndOfStream) ||
+           (Token.Type == CTokenType_CloseBrace))
+        {
+            Token = GetNextCToken(Tokenizer);
+            break;
+        }
+        else if(Token.Type == CTokenType_Identifier)
+        {
+            string Type = Token.Str;
+            Token = GetNextCToken(Tokenizer);
+            b32 IsPointer = false;
+            if(Token.Type == CTokenType_Asterisk)
+            {
+                IsPointer = true;
+                Token = GetNextCToken(Tokenizer);
+            }
+            
+            switch(Op)
+            {
+                case GenerateMethod_Ctor:
+                {
+                    if(!FirstParam)
+                    {
+                        AppendStringFormat(&StringState, ", ");
+                    }
+                    FirstParam = false;
+                    if(IsPointer)
+                    {
+                        AppendStringFormat(&StringState, "%S *%S", Type, Token.Str);
+                    }
+                    else
+                    {
+                        AppendStringFormat(&StringState, "%S %S", Type, Token.Str);
+                    }
+                } break;
+                case GenerateMethod_Set1:
+                {
+                    if(FirstParam)
+                    {
+                        FirstParam = false;
+                        AppendStringFormat(&StringState, "%S Value", Type);
+                    }
+                } break;
+                case GenerateMethod_MathAdd:
+                case GenerateMethod_MathSubtract:
+                case GenerateMethod_MathMultiply:
+                case GenerateMethod_MathDivide:
+                {
+                } break;
+                InvalidDefaultCase;
+            }
+        }
+    }
+    
+    string Types = EndFormatString(&StringState);
+    string SnakeStruct = Token.Str;
+    string UpperCamelStruct = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+    ToUpperCamelCase(&UpperCamelStruct);
     
     switch(Op)
     {
@@ -381,69 +448,19 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op, string SnakeStruct
         } break;
         InvalidDefaultCase;
     }
-    b32 FirstParam = true;
-    for(;;)
+    
+    if(Op == GenerateMethod_Ctor || GenerateMethod_Set1)
     {
-        c_token Token = GetNextCToken(Tokenizer);
-        if((Token.Type == CTokenType_EndOfStream) ||
-           (Token.Type == CTokenType_CloseBrace))
-        {
-            ConsoleOut(Tokenizer->Arena, ")\n{\n    %S Result;\n\n", SnakeStruct);
-            break;
-        }
-        else if(Token.Type == CTokenType_Identifier)
-        {
-            string Type = Token.Str;
-            Token = GetNextCToken(Tokenizer);
-            b32 IsPointer = false;
-            if(Token.Type == CTokenType_Asterisk)
-            {
-                IsPointer = true;
-                Token = GetNextCToken(Tokenizer);
-            }
-            
-            switch(Op)
-            {
-                case GenerateMethod_Ctor:
-                {
-                    if(!FirstParam)
-                    {
-                        ConsoleOut(Tokenizer->Arena, ", ");
-                    }
-                    FirstParam = false;
-                    if(IsPointer)
-                    {
-                        ConsoleOut(Tokenizer->Arena, "%S *%S", Type, Token.Str);
-                    }
-                    else
-                    {
-                        ConsoleOut(Tokenizer->Arena, "%S %S", Type, Token.Str);
-                    }
-                } break;
-                case GenerateMethod_Set1:
-                {
-                    if(FirstParam)
-                    {
-                        FirstParam = false;
-                        ConsoleOut(Tokenizer->Arena, "%S Value", Type);
-                    }
-                } break;
-                case GenerateMethod_MathAdd:
-                case GenerateMethod_MathSubtract:
-                case GenerateMethod_MathMultiply:
-                case GenerateMethod_MathDivide:
-                {
-                } break;
-                InvalidDefaultCase;
-            }
-        }
+        ConsoleOut(Tokenizer->Arena, "%S", Types);
     }
+    
+    ConsoleOut(Tokenizer->Arena, ")\n{\n    %S Result;\n\n", SnakeStruct);
     
     Tokenizer->At = Start;
     
     for(;;)
     {
-        c_token Token = GetNextCToken(Tokenizer);
+        Token = GetNextCToken(Tokenizer);
         if((Token.Type == CTokenType_EndOfStream) ||
            (Token.Type == CTokenType_CloseBrace))
         {
@@ -671,44 +688,39 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
         else
         {
             char *Start = 0;
-            string StructName;
             Token = GetNextCToken(Tokenizer);
             Assert(StringsAreEqual(String("typedef"), Token.Str));
             Token = GetNextCToken(Tokenizer);
             Assert(StringsAreEqual(String("struct"), Token.Str));
-            Token = GetNextCToken(Tokenizer);
-            StructName = Token.Str;
-            string UpperCamelStruct = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
-            ToUpperCamelCase(&UpperCamelStruct);
-            UpperCamelStruct.Data[0] = ToUppercase(UpperCamelStruct.Data[0]);
+            
             if(RequireCToken(Tokenizer, CTokenType_OpenBrace))
             {
                 Start = Tokenizer->At;
                 
                 if(IsCtor)
                 {
-                    GenerateMethod(Tokenizer, GenerateMethod_Ctor, StructName, UpperCamelStruct);
+                    GenerateMethod(Tokenizer, GenerateMethod_Ctor);
                 }
                 
                 if(IsSet1)
                 {
                     Tokenizer->At = Start;
-                    GenerateMethod(Tokenizer, GenerateMethod_Set1, StructName, UpperCamelStruct);
+                    GenerateMethod(Tokenizer, GenerateMethod_Set1);
                 }
                 
                 if(IsMath)
                 {
                     Tokenizer->At = Start;
-                    GenerateMethod(Tokenizer, GenerateMethod_MathAdd, StructName, UpperCamelStruct);
+                    GenerateMethod(Tokenizer, GenerateMethod_MathAdd);
                     
                     Tokenizer->At = Start;
-                    GenerateMethod(Tokenizer, GenerateMethod_MathSubtract, StructName, UpperCamelStruct);
+                    GenerateMethod(Tokenizer, GenerateMethod_MathSubtract);
                     
                     Tokenizer->At = Start;
-                    GenerateMethod(Tokenizer, GenerateMethod_MathMultiply, StructName, UpperCamelStruct);
+                    GenerateMethod(Tokenizer, GenerateMethod_MathMultiply);
                     
                     Tokenizer->At = Start;
-                    GenerateMethod(Tokenizer, GenerateMethod_MathDivide, StructName, UpperCamelStruct);
+                    GenerateMethod(Tokenizer, GenerateMethod_MathDivide);
                 }
             }
             else

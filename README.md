@@ -201,7 +201,9 @@ switch(Tokenizer->At[0])
 - [x] Create a display buffer and render background color
 - [x] Draw a rectangle
 - [x] Push buffer rendering
-- [ ] Introspect structs without double naming
+- [x] Introspect structs without double naming
+- [ ] Clean up introspect generate methods (double loop)
+- [ ] Clean up introspect generate function pointers (double loop)
 - [ ] Update code moved to DLL and loaded dynamically
 - [ ] Thread pool
 - [ ] Draw a glyph

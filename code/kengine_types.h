@@ -47,20 +47,20 @@ typedef struct
     u8 *Data;
 } string;
 
-introspect(ctor, set1, math) typedef struct v2
+introspect(ctor, set1, math) typedef struct
 {
     f32 X;
     f32 Y;
 } v2;
 
-introspect(ctor, set1, math) typedef struct v3
+introspect(ctor, set1, math) typedef struct
 {
     f32 X;
     f32 Y;
     f32 Z;
 } v3;
 
-introspect(ctor, set1, math) typedef struct v4
+introspect(ctor, set1, math) typedef struct
 {
     f32 R;
     f32 G;
@@ -68,13 +68,13 @@ introspect(ctor, set1, math) typedef struct v4
     f32 A;
 } v4;
 
-introspect(ctor) typedef struct rectangle2
+introspect(ctor) typedef struct
 {
     v2 Min;
     v2 Max;
 } rectangle2;
 
-introspect(ctor) typedef struct rectangle2i
+introspect(ctor) typedef struct
 {
     s32 MinX;
     s32 MaxX;
@@ -82,7 +82,7 @@ introspect(ctor) typedef struct rectangle2i
     s32 MaxY;
 } rectangle2i;
 
-introspect(ctor) typedef struct render_commands
+introspect(ctor) typedef struct
 {
     u32 MaxPushBufferSize;
     u32 PushBufferSize;
@@ -97,7 +97,7 @@ introspect(ctor) typedef struct render_commands
 
 // TODO(kstandbridge): Where should loaded_bitmap live?
 #define BITMAP_BYTES_PER_PIXEL 4
-typedef struct loaded_bitmap
+typedef struct
 {
     void *Memory;
     v2 AlignPercentage;
