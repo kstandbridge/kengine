@@ -19,37 +19,40 @@
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
+#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
+#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
+inline u32
+GetThreadId()
+{
+    u8 *ThreadLocalStorage = (u8 *)__readgsqword(0x30);
+    u32 Result = *(u32 *)(ThreadLocalStorage + 0x48);
+    
+    return Result;
+}
+typedef void platform_work_queue_callback(void *Data);
+
+typedef struct platform_work_queue platform_work_queue;
+typedef void platform_add_work_entry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data);
+typedef void platform_complete_all_work(platform_work_queue *Queue);
+
+typedef struct
+{
+    struct platform_work_queue *PerFrameWorkQueue;
+    struct platform_work_queue *BackgroundWorkQueue;
+    platform_add_work_entry *AddWorkEntry;
+    platform_complete_all_work *CompleteAllWork;
+    
+} platform_api;
+
 typedef struct
 {
     u64 StorageSize;
     void *Storage;
     
+    platform_api PlatformAPI;
 } app_memory;
 
-typedef void app_update_frame(render_commands *Commands);
-
-// NOTE(kstandbridge): CRT stuff
-
-int _fltused = 0x9875;
-
-#pragma function(memset)
-void *memset(void *DestInit, int Source, size_t Size)
-{
-    unsigned char *Dest = (unsigned char *)DestInit;
-    while(Size--) *Dest++ = (unsigned char)Source;
-    
-    return(DestInit);
-}
-
-#pragma function(memcpy)
-void *memcpy(void *DestInit, void const *SourceInit, size_t Size)
-{
-    unsigned char *Source = (unsigned char *)SourceInit;
-    unsigned char *Dest = (unsigned char *)DestInit;
-    while(Size--) *Dest++ = *Source++;
-    
-    return(DestInit);
-}
+typedef void app_update_frame(platform_api PlatformAPI, render_commands *Commands);
 
 #define KENGINE_PLATFORM_H
 #endif //KENGINE_PLATFORM_H

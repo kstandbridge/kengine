@@ -37,7 +37,7 @@ if "%~1"=="build_dependencies" (
 
 	REM Application
 	echo WAITING FOR PDB > lock.tmp
-	cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\kengine.c -LD /link /NODEFAULTLIB %CommonLinkerFlags% -PDB:kengine_%random%.pdb -EXPORT:AppUpdateFrame
+	cl %CommonCompilerFlags% -MTd -Od ..\kengine\code\kengine.c -LD /link %CommonLinkerFlags% -PDB:kengine_%random%.pdb -EXPORT:AppUpdateFrame
 	del lock.tmp
 	
 	del /q *.exp

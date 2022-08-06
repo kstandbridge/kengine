@@ -205,11 +205,10 @@ switch(Tokenizer->At[0])
 - [x] Clean up introspect generate function pointers (double loop)
 - [x] Update code moved to DLL and loaded dynamically
 - [x] Sort render commands
+- [x] Thread pool
 - [ ] Render clipping
 - [ ] Orthographic projection
-- [ ] Perspective projection
 - [ ] Clean up introspect generate methods (double loop)
-- [ ] Thread pool
 - [ ] Draw a glyph
 - [ ] Draw a string
 - [ ] Text element
@@ -234,5 +233,6 @@ switch(Tokenizer->At[0])
 - [ ] Arena memory usage tab
 - [ ] Arena memory types breakdown
 - [ ] OpenGL rendering
+- [ ] Perspective projection
 - [ ] DirectX rendering
 - [ ] Dynamically growing memory arenas

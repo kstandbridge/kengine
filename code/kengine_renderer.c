@@ -1,12 +1,12 @@
 
 internal void *
-PushRenderCommand_(render_group *Group, render_group_command_type Type, f32 SortKey)
+PushRenderCommand(render_group *Group, render_group_command_type Type, u32 Size, f32 SortKey)
 {
     void *Result = 0;
     
     render_commands *Commands = Group->Commands;
     
-    u32 Size = sizeof(render_group_command_clear) + sizeof(render_group_command_header);
+    Size += sizeof(render_group_command_header);
     if((Commands->PushBufferSize + Size) < (Commands->SortEntryAt - sizeof(sort_entry)))
     {
         render_group_command_header *Header = (render_group_command_header *)(Commands->PushBufferBase + Commands->PushBufferSize);
@@ -35,7 +35,7 @@ PushRenderCommand_(render_group *Group, render_group_command_type Type, f32 Sort
 internal void
 PushRenderCommandClear(render_group *Group, f32 SortKey, v4 Color)
 {
-    render_group_command_clear *Command = PushRenderCommand_(Group, RenderGroupCommandType_Clear, SortKey);
+    render_group_command_clear *Command = PushRenderCommand(Group, RenderGroupCommandType_Clear, sizeof(render_group_command_clear), SortKey);
     if(Command)
     {
         Command->Color = Color;
@@ -50,7 +50,7 @@ PushRenderCommandClear(render_group *Group, f32 SortKey, v4 Color)
 internal void
 PushRenderCommandRectangle(render_group *Group, v4 Color, rectangle2 Bounds, f32 SortKey)
 {
-    render_group_command_rectangle *Command = PushRenderCommand_(Group, RenderGroupCommandType_Rectangle, SortKey);
+    render_group_command_rectangle *Command = PushRenderCommand(Group, RenderGroupCommandType_Rectangle, sizeof(render_group_command_rectangle), SortKey);
     if(Command)
     {
         Command->Color = Color;
@@ -62,12 +62,3 @@ PushRenderCommandRectangle(render_group *Group, v4 Color, rectangle2 Bounds, f32
         InvalidCodePath;
     }
 }
-
-
-#if 0
-internal void
-PushRectangle(render_group *RenderGroup, object_transform Transform, rectangle2 Bounds, v4 Color)
-{
-    
-}
-#endif

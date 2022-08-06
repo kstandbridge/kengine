@@ -73,3 +73,26 @@ GetProcAddressA(HMODULE Module, char *ProcName)
     
     return Result;
 }
+
+// NOTE(kstandbridge): CRT stuff
+
+int _fltused = 0x9875;
+
+#pragma function(memset)
+void *memset(void *DestInit, int Source, size_t Size)
+{
+    unsigned char *Dest = (unsigned char *)DestInit;
+    while(Size--) *Dest++ = (unsigned char)Source;
+    
+    return(DestInit);
+}
+
+#pragma function(memcpy)
+void *memcpy(void *DestInit, void const *SourceInit, size_t Size)
+{
+    unsigned char *Source = (unsigned char *)SourceInit;
+    unsigned char *Dest = (unsigned char *)DestInit;
+    while(Size--) *Dest++ = *Source++;
+    
+    return(DestInit);
+}

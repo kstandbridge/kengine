@@ -321,6 +321,8 @@ typedef enum _GET_FILEEX_INFO_LEVELS
     GetFileExMaxInfoLevel
 } GET_FILEEX_INFO_LEVELS;
 
+typedef u32 (__stdcall *LPTHREAD_START_ROUTINE) (void *lpThreadParameter);
+
 #define GENERIC_READ    (0x80000000L)
 #define GENERIC_WRITE   (0x40000000L)
 #define GENERIC_EXECUTE (0x20000000L)
@@ -367,6 +369,13 @@ typedef enum _GET_FILEEX_INFO_LEVELS
 
 #define MAX_PATH          260
 
+#define INFINITE            0xFFFFFFFF  // Infinite timeout
+
+#define SYNCHRONIZE                      (0x00100000L)
+
+#define STANDARD_RIGHTS_REQUIRED         (0x000F0000L)
+#define SEMAPHORE_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|0x3) 
+
 introspect(win32, Kernel32) typedef void * virtual_alloc(void *Address, umm Size, u32 AllocationType, u32 Protect);
 introspect(win32, Kernel32) typedef b32 virtual_free(void *Address, umm Size, u32 FreeType);
 introspect(win32, Kernel32) typedef char * get_command_line_a();
@@ -384,6 +393,12 @@ introspect(win32, Kernel32) typedef b32 get_file_attributes_ex_a(char *FileName,
 introspect(win32, Kernel32) typedef s32 compare_file_time(FILETIME *FileTimeA, FILETIME *FileTimeB);
 introspect(win32, Kernel32) typedef b32 free_library(HMODULE Library);
 introspect(win32, Kernel32) typedef b32 copy_file_a(char *Source, char *Dest, b32 FailIfExists);
+introspect(win32, Kernel32) typedef b32 release_semaphore(HANDLE Handle, s32 ReleaseCount, s32 *PreviousCount);
+introspect(win32, Kernel32) typedef u32 get_current_thread_id();
+introspect(win32, Kernel32) typedef u32 wait_for_single_object_ex(HANDLE Handle, u32 Milliseconds, b32 Alertable);
+introspect(win32, Kernel32) typedef HANDLE create_semaphore_ex_a(SECURITY_ATTRIBUTES *Attributes, u32 InitialCount, u32 MaxCount, char *Name, u32 Flags, 
+                                                                 u32 DesiredAccess);
+introspect(win32, Kernel32) typedef HANDLE create_thread(SECURITY_ATTRIBUTES *Attributes, umm StackSize, LPTHREAD_START_ROUTINE StartAddress, void *Parameter, u32 CreationFlags, u32 *ThreadId);
 
 introspect(win32, User32) typedef b32 register_class_ex_a(WNDCLASSEXA *WindowClass);
 introspect(win32, User32) typedef LRESULT def_window_proc_a(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam);

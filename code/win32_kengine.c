@@ -1,6 +1,8 @@
 #include "win32_kengine.h"
 #include "win32_kengine_shared.c"
 
+global platform_api Platform;
+
 #include "kengine_generated.c"
 #include "win32_kengine_generated.c"
 #include "kengine_sort.c"
@@ -237,6 +239,98 @@ Win32ParseCommandLingArgs(win32_state *Win32State)
     }
 }
 
+
+internal void
+Win32AddWorkEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data)
+{
+    u32 NewNextEntryToWrite = (Queue->NextEntryToWrite + 1) % ArrayCount(Queue->Entries);
+    Assert(NewNextEntryToWrite != Queue->NextEntryToRead);
+    platform_work_queue_entry *Entry = Queue->Entries + Queue->NextEntryToWrite;
+    Entry->Callback = Callback;
+    Entry->Data = Data;
+    ++Queue->CompletionGoal;
+    _WriteBarrier();
+    Queue->NextEntryToWrite = NewNextEntryToWrite;
+    ReleaseSemaphore(Queue->SemaphoreHandle, 1, 0);
+}
+
+internal b32
+Win32DoNextWorkQueueEntry(platform_work_queue *Queue)
+{
+    b32 WeShouldSleep = false;
+    
+    u32 OriginalNextEntryToRead = Queue->NextEntryToRead;
+    u32 NewNextEntryToRead = (OriginalNextEntryToRead + 1) % ArrayCount(Queue->Entries);
+    if(OriginalNextEntryToRead != Queue->NextEntryToWrite)
+    {
+        u32 Index = _InterlockedCompareExchange(&Queue->NextEntryToRead,
+                                                NewNextEntryToRead,
+                                                OriginalNextEntryToRead);
+        if(Index == OriginalNextEntryToRead)
+        {        
+            platform_work_queue_entry Entry = Queue->Entries[Index];
+            Entry.Callback(Entry.Data);
+            _InterlockedIncrement(&Queue->CompletionCount);
+        }
+    }
+    else
+    {
+        WeShouldSleep = true;
+    }
+    
+    return WeShouldSleep;
+}
+
+internal void
+Win32CompleteAllWork(platform_work_queue *Queue)
+{
+    while(Queue->CompletionGoal != Queue->CompletionCount)
+    {
+        Win32DoNextWorkQueueEntry(Queue);
+    }
+    
+    Queue->CompletionGoal = 0;
+    Queue->CompletionCount = 0;
+}
+
+internal u32
+WorkQueueThread(void *lpParameter)
+{
+    platform_work_queue *Queue = (platform_work_queue *)lpParameter;
+    
+    u32 TestThreadId = GetThreadId();
+    Assert(TestThreadId == GetCurrentThreadId());
+    
+    for(;;)
+    {
+        if(Win32DoNextWorkQueueEntry(Queue))
+        {
+            WaitForSingleObjectEx(Queue->SemaphoreHandle, INFINITE, false);
+        }
+    }
+}
+
+internal void
+MakeQueue(platform_work_queue *Queue, u32 ThreadCount)
+{
+    Queue->CompletionGoal = 0;
+    Queue->CompletionCount = 0;
+    
+    Queue->NextEntryToWrite = 0;
+    Queue->NextEntryToRead = 0;
+    
+    u32 InitialCount = 0;
+    Queue->SemaphoreHandle = CreateSemaphoreExA(0, InitialCount, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
+    for(u32 ThreadIndex = 0;
+        ThreadIndex < ThreadCount;
+        ++ThreadIndex)
+    {
+        u32 ThreadId;
+        HANDLE ThreadHandle = CreateThread(0, 0, WorkQueueThread, Queue, 0, &ThreadId);
+        CloseHandle(ThreadHandle);
+    }
+}
+
 void __stdcall 
 WinMainCRTStartup()
 {
@@ -268,6 +362,20 @@ WinMainCRTStartup()
     AppMemory->Storage = VirtualAlloc(BaseAddress, AppMemory->StorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     Assert(AppMemory->Storage);
     
+    // TODO(kstandbridge): Get number of cores, PerFrameWorkQueue should be cores*1.5, PerFrameWorkQueue should be cores*0.5
+    platform_work_queue PerFrameWorkQueue;
+    MakeQueue(&PerFrameWorkQueue, 6);
+    AppMemory->PlatformAPI.PerFrameWorkQueue = &PerFrameWorkQueue;
+    
+    platform_work_queue BackgroundWorkQueue;
+    MakeQueue(&BackgroundWorkQueue, 2);
+    AppMemory->PlatformAPI.BackgroundWorkQueue = &BackgroundWorkQueue;
+    
+    AppMemory->PlatformAPI.AddWorkEntry = Win32AddWorkEntry;
+    AppMemory->PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
+    
+    Platform = AppMemory->PlatformAPI;
+    
     InitializeArena(&Win32State->Arena, AppMemory->StorageSize, AppMemory->Storage);
     
     Win32ParseCommandLingArgs(Win32State);
@@ -297,6 +405,9 @@ WinMainCRTStartup()
                     WIN32_FILE_ATTRIBUTE_DATA Ignored;
                     if(!GetFileAttributesExA(Win32State->LockFullFilePath, GetFileExInfoStandard, &Ignored))
                     {
+                        Win32CompleteAllWork(Platform.PerFrameWorkQueue);
+                        Win32CompleteAllWork(Platform.BackgroundWorkQueue);
+                        
                         if(Win32State->AppLibrary && !FreeLibrary(Win32State->AppLibrary))
                         {
                             // TODO(kstandbridge): Error freeing app library
@@ -348,7 +459,7 @@ WinMainCRTStartup()
                 render_commands Commands = RenderCommands(PushBufferSize, 0, PushBuffer, 0, PushBufferSize);
                 if(Win32State->AppUpdateFrame)
                 {
-                    Win32State->AppUpdateFrame(&Commands);
+                    Win32State->AppUpdateFrame(AppMemory->PlatformAPI, &Commands);
                 }
                 
                 sort_entry *Entries = (sort_entry *)(Commands.PushBufferBase + Commands.SortEntryAt);
@@ -356,7 +467,7 @@ WinMainCRTStartup()
                 
                 // NOTE(kstandbridge): Software renderer path
                 {                
-                    SoftwareRenderCommands(&Commands, &OutputTarget);
+                    SoftwareRenderCommands(Platform.PerFrameWorkQueue, &Commands, &OutputTarget);
                     if(!StretchDIBits(DeviceContext, 0, 0, Backbuffer->Width, Backbuffer->Height, 0, 0, Backbuffer->Width, Backbuffer->Height,
                                       Backbuffer->Memory, &Backbuffer->Info, DIB_RGB_COLORS, SRCCOPY))
                     {
@@ -368,6 +479,8 @@ WinMainCRTStartup()
                 {
                     InvalidCodePath;
                 }
+                
+                Win32CompleteAllWork(Platform.PerFrameWorkQueue);
                 
                 _mm_pause();
             }

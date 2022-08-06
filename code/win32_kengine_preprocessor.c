@@ -548,6 +548,12 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
                 string Type = Token.Str;
                 Token = GetNextCToken(Tokenizer);
                 b32 IsPointer = false;
+                b32 IsVolatile = false;
+                if(StringsAreEqual(Token.Str, String("volatile")))
+                {
+                    IsVolatile = true;
+                    Token = GetNextCToken(Tokenizer);
+                }
                 if(Token.Type == CTokenType_Asterisk)
                 {
                     IsPointer = true;
@@ -564,14 +570,12 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
                 {
                     FirstParamFound = true;
                 }
-                if(IsPointer)
-                {
-                    ConsoleOut(Tokenizer->Arena, "%S *%S", Type, Name);
-                }
-                else
-                {
-                    ConsoleOut(Tokenizer->Arena, "%S %S", Type, Name);
-                }
+                ConsoleOut(Tokenizer->Arena, "%S%s %s%S", 
+                           Type, 
+                           IsVolatile ? " volatile" : "", 
+                           IsPointer ? "*" : "", 
+                           Name);
+                
                 AppendStringFormat(&StringState, "%S", Token.Str);
                 
             }

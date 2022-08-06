@@ -148,11 +148,23 @@ DrawRectangle(loaded_bitmap *Buffer, v2 MinP, v2 MaxP, v4 Color, rectangle2i Cli
     }
 }
 
+typedef struct
+{
+    render_commands *Commands;
+    loaded_bitmap *OutputTarget;
+    rectangle2i ClipRect;
+} software_render_commands_work;
 internal void
-SoftwareRenderCommands(render_commands *Commands, loaded_bitmap *OutputTarget)
-{ 
+SoftwareRenderCommandsThread(software_render_commands_work *Work)
+{
+    render_commands *Commands = Work->Commands;
+    loaded_bitmap *OutputTarget = Work->OutputTarget;
+    rectangle2i ClipRect = Work->ClipRect;
+    
     sort_entry *SortEntries = (sort_entry *)(Commands->PushBufferBase + Commands->SortEntryAt);
     sort_entry *SortEntry = SortEntries;
+    
+    
     for(u32 SortEntryIndex = 0;
         SortEntryIndex < Commands->PushBufferElementCount;
         ++SortEntryIndex, ++SortEntry)
@@ -164,18 +176,66 @@ SoftwareRenderCommands(render_commands *Commands, loaded_bitmap *OutputTarget)
             case RenderGroupCommandType_Clear:
             {
                 render_group_command_clear *Command = (render_group_command_clear *)Data;
-                DrawRectangle(OutputTarget, V2(0.0f, 0.0f), V2((f32)OutputTarget->Width, (f32)OutputTarget->Height), Command->Color, 
-                              Rectangle2i(0, OutputTarget->Width, 0, OutputTarget->Height));
+                DrawRectangle(OutputTarget, V2(0.0f, 0.0f), V2((f32)OutputTarget->Width, (f32)OutputTarget->Height), Command->Color, ClipRect);
             } break;
             
             case RenderGroupCommandType_Rectangle:
             {
                 render_group_command_rectangle *Command = (render_group_command_rectangle *)Data;
-                DrawRectangle(OutputTarget, Command->Bounds.Min, Command->Bounds.Max, Command->Color, 
-                              Rectangle2i(0, OutputTarget->Width, 0, OutputTarget->Height));
+                DrawRectangle(OutputTarget, Command->Bounds.Min, Command->Bounds.Max, Command->Color, ClipRect);
             } break;
             
             InvalidDefaultCase;
         }
     }
+}
+
+internal void
+SoftwareRenderCommands(platform_work_queue *Queue, render_commands *Commands, loaded_bitmap *OutputTarget)
+{
+#define TileCountX 4
+#define TileCountY 4
+    
+    software_render_commands_work WorkArray[TileCountX*TileCountY];
+    
+    Assert(((umm)OutputTarget->Memory & 15) == 0);    
+    s32 TileWidth = OutputTarget->Width / TileCountX;
+    s32 TileHeight = OutputTarget->Height / TileCountY;
+    TileWidth = ((TileWidth + 3) / 4) * 4;
+    
+    s32 WorkCount = 0;
+    for(s32 TileY = 0;
+        TileY < TileCountY;
+        ++TileY)
+    {
+        for(s32 TileX = 0;
+            TileX < TileCountX;
+            ++TileX)
+        {
+            software_render_commands_work *Work = WorkArray + WorkCount++;
+            
+            rectangle2i ClipRect;
+            ClipRect.MinX = TileX*TileWidth;
+            ClipRect.MaxX = ClipRect.MinX + TileWidth;
+            ClipRect.MinY = TileY*TileHeight;
+            ClipRect.MaxY = ClipRect.MinY + TileHeight;
+            
+            if(TileX == (TileCountX - 1))
+            {
+                ClipRect.MaxX = OutputTarget->Width;
+            }
+            if(TileY == (TileCountY - 1))
+            {
+                ClipRect.MaxY = OutputTarget->Height;
+            }
+            
+            Work->Commands = Commands;
+            Work->OutputTarget = OutputTarget;
+            Work->ClipRect = ClipRect;
+            
+            Platform.AddWorkEntry(Queue, SoftwareRenderCommandsThread, Work);
+        }
+    }
+    
+    Platform.CompleteAllWork(Queue);
 }
