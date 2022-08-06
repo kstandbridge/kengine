@@ -532,9 +532,6 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     ConsoleOut(Tokenizer->Arena, "%S(", FunctionName);
     Token = GetNextCToken(Tokenizer);
     b32 FirstParamFound = false;
-    b32 TypeNameToggle = false;
-    string Parameters;
-    ZeroStruct(Parameters);
     string ParametersWithoutTypes;
     ZeroStruct(ParametersWithoutTypes);
     if(Token.Type == CTokenType_CloseParen)
@@ -544,67 +541,40 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     else
     {
         format_string_state StringState = BeginFormatString(Tokenizer->Arena);
-        char *At = Tokenizer->At;
         while(Token.Type != CTokenType_CloseParen)
         {
             if(Token.Type == CTokenType_Identifier)
             {
-                if(!FirstParamFound)
+                string Type = Token.Str;
+                Token = GetNextCToken(Tokenizer);
+                b32 IsPointer = false;
+                if(Token.Type == CTokenType_Asterisk)
                 {
-                    FirstParamFound = true;
+                    IsPointer = true;
+                    Token = GetNextCToken(Tokenizer);
+                }
+                string Name = Token.Str;
+                
+                if(FirstParamFound)
+                {
+                    ConsoleOut(Tokenizer->Arena, ", ");
+                    AppendStringFormat(&StringState, ", ");
                 }
                 else
                 {
-                    if(!TypeNameToggle)
-                    {
-                        AppendStringFormat(&StringState, ", ");
-                    }
-                    else
-                    {
-                        AppendStringFormat(&StringState, " ");
-                    }
+                    FirstParamFound = true;
                 }
-                TypeNameToggle = !TypeNameToggle;
+                if(IsPointer)
+                {
+                    ConsoleOut(Tokenizer->Arena, "%S *%S", Type, Name);
+                }
+                else
+                {
+                    ConsoleOut(Tokenizer->Arena, "%S %S", Type, Name);
+                }
                 AppendStringFormat(&StringState, "%S", Token.Str);
+                
             }
-            else if(Token.Type == CTokenType_Asterisk)
-            {
-                AppendStringFormat(&StringState, " *");
-            }
-            
-            Token = GetNextCToken(Tokenizer);
-        }
-        Parameters = EndFormatString(&StringState);
-        Tokenizer->At = At;
-        FirstParamFound = false;
-        StringState = BeginFormatString(Tokenizer->Arena);
-        Token = GetNextCToken(Tokenizer);
-        while(Token.Type != CTokenType_CloseParen)
-        {
-            if(Token.Type == CTokenType_Identifier)
-            {
-                if(!FirstParamFound)
-                {
-                    FirstParamFound = true;
-                }
-                else
-                {
-                    if(!TypeNameToggle)
-                    {
-                        AppendStringFormat(&StringState, ", ");
-                    }
-                    else
-                    {
-                        //AppendStringFormat(&StringState, " ");
-                    }
-                }
-                TypeNameToggle = !TypeNameToggle;
-                if(TypeNameToggle)
-                {
-                    AppendStringFormat(&StringState, "%S", Token.Str);
-                }
-            }
-            
             Token = GetNextCToken(Tokenizer);
         }
         ParametersWithoutTypes = EndFormatString(&StringState);
@@ -612,8 +582,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     
     b32 HasResult = !StringsAreEqual(String("void"), ReturnType);
     
-    ConsoleOut(Tokenizer->Arena, "%S)\n", Parameters);
-    ConsoleOut(Tokenizer->Arena, "{\n");
+    ConsoleOut(Tokenizer->Arena, ")\n{\n");
     if(HasResult)
     {
         ConsoleOut(Tokenizer->Arena, "    %S Result;\n\n", ReturnType);
