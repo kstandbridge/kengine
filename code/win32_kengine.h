@@ -23,6 +23,17 @@ typedef struct win32_state
     b32 IsRunning;
     HWND Window;
     
+    app_memory AppMemory;
+    memory_arena Arena;
+    
+    char ExeFilePath[MAX_PATH];
+    char DllFullFilePath[MAX_PATH];
+    char TempDllFullFilePath[MAX_PATH];
+    char LockFullFilePath[MAX_PATH];
+    FILETIME LastDLLWriteTime;
+    HMODULE AppLibrary;
+    app_update_frame *AppUpdateFrame;
+    
     win32_offscreen_buffer Backbuffer;
 } win32_state;
 

@@ -147,3 +147,28 @@ DrawRectangle(loaded_bitmap *Buffer, v2 MinP, v2 MaxP, v4 Color, rectangle2i Cli
         }
     }
 }
+
+internal void
+SoftwareRenderCommands(render_commands *Commands, loaded_bitmap *OutputTarget)
+{ 
+    sort_entry *SortEntries = (sort_entry *)(Commands->PushBufferBase + Commands->SortEntryAt);
+    sort_entry *SortEntry = SortEntries;
+    for(u32 SortEntryIndex = 0;
+        SortEntryIndex < Commands->PushBufferElementCount;
+        ++SortEntryIndex, ++SortEntry)
+    {
+        render_group_command_header *Header = (render_group_command_header *)(Commands->PushBufferBase + SortEntry->Index);
+        void *Data = (u8 *)Header + sizeof(*Header);
+        switch(Header->Type)
+        {
+            case RenderGroupCommandType_Clear:
+            {
+                render_group_command_clear *Command = (render_group_command_clear *)Data;
+                DrawRectangle(OutputTarget, V2(0.0f, 0.0f), V2((f32)OutputTarget->Width, (f32)OutputTarget->Height), Command->Color, 
+                              Rectangle2i(0, OutputTarget->Width, 0, OutputTarget->Height));
+            } break;
+            
+            InvalidDefaultCase;
+        }
+    }
+}

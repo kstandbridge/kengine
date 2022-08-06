@@ -19,6 +19,15 @@
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
+typedef struct
+{
+    u64 StorageSize;
+    void *Storage;
+    
+} app_memory;
+
+typedef void app_update_frame(render_commands *Commands);
+
 // NOTE(kstandbridge): CRT stuff
 
 int _fltused = 0x9875;

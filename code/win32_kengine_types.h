@@ -299,6 +299,27 @@ typedef struct tagRECT
     s32    bottom;
 } RECT;
 
+typedef struct _FILETIME 
+{
+    u32 dwLowDateTime;
+    u32 dwHighDateTime;
+} FILETIME, *PFILETIME, *LPFILETIME;
+
+typedef struct _WIN32_FILE_ATTRIBUTE_DATA 
+{
+    u32      dwFileAttributes;
+    FILETIME ftCreationTime;
+    FILETIME ftLastAccessTime;
+    FILETIME ftLastWriteTime;
+    u32      nFileSizeHigh;
+    u32      nFileSizeLow;
+} WIN32_FILE_ATTRIBUTE_DATA, *LPWIN32_FILE_ATTRIBUTE_DATA;
+
+typedef enum _GET_FILEEX_INFO_LEVELS 
+{
+    GetFileExInfoStandard,
+    GetFileExMaxInfoLevel
+} GET_FILEEX_INFO_LEVELS;
 
 #define GENERIC_READ    (0x80000000L)
 #define GENERIC_WRITE   (0x40000000L)
@@ -344,6 +365,8 @@ typedef struct tagRECT
 
 #define SRCCOPY             (u32)0x00CC0020 /* dest = source                   */
 
+#define MAX_PATH          260
+
 introspect(win32, Kernel32) typedef void * virtual_alloc(void *Address, umm Size, u32 AllocationType, u32 Protect);
 introspect(win32, Kernel32) typedef b32 virtual_free(void *Address, umm Size, u32 FreeType);
 introspect(win32, Kernel32) typedef char * get_command_line_a();
@@ -357,6 +380,10 @@ introspect(win32, Kernel32) typedef b32 get_file_size_ex(HANDLE File, LARGE_INTE
 introspect(win32, Kernel32) typedef b32 read_file(HANDLE File, void *Buffer, u32 BytesToRead, u32 *BytesRead, OVERLAPPED *Overlapped);
 introspect(win32, Kernel32) typedef b32 close_handle(HANDLE Object);
 introspect(win32, Kernel32) typedef HMODULE get_module_handle_a(char *ModuleName);
+introspect(win32, Kernel32) typedef b32 get_file_attributes_ex_a(char *FileName, GET_FILEEX_INFO_LEVELS InfoLevelId, void *FileInformation);
+introspect(win32, Kernel32) typedef s32 compare_file_time(FILETIME *FileTimeA, FILETIME *FileTimeB);
+introspect(win32, Kernel32) typedef b32 free_library(HMODULE Library);
+introspect(win32, Kernel32) typedef b32 copy_file_a(char *Source, char *Dest, b32 FailIfExists);
 
 introspect(win32, User32) typedef b32 register_class_ex_a(WNDCLASSEXA *WindowClass);
 introspect(win32, User32) typedef LRESULT def_window_proc_a(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam);

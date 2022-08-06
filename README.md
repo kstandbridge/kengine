@@ -174,8 +174,8 @@ switch(Tokenizer->At[0])
 # Milestone goals
 - [x] Preprocessor framework
 - [x] Unit test framework
+- [x] DLL hot loading
 - [ ] Win32 platform layer
-- [ ] DLL hot loading
 - [ ] Software rendering
 - [ ] OpenGL rendering
 - [ ] Immediate mode GUI
@@ -203,8 +203,8 @@ switch(Tokenizer->At[0])
 - [x] Push buffer rendering
 - [x] Introspect structs without double naming
 - [x] Clean up introspect generate function pointers (double loop)
+- [x] Update code moved to DLL and loaded dynamically
 - [ ] Clean up introspect generate methods (double loop)
-- [ ] Update code moved to DLL and loaded dynamically
 - [ ] Thread pool
 - [ ] Draw a glyph
 - [ ] Draw a string
