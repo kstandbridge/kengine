@@ -2,14 +2,23 @@
 
 global platform_api Platform;
 
-#include "kengine_generated.c"
 #include "kengine_sort.c"
 #include "kengine_render_group.c"
 
 extern void
-AppUpdateFrame(platform_api PlatformAPI, render_commands *Commands)
+AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena)
 {
-    Platform = PlatformAPI;
+    Platform = *PlatformAPI;
+    
+    
+    if(!PlatformAPI->AppState)
+    {
+        PlatformAPI->AppState = PushStruct(Arena, app_state);
+        PlatformAPI->AppState->TestGlyph = Platform.GetGlyphForCodePoint(Arena, 'K');
+    }
+    
+    app_state *AppState = PlatformAPI->AppState;
+    Assert(AppState->TestGlyph.Memory);
     
     render_group RenderGroup_;
     ZeroStruct(RenderGroup_);
@@ -18,6 +27,9 @@ AppUpdateFrame(platform_api PlatformAPI, render_commands *Commands)
     RenderGroup->CurrentClipRectIndex = PushRenderCommandClipRectangle(RenderGroup, Rectangle2i(0, Commands->Width, 0, Commands->Height));
     
     PushRenderCommandClear(RenderGroup, 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f));
+    
+    loaded_bitmap *Glyph = &AppState->TestGlyph;
+    PushRenderCommandBitmap(RenderGroup, Glyph, (f32)Glyph->Height, V2(10.0f, 10.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), 30.f);
     
     f32 Width = (f32)Commands->Width;
     f32 Height = (f32)Commands->Height;

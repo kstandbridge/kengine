@@ -89,7 +89,28 @@ PushRenderCommandRectangle(render_group *Group, v4 Color, rectangle2 Bounds, f32
     }
     else
     {
-        // TODO(kstandbridge): Error pushing clear command
+        // TODO(kstandbridge): Error pushing rectangle command
+        InvalidCodePath;
+    }
+}
+
+internal void
+PushRenderCommandBitmap(render_group *Group, loaded_bitmap *Bitmap, f32 Height, v2 Offset, v4 Color, f32 SortKey)
+{
+    v2 Dim = V2(Height*Bitmap->WidthOverHeight, Height);
+    v2 Align = Hadamard(Bitmap->AlignPercentage, Dim);
+    v2 P = V2Subtract(Offset, Align);
+    render_group_command_bitmap *Command = PushRenderCommand(Group, RenderGroupCommandType_Bitmap, sizeof(render_group_command_bitmap), SortKey);
+    if(Command)
+    {
+        Command->Bitmap = Bitmap;
+        Command->Color = Color;
+        Command->P = P;
+        Command->Dim = Dim;
+    }
+    else
+    {
+        // TODO(kstandbridge): Error pushing bitmap command
         InvalidCodePath;
     }
 }

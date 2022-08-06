@@ -1,6 +1,7 @@
 #ifndef WIN32_KENGINE_H
 
 #include "kengine_platform.h"
+#include "kengine_generated.h"
 #include "win32_kengine_types.h"
 #include "kengine_string.h"
 #include "kengine_intrinsics.h"
@@ -23,7 +24,6 @@ typedef struct
     b32 IsRunning;
     HWND Window;
     
-    app_memory AppMemory;
     memory_arena Arena;
     
     char ExeFilePath[MAX_PATH];

@@ -55,7 +55,7 @@ global HMODULE User32;
 global HMODULE Gdi32;
 
 internal void *
-GetProcAddressA(HMODULE Module, char *ProcName)
+Win32GetProcAddressA(HMODULE Module, char *ProcName)
 {
     typedef void *get_proc_address(HMODULE Module, char *ProcName);
     

@@ -10,6 +10,7 @@ typedef enum
 {
     RenderGroupCommandType_Clear,
     RenderGroupCommandType_Rectangle,
+    RenderGroupCommandType_Bitmap,
 } render_group_command_type;
 
 typedef struct render_command_cliprect
@@ -28,6 +29,15 @@ typedef struct
     v4 Color;
     rectangle2 Bounds;
 } render_group_command_rectangle;
+
+typedef struct
+{
+    loaded_bitmap *Bitmap;
+    
+    v4 Color;
+    v2 P;
+    v2 Dim;
+} render_group_command_bitmap;
 
 typedef struct render_commands
 {

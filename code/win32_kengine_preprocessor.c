@@ -1,146 +1,153 @@
 #include "win32_kengine_preprocessor.h"
 #include "win32_kengine_shared.c"
 
-internal void
-ExitProcess(u32 ExitCode)
-{
-    Assert(Kernel32);
-    
-    local_persist exit_process *Func = 0;
-    if(!Func)
-    {
-        Func = (exit_process *)GetProcAddressA(Kernel32, "ExitProcess");
-    }
-    Assert(Func);
-    Func(ExitCode);
-}
-
 internal HANDLE
-GetStdHandle(u32 StdHandle)
-{
-    void *Result;
-    Assert(Kernel32);
-    local_persist get_std_handle *Func = 0;
-    if(!Func)
-    {
-        Func = (get_std_handle *)GetProcAddressA(Kernel32, "GetStdHandle");
-    }
-    Assert(Func);
-    Result = Func(StdHandle);
-    
-    return Result;
-}
-
-internal b32
-WriteFile(HANDLE FileHandle, void *Buffer, u32 BytesToWrite, u32 *BytesWritten, OVERLAPPED *Overlapped)
-{
-    b32 Result;
-    Assert(Kernel32);
-    local_persist write_file *Func = 0;
-    if(!Func)
-    {
-        Func = (write_file *)GetProcAddressA(Kernel32, "WriteFile");
-    }
-    Assert(Func);
-    Result = Func(FileHandle, Buffer, BytesToWrite, BytesWritten, Overlapped);
-    
-    return Result;
-}
-
-internal HANDLE
-CreateFileA(char *FileName, u32 DesiredAccess, u32 ShareMode, SECURITY_ATTRIBUTES *SecurityAttributes, u32 CreationDisposition, u32 FlagsAndAttributes, HANDLE TemplateFile)
+Win32CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
 {
     HANDLE Result;
+    
     Assert(Kernel32);
     local_persist create_file_a *Func = 0;
-    if(!Func)
+    if(!Func);
     {
-        Func = (create_file_a *)GetProcAddressA(Kernel32, "CreateFileA");
+        Func = (create_file_a *)Win32GetProcAddressA(Kernel32, "CreateFileA");
     }
     Assert(Func);
-    Result = Func(FileName, DesiredAccess, ShareMode, SecurityAttributes, CreationDisposition, FlagsAndAttributes, TemplateFile);
+    Result = Func(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     
     return Result;
 }
 
-internal b32
-GetFileSizeEx(HANDLE File, LARGE_INTEGER *FileSize)
+internal BOOL
+Win32GetFileSizeEx(HANDLE hFile, PLARGE_INTEGER lpFileSize)
 {
-    b32 Result;
+    BOOL Result;
+    
     Assert(Kernel32);
     local_persist get_file_size_ex *Func = 0;
-    if(!Func)
+    if(!Func);
     {
-        Func = (get_file_size_ex *)GetProcAddressA(Kernel32, "GetFileSizeEx");
+        Func = (get_file_size_ex *)Win32GetProcAddressA(Kernel32, "GetFileSizeEx");
     }
     Assert(Func);
-    Result = Func(File, FileSize);
+    Result = Func(hFile, lpFileSize);
     
     return Result;
 }
 
-internal b32
-ReadFile(HANDLE File, void *Buffer, u32 BytesToRead, u32 *BytesRead, OVERLAPPED *Overlapped)
+internal BOOL
+Win32ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped)
 {
-    b32 Result;
+    BOOL Result;
+    
     Assert(Kernel32);
     local_persist read_file *Func = 0;
-    if(!Func)
+    if(!Func);
     {
-        Func = (read_file *)GetProcAddressA(Kernel32, "ReadFile");
+        Func = (read_file *)Win32GetProcAddressA(Kernel32, "ReadFile");
     }
     Assert(Func);
-    Result = Func(File, Buffer, BytesToRead, BytesRead, Overlapped);
+    Result = Func(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
     
     return Result;
 }
 
-internal b32
-CloseHandle(HANDLE Object)
+internal BOOL
+Win32CloseHandle(HANDLE hObject)
 {
-    b32 Result;
+    BOOL Result;
+    
     Assert(Kernel32);
     local_persist close_handle *Func = 0;
-    if(!Func)
+    if(!Func);
     {
-        Func = (close_handle *)GetProcAddressA(Kernel32, "CloseHandle");
+        Func = (close_handle *)Win32GetProcAddressA(Kernel32, "CloseHandle");
     }
     Assert(Func);
-    Result = Func(Object);
+    Result = Func(hObject);
     
     return Result;
 }
 
-internal void *
-VirtualAlloc(void *Address, umm Size, u32 AllocationType, u32 Protect)
+internal HANDLE
+Win32GetStdHandle(DWORD nStdHandle)
 {
-    void *Result;
+    HANDLE Result;
+    
+    Assert(Kernel32);
+    local_persist get_std_handle *Func = 0;
+    if(!Func);
+    {
+        Func = (get_std_handle *)Win32GetProcAddressA(Kernel32, "GetStdHandle");
+    }
+    Assert(Func);
+    Result = Func(nStdHandle);
+    
+    return Result;
+}
+
+internal BOOL
+Win32WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped)
+{
+    BOOL Result;
+    
+    Assert(Kernel32);
+    local_persist write_file *Func = 0;
+    if(!Func);
+    {
+        Func = (write_file *)Win32GetProcAddressA(Kernel32, "WriteFile");
+    }
+    Assert(Func);
+    Result = Func(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped);
+    
+    return Result;
+}
+
+internal LPVOID
+Win32VirtualAlloc(LPVOID lpAddress, SIZE_T dwSize, DWORD flAllocationType, DWORD flProtect)
+{
+    LPVOID Result;
+    
     Assert(Kernel32);
     local_persist virtual_alloc *Func = 0;
-    if(!Func)
+    if(!Func);
     {
-        Func = (virtual_alloc *)GetProcAddressA(Kernel32, "VirtualAlloc");
+        Func = (virtual_alloc *)Win32GetProcAddressA(Kernel32, "VirtualAlloc");
     }
     Assert(Func);
-    Result = Func(Address, Size, AllocationType, Protect);
+    Result = Func(lpAddress, dwSize, flAllocationType, flProtect);
     
     return Result;
 }
 
-internal char *
-GetCommandLineA()
+internal LPSTR
+Win32GetCommandLineA()
 {
-    char *Result;
+    LPSTR Result;
+    
     Assert(Kernel32);
     local_persist get_command_line_a *Func = 0;
-    if(!Func)
+    if(!Func);
     {
-        Func = (get_command_line_a *)GetProcAddressA(Kernel32, "GetCommandLineA");
+        Func = (get_command_line_a *)Win32GetProcAddressA(Kernel32, "GetCommandLineA");
     }
     Assert(Func);
     Result = Func();
     
     return Result;
+}
+
+internal void
+Win32ExitProcess(UINT uExitCode)
+{
+    Assert(Kernel32);
+    local_persist exit_process *Func = 0;
+    if(!Func);
+    {
+        Func = (exit_process *)Win32GetProcAddressA(Kernel32, "ExitProcess");
+    }
+    Assert(Func);
+    Func(uExitCode);
 }
 
 internal string
@@ -149,13 +156,13 @@ Win32ReadEntireFile(memory_arena *Arena, char *FilePath)
     string Result;
     ZeroStruct(Result);
     
-    HANDLE FileHandle = CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    HANDLE FileHandle = Win32CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     Assert(FileHandle != INVALID_HANDLE_VALUE);
     
     if(FileHandle != INVALID_HANDLE_VALUE)
     {
         LARGE_INTEGER FileSize;
-        b32 ReadResult = GetFileSizeEx(FileHandle, &FileSize);
+        b32 ReadResult = Win32GetFileSizeEx(FileHandle, &FileSize);
         Assert(ReadResult);
         if(ReadResult)
         {    
@@ -166,27 +173,27 @@ Win32ReadEntireFile(memory_arena *Arena, char *FilePath)
             if(Result.Data)
             {
                 u32 BytesRead;
-                ReadResult = ReadFile(FileHandle, Result.Data, (u32)Result.Size, &BytesRead, 0);
+                ReadResult = Win32ReadFile(FileHandle, Result.Data, (u32)Result.Size, (LPDWORD)&BytesRead, 0);
                 Assert(ReadResult);
                 Assert(BytesRead == Result.Size);
             }
         }
         
-        CloseHandle(FileHandle);
+        Win32CloseHandle(FileHandle);
     }
     
     return Result;
 }
 
 internal b32
-ConsoleOut_(string Text)
+Win32ConsoleOut_(string Text)
 {
     u32 Result = 0;
     
-    HANDLE OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);
     Assert(OutputHandle != INVALID_HANDLE_VALUE);
     
-    WriteFile(OutputHandle, Text.Data, (u32)Text.Size, &Result, 0);
+    Win32WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&Result, 0);
     Assert(Result == Text.Size);
     
     return Result;
@@ -194,7 +201,7 @@ ConsoleOut_(string Text)
 
 
 internal b32
-ConsoleOut(memory_arena *Arena, char *Format, ...)
+Win32ConsoleOut(memory_arena *Arena, char *Format, ...)
 {
     format_string_state StringState = BeginFormatString(Arena);
     
@@ -205,7 +212,7 @@ ConsoleOut(memory_arena *Arena, char *Format, ...)
     
     string Text = EndFormatString(&StringState);
     
-    b32 Result = ConsoleOut_(Text);
+    b32 Result = Win32ConsoleOut_(Text);
     return Result;
 }
 
@@ -424,37 +431,37 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
     {
         case GenerateMethod_Ctor:
         {
-            ConsoleOut(Tokenizer->Arena, "inline %S\n%S(", SnakeStruct, UpperCamelStruct);
+            Win32ConsoleOut(Tokenizer->Arena, "inline %S\n%S(", SnakeStruct, UpperCamelStruct);
         } break;
         case GenerateMethod_Set1:
         {
-            ConsoleOut(Tokenizer->Arena, "inline %S\n%SSet1(", SnakeStruct, UpperCamelStruct);
+            Win32ConsoleOut(Tokenizer->Arena, "inline %S\n%SSet1(", SnakeStruct, UpperCamelStruct);
         } break;
         case GenerateMethod_MathAdd:
         {
-            ConsoleOut(Tokenizer->Arena, "inline %S\n%SAdd(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32ConsoleOut(Tokenizer->Arena, "inline %S\n%SAdd(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         case GenerateMethod_MathSubtract:
         {
-            ConsoleOut(Tokenizer->Arena, "inline %S\n%SSubtract(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32ConsoleOut(Tokenizer->Arena, "inline %S\n%SSubtract(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         case GenerateMethod_MathMultiply:
         {
-            ConsoleOut(Tokenizer->Arena, "inline %S\n%SMultiply(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32ConsoleOut(Tokenizer->Arena, "inline %S\n%SMultiply(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         case GenerateMethod_MathDivide:
         {
-            ConsoleOut(Tokenizer->Arena, "inline %S\n%SDivide(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32ConsoleOut(Tokenizer->Arena, "inline %S\n%SDivide(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         InvalidDefaultCase;
     }
     
     if(Op == GenerateMethod_Ctor || GenerateMethod_Set1)
     {
-        ConsoleOut(Tokenizer->Arena, "%S", Types);
+        Win32ConsoleOut(Tokenizer->Arena, "%S", Types);
     }
     
-    ConsoleOut(Tokenizer->Arena, ")\n{\n    %S Result;\n\n", SnakeStruct);
+    Win32ConsoleOut(Tokenizer->Arena, ")\n{\n    %S Result;\n\n", SnakeStruct);
     
     Tokenizer->At = Start;
     
@@ -464,7 +471,7 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
         if((Token.Type == CTokenType_EndOfStream) ||
            (Token.Type == CTokenType_CloseBrace))
         {
-            ConsoleOut(Tokenizer->Arena, "\n    return Result;\n}\n\n");
+            Win32ConsoleOut(Tokenizer->Arena, "\n    return Result;\n}\n\n");
             break;
         }
         else if(Token.Type == CTokenType_Identifier)
@@ -482,27 +489,27 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
             {
                 case GenerateMethod_Ctor:
                 {
-                    ConsoleOut(Tokenizer->Arena, "    Result.%S = %S;\n", Var, Var);
+                    Win32ConsoleOut(Tokenizer->Arena, "    Result.%S = %S;\n", Var, Var);
                 } break;
                 case GenerateMethod_Set1:
                 {
-                    ConsoleOut(Tokenizer->Arena, "    Result.%S = Value;\n", Var);
+                    Win32ConsoleOut(Tokenizer->Arena, "    Result.%S = Value;\n", Var);
                 } break;
                 case GenerateMethod_MathAdd:
                 {
-                    ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S + B.%S;\n", Var, Var, Var);
+                    Win32ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S + B.%S;\n", Var, Var, Var);
                 } break;
                 case GenerateMethod_MathSubtract:
                 {
-                    ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S - B.%S;\n", Var, Var, Var);
+                    Win32ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S - B.%S;\n", Var, Var, Var);
                 } break;
                 case GenerateMethod_MathMultiply:
                 {
-                    ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S * B.%S;\n", Var, Var, Var);
+                    Win32ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S * B.%S;\n", Var, Var, Var);
                 } break;
                 case GenerateMethod_MathDivide:
                 {
-                    ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S / B.%S;\n", Var, Var, Var);
+                    Win32ConsoleOut(Tokenizer->Arena, "    Result.%S = A.%S / B.%S;\n", Var, Var, Var);
                 } break;
                 InvalidDefaultCase;
             }
@@ -518,6 +525,10 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     Token = GetNextCToken(Tokenizer);
     string ReturnType = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
     Token = GetNextCToken(Tokenizer);
+    if(StringsAreEqual(Token.Str, String("WINAPI")))
+    {
+        Token = GetNextCToken(Tokenizer);
+    }
     if(Token.Type == CTokenType_Asterisk)
     {
         ReturnType = FormatString(Tokenizer->Arena, "%S *", ReturnType);
@@ -528,8 +539,8 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     ToUpperCamelCase(&FunctionName);
     Token = GetNextCToken(Tokenizer);
     Assert(Token.Type == CTokenType_OpenParen);
-    ConsoleOut(Tokenizer->Arena, "\ninternal %S\n", ReturnType);
-    ConsoleOut(Tokenizer->Arena, "%S(", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "\ninternal %S\n", ReturnType);
+    Win32ConsoleOut(Tokenizer->Arena, "Win32%S(", FunctionName);
     Token = GetNextCToken(Tokenizer);
     b32 FirstParamFound = false;
     string ParametersWithoutTypes;
@@ -545,9 +556,16 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
         {
             if(Token.Type == CTokenType_Identifier)
             {
+                b32 IsConst = false;
+                if(StringsAreEqual(Token.Str, String("const")))
+                {
+                    IsConst = true;
+                    Token = GetNextCToken(Tokenizer);
+                }
                 string Type = Token.Str;
                 Token = GetNextCToken(Tokenizer);
                 b32 IsPointer = false;
+                b32 IsPointerToPointer = false;
                 b32 IsVolatile = false;
                 if(StringsAreEqual(Token.Str, String("volatile")))
                 {
@@ -559,22 +577,28 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
                     IsPointer = true;
                     Token = GetNextCToken(Tokenizer);
                 }
+                if(Token.Type == CTokenType_Asterisk)
+                {
+                    IsPointerToPointer = true;
+                    Token = GetNextCToken(Tokenizer);
+                }
                 string Name = Token.Str;
                 
                 if(FirstParamFound)
                 {
-                    ConsoleOut(Tokenizer->Arena, ", ");
+                    Win32ConsoleOut(Tokenizer->Arena, ", ");
                     AppendStringFormat(&StringState, ", ");
                 }
                 else
                 {
                     FirstParamFound = true;
                 }
-                ConsoleOut(Tokenizer->Arena, "%S%s %s%S", 
-                           Type, 
-                           IsVolatile ? " volatile" : "", 
-                           IsPointer ? "*" : "", 
-                           Name);
+                Win32ConsoleOut(Tokenizer->Arena, "%s%S%s %s%S", 
+                                IsConst ? "const " : "",
+                                Type, 
+                                IsVolatile ? " volatile" : "", 
+                                IsPointer ? (IsPointerToPointer ? "**" : "*") : "", 
+                                Name);
                 
                 AppendStringFormat(&StringState, "%S", Token.Str);
                 
@@ -586,28 +610,28 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     
     b32 HasResult = !StringsAreEqual(String("void"), ReturnType);
     
-    ConsoleOut(Tokenizer->Arena, ")\n{\n");
+    Win32ConsoleOut(Tokenizer->Arena, ")\n{\n");
     if(HasResult)
     {
-        ConsoleOut(Tokenizer->Arena, "    %S Result;\n\n", ReturnType);
+        Win32ConsoleOut(Tokenizer->Arena, "    %S Result;\n\n", ReturnType);
     }
-    ConsoleOut(Tokenizer->Arena, "    Assert(%S);\n", Library);
-    ConsoleOut(Tokenizer->Arena, "    local_persist %S *Func = 0;\n", FunctionType);
-    ConsoleOut(Tokenizer->Arena, "    if(!Func);\n");
-    ConsoleOut(Tokenizer->Arena, "    {\n");
-    ConsoleOut(Tokenizer->Arena, "         Func = (%S *)GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, FunctionName);
-    ConsoleOut(Tokenizer->Arena, "    }\n");
-    ConsoleOut(Tokenizer->Arena, "    Assert(Func);\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    Assert(%S);\n", Library);
+    Win32ConsoleOut(Tokenizer->Arena, "    local_persist %S *Func = 0;\n", FunctionType);
+    Win32ConsoleOut(Tokenizer->Arena, "    if(!Func);\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "         Func = (%S *)Win32GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    Assert(Func);\n");
     if(HasResult)
     {
-        ConsoleOut(Tokenizer->Arena, "    Result = Func(%S);\n\n", ParametersWithoutTypes);
-        ConsoleOut(Tokenizer->Arena, "    return Result;\n");
+        Win32ConsoleOut(Tokenizer->Arena, "    Result = Func(%S);\n\n", ParametersWithoutTypes);
+        Win32ConsoleOut(Tokenizer->Arena, "    return Result;\n");
     }
     else
     {
-        ConsoleOut(Tokenizer->Arena, "    Func(%S);\n", ParametersWithoutTypes);
+        Win32ConsoleOut(Tokenizer->Arena, "    Func(%S);\n", ParametersWithoutTypes);
     }
-    ConsoleOut(Tokenizer->Arena, "}\n");
+    Win32ConsoleOut(Tokenizer->Arena, "}\n");
 }
 
 internal void
@@ -755,14 +779,14 @@ mainCRTStartup()
 #endif
     
     u64 MemoryBlockSize = Megabytes(16);
-    void *MemoryBlock = VirtualAlloc(BaseAddress, MemoryBlockSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    void *MemoryBlock = Win32VirtualAlloc(BaseAddress, MemoryBlockSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     Assert(MemoryBlock);
     
     memory_arena Arena_;
     memory_arena *Arena = &Arena_;
     InitializeArena(Arena, MemoryBlockSize, MemoryBlock);
     
-    char *CommandLingArgs = GetCommandLineA();
+    char *CommandLingArgs = Win32GetCommandLineA();
     Assert(CommandLingArgs);
     
     char *At = CommandLingArgs;
@@ -816,7 +840,7 @@ mainCRTStartup()
         
     }
     
-    ExitProcess(0);
+    Win32ExitProcess(0);
     
     InvalidCodePath;
     

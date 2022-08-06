@@ -2,7 +2,6 @@
 #include "win32_kengine_shared.c"
 
 #include "win32_kengine_generated.c"
-#include "kengine_generated.c"
 
 global s32 TotalTests;
 global s32 FailedTests;
@@ -12,19 +11,19 @@ global s32 FailedTests;
 if(!(Expression))                      \
 {                                      \
 ++FailedTests;                     \
-ConsoleOut(Arena, "%s(%d): failed assert!\n", \
+Win32ConsoleOut(Arena, "%s(%d): failed assert!\n", \
 __FILE__, __LINE__);        \
 }
 
 internal b32
-ConsoleOut_(string Text)
+Win32ConsoleOut_(string Text)
 {
     u32 Result = 0;
     
-    HANDLE OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);
     Assert(OutputHandle != INVALID_HANDLE_VALUE);
     
-    WriteFile(OutputHandle, Text.Data, (u32)Text.Size, &Result, 0);
+    Win32WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&Result, 0);
     Assert(Result == Text.Size);
     
     return Result;
@@ -32,7 +31,7 @@ ConsoleOut_(string Text)
 
 
 internal b32
-ConsoleOut(memory_arena *Arena, char *Format, ...)
+Win32ConsoleOut(memory_arena *Arena, char *Format, ...)
 {
     format_string_state StringState = BeginFormatString(Arena);
     
@@ -43,7 +42,7 @@ ConsoleOut(memory_arena *Arena, char *Format, ...)
     
     string Text = EndFormatString(&StringState);
     
-    b32 Result = ConsoleOut_(Text);
+    b32 Result = Win32ConsoleOut_(Text);
     return Result;
 }
 
@@ -289,7 +288,7 @@ mainCRTStartup()
 #endif
     
     u64 MemoryBlockSize = Megabytes(16);
-    void *MemoryBlock = VirtualAlloc(BaseAddress, MemoryBlockSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    void *MemoryBlock = Win32VirtualAlloc(BaseAddress, MemoryBlockSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     Assert(MemoryBlock);
     
     memory_arena Arena_;
@@ -297,9 +296,9 @@ mainCRTStartup()
     InitializeArena(Arena, MemoryBlockSize, MemoryBlock);
     
     b32 Result = RunAllTests(Arena);
-    ConsoleOut(Arena, "Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);
+    Win32ConsoleOut(Arena, "Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);
     
-    ExitProcess(0);
+    Win32ExitProcess(0);
     
     InvalidCodePath;
     

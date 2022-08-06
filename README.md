@@ -17,9 +17,7 @@ Try to avoid using Macros where possible and instead have a preprocessor that wi
 Any time we are writing code think can this be automatically generated?
 
 ### No includes
-No <math.h> or similar is a good start.
-
-We should try to not include <Windows.h> and perhaps even <gl/gl.h>
+No <math.h> or similar. We can build all the libraries we need ourselves.
 
 # Coding style
 This is not about right and wrong, it doesn't matter what your preference is when it comes to what you decide to capitalize or not. The only thing that really matters is consistency! Don't mix coding styles, when you work on a project just adopt the current standards and let your code blend in seamlessly. With that being said, heres the guidelines to follow.
@@ -175,8 +173,8 @@ switch(Tokenizer->At[0])
 - [x] Preprocessor framework
 - [x] Unit test framework
 - [x] DLL hot loading
+- [x] Software rendering
 - [ ] Win32 platform layer
-- [ ] Software rendering
 - [ ] OpenGL rendering
 - [ ] Immediate mode GUI
 - [ ] Profiling and debugging system
@@ -207,7 +205,7 @@ switch(Tokenizer->At[0])
 - [x] Sort render commands
 - [x] Thread pool
 - [x] Render clipping
-- [ ] Draw a glyph
+- [x] Draw a glyph
 - [ ] Draw a string
 - [ ] Text element
 - [ ] Mouse input
