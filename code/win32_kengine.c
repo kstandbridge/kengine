@@ -7,6 +7,7 @@ global platform_api Platform;
 #include "win32_kengine_generated.c"
 #include "kengine_sort.c"
 #include "kengine_renderer_software.c"
+#include "kengine_renderer.c"
 
 internal void
 Win32LoadLibraries()
@@ -395,6 +396,12 @@ WinMainCRTStartup()
             u32 PushBufferSize = Megabytes(64);
             void *PushBuffer = VirtualAlloc(0, PushBufferSize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
             
+            u32 CurrentSortMemorySize = Kilobytes(64);
+            void *SortMemory = VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+            
+            u32 CurrentClipMemorySize = Kilobytes(64);
+            void *ClipMemory = VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+            
             Win32State->IsRunning = true;
             while(Win32State->IsRunning)
             {
@@ -456,24 +463,52 @@ WinMainCRTStartup()
                 OutputTarget.Height = Backbuffer->Height;
                 OutputTarget.Pitch = Backbuffer->Pitch;
                 
-                render_commands Commands = RenderCommands(PushBufferSize, 0, PushBuffer, 0, PushBufferSize);
+                render_commands Commands_ = BeginRenderCommands(PushBufferSize, PushBuffer, Backbuffer->Width, Backbuffer->Height);
+                render_commands *Commands = &Commands_;
+                
                 if(Win32State->AppUpdateFrame)
                 {
-                    Win32State->AppUpdateFrame(AppMemory->PlatformAPI, &Commands);
+                    Win32State->AppUpdateFrame(AppMemory->PlatformAPI, Commands);
                 }
                 
-                sort_entry *Entries = (sort_entry *)(Commands.PushBufferBase + Commands.SortEntryAt);
-                BubbleSort(Commands.PushBufferElementCount, Entries);
+                
+                u32 NeededSortMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
+                if(CurrentSortMemorySize < NeededSortMemorySize)
+                {
+                    VirtualFree(SortMemory, 0, MEM_RELEASE);
+                    while(CurrentSortMemorySize < NeededSortMemorySize)
+                    {
+                        CurrentSortMemorySize *= 2;
+                    }
+                    SortMemory = VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+                }
+                
+                // TODO(kstandbridge): Can we merge sort/clip and push buffer memory together?
+                u32 NeededClipMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
+                if(CurrentClipMemorySize < NeededClipMemorySize)
+                {
+                    VirtualFree(ClipMemory, 0, MEM_RELEASE);
+                    while(CurrentClipMemorySize < NeededClipMemorySize)
+                    {
+                        CurrentClipMemorySize *= 2;
+                    }
+                    ClipMemory = VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+                }
+                
+                SortRenderCommands(Commands, SortMemory);
+                LinearizeClipRects(Commands, ClipMemory);
                 
                 // NOTE(kstandbridge): Software renderer path
                 {                
-                    SoftwareRenderCommands(Platform.PerFrameWorkQueue, &Commands, &OutputTarget);
+                    SoftwareRenderCommands(Platform.PerFrameWorkQueue, Commands, &OutputTarget);
                     if(!StretchDIBits(DeviceContext, 0, 0, Backbuffer->Width, Backbuffer->Height, 0, 0, Backbuffer->Width, Backbuffer->Height,
                                       Backbuffer->Memory, &Backbuffer->Info, DIB_RGB_COLORS, SRCCOPY))
                     {
                         InvalidCodePath;
                     }
                 }
+                
+                EndRenderCommands(Commands);
                 
                 if(!ReleaseDC(Win32State->Window, DeviceContext))
                 {

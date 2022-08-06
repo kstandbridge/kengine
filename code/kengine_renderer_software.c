@@ -159,17 +159,27 @@ SoftwareRenderCommandsThread(software_render_commands_work *Work)
 {
     render_commands *Commands = Work->Commands;
     loaded_bitmap *OutputTarget = Work->OutputTarget;
+    
+    u32 ClipRectIndex = 0XFFFFFFFF;
     rectangle2i ClipRect = Work->ClipRect;
     
     sort_entry *SortEntries = (sort_entry *)(Commands->PushBufferBase + Commands->SortEntryAt);
     sort_entry *SortEntry = SortEntries;
-    
     
     for(u32 SortEntryIndex = 0;
         SortEntryIndex < Commands->PushBufferElementCount;
         ++SortEntryIndex, ++SortEntry)
     {
         render_group_command_header *Header = (render_group_command_header *)(Commands->PushBufferBase + SortEntry->Index);
+        if(ClipRectIndex != Header->ClipRectIndex)
+        {
+            ClipRectIndex = Header->ClipRectIndex;
+            Assert(ClipRectIndex < Commands->ClipRectCount);
+            
+            render_command_cliprect *Clip = Commands->ClipRects + ClipRectIndex;
+            ClipRect = Intersect(Work->ClipRect, Clip->Bounds);
+        }
+        
         void *Data = (u8 *)Header + sizeof(*Header);
         switch(Header->Type)
         {
@@ -193,6 +203,15 @@ SoftwareRenderCommandsThread(software_render_commands_work *Work)
 internal void
 SoftwareRenderCommands(platform_work_queue *Queue, render_commands *Commands, loaded_bitmap *OutputTarget)
 {
+#if 0
+    Queue;
+    software_render_commands_work Work;
+    Work.Commands = Commands;
+    Work.OutputTarget = OutputTarget;
+    Work.ClipRect = Rectangle2i(0, OutputTarget->Width, 0, OutputTarget->Height);;
+    SoftwareRenderCommandsThread(&Work);
+#else
+    
 #define TileCountX 4
 #define TileCountY 4
     
@@ -238,4 +257,6 @@ SoftwareRenderCommands(platform_work_queue *Queue, render_commands *Commands, lo
     }
     
     Platform.CompleteAllWork(Queue);
+#endif
+    
 }

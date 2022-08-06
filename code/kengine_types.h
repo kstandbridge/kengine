@@ -82,19 +82,6 @@ introspect(ctor) typedef struct
     s32 MaxY;
 } rectangle2i;
 
-introspect(ctor) typedef struct
-{
-    u32 MaxPushBufferSize;
-    u32 PushBufferSize;
-    u8 *PushBufferBase;
-    
-    u32 PushBufferElementCount;
-    u32 SortEntryAt;
-    
-    
-} render_commands;
-
-
 // TODO(kstandbridge): Where should loaded_bitmap live?
 #define BITMAP_BYTES_PER_PIXEL 4
 typedef struct

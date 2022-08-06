@@ -95,31 +95,6 @@ MergeSort(u32 Count, sort_entry *First, sort_entry *Temp)
         {
             First[Index] = Temp[Index];
         }
-        
-#if 0
-        sort_entry *ReadHalf0 = First;
-        sort_entry *ReadHalf1 = First + Half0;
-        sort_entry *End = First + Count;
-        
-        // NOTE(kstandbridge): Step 1 - Find the first out-of-order pair
-        while((ReadHalf0 != ReadHalf1) &&
-              (ReadHalf0->SortKey < ReadHalf1->SortKey))
-        {
-            ++ReadHalf0;
-        }
-        
-        // NOTE(kstandbridge): Step 2 - Swap as many Half1 items in as necessary
-        if(ReadHalf0 != ReadHalf1)
-        {
-            sort_entry CompareWith = *ReadHalf0;
-            while((ReadHalf1 != End) && (ReadHalf1->SortKey < CompareWith.SortKey))
-            {
-                Swap(ReadHalf0++, ReadHalf1++);
-            }
-            
-            ReadHalf1 = InHalf1;
-        }
-#endif
     }
 }
 
@@ -165,7 +140,7 @@ RadixSort(u32 Count, sort_entry *First, sort_entry *Temp)
         ByteIndex += 8)
     {
         u32 SortKeyOffsets[256];
-        ZeroArray(sizeof(SortKeyOffsets), SortKeyOffsets);
+        ZeroArray(ArrayCount(SortKeyOffsets), SortKeyOffsets);
         
         // NOTE(kstandbridge): First pass - count how many of each key
         for(u32 Index = 0;

@@ -1,64 +1,60 @@
-
-internal void *
-PushRenderCommand(render_group *Group, render_group_command_type Type, u32 Size, f32 SortKey)
+internal void
+SortRenderCommands(render_commands *Commands, void *SortMemory)
 {
-    void *Result = 0;
+    sort_entry *Entries = (sort_entry *)(Commands->PushBufferBase + Commands->SortEntryAt);
+    //BubbleSort(Commands->PushBufferElementCount, Entries);
+    MergeSort(Commands->PushBufferElementCount, Entries, (sort_entry *)SortMemory);
+    //RadixSort(Commands->PushBufferElementCount, Entries, (sort_entry *)SortMemory);
     
-    render_commands *Commands = Group->Commands;
+#if KENGINE_SLOW
+    if(Commands->PushBufferElementCount)
+    {
+        for(u32 Index = 0;
+            Index < (Commands->PushBufferElementCount - 1);
+            ++Index)
+        {
+            sort_entry *EntryA = Entries + Index;
+            sort_entry *EntryB = EntryA + 1;
+            
+            Assert(EntryA->SortKey <= EntryB->SortKey);
+        }
+    }
+#endif
+}
+
+
+internal void
+LinearizeClipRects(render_commands *Commands, void *ClipMemory)
+{
+    render_command_cliprect *Out = (render_command_cliprect *)ClipMemory;
+    for(render_command_cliprect *Rect = Commands->FirstRect;
+        Rect;
+        Rect = Rect->Next)
+    {
+        *Out++ = *Rect;
+    }
+    Commands->ClipRects = (render_command_cliprect *)ClipMemory;
+}
+
+
+inline render_commands
+BeginRenderCommands(u32 PushBufferSize, void *PushBufferBase, s32 Width, s32 Height)
+{
+    render_commands Result;
+    ZeroStruct(Result);
     
-    Size += sizeof(render_group_command_header);
-    if((Commands->PushBufferSize + Size) < (Commands->SortEntryAt - sizeof(sort_entry)))
-    {
-        render_group_command_header *Header = (render_group_command_header *)(Commands->PushBufferBase + Commands->PushBufferSize);
-        Header->Type = SafeTruncateU32ToU16(Type);
-        Header->ClipRectIndex = SafeTruncateU32ToU16(Group->CurrentClipRectIndex);
-        
-        Commands->SortEntryAt -= sizeof(sort_entry);
-        sort_entry *Entry = (sort_entry *)(Commands->PushBufferBase + Commands->SortEntryAt);
-        Entry->SortKey = SortKey;
-        Entry->Index = Commands->PushBufferSize;
-        
-        Result = (void *)((u8 *)Header + sizeof(*Header));
-        
-        Commands->PushBufferSize += Size;
-        ++Commands->PushBufferElementCount;
-    }
-    else
-    {
-        // TODO(kstandbridge): Error ran out of buffer space
-        InvalidCodePath;
-    }
+    Result.Width = Width;
+    Result.Height = Height;
+    Result.MaxPushBufferSize = PushBufferSize;
+    Result.PushBufferBase = PushBufferBase;
+    Result.SortEntryAt = PushBufferSize;
     
     return Result;
 }
 
-internal void
-PushRenderCommandClear(render_group *Group, f32 SortKey, v4 Color)
+inline void
+EndRenderCommands(render_commands *RenderCommands)
 {
-    render_group_command_clear *Command = PushRenderCommand(Group, RenderGroupCommandType_Clear, sizeof(render_group_command_clear), SortKey);
-    if(Command)
-    {
-        Command->Color = Color;
-    }
-    else
-    {
-        // TODO(kstandbridge): Error pushing clear command
-        InvalidCodePath;
-    }
-}
-
-internal void
-PushRenderCommandRectangle(render_group *Group, v4 Color, rectangle2 Bounds, f32 SortKey)
-{
-    render_group_command_rectangle *Command = PushRenderCommand(Group, RenderGroupCommandType_Rectangle, sizeof(render_group_command_rectangle), SortKey);
-    if(Command)
-    {
-        Command->Color = Color;
-        Command->Bounds = Bounds;
-    }
-    else
-    {
-        // TODO(kstandbridge): Error pushing clear command
-        InvalidCodePath;
-    }
+    // TODO(kstandbridge): Do we need to do any clean up?
+    RenderCommands;
 }

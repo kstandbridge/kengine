@@ -52,6 +52,7 @@ typedef struct
     platform_api PlatformAPI;
 } app_memory;
 
+typedef struct render_commands render_commands;
 typedef void app_update_frame(platform_api PlatformAPI, render_commands *Commands);
 
 #define KENGINE_PLATFORM_H

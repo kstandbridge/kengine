@@ -1,4 +1,4 @@
-#ifndef KENGINE_RENDERER_H
+#ifndef KENGINE_RENDER_GROUP_H
 
 typedef struct
 {
@@ -21,5 +21,5 @@ typedef struct
     f32 SortKey;
 } entity_basis_p_result;
 
-#define KENGINE_RENDERER_H
-#endif //KENGINE_RENDERER_H
+#define KENGINE_RENDER_GROUP_H
+#endif //KENGINE_RENDER_GROUP_H

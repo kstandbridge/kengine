@@ -5,7 +5,7 @@
 #include "kengine_intrinsics.h"
 #include "kengine_math.h"
 #include "kengine_renderer_shared.h"
-#include "kengine_renderer.h"
+#include "kengine_render_group.h"
 
 #define KENGINE_H
 #endif //KENGINE_H
