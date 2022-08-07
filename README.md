@@ -206,7 +206,7 @@ switch(Tokenizer->At[0])
 - [x] Thread pool
 - [x] Render clipping
 - [x] Draw a glyph
-- [ ] Draw a string
+- [x] Draw a string
 - [ ] Text element
 - [ ] Mouse input
 - [ ] Interaction framework

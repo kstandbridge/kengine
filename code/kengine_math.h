@@ -170,6 +170,16 @@ HasArea(rectangle2i A)
     return Result;
 }
 
+inline b32
+IsInRectangle(rectangle2 Rectangle, v2 Test)
+{
+    b32 Result = ((Test.X >= Rectangle.Min.X) &&
+                  (Test.Y >= Rectangle.Min.Y) &&
+                  (Test.X < Rectangle.Max.X) &&
+                  (Test.Y < Rectangle.Max.Y));
+    
+    return Result;
+}
 
 #define KENGINE_MATH_H
 #endif //KENGINE_MATH_H
