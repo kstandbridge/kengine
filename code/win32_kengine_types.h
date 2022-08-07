@@ -17,7 +17,6 @@ introspect(win32, Kernel32) typedef BOOL get_file_attributes_ex_a(LPCSTR lpFileN
 introspect(win32, Kernel32) typedef HANDLE WINAPI get_std_handle(DWORD nStdHandle);
 introspect(win32, Kernel32) typedef HMODULE load_library_a(LPCSTR lpLibFileName);
 introspect(win32, Kernel32) typedef BOOL get_file_size_ex(HANDLE hFile, PLARGE_INTEGER lpFileSize);
-introspect(win32, Kernel32) typedef int mul_div(int nNumber, int nNumerator, int nDenominator);
 introspect(win32, Kernel32) typedef BOOL read_file(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped);
 introspect(win32, Kernel32) typedef BOOL release_semaphore(HANDLE hSemaphore, LONG lReleaseCount, LPLONG lpPreviousCount);
 introspect(win32, Kernel32) typedef BOOL write_file(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped);

@@ -371,21 +371,18 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         HBITMAP Bitmap = Win32CreateDIBSection(FontDeviceContext, &Info, DIB_RGB_COLORS, &FontBits, 0, 0);
         Win32SelectObject(FontDeviceContext, Bitmap);
         Win32SetBkColor(FontDeviceContext, RGB(0, 0, 0));
-        Win32AddFontResourceExA("c:/Windows/Fonts/segoeui.ttf", FR_PRIVATE, 0);
-        s32 PointSize = 11;
-        s32 FontHeight = -Win32MulDiv(PointSize, Win32GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
-        FontHandle = Win32CreateFontA(FontHeight, 0, 0, 0,
+        Win32AddFontResourceExA("c:/Windows/Fonts/LiberationMono-Regular.ttf", FR_PRIVATE, 0);
+        FontHandle = Win32CreateFontA(20, 0, 0, 0,
                                       FW_NORMAL, // NOTE(kstandbridge): Weight
-                                      false, // NOTE(kstandbridge): Italic
-                                      false, // NOTE(kstandbridge): Underline
-                                      false, // NOTE(kstandbridge): Strikeout
+                                      FALSE, // NOTE(kstandbridge): Italic
+                                      FALSE, // NOTE(kstandbridge): Underline
+                                      FALSE, // NOTE(kstandbridge): Strikeout
                                       DEFAULT_CHARSET, 
                                       OUT_DEFAULT_PRECIS,
                                       CLIP_DEFAULT_PRECIS, 
                                       ANTIALIASED_QUALITY,
                                       DEFAULT_PITCH|FF_DONTCARE,
-                                      "Segoe UI");
-        
+                                      "Liberation Mono");
         Win32SelectObject(FontDeviceContext, FontHandle);
         Win32GetTextMetricsW(FontDeviceContext, &GlobalTextMetric);
         

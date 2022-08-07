@@ -26,7 +26,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     RenderGroup->Commands = Commands;
     RenderGroup->CurrentClipRectIndex = PushRenderCommandClipRectangle(RenderGroup, Rectangle2i(0, Commands->Width, 0, Commands->Height));
     
-    PushRenderCommandClear(RenderGroup, 0.0f, V4(0.0f, 0.0f, 0.0f, 1.0f));
+    PushRenderCommandClear(RenderGroup, 0.0f, V4(1.0f, 0.5f, 0.0f, 1.0f));
     
 #if 1
     // NOTE(kstandbridge): Rectangle with clipping regions
@@ -71,7 +71,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         f32 AtX = P.X;
         f32 AtY = P.Y;
         u32 PrevCodePoint = 0;
-        string Text = String("Hello, world!");
+        string Text = String("Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium");
         for(u32 Index = 0;
             Index < Text.Size;
             ++Index)
@@ -113,7 +113,10 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
                     loaded_bitmap *Glyph = AppState->Glyphs + CodePoint;
                     Assert(Glyph->Memory);
                     
-                    PushRenderCommandBitmap(RenderGroup, Glyph, (f32)Glyph->Height, V2(AtX, AtY), V4(1.0f, 1.0f, 1.0f, 1.0f), 30.f);
+                    v2 Offset = V2(AtX, AtY);
+                    PushRenderCommandBitmap(RenderGroup, Glyph, (f32)Glyph->Height, Offset, V4(1.0f, 1.0f, 1.0f, 1.0f), 2.0f);
+                    Offset = V2Add(Offset, V2(2.0f, -2.0f));
+                    PushRenderCommandBitmap(RenderGroup, Glyph, (f32)Glyph->Height, Offset, V4(0.0f, 0.0f, 0.0f, 1.0f), 1.0f);
                     
                     PrevCodePoint = CodePoint;
                 }
