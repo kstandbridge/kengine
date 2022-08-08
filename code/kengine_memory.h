@@ -21,6 +21,12 @@ typedef struct
     s32 TempCount;
 } memory_arena;
 
+typedef struct temporary_memory
+{
+    memory_arena *Arena;
+    umm Used;
+} temporary_memory;
+
 inline void
 InitializeArena(memory_arena *Arena, u64 Size, void *Base)
 {
@@ -96,6 +102,44 @@ EndPushSize(memory_arena *Arena, umm Size)
     PushSize_(Arena, Size, 4);
 }
 
+
+inline void
+SubArena(memory_arena *Result, memory_arena *Arena, u64 Size)
+{
+    Result->Size = Size;
+    Result->Base = (u8 *)PushSize_(Arena, Size, 16);
+    Result->Used = 0;
+    Result->TempCount = 0;
+}
+
+inline temporary_memory
+BeginTemporaryMemory(memory_arena *Arena)
+{
+    temporary_memory Result;
+    
+    Result.Arena = Arena;
+    Result.Used = Arena->Used;
+    
+    ++Arena->TempCount;
+    
+    return(Result);
+}
+
+inline void
+EndTemporaryMemory(temporary_memory TempMem)
+{
+    memory_arena *Arena = TempMem.Arena;
+    Assert(Arena->Used >= TempMem.Used);
+    Arena->Used = TempMem.Used;
+    Assert(Arena->TempCount > 0);
+    --Arena->TempCount;
+}
+
+inline void
+CheckArena(memory_arena *Arena)
+{
+    Assert(Arena->TempCount == 0);
+}
 
 #define KENGINE_MEMORY_H
 #endif //KENGINE_MEMORY_H

@@ -55,7 +55,9 @@ introspect(win32, User32) typedef LONG_PTR set_window_long_ptr_a(HWND hWnd, int 
 introspect(win32, User32) typedef BOOL show_window(HWND hWnd, int nCmdShow);
 introspect(win32, User32) typedef int release_d_c(HWND hWnd, HDC hDC);
 introspect(win32, User32) typedef BOOL translate_message(const MSG *lpMsg);
-
+introspect(win32, User32) typedef BOOL get_cursor_pos(LPPOINT lpPoint);
+introspect(win32, User32) typedef BOOL screen_to_client(HWND hWnd, LPPOINT lpPoint);
+introspect(win32, User32) typedef SHORT get_key_state(int nVirtKey);
 
 #define WIN32_KENGINE_TYPES_H
 #endif //WIN32_KENGINE_TYPES_H

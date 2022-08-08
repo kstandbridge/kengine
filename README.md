@@ -207,7 +207,7 @@ switch(Tokenizer->At[0])
 - [x] Render clipping
 - [x] Draw a glyph
 - [x] Draw a string
-- [ ] Mouse input
+- [x] Mouse input
 - [ ] Interaction framework
 - [ ] Text element
 - [ ] ActionButton

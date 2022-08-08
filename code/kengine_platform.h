@@ -68,6 +68,31 @@ typedef loaded_glyph get_glyph_for_code_point(memory_arena *Arena, u32 CodePoint
 typedef f32 get_horizontal_advance(u32 PrevCodePoint, u32 CodePoint);
 typedef f32 get_verticle_advance();
 
+typedef struct app_button_state
+{
+    s32 HalfTransitionCount;
+    b32 EndedDown;
+} app_button_state;
+
+typedef enum mouse_button_type
+{
+    MouseButton_Left,
+    MouseButton_Middle,
+    MouseButton_Right,
+    MouseButton_Extended0,
+    MouseButton_Extended1,
+    
+    MouseButton_Count,
+} mouse_button_type;
+
+typedef struct app_input
+{
+    app_button_state MouseButtons[MouseButton_Count];
+    f32 MouseX;
+    f32 MouseY;
+    f32 MouseZ;
+} app_input;
+
 typedef struct app_state app_state;
 typedef struct
 {
@@ -86,7 +111,7 @@ typedef struct
 } platform_api;
 
 typedef struct render_commands render_commands;
-typedef void app_update_frame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena);
+typedef void app_update_frame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena, app_input *Input);
 
 #define KENGINE_PLATFORM_H
 #endif //KENGINE_PLATFORM_H

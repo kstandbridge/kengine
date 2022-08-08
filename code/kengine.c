@@ -6,7 +6,7 @@ global platform_api Platform;
 #include "kengine_render_group.c"
 
 extern void
-AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena)
+AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena, app_input *Input)
 {
     Platform = *PlatformAPI;
     
@@ -14,7 +14,10 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     if(!PlatformAPI->AppState)
     {
         PlatformAPI->AppState = PushStruct(Arena, app_state);
-        PlatformAPI->AppState->TestGlyph = Platform.GetGlyphForCodePoint(Arena, 'K');
+        app_state *AppState = PlatformAPI->AppState;
+        
+        AppState->TestGlyph = Platform.GetGlyphForCodePoint(Arena, 'K');
+        SubArena(&AppState->TranArena, Arena, Kilobytes(512));
     }
     
     app_state *AppState = PlatformAPI->AppState;
@@ -64,18 +67,19 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     
     
 #if 1
+    
+    
     // NOTE(kstandbridge): Text rendering
     f32 Scale = 1.0f;
     v2 P = V2(10.0f, 100.0f);
     {
+        temporary_memory TempMem = BeginTemporaryMemory(&AppState->TranArena);
+        
         f32 AtX = P.X;
         f32 AtY = P.Y;
         u32 PrevCodePoint = 0;
-#if 0
-        string Text = String("Hello, world!");
-#else
-        string Text = String("Global_Renderer_Camera_UseDebug: false");
-#endif
+        
+        string Text = FormatString(TempMem.Arena, "Mouse: %.03f / %.03f", Input->MouseX, Input->MouseY);
         for(u32 Index = 0;
             Index < Text.Size;
             ++Index)
@@ -145,5 +149,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
 #endif
             
         }
+        EndTemporaryMemory(TempMem);
     }
+    CheckArena(&AppState->TranArena);
 }

@@ -109,7 +109,7 @@ Win32MainWindowCallback(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
 }
 
 internal void
-Win32ProcessPendingMessages(win32_state *Win32State)
+Win32ProcessPendingMessages(win32_state *Win32State, app_input *Input)
 {
     Win32State;
     
@@ -121,6 +121,11 @@ Win32ProcessPendingMessages(win32_state *Win32State)
             case WM_QUIT:
             {
                 __debugbreak();
+            } break;
+            
+            case WM_MOUSEWHEEL:
+            {
+                Input->MouseZ = GET_WHEEL_DELTA_WPARAM(Message.wParam);
             } break;
             
             default:
@@ -437,7 +442,7 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         BoundHeight = MAX_FONT_HEIGHT;
     }
     
-    // Win32SetBkMode(FontDeviceContext, TRANSPARENT);
+    //Win32SetBkMode(FontDeviceContext, TRANSPARENT);
     Win32SetTextColor(FontDeviceContext, RGB(255, 255, 255));
     Win32TextOutW(FontDeviceContext, PreStepX, 0, &CheesePoint, 1);
     
@@ -583,6 +588,16 @@ Win32GetVerticleAdvance()
     return Result;
 }
 
+inline void
+ProcessInputMessage(app_button_state *NewState, b32 IsDown)
+{
+    if(NewState->EndedDown != IsDown)
+    {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
+    }
+}
+
 
 void __stdcall 
 WinMainCRTStartup()
@@ -658,6 +673,13 @@ WinMainCRTStartup()
             u32 CurrentClipMemorySize = Kilobytes(64);
             void *ClipMemory = Win32VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
             
+            
+            
+            app_input Input[2];
+            ZeroArray(ArrayCount(Input), Input);
+            app_input *NewInput = &Input[0];
+            app_input *OldInput = &Input[1];
+            
             Win32State->IsRunning = true;
             while(Win32State->IsRunning)
             {
@@ -706,7 +728,34 @@ WinMainCRTStartup()
                     }
                 }
                 
-                Win32ProcessPendingMessages(Win32State);
+                NewInput->MouseZ = 0;
+                Win32ProcessPendingMessages(Win32State, NewInput);
+                
+                POINT MouseP;
+                Win32GetCursorPos(&MouseP);
+                Win32ScreenToClient(Win32State->Window, &MouseP);
+                NewInput->MouseX = (f32)MouseP.x;
+                NewInput->MouseY = (f32)((Win32State->Backbuffer.Height - 1) - MouseP.y);
+                
+                // NOTE(kstandbridge): The order of these needs to match the order on enum app_input_mouse_button_type
+                DWORD ButtonVKs[MouseButton_Count] =
+                {
+                    VK_LBUTTON,
+                    VK_MBUTTON,
+                    VK_RBUTTON,
+                    VK_XBUTTON1,
+                    VK_XBUTTON2,
+                };
+                
+                for(u32 ButtonIndex = 0;
+                    ButtonIndex < MouseButton_Count;
+                    ++ButtonIndex)
+                {
+                    NewInput->MouseButtons[ButtonIndex] = OldInput->MouseButtons[ButtonIndex];
+                    NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
+                    ProcessInputMessage(&NewInput->MouseButtons[ButtonIndex],
+                                        Win32GetKeyState(ButtonVKs[ButtonIndex]) & (1 << 15));
+                }
                 
                 HDC DeviceContext = Win32GetDC(Win32State->Window);
                 
@@ -724,7 +773,7 @@ WinMainCRTStartup()
                 
                 if(Win32State->AppUpdateFrame)
                 {
-                    Win32State->AppUpdateFrame(&PlatformAPI, Commands, &Win32State->Arena);
+                    Win32State->AppUpdateFrame(&PlatformAPI, Commands, &Win32State->Arena, NewInput);
                 }
                 
                 
@@ -772,6 +821,10 @@ WinMainCRTStartup()
                 }
                 
                 Win32CompleteAllWork(Platform.PerFrameWorkQueue);
+                
+                app_input *Temp = NewInput;
+                NewInput = OldInput;
+                OldInput = Temp;
                 
                 _mm_pause();
             }
