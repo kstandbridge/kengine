@@ -683,7 +683,7 @@ WinMainCRTStartup()
             Win32State->IsRunning = true;
             while(Win32State->IsRunning)
             {
-                
+                Platform.DllReloaded = false;
                 FILETIME NewDLLWriteTime = Win32GetLastWriteTime(Win32State->DllFullFilePath);
                 if(Win32CompareFileTime(&NewDLLWriteTime, &Win32State->LastDLLWriteTime) != 0)
                 {
@@ -718,6 +718,7 @@ WinMainCRTStartup()
                                     }
                                 }
                                 Win32State->LastDLLWriteTime = NewDLLWriteTime;
+                                Platform.DllReloaded = true;
                             }
                         }
                         else
@@ -773,7 +774,7 @@ WinMainCRTStartup()
                 
                 if(Win32State->AppUpdateFrame)
                 {
-                    Win32State->AppUpdateFrame(&PlatformAPI, Commands, &Win32State->Arena, NewInput);
+                    Win32State->AppUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
                 }
                 
                 

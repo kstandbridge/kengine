@@ -208,6 +208,7 @@ switch(Tokenizer->At[0])
 - [x] Draw a glyph
 - [x] Draw a string
 - [x] Mouse input
+- [x] Get string dimentions
 - [ ] Interaction framework
 - [ ] Text element
 - [ ] ActionButton

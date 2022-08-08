@@ -46,8 +46,8 @@ introspect(win32, Gdi32) typedef COLORREF get_pixel(HDC hdc, int x, int y);
 introspect(win32, User32) typedef HWND create_window_ex_a(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName, DWORD dwStyle, int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam);
 introspect(win32, User32) typedef LRESULT def_window_proc_a(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 introspect(win32, User32) typedef LRESULT dispatch_message_a(const MSG *lpMsg);
-introspect(win32, User32) typedef BOOL get_client_rect(HWND hWnd, LPRECT lpRect);
 introspect(win32, User32) typedef HDC get_d_c(HWND hWnd);
+introspect(win32, User32) typedef SHORT get_key_state(int nVirtKey);
 introspect(win32, User32) typedef LONG_PTR get_window_long_ptr_a(HWND hWnd, int nIndex);
 introspect(win32, User32) typedef BOOL peek_message_a(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg);
 introspect(win32, User32) typedef ATOM register_class_ex_a(const WNDCLASSEXA *unnamedParam1);
@@ -57,7 +57,8 @@ introspect(win32, User32) typedef int release_d_c(HWND hWnd, HDC hDC);
 introspect(win32, User32) typedef BOOL translate_message(const MSG *lpMsg);
 introspect(win32, User32) typedef BOOL get_cursor_pos(LPPOINT lpPoint);
 introspect(win32, User32) typedef BOOL screen_to_client(HWND hWnd, LPPOINT lpPoint);
-introspect(win32, User32) typedef SHORT get_key_state(int nVirtKey);
+introspect(win32, User32) typedef BOOL get_client_rect(HWND hWnd, LPRECT lpRect);
+
 
 #define WIN32_KENGINE_TYPES_H
 #endif //WIN32_KENGINE_TYPES_H

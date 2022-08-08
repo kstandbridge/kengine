@@ -26,8 +26,8 @@ typedef unsigned __int64 umm;
 #define S32Max ((s32)0x7fffffff)
 #define U32Min 0
 #define U32Max ((u32)-1)
-#define F32Max FLT_MAX
-#define F32Min -FLT_MAX
+#define F32Max 3.402823466e+38F
+#define F32Min -1.175494351e-38F
 
 #define internal static
 #define local_persist static

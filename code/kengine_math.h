@@ -134,6 +134,36 @@ Linear1ToSRGB255(v4 C)
 }
 
 //
+// NOTE(kstandbridge): rectangle2 operations
+//
+
+inline rectangle2
+InvertedInfinityRectangle2(void)
+{
+    rectangle2 Result;
+    
+    Result.Min.X = Result.Min.Y = F32Max;
+    Result.Max.X = Result.Max.Y = -F32Max;
+    
+    return Result;
+}
+
+
+inline rectangle2
+Rectangle2Union(rectangle2 A, rectangle2 B)
+{
+    rectangle2 Result;
+    
+    Result.Min.X = (A.Min.X < B.Min.X) ? A.Min.X : B.Min.X;
+    Result.Min.Y = (A.Min.Y < B.Min.Y) ? A.Min.Y : B.Min.Y;
+    Result.Max.X = (A.Max.X > B.Max.X) ? A.Max.X : B.Max.X;
+    Result.Max.Y = (A.Max.Y > B.Max.Y) ? A.Max.Y : B.Max.Y;
+    
+    return Result;
+}
+
+
+//
 // NOTE(kstandbridge): rectangle2i operations
 //
 

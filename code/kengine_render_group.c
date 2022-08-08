@@ -94,19 +94,40 @@ PushRenderCommandRectangle(render_group *Group, v4 Color, rectangle2 Bounds, f32
     }
 }
 
+typedef struct
+{
+    v2 Size;
+    v2 Align;
+    v2 P;
+} bitmap_dim;
+inline bitmap_dim
+GetBitmapDim(loaded_bitmap *Bitmap, f32 Height, v2 Offset)
+{
+    bitmap_dim Result;
+    
+    Result.Size = V2(Height*Bitmap->WidthOverHeight, Height);
+    Result.Align = Hadamard(Bitmap->AlignPercentage, Result.Size);
+    Result.P = V2Subtract(Offset, Result.Align);
+    
+    return Result;
+}
+
 internal void
 PushRenderCommandBitmap(render_group *Group, loaded_bitmap *Bitmap, f32 Height, v2 Offset, v4 Color, f32 SortKey)
 {
-    v2 Dim = V2(Height*Bitmap->WidthOverHeight, Height);
+#if 0
+    v2 Dim = GetBitmapDim(Bitmap, Height);
     v2 Align = Hadamard(Bitmap->AlignPercentage, Dim);
     v2 P = V2Subtract(Offset, Align);
+#endif
+    bitmap_dim Dim = GetBitmapDim(Bitmap, Height, Offset);
     render_group_command_bitmap *Command = PushRenderCommand(Group, RenderGroupCommandType_Bitmap, sizeof(render_group_command_bitmap), SortKey);
     if(Command)
     {
         Command->Bitmap = Bitmap;
         Command->Color = Color;
-        Command->P = P;
-        Command->Dim = Dim;
+        Command->P = Dim.P;
+        Command->Dim = Dim.Size;
     }
     else
     {

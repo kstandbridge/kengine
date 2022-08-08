@@ -108,6 +108,8 @@ typedef struct
     get_horizontal_advance *GetHorizontalAdvance;
     get_verticle_advance *GetVerticleAdvance;
     
+    b32 DllReloaded;
+    
 } platform_api;
 
 typedef struct render_commands render_commands;
