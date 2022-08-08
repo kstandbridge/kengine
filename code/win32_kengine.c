@@ -335,10 +335,10 @@ Win32MakeQueue(platform_work_queue *Queue, u32 ThreadCount)
 #define MAX_GLYPH_COUNT 5000
 global KERNINGPAIR *GlobalKerningPairs;
 global u32 GlobalKerningPairCount;
-global TEXTMETRICW GlobalTextMetric;
+global TEXTMETRICA GlobalTextMetric;
 
 global HDC FontDeviceContext;
-internal loaded_bitmap
+internal loaded_glyph
 Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
 {
     
@@ -371,6 +371,23 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         HBITMAP Bitmap = Win32CreateDIBSection(FontDeviceContext, &Info, DIB_RGB_COLORS, &FontBits, 0, 0);
         Win32SelectObject(FontDeviceContext, Bitmap);
         Win32SetBkColor(FontDeviceContext, RGB(0, 0, 0));
+        
+#if 1
+        Win32AddFontResourceExA("c:/Windows/Fonts/segoeui.ttf", FR_PRIVATE, 0);
+        s32 PointSize = 11;
+        s32 FontHeight = -Win32MulDiv(PointSize, Win32GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
+        FontHandle = Win32CreateFontA(FontHeight, 0, 0, 0,
+                                      FW_NORMAL, // NOTE(kstandbridge): Weight
+                                      FALSE, // NOTE(kstandbridge): Italic
+                                      FALSE, // NOTE(kstandbridge): Underline
+                                      FALSE, // NOTE(kstandbridge): Strikeout
+                                      DEFAULT_CHARSET, 
+                                      OUT_DEFAULT_PRECIS,
+                                      CLIP_DEFAULT_PRECIS, 
+                                      ANTIALIASED_QUALITY,
+                                      DEFAULT_PITCH|FF_DONTCARE,
+                                      "Segoe UI");
+#else
         Win32AddFontResourceExA("c:/Windows/Fonts/LiberationMono-Regular.ttf", FR_PRIVATE, 0);
         FontHandle = Win32CreateFontA(20, 0, 0, 0,
                                       FW_NORMAL, // NOTE(kstandbridge): Weight
@@ -383,8 +400,10 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                                       ANTIALIASED_QUALITY,
                                       DEFAULT_PITCH|FF_DONTCARE,
                                       "Liberation Mono");
+#endif
+        
         Win32SelectObject(FontDeviceContext, FontHandle);
-        Win32GetTextMetricsW(FontDeviceContext, &GlobalTextMetric);
+        Win32GetTextMetricsA(FontDeviceContext, &GlobalTextMetric);
         
         GlobalKerningPairCount = Win32GetKerningPairsW(FontDeviceContext, 0, 0);
         GlobalKerningPairs = PushArray(Arena, GlobalKerningPairCount, KERNINGPAIR);
@@ -393,7 +412,7 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         FontInitialized = true;
     }
     
-    loaded_bitmap Result;
+    loaded_glyph Result;
     ZeroStruct(Result);
     
     Win32SelectObject(FontDeviceContext, FontHandle);
@@ -418,7 +437,7 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         BoundHeight = MAX_FONT_HEIGHT;
     }
     
-    Win32SetBkMode(FontDeviceContext, TRANSPARENT);
+    // Win32SetBkMode(FontDeviceContext, TRANSPARENT);
     Win32SetTextColor(FontDeviceContext, RGB(255, 255, 255));
     Win32TextOutW(FontDeviceContext, PreStepX, 0, &CheesePoint, 1);
     
@@ -438,11 +457,10 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
             ++X)
         {
             
-#if 0            
-            COLORREF RefPixel = GetPixel(FontDeviceContext, X, Y);
+#if KENGINE_SLOW
+            COLORREF RefPixel = Win32GetPixel(FontDeviceContext, X, Y);
             Assert(RefPixel == *Pixel);
 #endif
-            
             if(*Pixel != 0)
             {
                 if(MinX > X)
@@ -471,21 +489,20 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         Row -= MAX_FONT_WIDTH;
     }
     
-    f32 KerningChange = 0;
     if(MinX <= MaxX)
     {
         s32 Width = (MaxX - MinX) + 1;
         s32 Height = (MaxY - MinY) + 1;
         
-        Result.Width = Width + 2;
-        Result.Height = Height + 2;
-        Result.WidthOverHeight = SafeRatio1((f32)Result.Width, (f32)Result.Height);
-        Result.Pitch = Result.Width*BITMAP_BYTES_PER_PIXEL;
-        Result.Memory = PushSize(Arena, Result.Height*Result.Pitch);
+        Result.Bitmap.Width = Width + 2;
+        Result.Bitmap.Height = Height + 2;
+        Result.Bitmap.WidthOverHeight = SafeRatio1((f32)Result.Bitmap.Width, (f32)Result.Bitmap.Height);
+        Result.Bitmap.Pitch = Result.Bitmap.Width*BITMAP_BYTES_PER_PIXEL;
+        Result.Bitmap.Memory = PushSize(Arena, Result.Bitmap.Height*Result.Bitmap.Pitch);
         
-        ZeroSize(Result.Height*Result.Pitch, Result.Memory);
+        ZeroSize(Result.Bitmap.Height*Result.Bitmap.Pitch, Result.Bitmap.Memory);
         
-        u8 *DestRow = (u8 *)Result.Memory + (Result.Height - 1 - 1)*Result.Pitch;
+        u8 *DestRow = (u8 *)Result.Bitmap.Memory + (Result.Bitmap.Height - 1 - 1)*Result.Bitmap.Pitch;
         u32 *SourceRow = (u32 *)FontBits + (MAX_FONT_HEIGHT - 1 - MinY)*MAX_FONT_WIDTH;
         for(s32 Y = MinY;
             Y <= MaxY;
@@ -497,16 +514,16 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                 X <= MaxX;
                 ++X)
             {
+                
+#if KENGINE_SLOW
+                COLORREF Pixel = Win32GetPixel(FontDeviceContext, X, Y);
+                Assert(Pixel == *Source);
+#else
                 u32 Pixel = *Source;
+#endif
                 
-                f32 Alpha = (f32)(Pixel & 0xFF);
-                if(Pixel == 0)
-                {
-                    Alpha = 0.0f;
-                }
-                
-                v4 Texel = V4(255.0f, 255.0f, 255.0f, Alpha);
-                
+                f32 Gray = (f32)(Pixel & 0xFF);
+                v4 Texel = V4(255.0f, 255.0f, 255.0f, Gray);
                 Texel = SRGB255ToLinear1(Texel);
                 Texel.R *= Texel.A;
                 Texel.G *= Texel.A;
@@ -521,14 +538,14 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
                 ++Source;
             }
             
-            DestRow -= Result.Pitch;
+            DestRow -= Result.Bitmap.Pitch;
             SourceRow -= MAX_FONT_WIDTH;
         }
         
-        Result.AlignPercentage.X = (1.0f) / (f32)Result.Width;
-        Result.AlignPercentage.Y = (1.0f + (MaxY - (BoundHeight - GlobalTextMetric.tmDescent))) / (f32)Result.Height;
+        Result.Bitmap.AlignPercentage.X = (1.0f) / (f32)Result.Bitmap.Width;
+        Result.Bitmap.AlignPercentage.Y = (1.0f + (MaxY - (BoundHeight - GlobalTextMetric.tmDescent))) / (f32)Result.Bitmap.Height;
         
-        KerningChange = (f32)(MinX - PreStepX);
+        Result.KerningChange = (f32)(MinX - PreStepX);
         
     }
     

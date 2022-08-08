@@ -96,6 +96,12 @@ typedef struct
     void *TextureHandle;
 } loaded_bitmap;
 
+typedef struct
+{
+    loaded_bitmap Bitmap;
+    f32 KerningChange;
+} loaded_glyph;
+
 
 #define KENGINE_TYPES_H
 #endif //KENGINE_TYPES_H

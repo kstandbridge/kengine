@@ -24,6 +24,7 @@ introspect(win32, Kernel32) typedef LPVOID virtual_alloc(LPVOID lpAddress, SIZE_
 introspect(win32, Kernel32) typedef BOOL virtual_free(LPVOID lpAddress, SIZE_T dwSize, DWORD dwFreeType);
 introspect(win32, Kernel32) typedef DWORD wait_for_single_object_ex(HANDLE hHandle, DWORD dwMilliseconds, BOOL bAlertable);
 introspect(win32, Kernel32) typedef HMODULE get_module_handle_a(LPCSTR lpModuleName);
+introspect(win32, Kernel32) typedef int mul_div(int nNumber, int nNumerator, int nDenominator);
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);
@@ -33,13 +34,14 @@ introspect(win32, Gdi32) typedef BOOL get_char_width_32_w(HDC hdc, UINT iFirst, 
 introspect(win32, Gdi32) typedef int get_device_caps(HDC hdc, int index);
 introspect(win32, Gdi32) typedef DWORD get_kerning_pairs_w(HDC hdc, DWORD nPairs, LPKERNINGPAIR lpKernPair);
 introspect(win32, Gdi32) typedef BOOL get_text_extent_point_32_w(HDC hdc, LPCWSTR lpString, int c, LPSIZE psizl);
-introspect(win32, Gdi32) typedef BOOL get_text_metrics_w(HDC hdc, LPTEXTMETRICW lptm);
+introspect(win32, Gdi32) typedef BOOL get_text_metrics_a(HDC hdc, LPTEXTMETRICA lptm);
 introspect(win32, Gdi32) typedef COLORREF set_bk_color(HDC hdc, COLORREF color);
 introspect(win32, Gdi32) typedef int set_bk_mode(HDC hdc, int mode);
 introspect(win32, Gdi32) typedef COLORREF set_text_color(HDC hdc, COLORREF color);
 introspect(win32, Gdi32) typedef BOOL text_out_w(HDC hdc, int x, int y, LPCWSTR lpString, int c);
 introspect(win32, Gdi32) typedef HGDIOBJ select_object(HDC hdc, HGDIOBJ h);
 introspect(win32, Gdi32) typedef int stretch_d_i_bits(HDC hdc, int xDest, int yDest, int DestWidth, int DestHeight, int xSrc, int ySrc, int SrcWidth, int SrcHeight, const VOID *lpBits, const BITMAPINFO *lpbmi, UINT iUsage, DWORD rop);
+introspect(win32, Gdi32) typedef COLORREF get_pixel(HDC hdc, int x, int y);
 
 introspect(win32, User32) typedef HWND create_window_ex_a(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName, DWORD dwStyle, int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam);
 introspect(win32, User32) typedef LRESULT def_window_proc_a(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
@@ -53,6 +55,7 @@ introspect(win32, User32) typedef LONG_PTR set_window_long_ptr_a(HWND hWnd, int 
 introspect(win32, User32) typedef BOOL show_window(HWND hWnd, int nCmdShow);
 introspect(win32, User32) typedef int release_d_c(HWND hWnd, HDC hDC);
 introspect(win32, User32) typedef BOOL translate_message(const MSG *lpMsg);
+
 
 #define WIN32_KENGINE_TYPES_H
 #endif //WIN32_KENGINE_TYPES_H

@@ -10,10 +10,10 @@
 
 typedef struct app_state
 {
-    loaded_bitmap TestGlyph;
+    loaded_glyph TestGlyph;
     
     
-    loaded_bitmap Glyphs[255];
+    loaded_glyph Glyphs[255];
     
 } app_state;
 

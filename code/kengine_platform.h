@@ -64,7 +64,7 @@ typedef void platform_work_queue_callback(void *Data);
 typedef struct platform_work_queue platform_work_queue;
 typedef void platform_add_work_entry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data);
 typedef void platform_complete_all_work(platform_work_queue *Queue);
-typedef loaded_bitmap get_glyph_for_code_point(memory_arena *Arena, u32 CodePoint);
+typedef loaded_glyph get_glyph_for_code_point(memory_arena *Arena, u32 CodePoint);
 typedef f32 get_horizontal_advance(u32 PrevCodePoint, u32 CodePoint);
 typedef f32 get_verticle_advance();
 

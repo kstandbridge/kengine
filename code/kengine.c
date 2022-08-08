@@ -18,7 +18,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     }
     
     app_state *AppState = PlatformAPI->AppState;
-    Assert(AppState->TestGlyph.Memory);
+    Assert(AppState->TestGlyph.Bitmap.Memory);
     
     render_group RenderGroup_;
     ZeroStruct(RenderGroup_);
@@ -71,7 +71,11 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         f32 AtX = P.X;
         f32 AtY = P.Y;
         u32 PrevCodePoint = 0;
-        string Text = String("Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium");
+#if 0
+        string Text = String("Hello, world!");
+#else
+        string Text = String("Global_Renderer_Camera_UseDebug: false");
+#endif
         for(u32 Index = 0;
             Index < Text.Size;
             ++Index)
@@ -104,25 +108,38 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
                 if(CodePoint && CodePoint != ' ')
                 {        
                     Assert(CodePoint < ArrayCount(AppState->Glyphs));
-                    if(AppState->Glyphs[CodePoint].Memory == 0)
+                    if(AppState->Glyphs[CodePoint].Bitmap.Memory == 0)
                     {
                         // TODO(kstandbridge): This should be threaded
                         AppState->Glyphs[CodePoint] = Platform.GetGlyphForCodePoint(Arena, CodePoint);
                     }
                     
-                    loaded_bitmap *Glyph = AppState->Glyphs + CodePoint;
-                    Assert(Glyph->Memory);
+                    loaded_glyph *Glyph = AppState->Glyphs + CodePoint;
+                    Assert(Glyph->Bitmap.Memory);
+                    
+                    f32 BitmapScale = Scale*(f32)Glyph->Bitmap.Height;
                     
                     v2 Offset = V2(AtX, AtY);
-                    PushRenderCommandBitmap(RenderGroup, Glyph, (f32)Glyph->Height, Offset, V4(1.0f, 1.0f, 1.0f, 1.0f), 2.0f);
+                    PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, Offset, V4(1.0f, 1.0f, 1.0f, 1.0f), 2.0f);
+                    
                     Offset = V2Add(Offset, V2(2.0f, -2.0f));
-                    PushRenderCommandBitmap(RenderGroup, Glyph, (f32)Glyph->Height, Offset, V4(0.0f, 0.0f, 0.0f, 1.0f), 1.0f);
+                    PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, Offset, V4(0.0f, 0.0f, 0.0f, 1.0f), 1.0f);
                     
                     PrevCodePoint = CodePoint;
+                    
+                    f32 AdvanceX = (Scale*Platform.GetHorizontalAdvance(PrevCodePoint, CodePoint)) + Glyph->KerningChange;
+                    loaded_glyph *PreviousGlyph = AppState->Glyphs + PrevCodePoint;
+                    AdvanceX += PreviousGlyph->KerningChange;
+                    
+                    AtX += AdvanceX;
                 }
-                f32 AdvanceX = Scale*Platform.GetHorizontalAdvance(PrevCodePoint, CodePoint);
+                else
+                {
+                    f32 AdvanceX = (Scale*Platform.GetHorizontalAdvance(PrevCodePoint, CodePoint));
+                    
+                    AtX += AdvanceX;
+                }
                 
-                AtX += AdvanceX;
                 
             }
 #endif
