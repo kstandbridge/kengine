@@ -94,12 +94,6 @@ PushRenderCommandRectangle(render_group *Group, v4 Color, rectangle2 Bounds, f32
     }
 }
 
-typedef struct
-{
-    v2 Size;
-    v2 Align;
-    v2 P;
-} bitmap_dim;
 inline bitmap_dim
 GetBitmapDim(loaded_bitmap *Bitmap, f32 Height, v2 Offset)
 {
@@ -115,11 +109,6 @@ GetBitmapDim(loaded_bitmap *Bitmap, f32 Height, v2 Offset)
 internal void
 PushRenderCommandBitmap(render_group *Group, loaded_bitmap *Bitmap, f32 Height, v2 Offset, v4 Color, f32 SortKey)
 {
-#if 0
-    v2 Dim = GetBitmapDim(Bitmap, Height);
-    v2 Align = Hadamard(Bitmap->AlignPercentage, Dim);
-    v2 P = V2Subtract(Offset, Align);
-#endif
     bitmap_dim Dim = GetBitmapDim(Bitmap, Height, Offset);
     render_group_command_bitmap *Command = PushRenderCommand(Group, RenderGroupCommandType_Bitmap, sizeof(render_group_command_bitmap), SortKey);
     if(Command)

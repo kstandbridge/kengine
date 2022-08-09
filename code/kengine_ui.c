@@ -12,11 +12,12 @@ typedef enum
     TextOpText_Size,
 } text_op_type;
 internal rectangle2
-TextOp_(render_group *RenderGroup, memory_arena *Arena, loaded_glyph *Glyphs, text_op_type Op, f32 Scale, v2 P, v4 Color, string Text)
+TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, string Text)
 {
-    // TODO(kstandbridge): Consoliate these parameters, remember GlobalState, LocalState, Misc
-    
     rectangle2 Result = InvertedInfinityRectangle2();
+    
+    memory_arena *Arena = RenderGroup->Arena;
+    loaded_glyph *Glyphs = RenderGroup->Glyphs;
     
     f32 AtX = P.X;
     f32 AtY = P.Y;
@@ -215,22 +216,26 @@ InteractionIsHot(u_i_state *UIState, interaction Interaction)
 }
 
 inline void
-DrawText(render_group *RenderGroup, memory_arena *Arena, loaded_glyph *Glyphs, f32 Scale, v2 P, v4 Color, string Text)
+DrawText(render_group *RenderGroup, f32 Scale, v2 P, v4 Color, string Text)
 {
     // TODO(kstandbridge): NAMING Internally this is calling PushRenderCommandBitmap for each of the glyphs,
     // nothing is being drawn now, its a push call so shouldn't be DrawText
     
-    // TODO(kstandbridge): Consoliate these parameters, remember GlobalState, LocalState, Misc
-    TextOp_(RenderGroup, Arena, Glyphs, TextOpText_Draw, Scale, P, Color, Text);
+    TextOp_(RenderGroup, TextOpText_Draw, Scale, P, Color, Text);
 }
 
 inline rectangle2
-GetTextSize(render_group *RenderGroup, memory_arena *Arena, loaded_glyph *Glyphs, f32 Scale, v2 P, string Text)
+GetTextSize(render_group *RenderGroup, f32 Scale, v2 P, string Text)
 {
-    // TODO(kstandbridge): Consoliate these parameters, remember GlobalState, LocalState, Misc
-    rectangle2 Result = TextOp_(RenderGroup, Arena, Glyphs, TextOpText_Size, Scale, P, V4(1.0f, 1.0f, 1.0f, 1.0f), Text);
+    rectangle2 Result = TextOp_(RenderGroup, TextOpText_Size, Scale, P, V4(1.0f, 1.0f, 1.0f, 1.0f), Text);
     return Result;
 }
+
+typedef struct
+{
+    u_i_state *UIState;
+    app_input *Input;
+} u_i_frame;
 
 inline void
 BeginUIFrame(u_i_state *UIState, app_input *Input)
@@ -272,7 +277,7 @@ Button(u_i_state *UIState, render_group *RenderGroup, interaction_id Id, void *T
     rectangle2 TextBounds;
     // BeginElement()
     {
-        TextBounds = GetTextSize(RenderGroup, RenderGroup->Arena, RenderGroup->Glyphs, Scale, P, Text);
+        TextBounds = GetTextSize(RenderGroup, Scale, P, Text);
     }
     // EndElement()
     {
@@ -287,7 +292,7 @@ Button(u_i_state *UIState, render_group *RenderGroup, interaction_id Id, void *T
     b32 IsHot = InteractionIsHot(UIState, Interaction);
     v4 TextColor = IsHot ? V4(1.0f, 1.0f, 0.0f, 1.0f) : V4(1.0f, 1.0f, 1.0f, 1.0f);
     
-    DrawText(RenderGroup, RenderGroup->Arena, RenderGroup->Glyphs, Scale, P, TextColor, Text);
+    DrawText(RenderGroup, Scale, P, TextColor, Text);
     
     return Result;
 }
