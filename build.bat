@@ -4,8 +4,8 @@ set CommonCompilerFlags=-diagnostics:column -WL -nologo -fp:fast -fp:except- -Gm
 set CommonCompilerFlags=%CommonCompilerFlags% -DKENGINE_INTERNAL=1
 set CommonCompilerFlags=%CommonCompilerFlags% -DKENGINE_SLOW=1
 
-REM warning C4310: cast truncates constant value
-REM set CommonCompilerFlags=%CommonCompilerFlags% -wd4310
+REM nonstandard extension used: nameless struct/union
+set CommonCompilerFlags=%CommonCompilerFlags% -wd4201
 
 set CommonLinkerFlags=-STACK:0x100000,0x100000 -incremental:no -opt:ref
 

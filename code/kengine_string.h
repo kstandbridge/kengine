@@ -19,7 +19,7 @@ IsWhitespace(char C)
                   (C == '\f') ||
                   IsEndOfLine(C));
     
-    return(Result);
+    return Result;
 }
 
 inline b32

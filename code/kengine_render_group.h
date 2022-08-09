@@ -4,6 +4,11 @@ typedef struct
 {
     render_commands *Commands;
     u16 CurrentClipRectIndex;
+    
+    loaded_glyph *Glyphs;
+    
+    // TODO(kstandbridge): Arena will be removed when we no longer load glyphs in draw routine
+    memory_arena *Arena;
 } render_group;
 
 typedef struct

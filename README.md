@@ -71,13 +71,13 @@ Enums should UpperCamelCase the type name then UpperCamelCase the value split by
 ```C
 typedef enum
 {
-    ElementType_Row,
-    ElementType_Spacer,
-    ElementType_Label,
-    ElementType_Checkbox,
-    ElementType_Textbox,
-    ElementType_Button,
-    ElementType_VerticleSlider,
+    Element_Row,
+    Element_Spacer,
+    Element_Label,
+    Element_Checkbox,
+    Element_Textbox,
+    Element_Button,
+    Element_VerticleSlider,
 } element_type;
 ```
 
@@ -209,9 +209,11 @@ switch(Tokenizer->At[0])
 - [x] Draw a string
 - [x] Mouse input
 - [x] Get string dimentions
-- [ ] Interaction framework
-- [ ] Text element
-- [ ] ActionButton
+- [x] Interaction framework
+- [x] Text element
+- [x] ActionButton
+- [ ] Verticle control layout
+- [ ] Horizontal control rows
 - [ ] ToggleButton
 - [ ] Circular buffer for strings
 - [ ] Debug section with console

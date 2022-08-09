@@ -31,14 +31,12 @@ Win32MainWindowCallback_(win32_state *Win32State, HWND Window, u32 Message, WPAR
         
         case WM_SIZE:
         {
-            
             RECT ClientRect;
             if(Win32GetClientRect(Window, &ClientRect))
             {
                 win32_offscreen_buffer *Backbuffer = &Win32State->Backbuffer;
                 Backbuffer->Width = ClientRect.right - ClientRect.left;
                 Backbuffer->Height = ClientRect.bottom - ClientRect.top;
-                
                 
                 if(Backbuffer->Memory)
                 {

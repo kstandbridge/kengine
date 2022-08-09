@@ -68,13 +68,13 @@ typedef loaded_glyph get_glyph_for_code_point(memory_arena *Arena, u32 CodePoint
 typedef f32 get_horizontal_advance(u32 PrevCodePoint, u32 CodePoint);
 typedef f32 get_verticle_advance();
 
-typedef struct app_button_state
+typedef struct
 {
     s32 HalfTransitionCount;
     b32 EndedDown;
 } app_button_state;
 
-typedef enum mouse_button_type
+typedef enum
 {
     MouseButton_Left,
     MouseButton_Middle,
@@ -85,7 +85,7 @@ typedef enum mouse_button_type
     MouseButton_Count,
 } mouse_button_type;
 
-typedef struct app_input
+typedef struct
 {
     app_button_state MouseButtons[MouseButton_Count];
     f32 MouseX;

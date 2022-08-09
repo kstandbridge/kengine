@@ -270,21 +270,21 @@ GetNextCToken(c_tokenizer *Tokenizer)
     ++Tokenizer->At;
     switch(C)
     {
-        case '\0': { Result.Type = CTokenType_EndOfStream; } break;
+        case '\0': { Result.Type = CToken_EndOfStream; } break;
         
-        case '(': {Result.Type = CTokenType_OpenParen;} break;
-        case ')': {Result.Type = CTokenType_CloseParen;} break;
-        case ':': {Result.Type = CTokenType_Colon;} break;
-        case ';': {Result.Type = CTokenType_Semicolon;} break;
-        case '*': {Result.Type = CTokenType_Asterisk;} break;
-        case '[': {Result.Type = CTokenType_OpenBracket;} break;
-        case ']': {Result.Type = CTokenType_CloseBracket;} break;
-        case '{': {Result.Type = CTokenType_OpenBrace;} break;
-        case '}': {Result.Type = CTokenType_CloseBrace;} break;
+        case '(': {Result.Type = CToken_OpenParen;} break;
+        case ')': {Result.Type = CToken_CloseParen;} break;
+        case ':': {Result.Type = CToken_Colon;} break;
+        case ';': {Result.Type = CToken_Semicolon;} break;
+        case '*': {Result.Type = CToken_Asterisk;} break;
+        case '[': {Result.Type = CToken_OpenBracket;} break;
+        case ']': {Result.Type = CToken_CloseBracket;} break;
+        case '{': {Result.Type = CToken_OpenBrace;} break;
+        case '}': {Result.Type = CToken_CloseBrace;} break;
         
         case '"':
         {
-            Result.Type = CTokenType_String;
+            Result.Type = CToken_String;
             
             Result.Str.Data = (u8 *)Tokenizer->At;
             
@@ -310,7 +310,7 @@ GetNextCToken(c_tokenizer *Tokenizer)
         {
             if(IsAlpha(C))
             {
-                Result.Type = CTokenType_Identifier;
+                Result.Type = CToken_Identifier;
                 
                 while(IsAlpha(Tokenizer->At[0]) ||
                       IsNumber(Tokenizer->At[0]) ||
@@ -329,7 +329,7 @@ GetNextCToken(c_tokenizer *Tokenizer)
 #endif
             else
             {
-                Result.Type = CTokenType_Unknown;
+                Result.Type = CToken_Unknown;
             }
         } break;        
         
@@ -368,18 +368,18 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
     for(;;)
     {
         Token = GetNextCToken(Tokenizer);
-        if((Token.Type == CTokenType_EndOfStream) ||
-           (Token.Type == CTokenType_CloseBrace))
+        if((Token.Type == CToken_EndOfStream) ||
+           (Token.Type == CToken_CloseBrace))
         {
             Token = GetNextCToken(Tokenizer);
             break;
         }
-        else if(Token.Type == CTokenType_Identifier)
+        else if(Token.Type == CToken_Identifier)
         {
             string Type = Token.Str;
             Token = GetNextCToken(Tokenizer);
             b32 IsPointer = false;
-            if(Token.Type == CTokenType_Asterisk)
+            if(Token.Type == CToken_Asterisk)
             {
                 IsPointer = true;
                 Token = GetNextCToken(Tokenizer);
@@ -468,17 +468,17 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
     for(;;)
     {
         Token = GetNextCToken(Tokenizer);
-        if((Token.Type == CTokenType_EndOfStream) ||
-           (Token.Type == CTokenType_CloseBrace))
+        if((Token.Type == CToken_EndOfStream) ||
+           (Token.Type == CToken_CloseBrace))
         {
             Win32ConsoleOut(Tokenizer->Arena, "\n    return Result;\n}\n\n");
             break;
         }
-        else if(Token.Type == CTokenType_Identifier)
+        else if(Token.Type == CToken_Identifier)
         {
             Token = GetNextCToken(Tokenizer);
             b32 IsPointer = false;
-            if(Token.Type == CTokenType_Asterisk)
+            if(Token.Type == CToken_Asterisk)
             {
                 IsPointer = true;
                 Token = GetNextCToken(Tokenizer);
@@ -529,7 +529,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     {
         Token = GetNextCToken(Tokenizer);
     }
-    if(Token.Type == CTokenType_Asterisk)
+    if(Token.Type == CToken_Asterisk)
     {
         ReturnType = FormatString(Tokenizer->Arena, "%S *", ReturnType);
         Token = GetNextCToken(Tokenizer);
@@ -538,23 +538,23 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     string FunctionName = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
     ToUpperCamelCase(&FunctionName);
     Token = GetNextCToken(Tokenizer);
-    Assert(Token.Type == CTokenType_OpenParen);
+    Assert(Token.Type == CToken_OpenParen);
     Win32ConsoleOut(Tokenizer->Arena, "\ninternal %S\n", ReturnType);
     Win32ConsoleOut(Tokenizer->Arena, "Win32%S(", FunctionName);
     Token = GetNextCToken(Tokenizer);
     b32 FirstParamFound = false;
     string ParametersWithoutTypes;
     ZeroStruct(ParametersWithoutTypes);
-    if(Token.Type == CTokenType_CloseParen)
+    if(Token.Type == CToken_CloseParen)
     {
         Token = GetNextCToken(Tokenizer);
     }
     else
     {
         format_string_state StringState = BeginFormatString(Tokenizer->Arena);
-        while(Token.Type != CTokenType_CloseParen)
+        while(Token.Type != CToken_CloseParen)
         {
-            if(Token.Type == CTokenType_Identifier)
+            if(Token.Type == CToken_Identifier)
             {
                 b32 IsConst = false;
                 if(StringsAreEqual(Token.Str, String("const")))
@@ -572,12 +572,12 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
                     IsVolatile = true;
                     Token = GetNextCToken(Tokenizer);
                 }
-                if(Token.Type == CTokenType_Asterisk)
+                if(Token.Type == CToken_Asterisk)
                 {
                     IsPointer = true;
                     Token = GetNextCToken(Tokenizer);
                 }
-                if(Token.Type == CTokenType_Asterisk)
+                if(Token.Type == CToken_Asterisk)
                 {
                     IsPointerToPointer = true;
                     Token = GetNextCToken(Tokenizer);
@@ -637,7 +637,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
 internal void
 ParseIntrospectable_(c_tokenizer *Tokenizer)
 {
-    if(RequireCToken(Tokenizer, CTokenType_OpenParen))
+    if(RequireCToken(Tokenizer, CToken_OpenParen))
     {
         b32 IsCtor = false;
         b32 IsSet1 = false;
@@ -649,11 +649,11 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
         // NOTE(kstandbridge): Parse params
         c_token Token;
         ZeroStruct(Token);
-        while((Token.Type != CTokenType_EndOfStream) &&
-              (Token.Type != CTokenType_CloseParen))
+        while((Token.Type != CToken_EndOfStream) &&
+              (Token.Type != CToken_CloseParen))
         {
             Token = GetNextCToken(Tokenizer);
-            if(Token.Type == CTokenType_Identifier)
+            if(Token.Type == CToken_Identifier)
             {
                 if(StringsAreEqual(String("ctor"), Token.Str))
                 {
@@ -690,7 +690,7 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
             Token = GetNextCToken(Tokenizer);
             Assert(StringsAreEqual(String("struct"), Token.Str));
             
-            if(RequireCToken(Tokenizer, CTokenType_OpenBrace))
+            if(RequireCToken(Tokenizer, CToken_OpenBrace))
             {
                 Start = Tokenizer->At;
                 
@@ -745,16 +745,16 @@ ParseIntrospectable(memory_arena *Arena, string File)
         c_token Token = GetNextCToken(&Tokenizer);
         switch(Token.Type)
         {
-            case CTokenType_EndOfStream:
+            case CToken_EndOfStream:
             {
                 Parsing = false;
             } break;
             
-            case CTokenType_Unknown:
+            case CToken_Unknown:
             {
             } break;
             
-            case CTokenType_Identifier:
+            case CToken_Identifier:
             {
                 if(StringsAreEqual(String("introspect"), Token.Str))
                 {

@@ -48,7 +48,7 @@ GetAlignmentOffset(memory_arena *Arena, umm Alignment)
         AlignmentOffset = Alignment - (ResultPointer & AlignmentMask);
     }
     
-    return(AlignmentOffset);
+    return AlignmentOffset;
 }
 
 
@@ -59,7 +59,7 @@ Copy(umm Size, void *SourceInit, void *DestInit)
     u8 *Dest = (u8 *)DestInit;
     while(Size--) {*Dest++ = *Source++;}
     
-    return(DestInit);
+    return DestInit;
 }
 
 #define PushStruct(Arena, type) (type *)PushSize_(Arena, sizeof(type), 4)
@@ -80,7 +80,7 @@ PushSize_(memory_arena *Arena, umm SizeInit, umm Alignment)
     
     Assert(Size >= SizeInit);
     
-    return(Result);
+    return Result;
 }
 
 

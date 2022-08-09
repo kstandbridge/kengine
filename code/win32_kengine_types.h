@@ -57,6 +57,8 @@ introspect(win32, User32) typedef int release_d_c(HWND hWnd, HDC hDC);
 introspect(win32, User32) typedef BOOL translate_message(const MSG *lpMsg);
 introspect(win32, User32) typedef BOOL get_cursor_pos(LPPOINT lpPoint);
 introspect(win32, User32) typedef BOOL screen_to_client(HWND hWnd, LPPOINT lpPoint);
+
+
 introspect(win32, User32) typedef BOOL get_client_rect(HWND hWnd, LPRECT lpRect);
 
 

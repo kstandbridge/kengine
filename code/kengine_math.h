@@ -148,6 +148,17 @@ InvertedInfinityRectangle2(void)
     return Result;
 }
 
+inline rectangle2
+Rectangle2MinDim(v2 Min, v2 Dim)
+{
+    rectangle2 Result;
+    
+    Result.Min = Min;
+    Result.Max = V2Add(Min, Dim);
+    
+    return(Result);
+}
+
 
 inline rectangle2
 Rectangle2Union(rectangle2 A, rectangle2 B)
