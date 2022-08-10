@@ -85,6 +85,14 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     {
         __debugbreak();
     }
+    
+    BeginRow(&UIFrame);
+    Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Foo"));
+    Button(&UIFrame, RenderGroup, 48.0f, InteractionIdFromPtr(AppState), AppState, String("Bar"));
+    Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Bas"));
+    EndRow(&UIFrame);
+    
+    
     if(Button(&UIFrame, RenderGroup, 128.0f, InteractionIdFromPtr(AppState), AppState, String("Forward")))
     {
         __debugbreak();

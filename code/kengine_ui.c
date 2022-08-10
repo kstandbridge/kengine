@@ -242,10 +242,11 @@ BeginUIFrame(ui_state *UIState, app_input *Input, v2 UpperLeftCorner)
     ui_frame Result;
     Result.UIState = UIState;
     Result.UpperLeftCorner = UpperLeftCorner;
-    Result.At = V2Add(UpperLeftCorner, V2(UIState->LineAdvance, -UIState->LineAdvance));
     Result.Scale = 1.0f;
     Result.SpacingX = 10.0f;
     Result.SpacingY = 10.0f;
+    Result.NoLineFeed = 0;
+    Result.At = V2(UpperLeftCorner.X, UpperLeftCorner.Y - Result.SpacingY);
     
     UIState->MouseDown = Input->MouseButtons[MouseButton_Left].EndedDown;
     UIState->LastMouseP = UIState->MouseP;
@@ -284,7 +285,23 @@ SetUIElementDefaultAction(ui_element *Element, ui_interaction Interaction)
     Element->Interaction = Interaction;
 }
 
-inline rectangle2
+inline void
+AdvanceFrameAt(ui_frame *UIFrame, rectangle2 Bounds)
+{
+    UIFrame->NextYDelta = Minimum(UIFrame->NextYDelta, Bounds.Min.Y - UIFrame->At.Y);
+    
+    if(UIFrame->NoLineFeed)
+    {
+        UIFrame->At.X = Bounds.Max.X + UIFrame->SpacingX;
+    }
+    else
+    {
+        UIFrame->At.Y += UIFrame->NextYDelta;
+        UIFrame->At.X = UIFrame->UpperLeftCorner.X;
+    }
+}
+
+inline void
 EndUIElement(ui_element *Element)
 {
     ui_frame *UIFrame = Element->UIFrame;
@@ -310,15 +327,8 @@ EndUIElement(ui_element *Element)
         // TODO(kstandbridge): Resize interaction
     }
     
-    rectangle2 Result = Rectangle2(TotalMinCorner, TotalMaxCorner);
-    // NOTE(kstandbridge): Advance element
-    {
-        
-        UIFrame->NextYDelta = Minimum(UIFrame->NextYDelta, Result.Min.Y - UIFrame->At.Y);
-        UIFrame->At.Y += UIFrame->NextYDelta;
-        UIFrame->At.X = UIFrame->UpperLeftCorner.X + UIState->LineAdvance;
-    }
-    return Result;
+    rectangle2 TotalBounds = Rectangle2(TotalMinCorner, TotalMaxCorner);
+    AdvanceFrameAt(UIFrame, TotalBounds);
 }
 
 internal ui_element
@@ -329,8 +339,7 @@ DrawTextElement_(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction In
     
     rectangle2 TextBounds = GetTextSize(RenderGroup, UIFrame->Scale, UIFrame->At, Text);
     v2 TextDim = GetDim(TextBounds);
-    v2 ElementDim = V2Add(TextDim, V2(UIFrame->SpacingX*2.0f, UIFrame->SpacingY*2.0f));
-    ElementDim.X = Width;
+    v2 ElementDim = V2(Width, TextDim.Y + UIFrame->SpacingY*2.0f);
     
     b32 IsHot = InteractionIsHot(UIState, Interaction);
     v4 TextColor = IsHot ? Colors.HotText : Colors.Text;
@@ -347,7 +356,7 @@ DrawTextElement_(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction In
     
     ui_element Element = BeginUIElement(UIFrame, ElementDim);
     SetUIElementDefaultAction(&Element, Interaction);
-    rectangle2 TotalBounds = EndUIElement(&Element);
+    EndUIElement(&Element);
     
     v2 TextOffset = V2Add(Element.Bounds.Min, V2(Width*0.5f - TextDim.X*0.5f, UIFrame->SpacingY));
     DrawText(RenderGroup, UIFrame->Scale, TextOffset, TextColor, Text);
@@ -391,3 +400,17 @@ Button(ui_frame *UIFrame, render_group *RenderGroup, f32 Width, ui_interaction_i
     return Result;
 }
 
+inline void
+BeginRow(ui_frame *UIFrame)
+{
+    ++UIFrame->NoLineFeed;
+}
+
+inline void
+EndRow(ui_frame *UIFrame)
+{
+    Assert(UIFrame->NoLineFeed > 0);
+    --UIFrame->NoLineFeed;
+    
+    AdvanceFrameAt(UIFrame, Rectangle2(UIFrame->At, UIFrame->At));
+}

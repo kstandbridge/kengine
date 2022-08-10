@@ -85,6 +85,7 @@ typedef struct
     f32 Scale;
     f32 SpacingX;
     f32 SpacingY;
+    u32 NoLineFeed;
     
     f32 NextYDelta;
     

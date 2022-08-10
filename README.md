@@ -214,7 +214,7 @@ switch(Tokenizer->At[0])
 - [x] ActionButton
 - [x] Verticle control layout
 - [x] Set width for controls
-- [ ] Horizontal control rows
+- [x] Horizontal control rows
 - [ ] ToggleButton
 - [ ] Circular buffer for strings
 - [ ] Debug section with console
