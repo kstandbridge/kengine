@@ -237,7 +237,7 @@ GetTextSize(render_group *RenderGroup, f32 Scale, v2 P, string Text)
 }
 
 inline ui_frame
-BeginUIFrame(ui_state *UIState, app_input *Input, v2 UpperLeftCorner)
+BeginUIFrame(ui_state *UIState, v2 UpperLeftCorner)
 {
     ui_frame Result;
     Result.UIState = UIState;
@@ -246,25 +246,17 @@ BeginUIFrame(ui_state *UIState, app_input *Input, v2 UpperLeftCorner)
     Result.SpacingX = 10.0f;
     Result.SpacingY = 10.0f;
     Result.NoLineFeed = 0;
-    Result.At = V2(UpperLeftCorner.X, UpperLeftCorner.Y - Result.SpacingY);
-    
-    UIState->MouseDown = Input->MouseButtons[MouseButton_Left].EndedDown;
-    UIState->LastMouseP = UIState->MouseP;
-    UIState->MouseP = V2(Input->MouseX, Input->MouseY);
-    UIState->dMouseP = V2Subtract(UIState->LastMouseP, UIState->MouseP);
-    
+    Result.NextYDelta = 0;
+    Result.At = V2(UpperLeftCorner.X, UpperLeftCorner.Y);
+    Result.TotalBounds = InvertedInfinityRectangle2();
     return Result;
 }
 
-inline void
-EndUIFrame(ui_frame *UIFrame, app_input *Input)
+inline rectangle2
+EndUIFrame(ui_frame *UIFrame)
 {
-    ui_state *UIState = UIFrame->UIState;
-    
-    Interact(UIState, Input);
-    UIState->ToExecute = UIState->NextToExecute;
-    ClearInteraction(&UIState->NextToExecute);
-    ClearInteraction(&UIState->NextHotInteraction);
+    rectangle2 Result = UIFrame->TotalBounds;
+    return Result;
 }
 
 inline ui_element
@@ -328,6 +320,7 @@ EndUIElement(ui_element *Element)
     }
     
     rectangle2 TotalBounds = Rectangle2(TotalMinCorner, TotalMaxCorner);
+    UIFrame->TotalBounds = Rectangle2Union(UIFrame->TotalBounds, TotalBounds);
     AdvanceFrameAt(UIFrame, TotalBounds);
 }
 

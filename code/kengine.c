@@ -73,40 +73,65 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     
     ui_state *UIState = &AppState->UIState;
     
-    ui_frame UIFrame = BeginUIFrame(UIState, Input, V2(0.0f, (f32)Commands->Height));
+    
+    UIState->MouseDown = Input->MouseButtons[MouseButton_Left].EndedDown;
+    UIState->LastMouseP = UIState->MouseP;
+    UIState->MouseP = V2(Input->MouseX, Input->MouseY);
+    UIState->dMouseP = V2Subtract(UIState->LastMouseP, UIState->MouseP);
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TranArena);
-    string Text = FormatString(TempMem.Arena, "Mouse: %.03f / %.03f", Input->MouseX, Input->MouseY);
-    if(Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Back")))
+    
+    ui_frame UIFrame = BeginUIFrame(UIState, V2(0.0f, (f32)Commands->Height));
+    {    
+        string Text = FormatString(TempMem.Arena, "Mouse: %.03f / %.03f", Input->MouseX, Input->MouseY);
+        if(Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Back")))
+        {
+            __debugbreak();
+        }
+        if(Button(&UIFrame, RenderGroup, 512.0f, InteractionIdFromPtr(AppState), AppState, Text))
+        {
+            __debugbreak();
+        }
+        
+        BeginRow(&UIFrame);
+        Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Foo"));
+        Button(&UIFrame, RenderGroup, 48.0f, InteractionIdFromPtr(AppState), AppState, String("Bar"));
+        Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Bas"));
+        EndRow(&UIFrame);
+        
+        
+        if(Button(&UIFrame, RenderGroup, 128.0f, InteractionIdFromPtr(AppState), AppState, String("Forward")))
+        {
+            __debugbreak();
+        }
+        
+        f32 Width = (f32)Commands->Width;
+        f32 Height = (f32)Commands->Height;
+        
+        PushRenderCommandRectangleOutline(RenderGroup, 10.0f, V4(0.0f, 0.5f, 0.5f, 1.0f),
+                                          Rectangle2(V2(Width*0.25f, Height*0.25f), 
+                                                     V2(Width*0.75f, Height*0.75f)),
+                                          1000000.0f);
+    }
+    
+    rectangle2 TotalBounds = EndUIFrame(&UIFrame);
+    ui_frame RightPanel = BeginUIFrame(UIState, V2(TotalBounds.Max.X, TotalBounds.Max.Y));
+    Button(&RightPanel, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("One"));
+    BeginRow(&RightPanel);
+    Button(&RightPanel, RenderGroup, 48.0f, InteractionIdFromPtr(AppState), AppState, String("Two"));
+    Button(&RightPanel, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Three"));
+    Button(&RightPanel, RenderGroup, 96.0f, InteractionIdFromPtr(AppState), AppState, String("Four"));
+    EndRow(&RightPanel);
+    if(Button(&RightPanel, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Five")))
     {
         __debugbreak();
     }
-    if(Button(&UIFrame, RenderGroup, 512.0f, InteractionIdFromPtr(AppState), AppState, Text))
-    {
-        __debugbreak();
-    }
+    TotalBounds = EndUIFrame(&RightPanel);
     
-    BeginRow(&UIFrame);
-    Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Foo"));
-    Button(&UIFrame, RenderGroup, 48.0f, InteractionIdFromPtr(AppState), AppState, String("Bar"));
-    Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Bas"));
-    EndRow(&UIFrame);
-    
-    
-    if(Button(&UIFrame, RenderGroup, 128.0f, InteractionIdFromPtr(AppState), AppState, String("Forward")))
-    {
-        __debugbreak();
-    }
-    
-    f32 Width = (f32)Commands->Width;
-    f32 Height = (f32)Commands->Height;
-    
-    PushRenderCommandRectangleOutline(RenderGroup, 10.0f, V4(0.0f, 0.5f, 0.5f, 1.0f),
-                                      Rectangle2(V2(Width*0.25f, Height*0.25f), 
-                                                 V2(Width*0.75f, Height*0.75f)),
-                                      1000000.0f);
-    
-    EndUIFrame(&UIFrame, Input);
+    Interact(UIState, Input);
+    UIState->ToExecute = UIState->NextToExecute;
+    ClearInteraction(&UIState->NextToExecute);
+    ClearInteraction(&UIState->NextHotInteraction);
     
     EndTemporaryMemory(TempMem);
     CheckArena(&AppState->TranArena);

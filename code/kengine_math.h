@@ -138,7 +138,7 @@ Linear1ToSRGB255(v4 C)
 //
 
 inline rectangle2
-InvertedInfinityRectangle2(void)
+InvertedInfinityRectangle2()
 {
     rectangle2 Result;
     

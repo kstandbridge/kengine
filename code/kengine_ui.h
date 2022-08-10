@@ -81,7 +81,6 @@ typedef struct
     ui_state *UIState;
     
     v2 UpperLeftCorner;
-    v2 At;
     f32 Scale;
     f32 SpacingX;
     f32 SpacingY;
@@ -89,6 +88,8 @@ typedef struct
     
     f32 NextYDelta;
     
+    v2 At;
+    rectangle2 TotalBounds;
 } ui_frame;
 
 typedef struct
