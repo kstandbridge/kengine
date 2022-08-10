@@ -7,8 +7,8 @@ DrawRectangle(loaded_bitmap *Buffer, v2 MinP, v2 MaxP, v4 Color, rectangle2i Cli
     FillRect = Intersect(FillRect, ClipRect);
     
     Color.R *= Color.A;
-    Color.G *= Color.G;
-    Color.B *= Color.B;
+    Color.G *= Color.A;
+    Color.B *= Color.A;
     Color = V4Multiply(Color, V4Set1(255.0f));
     
     if(HasArea(FillRect))

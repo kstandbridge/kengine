@@ -18,6 +18,9 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         app_state *AppState = PlatformAPI->AppState;
         
         AppState->TestGlyph = Platform.GetGlyphForCodePoint(Arena, 'K');
+        // NOTE(kstandbridge): GetVerticleAdvance will return 0 if no glyphs have been loaded
+        AppState->UIState.LineAdvance = Platform.GetVerticleAdvance();
+        
         SubArena(&AppState->TranArena, Arena, Kilobytes(512));
     }
     
@@ -38,7 +41,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     }
     else
     {
-        PushRenderCommandClear(RenderGroup, 0.0f, V4(0.3f, 0.0f, 0.3f, 1.0f));
+        PushRenderCommandClear(RenderGroup, 0.0f, RGBColor(255, 255, 255, 255));
     }
     
 #if 0
@@ -68,18 +71,34 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     }
 #endif
     
-    u_i_state *UIState = &AppState->UIState;
+    ui_state *UIState = &AppState->UIState;
     
-    BeginUIFrame(UIState, Input);
+    ui_frame UIFrame = BeginUIFrame(UIState, Input, V2(0.0f, (f32)Commands->Height));
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TranArena);
     string Text = FormatString(TempMem.Arena, "Mouse: %.03f / %.03f", Input->MouseX, Input->MouseY);
-    if(Button(UIState, RenderGroup, InteractionIdFromPtr(AppState), AppState, Text))
+    if(Button(&UIFrame, RenderGroup, InteractionIdFromPtr(AppState), AppState, String("Back")))
+    {
+        __debugbreak();
+    }
+    if(Button(&UIFrame, RenderGroup, InteractionIdFromPtr(AppState), AppState, Text))
+    {
+        __debugbreak();
+    }
+    if(Button(&UIFrame, RenderGroup, InteractionIdFromPtr(AppState), AppState, String("Forward")))
     {
         __debugbreak();
     }
     
-    EndUIFrame(UIState, Input);
+    f32 Width = (f32)Commands->Width;
+    f32 Height = (f32)Commands->Height;
+    
+    PushRenderCommandRectangleOutline(RenderGroup, 10.0f, V4(0.0f, 0.5f, 0.5f, 1.0f),
+                                      Rectangle2(V2(Width*0.25f, Height*0.25f), 
+                                                 V2(Width*0.75f, Height*0.75f)),
+                                      1000000.0f);
+    
+    EndUIFrame(&UIFrame, Input);
     
     EndTemporaryMemory(TempMem);
     CheckArena(&AppState->TranArena);

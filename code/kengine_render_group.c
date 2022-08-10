@@ -94,6 +94,20 @@ PushRenderCommandRectangle(render_group *Group, v4 Color, rectangle2 Bounds, f32
     }
 }
 
+internal void
+PushRenderCommandRectangleOutline(render_group *Group, f32 Thickness, v4 Color, rectangle2 Bounds, f32 SortKey)
+{
+    v2 Min = Bounds.Min;
+    v2 Max = Bounds.Max;
+    
+    PushRenderCommandRectangle(Group, Color, Rectangle2(V2(Min.X, Max.Y - Thickness), V2(Max.X, Max.Y)), SortKey);
+    PushRenderCommandRectangle(Group, Color, Rectangle2(V2(Min.X, Min.Y), V2(Max.X, Min.Y + Thickness)), SortKey);
+    
+    PushRenderCommandRectangle(Group, Color, Rectangle2(V2(Min.X, Min.Y), V2(Min.X + Thickness, Max.Y)), SortKey);
+    PushRenderCommandRectangle(Group, Color, Rectangle2(V2(Max.X - Thickness, Min.Y), V2(Max.X, Max.Y)), SortKey);
+}
+
+
 inline bitmap_dim
 GetBitmapDim(loaded_bitmap *Bitmap, f32 Height, v2 Offset)
 {

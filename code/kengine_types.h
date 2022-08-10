@@ -41,6 +41,9 @@ typedef unsigned __int64 umm;
 #define Gigabytes(Value) (Megabytes(Value)*1024LL)
 #define Terabytes(Value) (Gigabytes(Value)*1024LL)
 
+#define Minimum(A, B) ((A < B) ? (A) : (B))
+#define Maximum(A, B) ((A > B) ? (A) : (B))
+
 typedef struct
 {
     umm Size;
@@ -81,6 +84,22 @@ introspect(ctor) typedef struct
     s32 MinY;
     s32 MaxY;
 } rectangle2i;
+
+introspect(ctor) typedef struct
+{
+    v4 Text;
+    v4 HotText;
+    v4 ClickedText;
+    
+    v4 Background;
+    v4 HotBackground;
+    v4 ClickedBackground;
+    
+    v4 Border;
+    v4 HotBorder;
+    v4 ClickedBorder;
+    
+} element_colors;
 
 // TODO(kstandbridge): Where should loaded_bitmap live?
 #define BITMAP_BYTES_PER_PIXEL 4

@@ -212,7 +212,8 @@ switch(Tokenizer->At[0])
 - [x] Interaction framework
 - [x] Text element
 - [x] ActionButton
-- [ ] Verticle control layout
+- [x] Verticle control layout
+- [ ] Set width for controls
 - [ ] Horizontal control rows
 - [ ] ToggleButton
 - [ ] Circular buffer for strings

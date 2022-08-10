@@ -1,6 +1,6 @@
 
 inline void
-ClearInteraction(interaction *Interaction)
+ClearInteraction(ui_interaction *Interaction)
 {
     Interaction->Type = Interaction_None;
     Interaction->Generic = 0;
@@ -105,7 +105,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
 }
 
 internal void
-Interact(u_i_state *UIState, app_input *Input)
+Interact(ui_state *UIState, app_input *Input)
 {
     u32 TransitionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
     b32 MouseButton = Input->MouseButtons[MouseButton_Left].EndedDown;
@@ -138,6 +138,7 @@ Interact(u_i_state *UIState, app_input *Input)
             case Interaction_ImmediateButton:
             case Interaction_Draggable:
             {
+                UIState->ClickedId = UIState->Interaction.Id;
                 if(MouseUp)
                 {
                     UIState->NextToExecute = UIState->Interaction;
@@ -147,6 +148,7 @@ Interact(u_i_state *UIState, app_input *Input)
             
             case Interaction_Select:
             {
+                UIState->ClickedId = UIState->Interaction.Id;
                 if(MouseUp)
                 {
                     // TODO(kstandbridge): Select something?
@@ -156,6 +158,7 @@ Interact(u_i_state *UIState, app_input *Input)
             
             case Interaction_None:
             {
+                UIState->ClickedId = InteractionIdFromPtr(0);
                 UIState->HotInteraction = UIState->NextHotInteraction;
                 if(MouseDown)
                 {
@@ -165,12 +168,14 @@ Interact(u_i_state *UIState, app_input *Input)
             
             default:
             {
+                UIState->ClickedId = InteractionIdFromPtr(0);
                 if(MouseUp)
                 {
                     EndInteraction = true;
                 }
             } break;
         }
+        
         
         if(EndInteraction)
         {
@@ -183,7 +188,7 @@ Interact(u_i_state *UIState, app_input *Input)
 }
 
 inline b32
-InteractionIdsAreEqual(interaction_id A, interaction_id B)
+InteractionIdsAreEqual(ui_interaction_id A, ui_interaction_id B)
 {
     b32 Result = ((A.Value[0].U64 == B.Value[0].U64) &&
                   (A.Value[1].U64 == B.Value[1].U64));
@@ -192,7 +197,7 @@ InteractionIdsAreEqual(interaction_id A, interaction_id B)
 }
 
 inline b32
-InteractionsAreEqual(interaction A, interaction B)
+InteractionsAreEqual(ui_interaction A, ui_interaction B)
 {
     b32 Result = (InteractionIdsAreEqual(A.Id, B.Id) &&
                   (A.Type == B.Type) &&
@@ -203,7 +208,7 @@ InteractionsAreEqual(interaction A, interaction B)
 }
 
 inline b32
-InteractionIsHot(u_i_state *UIState, interaction Interaction)
+InteractionIsHot(ui_state *UIState, ui_interaction Interaction)
 {
     b32 Result = InteractionsAreEqual(UIState->HotInteraction, Interaction);
     
@@ -231,68 +236,155 @@ GetTextSize(render_group *RenderGroup, f32 Scale, v2 P, string Text)
     return Result;
 }
 
-typedef struct
+inline ui_frame
+BeginUIFrame(ui_state *UIState, app_input *Input, v2 UpperLeftCorner)
 {
-    u_i_state *UIState;
-    app_input *Input;
-} u_i_frame;
-
-inline void
-BeginUIFrame(u_i_state *UIState, app_input *Input)
-{
+    ui_frame Result;
+    Result.UIState = UIState;
+    Result.UpperLeftCorner = UpperLeftCorner;
+    Result.At = V2Add(UpperLeftCorner, V2(UIState->LineAdvance, -UIState->LineAdvance));
+    Result.Scale = 1.0f;
+    Result.SpacingX = 10.0f;
+    Result.SpacingY = 10.0f;
+    
+    UIState->MouseDown = Input->MouseButtons[MouseButton_Left].EndedDown;
     UIState->LastMouseP = UIState->MouseP;
     UIState->MouseP = V2(Input->MouseX, Input->MouseY);
     UIState->dMouseP = V2Subtract(UIState->LastMouseP, UIState->MouseP);
+    
+    return Result;
 }
 
 inline void
-EndUIFrame(u_i_state *UIState, app_input *Input)
+EndUIFrame(ui_frame *UIFrame, app_input *Input)
 {
+    ui_state *UIState = UIFrame->UIState;
+    
     Interact(UIState, Input);
     UIState->ToExecute = UIState->NextToExecute;
     ClearInteraction(&UIState->NextToExecute);
     ClearInteraction(&UIState->NextHotInteraction);
 }
 
+inline ui_element
+BeginUIElement(ui_frame *Frame, v2 Dim)
+{
+    ui_element Element;
+    ZeroStruct(Element);
+    
+    Element.UIFrame = Frame;
+    Element.Dim = Dim;
+    
+    return Element;
+}
+
+inline void
+SetUIElementDefaultAction(ui_element *Element, ui_interaction Interaction)
+{
+    Element->Interaction = Interaction;
+}
+
+inline rectangle2
+EndUIElement(ui_element *Element)
+{
+    ui_frame *UIFrame = Element->UIFrame;
+    ui_state *UIState = UIFrame->UIState;
+    
+    v2 Margin = V2(UIFrame->SpacingX, UIFrame->SpacingY);
+    v2 TotalDim = V2Add(Element->Dim, Margin);
+    v2 TotalMinCorner = V2(UIFrame->At.X, UIFrame->At.Y - TotalDim.Y);
+    v2 TotalMaxCorner = V2Add(TotalMinCorner , TotalDim);
+    
+    v2 InteriorMinCorner = V2Add(TotalMinCorner, Margin);
+    v2 InteriorMaxCorner = V2Add(InteriorMinCorner, Element->Dim);
+    Element->Bounds = Rectangle2(InteriorMinCorner, InteriorMaxCorner);
+    
+    if(Element->Interaction.Type && IsInRectangle(Element->Bounds, UIState->MouseP))
+    {
+        UIState->NextHotInteraction = Element->Interaction;
+        Element->IsHot = true;
+    }
+    
+    if(Element->Size)
+    {
+        // TODO(kstandbridge): Resize interaction
+    }
+    
+    rectangle2 Result = Rectangle2(TotalMinCorner, TotalMaxCorner);
+    // NOTE(kstandbridge): Advance element
+    {
+        
+        UIFrame->NextYDelta = Minimum(UIFrame->NextYDelta, Result.Min.Y - UIFrame->At.Y);
+        UIFrame->At.Y += UIFrame->NextYDelta;
+        UIFrame->At.X = UIFrame->UpperLeftCorner.X + UIState->LineAdvance;
+    }
+    return Result;
+}
+
+internal ui_element
+DrawTextElement_(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction Interaction, string Text, 
+                 element_colors Colors)
+{
+    ui_state *UIState = UIFrame->UIState;
+    
+    rectangle2 TextBounds = GetTextSize(RenderGroup, UIFrame->Scale, UIFrame->At, Text);
+    v2 Dim = V2Add(GetDim(TextBounds), V2(UIFrame->SpacingX*2.0f, UIFrame->SpacingY*2.0f));
+    
+    b32 IsHot = InteractionIsHot(UIState, Interaction);
+    v4 TextColor = IsHot ? Colors.HotText : Colors.Text;
+    v4 BackgroundColor = IsHot ? Colors.HotBackground : Colors.Background;
+    v4 BorderColor = IsHot ? Colors.HotBorder : Colors.Border;
+    
+    if(InteractionIdsAreEqual(UIState->ClickedId, Interaction.Id) && 
+       UIState->MouseDown)
+    {
+        TextColor = Colors.ClickedText;
+        BackgroundColor = Colors.ClickedBackground;
+        BorderColor = Colors.ClickedBorder;
+        DrawText(RenderGroup, 1.0f, V2(10, 10), V4(0.0f, 0.0f, 0.0f, 0.0f), String("Working yo!")); 
+    }
+    
+    ui_element Element = BeginUIElement(UIFrame, Dim);
+    SetUIElementDefaultAction(&Element, Interaction);
+    rectangle2 TotalBounds = EndUIElement(&Element);
+    
+    DrawText(RenderGroup, UIFrame->Scale, V2Add(Element.Bounds.Min, V2(UIFrame->SpacingX, UIFrame->SpacingY)), TextColor, Text);
+    
+    if(BackgroundColor.A > 0.0f)
+    {
+        PushRenderCommandRectangle(RenderGroup, BackgroundColor, Element.Bounds, 0.25f);
+    }
+    if(BorderColor.A > 0.0f)
+    {
+        PushRenderCommandRectangleOutline(RenderGroup, 1.0f, BorderColor, Element.Bounds, 1.0f);
+    }
+    
+    return Element;
+}
+
 // TODO(kstandbridge): Button format
 internal b32
-Button(u_i_state *UIState, render_group *RenderGroup, interaction_id Id, void *Target, string Text)
+Button(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction_id Id, void *Target, string Text)
 {
+    ui_state *UIState = UIFrame->UIState;
     // TODO(kstandbridge): This shouldn't have a perm arena, later we will not load textures in the push draw routine
     b32 Result = false;
     
-    f32 Scale = 1.0f;
-    v2 P = V2(10.0f, 100.0f);
-    
-    interaction Interaction;
+    ui_interaction Interaction;
     Interaction.Id = Id;
     Interaction.Type = Interaction_ImmediateButton;
     Interaction.Target = Target;
     
-    if(InteractionsAreEqual(Interaction, UIState->ToExecute))
+    element_colors Colors = ElementColors(RGBColor(255, 255, 255, 255), RGBColor(0, 120, 215, 255), RGBColor(0, 84, 153, 255),
+                                          RGBColor(225, 225, 225, 255), RGBColor(229, 241, 251, 255), RGBColor(204, 228, 247, 255),
+                                          RGBColor(173, 173, 173, 255), RGBColor(0, 120, 215, 255), RGBColor(0, 84, 153, 255));
+    ui_element Element = DrawTextElement_(UIFrame, RenderGroup, Interaction, Text, Colors);
+    
+    if(InteractionsAreEqual(Interaction, UIState->ToExecute) &&
+       Element.IsHot)
     {
         Result = true;
     }
-    
-    rectangle2 TextBounds;
-    // BeginElement()
-    {
-        TextBounds = GetTextSize(RenderGroup, Scale, P, Text);
-    }
-    // EndElement()
-    {
-        // TODO(kstandbridge): Maybe add a border and calculate exact bounds of entire element
-        
-        if(IsInRectangle(TextBounds, UIState->MouseP))
-        {
-            UIState->NextHotInteraction = Interaction;
-        }
-    }
-    
-    b32 IsHot = InteractionIsHot(UIState, Interaction);
-    v4 TextColor = IsHot ? V4(1.0f, 1.0f, 0.0f, 1.0f) : V4(1.0f, 1.0f, 1.0f, 1.0f);
-    
-    DrawText(RenderGroup, Scale, P, TextColor, Text);
     
     return Result;
 }

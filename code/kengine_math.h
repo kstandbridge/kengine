@@ -173,6 +173,23 @@ Rectangle2Union(rectangle2 A, rectangle2 B)
     return Result;
 }
 
+inline b32
+IsInRectangle(rectangle2 Rectangle, v2 Test)
+{
+    b32 Result = ((Test.X >= Rectangle.Min.X) &&
+                  (Test.Y >= Rectangle.Min.Y) &&
+                  (Test.X < Rectangle.Max.X) &&
+                  (Test.Y < Rectangle.Max.Y));
+    
+    return Result;
+}
+
+inline v2
+GetDim(rectangle2 Rectangle)
+{
+    v2 Result = V2Subtract(Rectangle.Max, Rectangle.Min);
+    return Result;
+}
 
 //
 // NOTE(kstandbridge): rectangle2i operations
@@ -207,17 +224,6 @@ inline b32
 HasArea(rectangle2i A)
 {
     b32 Result = ((A.MinX < A.MaxX) && (A.MinY < A.MaxY));
-    
-    return Result;
-}
-
-inline b32
-IsInRectangle(rectangle2 Rectangle, v2 Test)
-{
-    b32 Result = ((Test.X >= Rectangle.Min.X) &&
-                  (Test.Y >= Rectangle.Min.Y) &&
-                  (Test.X < Rectangle.Max.X) &&
-                  (Test.Y < Rectangle.Max.Y));
     
     return Result;
 }

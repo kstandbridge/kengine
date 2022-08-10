@@ -17,7 +17,7 @@ typedef struct app_state
     
     loaded_glyph Glyphs[255];
     
-    u_i_state UIState;
+    ui_state UIState;
 } app_state;
 
 #define KENGINE_H

@@ -93,6 +93,15 @@ typedef struct
     f32 MouseZ;
 } app_input;
 
+inline b32 
+WasPressed(app_button_state State)
+{
+    b32 Result = ((State.HalfTransitionCount > 1) ||
+                  ((State.HalfTransitionCount == 1) && (State.EndedDown)));
+    
+    return Result;
+}
+
 typedef struct app_state app_state;
 typedef struct
 {
