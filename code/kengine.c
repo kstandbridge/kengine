@@ -77,15 +77,15 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TranArena);
     string Text = FormatString(TempMem.Arena, "Mouse: %.03f / %.03f", Input->MouseX, Input->MouseY);
-    if(Button(&UIFrame, RenderGroup, InteractionIdFromPtr(AppState), AppState, String("Back")))
+    if(Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Back")))
     {
         __debugbreak();
     }
-    if(Button(&UIFrame, RenderGroup, InteractionIdFromPtr(AppState), AppState, Text))
+    if(Button(&UIFrame, RenderGroup, 512.0f, InteractionIdFromPtr(AppState), AppState, Text))
     {
         __debugbreak();
     }
-    if(Button(&UIFrame, RenderGroup, InteractionIdFromPtr(AppState), AppState, String("Forward")))
+    if(Button(&UIFrame, RenderGroup, 128.0f, InteractionIdFromPtr(AppState), AppState, String("Forward")))
     {
         __debugbreak();
     }

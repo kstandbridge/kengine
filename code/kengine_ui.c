@@ -322,13 +322,15 @@ EndUIElement(ui_element *Element)
 }
 
 internal ui_element
-DrawTextElement_(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction Interaction, string Text, 
+DrawTextElement_(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction Interaction, f32 Width, string Text, 
                  element_colors Colors)
 {
     ui_state *UIState = UIFrame->UIState;
     
     rectangle2 TextBounds = GetTextSize(RenderGroup, UIFrame->Scale, UIFrame->At, Text);
-    v2 Dim = V2Add(GetDim(TextBounds), V2(UIFrame->SpacingX*2.0f, UIFrame->SpacingY*2.0f));
+    v2 TextDim = GetDim(TextBounds);
+    v2 ElementDim = V2Add(TextDim, V2(UIFrame->SpacingX*2.0f, UIFrame->SpacingY*2.0f));
+    ElementDim.X = Width;
     
     b32 IsHot = InteractionIsHot(UIState, Interaction);
     v4 TextColor = IsHot ? Colors.HotText : Colors.Text;
@@ -341,14 +343,14 @@ DrawTextElement_(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction In
         TextColor = Colors.ClickedText;
         BackgroundColor = Colors.ClickedBackground;
         BorderColor = Colors.ClickedBorder;
-        DrawText(RenderGroup, 1.0f, V2(10, 10), V4(0.0f, 0.0f, 0.0f, 0.0f), String("Working yo!")); 
     }
     
-    ui_element Element = BeginUIElement(UIFrame, Dim);
+    ui_element Element = BeginUIElement(UIFrame, ElementDim);
     SetUIElementDefaultAction(&Element, Interaction);
     rectangle2 TotalBounds = EndUIElement(&Element);
     
-    DrawText(RenderGroup, UIFrame->Scale, V2Add(Element.Bounds.Min, V2(UIFrame->SpacingX, UIFrame->SpacingY)), TextColor, Text);
+    v2 TextOffset = V2Add(Element.Bounds.Min, V2(Width*0.5f - TextDim.X*0.5f, UIFrame->SpacingY));
+    DrawText(RenderGroup, UIFrame->Scale, TextOffset, TextColor, Text);
     
     if(BackgroundColor.A > 0.0f)
     {
@@ -364,7 +366,7 @@ DrawTextElement_(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction In
 
 // TODO(kstandbridge): Button format
 internal b32
-Button(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction_id Id, void *Target, string Text)
+Button(ui_frame *UIFrame, render_group *RenderGroup, f32 Width, ui_interaction_id Id, void *Target, string Text)
 {
     ui_state *UIState = UIFrame->UIState;
     // TODO(kstandbridge): This shouldn't have a perm arena, later we will not load textures in the push draw routine
@@ -378,7 +380,7 @@ Button(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction_id Id, void 
     element_colors Colors = ElementColors(RGBColor(255, 255, 255, 255), RGBColor(0, 120, 215, 255), RGBColor(0, 84, 153, 255),
                                           RGBColor(225, 225, 225, 255), RGBColor(229, 241, 251, 255), RGBColor(204, 228, 247, 255),
                                           RGBColor(173, 173, 173, 255), RGBColor(0, 120, 215, 255), RGBColor(0, 84, 153, 255));
-    ui_element Element = DrawTextElement_(UIFrame, RenderGroup, Interaction, Text, Colors);
+    ui_element Element = DrawTextElement_(UIFrame, RenderGroup, Interaction, Width, Text, Colors);
     
     if(InteractionsAreEqual(Interaction, UIState->ToExecute) &&
        Element.IsHot)
