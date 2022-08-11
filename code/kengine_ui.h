@@ -24,12 +24,12 @@ typedef union
     u32 U32[2];
 } ui_interaction_id_value;
 
-typedef union
+typedef struct
 {
     ui_interaction_id_value Value[2];
 } ui_interaction_id;
 
-#define InteractionIdFromPtr(Ptr) InteractionIdFromPtr_((Ptr), (char *)(FILE_AND_LINE))
+#define GenerateId(Ptr) InteractionIdFromPtr_((Ptr), (char *)(FILE_AND_LINE))
 internal ui_interaction_id
 InteractionIdFromPtr_(void *Ptr, char *Text)
 {
@@ -76,33 +76,48 @@ typedef struct
     
 } ui_state;
 
+typedef struct ui_column
+{
+    f32 Width;
+    
+    rectangle2 Bounds;
+    
+    struct ui_column *Next;
+} ui_column;
+
+typedef struct ui_row
+{
+    f32 Height;
+    
+    ui_column *FirstColumn;
+    struct ui_row *Next;
+} ui_row;
+
 typedef struct
 {
     ui_state *UIState;
     
-    v2 UpperLeftCorner;
+    rectangle2 Bounds;
+    u16 Rows;
+    u16 Columns;
+    b32 SizeInitialized;
+    
     f32 Scale;
     f32 SpacingX;
     f32 SpacingY;
-    u32 NoLineFeed;
     
-    f32 NextYDelta;
-    
-    v2 At;
-    rectangle2 TotalBounds;
-} ui_frame;
+    ui_row *FirstRow;
+} ui_grid;
 
 typedef struct
 {
-    ui_frame *UIFrame;
+    ui_grid *Grid;
     ui_interaction Interaction;
     b32 IsHot;
-    v2 Dim;
+    rectangle2 Bounds;
     
     // TODO(kstandbridge): Allow to be resized
     v2 *Size;
-    
-    rectangle2 Bounds;
 } ui_element;
 
 #define KENGINE_UI_H

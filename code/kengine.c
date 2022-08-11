@@ -44,31 +44,32 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         PushRenderCommandClear(RenderGroup, 0.0f, RGBColor(255, 255, 255, 255));
     }
     
-#if 0
     // NOTE(kstandbridge): Rectangle with clipping regions
-    {    
-        f32 Width = (f32)Commands->Width;
-        f32 Height = (f32)Commands->Height;
-        
-        u16 OldClipRect = RenderGroup->CurrentClipRectIndex;
-        RenderGroup->CurrentClipRectIndex =
-            PushRenderCommandClipRectangle(RenderGroup, Rectangle2i((s32)(Width*0.25f), (s32)(Width*0.75f), 
-                                                                    (s32)(Height*0.25f), (s32)(Height*0.75f)));
-        
-        PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f),
-                                   Rectangle2(V2(0.0f, 0.0f), V2(Width*0.5f, Height*0.5f)), 1.0f);
-        
-        PushRenderCommandRectangle(RenderGroup, V4(0.0f, 1.0f, 0.0f, 1.0f),
-                                   Rectangle2(V2(Width*0.5f, 0.0f), V2(Width, Height*0.5f)), 1.0f);
-        
-        PushRenderCommandRectangle(RenderGroup, V4(0.0f, 0.0f, 1.0f, 1.0f),
-                                   Rectangle2(V2(0.0f, Height*0.5f), V2(Width*0.5f, Height)), 1.0f);
-        
-        PushRenderCommandRectangle(RenderGroup, V4(1.0f, 1.0f, 0.0f, 1.0f),
-                                   Rectangle2(V2(Width*0.5f, Height*0.5f), V2(Width, Height)), 1.0f);
-        
-        RenderGroup->CurrentClipRectIndex = OldClipRect;
-    }
+    
+#if 0
+    f32 Width = (f32)Commands->Width;
+    f32 Height = (f32)Commands->Height;
+    
+    u16 OldClipRect = RenderGroup->CurrentClipRectIndex;
+    // TODO(kstandbridge): BeginClip/EndClip?
+    RenderGroup->CurrentClipRectIndex =
+        PushRenderCommandClipRectangle(RenderGroup, Rectangle2i((s32)(Width*0.1f), (s32)(Width*0.9f), 
+                                                                (s32)(Height*0.1f), (s32)(Height*0.9f)));
+    
+    
+    PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f),
+                               Rectangle2(V2(0.0f, 0.0f), V2(Width*0.5f, Height*0.5f)), 1.0f);
+    
+    PushRenderCommandRectangle(RenderGroup, V4(0.0f, 1.0f, 0.0f, 1.0f),
+                               Rectangle2(V2(Width*0.5f, 0.0f), V2(Width, Height*0.5f)), 1.0f);
+    
+    PushRenderCommandRectangle(RenderGroup, V4(0.0f, 0.0f, 1.0f, 1.0f),
+                               Rectangle2(V2(0.0f, Height*0.5f), V2(Width*0.5f, Height)), 1.0f);
+    
+    PushRenderCommandRectangle(RenderGroup, V4(1.0f, 1.0f, 0.0f, 1.0f),
+                               Rectangle2(V2(Width*0.5f, Height*0.5f), V2(Width, Height)), 1.0f);
+    
+    RenderGroup->CurrentClipRectIndex = OldClipRect;
 #endif
     
     ui_state *UIState = &AppState->UIState;
@@ -81,52 +82,39 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TranArena);
     
-    ui_frame UIFrame = BeginUIFrame(UIState, V2(0.0f, (f32)Commands->Height));
-    {    
-        string Text = FormatString(TempMem.Arena, "Mouse: %.03f / %.03f", Input->MouseX, Input->MouseY);
-        if(Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Back")))
-        {
-            __debugbreak();
-        }
-        if(Button(&UIFrame, RenderGroup, 512.0f, InteractionIdFromPtr(AppState), AppState, Text))
-        {
-            __debugbreak();
-        }
-        
-        BeginRow(&UIFrame);
-        Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Foo"));
-        Button(&UIFrame, RenderGroup, 48.0f, InteractionIdFromPtr(AppState), AppState, String("Bar"));
-        Button(&UIFrame, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Bas"));
-        EndRow(&UIFrame);
-        
-        
-        if(Button(&UIFrame, RenderGroup, 128.0f, InteractionIdFromPtr(AppState), AppState, String("Forward")))
-        {
-            __debugbreak();
-        }
-        
-        f32 Width = (f32)Commands->Width;
-        f32 Height = (f32)Commands->Height;
-        
-        PushRenderCommandRectangleOutline(RenderGroup, 10.0f, V4(0.0f, 0.5f, 0.5f, 1.0f),
-                                          Rectangle2(V2(Width*0.25f, Height*0.25f), 
-                                                     V2(Width*0.75f, Height*0.75f)),
-                                          1000000.0f);
-    }
-    
-    rectangle2 TotalBounds = EndUIFrame(&UIFrame);
-    ui_frame RightPanel = BeginUIFrame(UIState, V2(TotalBounds.Max.X, TotalBounds.Max.Y));
-    Button(&RightPanel, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("One"));
-    BeginRow(&RightPanel);
-    Button(&RightPanel, RenderGroup, 48.0f, InteractionIdFromPtr(AppState), AppState, String("Two"));
-    Button(&RightPanel, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Three"));
-    Button(&RightPanel, RenderGroup, 96.0f, InteractionIdFromPtr(AppState), AppState, String("Four"));
-    EndRow(&RightPanel);
-    if(Button(&RightPanel, RenderGroup, 64.0f, InteractionIdFromPtr(AppState), AppState, String("Five")))
+    ui_grid Grid = BeginGrid(UIState, TempMem.Arena, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 3, 3);
     {
-        __debugbreak();
+        SetColumnWidth(&Grid, 0, 0, 128.0f);
+        SetColumnWidth(&Grid, 2, 2, 256.0f);
+        
+        SetRowHeight(&Grid, 1, SIZE_AUTO);
+        
+        
+        if(Button(&Grid, RenderGroup, 0, 0, GenerateId(AppState), AppState, String("Top Left"))) { __debugbreak(); }
+        if(Button(&Grid, RenderGroup, 1, 0, GenerateId(AppState), AppState, String("Top Middle"))) { __debugbreak(); }
+        if(Button(&Grid, RenderGroup, 2, 0, GenerateId(AppState), AppState, String("Top Right"))) { __debugbreak(); }
+        
+        if(Button(&Grid, RenderGroup, 0, 1, GenerateId(AppState), AppState, String("Middle Left"))) { __debugbreak(); }
+        
+        ui_grid InnerGrid = BeginGrid(UIState, TempMem.Arena, GetCellBounds(&Grid, 1, 1), 3, 2);
+        {
+            SetRowHeight(&InnerGrid, 1, SIZE_AUTO);
+            if(Button(&InnerGrid, RenderGroup, 0, 0, GenerateId(AppState), AppState, String("Inner NW"))) { __debugbreak(); }
+            if(Button(&InnerGrid, RenderGroup, 1, 0, GenerateId(AppState), AppState, String("Inner NE"))) { __debugbreak(); }
+            if(Button(&InnerGrid, RenderGroup, 0, 1, GenerateId(AppState), AppState, String("Inner W"))) { __debugbreak(); }
+            if(Button(&InnerGrid, RenderGroup, 1, 1, GenerateId(AppState), AppState, String("Inner E"))) { __debugbreak(); }
+            if(Button(&InnerGrid, RenderGroup, 0, 2, GenerateId(AppState), AppState, String("Inner SW"))) { __debugbreak(); }
+            if(Button(&InnerGrid, RenderGroup, 1, 2, GenerateId(AppState), AppState, String("Inner SE"))) { __debugbreak(); }
+        }
+        EndGrid(&InnerGrid);
+        
+        if(Button(&Grid, RenderGroup, 2, 1, GenerateId(AppState), AppState, String("Middle Right"))) { __debugbreak(); }
+        
+        if(Button(&Grid, RenderGroup, 0, 2, GenerateId(AppState), AppState, String("Bottom Left"))) { __debugbreak(); }
+        if(Button(&Grid, RenderGroup, 1, 2, GenerateId(AppState), AppState, String("Bottom Middle"))) { __debugbreak(); }
+        if(Button(&Grid, RenderGroup, 2, 2, GenerateId(AppState), AppState, String("Bottom Right"))) { __debugbreak(); }
     }
-    TotalBounds = EndUIFrame(&RightPanel);
+    EndGrid(&Grid);
     
     Interact(UIState, Input);
     UIState->ToExecute = UIState->NextToExecute;

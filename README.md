@@ -215,6 +215,9 @@ switch(Tokenizer->At[0])
 - [x] Verticle control layout
 - [x] Set width for controls
 - [x] Horizontal control rows
+- [x] Grid system for control layout
+- [ ] Fullscreen support
+- [ ] Always specify if an arena is transient or permanent
 - [ ] ToggleButton
 - [ ] Circular buffer for strings
 - [ ] Debug section with console
@@ -238,3 +241,4 @@ switch(Tokenizer->At[0])
 - [ ] DirectX rendering
 - [ ] Dynamically growing memory arenas
 - [ ] Clean up introspect generate methods (double loop)
+- [ ] Buttons can be clicked through other apps

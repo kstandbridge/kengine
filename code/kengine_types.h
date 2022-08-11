@@ -90,14 +90,17 @@ introspect(ctor) typedef struct
     v4 Text;
     v4 HotText;
     v4 ClickedText;
+    v4 SelectedText;
     
     v4 Background;
     v4 HotBackground;
     v4 ClickedBackground;
+    v4 SelectedBackground;
     
     v4 Border;
     v4 HotBorder;
     v4 ClickedBorder;
+    v4 SelectedBorder;
     
 } element_colors;
 

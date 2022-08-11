@@ -69,7 +69,10 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
                 if(Op == TextOpText_Draw)
                 {
                     PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, Offset, Color, 2.0f);
+#if 0                    
                     PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, V2Add(Offset, V2(2.0f, -2.0f)), V4(0.0f, 0.0f, 0.0f, 1.0f), 1.0f);
+#endif
+                    
                 }
                 else
                 {
@@ -158,7 +161,6 @@ Interact(ui_state *UIState, app_input *Input)
             
             case Interaction_None:
             {
-                UIState->ClickedId = InteractionIdFromPtr(0);
                 UIState->HotInteraction = UIState->NextHotInteraction;
                 if(MouseDown)
                 {
@@ -168,7 +170,6 @@ Interact(ui_state *UIState, app_input *Input)
             
             default:
             {
-                UIState->ClickedId = InteractionIdFromPtr(0);
                 if(MouseUp)
                 {
                     EndInteraction = true;
@@ -236,37 +237,117 @@ GetTextSize(render_group *RenderGroup, f32 Scale, v2 P, string Text)
     return Result;
 }
 
-inline ui_frame
-BeginUIFrame(ui_state *UIState, v2 UpperLeftCorner)
+inline void
+InitializeGridSize(ui_grid *Grid)
 {
-    ui_frame Result;
-    Result.UIState = UIState;
-    Result.UpperLeftCorner = UpperLeftCorner;
-    Result.Scale = 1.0f;
-    Result.SpacingX = 10.0f;
-    Result.SpacingY = 10.0f;
-    Result.NoLineFeed = 0;
-    Result.NextYDelta = 0;
-    Result.At = V2(UpperLeftCorner.X, UpperLeftCorner.Y);
-    Result.TotalBounds = InvertedInfinityRectangle2();
-    return Result;
+    Assert(!Grid->SizeInitialized);
+    
+    f32 StartX = Grid->Bounds.Min.X;
+    f32 EndX = Grid->Bounds.Max.X;
+    
+    f32 StartY = Grid->Bounds.Min.Y;
+    f32 EndY = Grid->Bounds.Max.Y;
+    
+    f32 TotalWidth = EndX - StartX;
+    f32 TotalHeight = EndY - StartY;
+    
+    f32 UsedHeight = 0;
+    
+    u32 AutoHeightRows = Grid->Rows;
+    for(ui_row *Row = Grid->FirstRow;
+        Row;
+        Row = Row->Next)
+    {
+        if(Row->Height)
+        {
+            UsedHeight += Row->Height;
+            --AutoHeightRows;
+        }
+    }
+    
+    f32 HeightPerRow = AutoHeightRows ? (TotalHeight - UsedHeight) / AutoHeightRows : (TotalHeight - UsedHeight);
+    
+    f32 AtX = StartX;
+    f32 AtY = EndY;
+    for(ui_row *Row = Grid->FirstRow;
+        Row;
+        Row = Row->Next)
+    {
+        f32 UsedWidth = 0;
+        u32 AutoWidthColumns = Grid->Columns;
+        for(ui_column *Column = Row->FirstColumn;
+            Column;
+            Column = Column->Next)
+        {
+            if(Column->Width)
+            {
+                UsedWidth += Column->Width;
+                --AutoWidthColumns;
+            }
+        }
+        
+        f32 WidthPerColumn = (AutoWidthColumns) ? (TotalWidth - UsedWidth) / AutoWidthColumns : (TotalWidth - UsedWidth);
+        
+        f32 CellHeight = (Row->Height) ? Row->Height : HeightPerRow;
+        for(ui_column *Column = Row->FirstColumn;
+            Column;
+            Column = Column->Next)
+        {
+            f32 CellWidth = (Column->Width) ? Column->Width : WidthPerColumn;
+            Column->Bounds = Rectangle2(V2(AtX, AtY - CellHeight),
+                                        V2(AtX + CellWidth, AtY));
+            AtX += CellWidth;
+        }
+        AtY -= CellHeight;
+        AtX = StartX;
+    }
+    
+    Grid->SizeInitialized = true;
 }
 
 inline rectangle2
-EndUIFrame(ui_frame *UIFrame)
+GetCellBounds(ui_grid *Grid, u16 ColumnIndex, u16 RowIndex)
 {
-    rectangle2 Result = UIFrame->TotalBounds;
+    if(!Grid->SizeInitialized)
+    {
+        InitializeGridSize(Grid);
+    }
+    Assert(RowIndex <= Grid->Rows);
+    Assert(ColumnIndex <= Grid->Columns);
+    
+    ui_row *Row = Grid->FirstRow;
+    Assert(Row);
+    for(;
+        RowIndex;
+        --RowIndex)
+    {
+        Row = Row->Next;
+    } 
+    ui_column *Column = Row->FirstColumn;
+    Assert(Column);
+    for(;
+        ColumnIndex;
+        --ColumnIndex)
+    {
+        Column = Column->Next;
+    }
+    
+    rectangle2 Result = Column->Bounds;
+    
     return Result;
 }
 
 inline ui_element
-BeginUIElement(ui_frame *Frame, v2 Dim)
+BeginUIElement(ui_grid *Grid, u16 ColumnIndex, u16 RowIndex)
 {
     ui_element Element;
     ZeroStruct(Element);
     
-    Element.UIFrame = Frame;
-    Element.Dim = Dim;
+    rectangle2 CellBounds = GetCellBounds(Grid, ColumnIndex, RowIndex);
+    
+    Element.Grid = Grid;
+    Element.Bounds = Rectangle2(V2Add(CellBounds.Min, V2(Grid->SpacingX, Grid->SpacingY)),
+                                V2Subtract(CellBounds.Max, V2(Grid->SpacingX*2.0f, Grid->SpacingY*2.0f)));
     
     return Element;
 }
@@ -277,36 +358,12 @@ SetUIElementDefaultAction(ui_element *Element, ui_interaction Interaction)
     Element->Interaction = Interaction;
 }
 
-inline void
-AdvanceFrameAt(ui_frame *UIFrame, rectangle2 Bounds)
-{
-    UIFrame->NextYDelta = Minimum(UIFrame->NextYDelta, Bounds.Min.Y - UIFrame->At.Y);
-    
-    if(UIFrame->NoLineFeed)
-    {
-        UIFrame->At.X = Bounds.Max.X + UIFrame->SpacingX;
-    }
-    else
-    {
-        UIFrame->At.Y += UIFrame->NextYDelta;
-        UIFrame->At.X = UIFrame->UpperLeftCorner.X;
-    }
-}
 
 inline void
 EndUIElement(ui_element *Element)
 {
-    ui_frame *UIFrame = Element->UIFrame;
-    ui_state *UIState = UIFrame->UIState;
-    
-    v2 Margin = V2(UIFrame->SpacingX, UIFrame->SpacingY);
-    v2 TotalDim = V2Add(Element->Dim, Margin);
-    v2 TotalMinCorner = V2(UIFrame->At.X, UIFrame->At.Y - TotalDim.Y);
-    v2 TotalMaxCorner = V2Add(TotalMinCorner , TotalDim);
-    
-    v2 InteriorMinCorner = V2Add(TotalMinCorner, Margin);
-    v2 InteriorMaxCorner = V2Add(InteriorMinCorner, Element->Dim);
-    Element->Bounds = Rectangle2(InteriorMinCorner, InteriorMaxCorner);
+    ui_grid *Grid = Element->Grid;
+    ui_state *UIState = Grid->UIState;
     
     if(Element->Interaction.Type && IsInRectangle(Element->Bounds, UIState->MouseP))
     {
@@ -318,21 +375,13 @@ EndUIElement(ui_element *Element)
     {
         // TODO(kstandbridge): Resize interaction
     }
-    
-    rectangle2 TotalBounds = Rectangle2(TotalMinCorner, TotalMaxCorner);
-    UIFrame->TotalBounds = Rectangle2Union(UIFrame->TotalBounds, TotalBounds);
-    AdvanceFrameAt(UIFrame, TotalBounds);
 }
 
 internal ui_element
-DrawTextElement_(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction Interaction, f32 Width, string Text, 
+DrawTextElement_(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, ui_interaction Interaction, string Text, 
                  element_colors Colors)
 {
-    ui_state *UIState = UIFrame->UIState;
-    
-    rectangle2 TextBounds = GetTextSize(RenderGroup, UIFrame->Scale, UIFrame->At, Text);
-    v2 TextDim = GetDim(TextBounds);
-    v2 ElementDim = V2(Width, TextDim.Y + UIFrame->SpacingY*2.0f);
+    ui_state *UIState = Grid->UIState;
     
     b32 IsHot = InteractionIsHot(UIState, Interaction);
     v4 TextColor = IsHot ? Colors.HotText : Colors.Text;
@@ -347,12 +396,30 @@ DrawTextElement_(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction In
         BorderColor = Colors.ClickedBorder;
     }
     
-    ui_element Element = BeginUIElement(UIFrame, ElementDim);
+    
+    ui_element Element = BeginUIElement(Grid, ColumnIndex, RowIndex);
     SetUIElementDefaultAction(&Element, Interaction);
     EndUIElement(&Element);
     
-    v2 TextOffset = V2Add(Element.Bounds.Min, V2(Width*0.5f - TextDim.X*0.5f, UIFrame->SpacingY));
-    DrawText(RenderGroup, UIFrame->Scale, TextOffset, TextColor, Text);
+    f32 BorderThickness = 1.0f;
+    if(InteractionIdsAreEqual(UIState->ClickedId, Interaction.Id) &&
+       !Element.IsHot)
+    {
+        TextColor = Colors.SelectedText;
+        BackgroundColor = Colors.SelectedBackground;
+        BorderColor = Colors.SelectedBorder;
+        BorderThickness = 2.0f;
+    }
+    
+    v2 ElementDim = V2Subtract(Element.Bounds.Max, Element.Bounds.Min);
+    v2 ElementHalfDim = V2Multiply(ElementDim, V2Set1(0.5f));
+    
+    rectangle2 TextBounds = GetTextSize(RenderGroup, Grid->Scale, V2Set1(0.0f), Text);
+    v2 TextDim = GetDim(TextBounds);
+    v2 TextHalfDim = V2Multiply(TextDim, V2Set1(0.5f));
+    
+    v2 TextOffset = V2Add(V2Subtract(Element.Bounds.Min, TextHalfDim),ElementHalfDim);
+    DrawText(RenderGroup, Grid->Scale, TextOffset, TextColor, Text);
     
     if(BackgroundColor.A > 0.0f)
     {
@@ -360,17 +427,20 @@ DrawTextElement_(ui_frame *UIFrame, render_group *RenderGroup, ui_interaction In
     }
     if(BorderColor.A > 0.0f)
     {
-        PushRenderCommandRectangleOutline(RenderGroup, 1.0f, BorderColor, Element.Bounds, 1.0f);
+        PushRenderCommandRectangleOutline(RenderGroup, BorderThickness, BorderColor, Element.Bounds, 1.0f);
     }
     
     return Element;
 }
 
 // TODO(kstandbridge): Button format
+// TODO(kstandbridge): Immedate Button, then turn this into Button_
+// TODO(kstandbridge): BooleanButton, automatically toggle a boolean, think checkbox
+// TODO(kstandbridge): SetU32Button, automatically set an U32, think radio to choose an enum
 internal b32
-Button(ui_frame *UIFrame, render_group *RenderGroup, f32 Width, ui_interaction_id Id, void *Target, string Text)
+Button(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, ui_interaction_id Id, void *Target, string Text)
 {
-    ui_state *UIState = UIFrame->UIState;
+    ui_state *UIState = Grid->UIState;
     // TODO(kstandbridge): This shouldn't have a perm arena, later we will not load textures in the push draw routine
     b32 Result = false;
     
@@ -379,10 +449,11 @@ Button(ui_frame *UIFrame, render_group *RenderGroup, f32 Width, ui_interaction_i
     Interaction.Type = Interaction_ImmediateButton;
     Interaction.Target = Target;
     
-    element_colors Colors = ElementColors(RGBColor(255, 255, 255, 255), RGBColor(0, 120, 215, 255), RGBColor(0, 84, 153, 255),
-                                          RGBColor(225, 225, 225, 255), RGBColor(229, 241, 251, 255), RGBColor(204, 228, 247, 255),
-                                          RGBColor(173, 173, 173, 255), RGBColor(0, 120, 215, 255), RGBColor(0, 84, 153, 255));
-    ui_element Element = DrawTextElement_(UIFrame, RenderGroup, Interaction, Width, Text, Colors);
+    element_colors Colors = 
+        ElementColors(RGBColor(0, 0, 0, 255), RGBColor(0, 120, 215, 255), RGBColor(0, 84, 153, 255), RGBColor(0, 0, 0, 255),
+                      RGBColor(225, 225, 225, 255), RGBColor(229, 241, 251, 255), RGBColor(204, 228, 247, 255), RGBColor(225, 225, 225, 255),
+                      RGBColor(173, 173, 173, 255), RGBColor(0, 120, 215, 255), RGBColor(0, 84, 153, 255), RGBColor(0, 120, 215, 255));
+    ui_element Element = DrawTextElement_(Grid, RenderGroup, ColumnIndex, RowIndex, Interaction, Text, Colors);
     
     if(InteractionsAreEqual(Interaction, UIState->ToExecute) &&
        Element.IsHot)
@@ -393,17 +464,117 @@ Button(ui_frame *UIFrame, render_group *RenderGroup, f32 Width, ui_interaction_i
     return Result;
 }
 
-inline void
-BeginRow(ui_frame *UIFrame)
+inline ui_grid
+BeginGrid(ui_state *UIState, memory_arena *TempArena, rectangle2 Bounds, u16 Rows, u16 Columns)
 {
-    ++UIFrame->NoLineFeed;
+    Assert(Rows > 0);
+    Assert(Columns > 0);
+    
+    ui_grid Result;
+    Result.UIState = UIState;
+    Result.Rows = Rows;
+    Result.Columns = Columns;
+    Result.SizeInitialized = false;
+    
+    Result.Scale = 1.0f;
+    Result.SpacingX = 4.0f;
+    Result.SpacingY = 4.0f;
+    Result.FirstRow = 0;
+    
+    f32 DefaultRowHeight = UIState->LineAdvance + Result.SpacingY*4.0f;
+    
+    ui_row *CurrentRow = Result.FirstRow;
+    for(u16 Row = 0;
+        Row < Rows;
+        ++Row)
+    {
+        if(CurrentRow == 0)
+        {
+            CurrentRow = PushStruct(TempArena, ui_row);
+            Result.FirstRow = CurrentRow;
+        }
+        else
+        {
+            CurrentRow->Next = PushStruct(TempArena, ui_row);
+            CurrentRow = CurrentRow->Next;
+        }
+        CurrentRow->Height = DefaultRowHeight;
+        CurrentRow->FirstColumn = 0;
+        CurrentRow->Next = 0;
+        
+        ui_column *CurrentColumn = CurrentRow->FirstColumn;
+        for(u16 Column = 0;
+            Column < Columns;
+            ++Column)
+        {
+            if(CurrentColumn == 0)
+            {
+                CurrentColumn = PushStruct(TempArena, ui_column);
+                CurrentRow->FirstColumn = CurrentColumn;
+            }
+            else
+            {
+                CurrentColumn->Next = PushStruct(TempArena, ui_column);
+                CurrentColumn = CurrentColumn->Next;
+            }
+            CurrentColumn->Width = 0;
+            CurrentColumn->Next = 0;
+        }
+    }
+    
+    Result.Bounds = Bounds;
+    Result.Rows = Rows;
+    Result.Columns = Columns;
+    
+    return Result;
 }
 
 inline void
-EndRow(ui_frame *UIFrame)
+EndGrid(ui_grid *Grid)
 {
-    Assert(UIFrame->NoLineFeed > 0);
-    --UIFrame->NoLineFeed;
+    Assert(Grid->SizeInitialized);
+}
+
+#define SIZE_AUTO 0.0f
+inline void
+SetColumnWidth(ui_grid *Grid, u16 RowIndex, u16 ColumnIndex, f32 Width)
+{
+    Assert(!Grid->SizeInitialized);
+    Assert(RowIndex <= Grid->Rows);
+    Assert(ColumnIndex <= Grid->Columns);
     
-    AdvanceFrameAt(UIFrame, Rectangle2(UIFrame->At, UIFrame->At));
+    ui_row *Row = Grid->FirstRow;
+    Assert(Row);
+    for(;
+        RowIndex;
+        --RowIndex)
+    {
+        Row = Row->Next;
+    } 
+    ui_column *Column = Row->FirstColumn;
+    Assert(Column);
+    for(;
+        ColumnIndex;
+        --ColumnIndex)
+    {
+        Column = Column->Next;
+    }
+    Column->Width = Width;
+}
+
+inline void
+SetRowHeight(ui_grid *Grid, u16 RowIndex, f32 Height)
+{
+    Assert(!Grid->SizeInitialized);
+    Assert(RowIndex <= Grid->Rows);
+    
+    ui_row *Row = Grid->FirstRow;
+    Assert(Row);
+    for(;
+        RowIndex;
+        --RowIndex)
+    {
+        Row = Row->Next;
+    } 
+    Row->Height = Height;
 }
