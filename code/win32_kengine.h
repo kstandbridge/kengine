@@ -26,6 +26,8 @@ typedef struct
     
     memory_arena Arena;
     
+    
+#if KENGINE_INTERNAL    
     char ExeFilePath[MAX_PATH];
     char DllFullFilePath[MAX_PATH];
     char TempDllFullFilePath[MAX_PATH];
@@ -33,6 +35,7 @@ typedef struct
     FILETIME LastDLLWriteTime;
     HMODULE AppLibrary;
     app_update_frame *AppUpdateFrame;
+#endif
     
     win32_offscreen_buffer Backbuffer;
 } win32_state;

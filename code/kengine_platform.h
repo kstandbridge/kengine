@@ -117,7 +117,9 @@ typedef struct
     get_horizontal_advance *GetHorizontalAdvance;
     get_verticle_advance *GetVerticleAdvance;
     
+#if KENGINE_INTERNAL
     b32 DllReloaded;
+#endif
     
 } platform_api;
 

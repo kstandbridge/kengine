@@ -36,7 +36,14 @@ command_list = {
         .cmd = {
             { ".\build build_dependencies", .os = "win" }
         }
+    },
+    { .name = "build_release",
+        .out = "*compilation*", .footer_panel = true, .save_dirty_files = true, .cursor_at_end = false,
+        .cmd = {
+            { ".\build build_release", .os = "win" }
+        }
     }
 };
 
 fkey_command[6] = "build_dependencies";
+fkey_command[7] = "build_release";

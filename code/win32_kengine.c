@@ -4,7 +4,12 @@
 global platform_api Platform;
 
 #include "win32_kengine_generated.c"
+#if KENGINE_INTERNAL
 #include "kengine_sort.c"
+#else
+#include "kengine.h"
+#include "kengine.c"
+#endif
 #include "kengine_renderer_software.c"
 #include "kengine_renderer.c"
 
@@ -204,6 +209,8 @@ Win32ParseCommandLingArgs(win32_state *Win32State)
             else
             {
                 ExeNameFound = true;
+                
+#if KENGINE_INTERNAL
                 if(*ParamStart == '\"')
                 {
                     ++ParamStart;
@@ -227,6 +234,8 @@ Win32ParseCommandLingArgs(win32_state *Win32State)
                 
                 Copy(ParamLength, Win32State->ExeFilePath, Win32State->LockFullFilePath);
                 AppendCString(Win32State->LockFullFilePath + ParamLength, "\\lock.tmp");
+#endif
+                
             }
             
             ParamStart = At;
@@ -681,6 +690,8 @@ WinMainCRTStartup()
             Win32State->IsRunning = true;
             while(Win32State->IsRunning)
             {
+                
+#if KENGINE_INTERNAL
                 Platform.DllReloaded = false;
                 FILETIME NewDLLWriteTime = Win32GetLastWriteTime(Win32State->DllFullFilePath);
                 if(Win32CompareFileTime(&NewDLLWriteTime, &Win32State->LastDLLWriteTime) != 0)
@@ -726,6 +737,7 @@ WinMainCRTStartup()
                         }
                     }
                 }
+#endif
                 
                 NewInput->MouseZ = 0;
                 Win32ProcessPendingMessages(Win32State, NewInput);
@@ -770,10 +782,15 @@ WinMainCRTStartup()
                 render_commands Commands_ = BeginRenderCommands(PushBufferSize, PushBuffer, Backbuffer->Width, Backbuffer->Height);
                 render_commands *Commands = &Commands_;
                 
+                
+#if KENGINE_INTERNAL
                 if(Win32State->AppUpdateFrame)
                 {
                     Win32State->AppUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
                 }
+#else
+                AppUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
+#endif
                 
                 
                 u32 NeededSortMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);

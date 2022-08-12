@@ -35,11 +35,14 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     RenderGroup->Arena = Arena;
     RenderGroup->Glyphs = AppState->Glyphs;
     
+    
+#if KENGINE_INTERNAL 
     if(Platform.DllReloaded)
     {
         PushRenderCommandClear(RenderGroup, 0.0f, V4(0.0f, 1.0f, 0.0f, 1.0f));
     }
     else
+#endif
     {
         PushRenderCommandClear(RenderGroup, 0.0f, RGBColor(255, 255, 255, 255));
     }

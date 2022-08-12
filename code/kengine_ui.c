@@ -222,7 +222,7 @@ InteractionIsHot(ui_state *UIState, ui_interaction Interaction)
 }
 
 inline void
-DrawText(render_group *RenderGroup, f32 Scale, v2 P, v4 Color, string Text)
+PushRenderCommandText(render_group *RenderGroup, f32 Scale, v2 P, v4 Color, string Text)
 {
     // TODO(kstandbridge): NAMING Internally this is calling PushRenderCommandBitmap for each of the glyphs,
     // nothing is being drawn now, its a push call so shouldn't be DrawText
@@ -419,7 +419,7 @@ DrawTextElement_(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 
     v2 TextHalfDim = V2Multiply(TextDim, V2Set1(0.5f));
     
     v2 TextOffset = V2Add(V2Subtract(Element.Bounds.Min, TextHalfDim),ElementHalfDim);
-    DrawText(RenderGroup, Grid->Scale, TextOffset, TextColor, Text);
+    PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, TextColor, Text);
     
     if(BackgroundColor.A > 0.0f)
     {

@@ -1,7 +1,9 @@
 #ifndef KENGINE_H
 
 #include "kengine_platform.h"
+#if KENGINE_INTERNAL
 #include "kengine_generated.h"
+#endif
 #include "kengine_string.h"
 #include "kengine_intrinsics.h"
 #include "kengine_math.h"
