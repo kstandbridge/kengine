@@ -605,6 +605,71 @@ ProcessInputMessage(app_button_state *NewState, b32 IsDown)
     }
 }
 
+#if KENGINE_INTERNAL
+internal void
+Win32UnloadAppCode(win32_state *Win32State)
+{
+    if(Win32State->AppLibrary && !Win32FreeLibrary(Win32State->AppLibrary))
+    {
+        // TODO(kstandbridge): Error freeing app library
+        InvalidCodePath;
+    }
+    Win32State->AppLibrary = 0;
+    Win32State->AppUpdateFrame = 0;
+}
+
+internal void
+Win32LoadAppCode(win32_state *Win32State, FILETIME NewDLLWriteTime)
+{
+    if(Win32CopyFileA(Win32State->DllFullFilePath, Win32State->TempDllFullFilePath, false))
+    {
+        Win32State->AppLibrary = Win32LoadLibraryA(Win32State->TempDllFullFilePath);
+        if(Win32State->AppLibrary)
+        {
+            Win32State->AppUpdateFrame = (app_update_frame *)Win32GetProcAddressA(Win32State->AppLibrary, "AppUpdateFrame");
+            Assert(Win32State->AppUpdateFrame);
+            Win32State->DebugUpdateFrame = (debug_update_frame *)Win32GetProcAddressA(Win32State->AppLibrary, "DebugUpdateFrame");
+            Assert(Win32State->DebugUpdateFrame);
+            
+            if(!Win32State->AppUpdateFrame || !Win32State->DebugUpdateFrame)
+            {
+                Win32UnloadAppCode(Win32State);
+            }
+            
+            Win32State->LastDLLWriteTime = NewDLLWriteTime;
+            Platform.DllReloaded = true;
+        }
+    }
+    else
+    {
+        // TODO(kstandbridge): Error copying temp dll
+        InvalidCodePath;
+    }
+}
+#endif
+
+
+inline f32
+Win32GetSecondsElapsed(win32_state *Win32State, LARGE_INTEGER Start, LARGE_INTEGER End)
+{
+    f32 Result = ((f32)(End.QuadPart - Start.QuadPart) /
+                  (f32)Win32State->PerfCountFrequency);
+    return Result;
+}
+
+
+inline LARGE_INTEGER
+Win32GetWallClock()
+{    
+    LARGE_INTEGER Result;
+    Win32QueryPerformanceCounter(&Result);
+    return Result;
+}
+
+#if KENGINE_INTERNAL
+global debug_event_table GlobalDebugEventTable_;
+debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
+#endif
 
 void __stdcall 
 WinMainCRTStartup()
@@ -626,6 +691,10 @@ WinMainCRTStartup()
     win32_state Win32State_;
     ZeroStruct(Win32State_);
     win32_state *Win32State = &Win32State_;
+    
+    LARGE_INTEGER PerfCountFrequencyResult;
+    Win32QueryPerformanceFrequency(&PerfCountFrequencyResult);
+    Win32State->PerfCountFrequency = (s64)PerfCountFrequencyResult.QuadPart;
     
 #if KENGINE_INTERNAL
     void *BaseAddress = (void *)Terabytes(2);
@@ -649,6 +718,10 @@ WinMainCRTStartup()
     PlatformAPI.GetGlyphForCodePoint = Win32GetGlyphForCodePoint;
     PlatformAPI.GetHorizontalAdvance = Win32GetHorizontalAdvance;
     PlatformAPI.GetVerticleAdvance = Win32GetVerticleAdvance;;
+    
+#if KENGINE_INTERNAL
+    PlatformAPI.DebugEventTable = GlobalDebugEventTable;
+#endif
     
     Platform = PlatformAPI;
     
@@ -680,7 +753,7 @@ WinMainCRTStartup()
             u32 CurrentClipMemorySize = Kilobytes(64);
             void *ClipMemory = Win32VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
             
-            
+            LARGE_INTEGER LastCounter = Win32GetWallClock();
             
             app_input Input[2];
             ZeroArray(ArrayCount(Input), Input);
@@ -693,48 +766,14 @@ WinMainCRTStartup()
                 
 #if KENGINE_INTERNAL
                 Platform.DllReloaded = false;
+                b32 DllNeedsToBeReloaded = false;
                 FILETIME NewDLLWriteTime = Win32GetLastWriteTime(Win32State->DllFullFilePath);
                 if(Win32CompareFileTime(&NewDLLWriteTime, &Win32State->LastDLLWriteTime) != 0)
                 {
                     WIN32_FILE_ATTRIBUTE_DATA Ignored;
                     if(!Win32GetFileAttributesExA(Win32State->LockFullFilePath, GetFileExInfoStandard, &Ignored))
                     {
-                        Win32CompleteAllWork(Platform.PerFrameWorkQueue);
-                        Win32CompleteAllWork(Platform.BackgroundWorkQueue);
-                        
-                        if(Win32State->AppLibrary && !Win32FreeLibrary(Win32State->AppLibrary))
-                        {
-                            // TODO(kstandbridge): Error freeing app library
-                            InvalidCodePath;
-                        }
-                        Win32State->AppLibrary = 0;
-                        Win32State->AppUpdateFrame = 0;
-                        
-                        if(Win32CopyFileA(Win32State->DllFullFilePath, Win32State->TempDllFullFilePath, false))
-                        {
-                            Win32State->AppLibrary = Win32LoadLibraryA(Win32State->TempDllFullFilePath);
-                            if(Win32State->AppLibrary)
-                            {
-                                Win32State->AppUpdateFrame = (app_update_frame *)Win32GetProcAddressA(Win32State->AppLibrary, "AppUpdateFrame");
-                                if(!Win32State->AppUpdateFrame)
-                                {
-                                    // TODO(kstandbridge): Error AppUpdateFrame
-                                    InvalidCodePath;
-                                    if(!Win32FreeLibrary(Win32State->AppLibrary))
-                                    {
-                                        // TODO(kstandbridge): Error freeing app library
-                                        InvalidCodePath;
-                                    }
-                                }
-                                Win32State->LastDLLWriteTime = NewDLLWriteTime;
-                                Platform.DllReloaded = true;
-                            }
-                        }
-                        else
-                        {
-                            // TODO(kstandbridge): Error copying temp dll
-                            InvalidCodePath;
-                        }
+                        DllNeedsToBeReloaded = true;
                     }
                 }
 #endif
@@ -788,6 +827,27 @@ WinMainCRTStartup()
                 {
                     Win32State->AppUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
                 }
+                
+                if(DllNeedsToBeReloaded)
+                {
+                    Win32CompleteAllWork(Platform.PerFrameWorkQueue);
+                    Win32CompleteAllWork(Platform.BackgroundWorkQueue);
+                    SetDebugEventRecording(false);
+                }
+                
+                if(Win32State->DebugUpdateFrame)
+                {
+                    Win32State->DebugUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
+                }
+                
+                
+                if(DllNeedsToBeReloaded)
+                {
+                    Win32UnloadAppCode(Win32State);
+                    Win32LoadAppCode(Win32State, NewDLLWriteTime);
+                    SetDebugEventRecording(true);
+                }
+                
 #else
                 AppUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
 #endif
@@ -841,6 +901,11 @@ WinMainCRTStartup()
                 app_input *Temp = NewInput;
                 NewInput = OldInput;
                 OldInput = Temp;
+                
+                LARGE_INTEGER ThisCounter = Win32GetWallClock();
+                f32 FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, ThisCounter);
+                DEBUG_FRAME_END(FrameSeconds);
+                LastCounter = ThisCounter;
                 
                 _mm_pause();
             }

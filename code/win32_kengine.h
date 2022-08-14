@@ -2,6 +2,7 @@
 
 #include "kengine_platform.h"
 #include "kengine_generated.h"
+#include "kengine_debug_shared.h"
 #include "win32_kengine_types.h"
 #include "kengine_string.h"
 #include "kengine_intrinsics.h"
@@ -26,6 +27,7 @@ typedef struct
     
     memory_arena Arena;
     
+    s64 PerfCountFrequency;
     
 #if KENGINE_INTERNAL    
     char ExeFilePath[MAX_PATH];
@@ -35,6 +37,7 @@ typedef struct
     FILETIME LastDLLWriteTime;
     HMODULE AppLibrary;
     app_update_frame *AppUpdateFrame;
+    debug_update_frame *DebugUpdateFrame;
 #endif
     
     win32_offscreen_buffer Backbuffer;

@@ -29,7 +29,7 @@ typedef struct
     ui_interaction_id_value Value[2];
 } ui_interaction_id;
 
-#define GenerateId(Ptr) InteractionIdFromPtr_((Ptr), (char *)(FILE_AND_LINE))
+#define GenerateInteractionId(Ptr) InteractionIdFromPtr_((Ptr), (char *)(FILE_AND_LINE))
 internal ui_interaction_id
 InteractionIdFromPtr_(void *Ptr, char *Text)
 {

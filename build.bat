@@ -47,7 +47,7 @@ if "%~1"=="build_release" (
 
 		REM Application
 		echo WAITING FOR PDB > lock.tmp
-		cl %CommonCompilerFlags% %InternalCompilerFlags% -MTd -Od ..\kengine\code\kengine.c -LD /link %CommonLinkerFlags% -PDB:kengine_%random%.pdb -EXPORT:AppUpdateFrame
+		cl %CommonCompilerFlags% %InternalCompilerFlags% -MTd -Od ..\kengine\code\kengine.c -LD /link %CommonLinkerFlags% -PDB:kengine_%random%.pdb -EXPORT:AppUpdateFrame -EXPORT:DebugUpdateFrame
 		del lock.tmp
 	
 		del /q *.exp

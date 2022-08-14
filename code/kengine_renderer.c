@@ -2,8 +2,8 @@ internal void
 SortRenderCommands(render_commands *Commands, void *SortMemory)
 {
     sort_entry *Entries = (sort_entry *)(Commands->PushBufferBase + Commands->SortEntryAt);
-    //BubbleSort(Commands->PushBufferElementCount, Entries);
-    MergeSort(Commands->PushBufferElementCount, Entries, (sort_entry *)SortMemory);
+    BubbleSort(Commands->PushBufferElementCount, Entries);
+    //MergeSort(Commands->PushBufferElementCount, Entries, (sort_entry *)SortMemory);
     //RadixSort(Commands->PushBufferElementCount, Entries, (sort_entry *)SortMemory);
     
 #if KENGINE_SLOW

@@ -2,6 +2,10 @@
 
 global platform_api Platform;
 
+#if KENGINE_INTERNAL
+global debug_event_table *GlobalDebugEventTable;
+#endif
+
 #include "kengine_sort.c"
 #include "kengine_render_group.c"
 #include "kengine_ui.c"
@@ -10,6 +14,9 @@ extern void
 AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena, app_input *Input)
 {
     Platform = *PlatformAPI;
+#if KENGINE_INTERNAL
+    GlobalDebugEventTable = PlatformAPI->DebugEventTable;
+#endif
     
     
     if(!PlatformAPI->AppState)
@@ -85,39 +92,68 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TranArena);
     
-    ui_grid Grid = BeginGrid(UIState, TempMem.Arena, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 3, 3);
+    ui_grid MainGrid = BeginGrid(UIState, TempMem.Arena, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 2, 1);
     {
-        SetColumnWidth(&Grid, 0, 0, 128.0f);
-        SetColumnWidth(&Grid, 2, 2, 256.0f);
-        
-        SetRowHeight(&Grid, 1, SIZE_AUTO);
-        
-        
-        if(Button(&Grid, RenderGroup, 0, 0, GenerateId(AppState), AppState, String("Top Left"))) { __debugbreak(); }
-        if(Button(&Grid, RenderGroup, 1, 0, GenerateId(AppState), AppState, String("Top Middle"))) { __debugbreak(); }
-        if(Button(&Grid, RenderGroup, 2, 0, GenerateId(AppState), AppState, String("Top Right"))) { __debugbreak(); }
-        
-        if(Button(&Grid, RenderGroup, 0, 1, GenerateId(AppState), AppState, String("Middle Left"))) { __debugbreak(); }
-        
-        ui_grid InnerGrid = BeginGrid(UIState, TempMem.Arena, GetCellBounds(&Grid, 1, 1), 3, 2);
+        SetRowHeight(&MainGrid, 0, SIZE_AUTO);
+        SetRowHeight(&MainGrid, 1, SIZE_AUTO);
+        InitializeGridSize(&MainGrid);
+        ui_grid Grid = BeginGrid(UIState, TempMem.Arena, GetCellBounds(&MainGrid, 0, 0), 3, 3);
         {
-            SetRowHeight(&InnerGrid, 1, SIZE_AUTO);
-            if(Button(&InnerGrid, RenderGroup, 0, 0, GenerateId(AppState), AppState, String("Inner NW"))) { __debugbreak(); }
-            if(Button(&InnerGrid, RenderGroup, 1, 0, GenerateId(AppState), AppState, String("Inner NE"))) { __debugbreak(); }
-            if(Button(&InnerGrid, RenderGroup, 0, 1, GenerateId(AppState), AppState, String("Inner W"))) { __debugbreak(); }
-            if(Button(&InnerGrid, RenderGroup, 1, 1, GenerateId(AppState), AppState, String("Inner E"))) { __debugbreak(); }
-            if(Button(&InnerGrid, RenderGroup, 0, 2, GenerateId(AppState), AppState, String("Inner SW"))) { __debugbreak(); }
-            if(Button(&InnerGrid, RenderGroup, 1, 2, GenerateId(AppState), AppState, String("Inner SE"))) { __debugbreak(); }
+            SetColumnWidth(&Grid, 0, 0, 128.0f);
+            SetColumnWidth(&Grid, 2, 2, 256.0f);
+            
+            SetRowHeight(&Grid, 1, SIZE_AUTO);
+            
+            
+            if(Button(&Grid, RenderGroup, 0, 0, GenerateInteractionId(AppState), AppState, String("Top Left"))) { __debugbreak(); }
+            if(Button(&Grid, RenderGroup, 1, 0, GenerateInteractionId(AppState), AppState, String("Top Middle"))) { __debugbreak(); }
+            if(Button(&Grid, RenderGroup, 2, 0, GenerateInteractionId(AppState), AppState, String("Top Right"))) { __debugbreak(); }
+            
+            if(Button(&Grid, RenderGroup, 0, 1, GenerateInteractionId(AppState), AppState, String("Middle Left"))) { __debugbreak(); }
+            
+            ui_grid InnerGrid = BeginGrid(UIState, TempMem.Arena, GetCellBounds(&Grid, 1, 1), 3, 2);
+            {
+                SetRowHeight(&InnerGrid, 1, SIZE_AUTO);
+                if(Button(&InnerGrid, RenderGroup, 0, 0, GenerateInteractionId(AppState), AppState, String("Inner NW"))) { __debugbreak(); }
+                if(Button(&InnerGrid, RenderGroup, 1, 0, GenerateInteractionId(AppState), AppState, String("Inner NE"))) { __debugbreak(); }
+                if(Button(&InnerGrid, RenderGroup, 0, 1, GenerateInteractionId(AppState), AppState, String("Inner W"))) { __debugbreak(); }
+                if(Button(&InnerGrid, RenderGroup, 1, 1, GenerateInteractionId(AppState), AppState, String("Inner E"))) { __debugbreak(); }
+                if(Button(&InnerGrid, RenderGroup, 0, 2, GenerateInteractionId(AppState), AppState, String("Inner SW"))) { __debugbreak(); }
+                if(Button(&InnerGrid, RenderGroup, 1, 2, GenerateInteractionId(AppState), AppState, String("Inner SE"))) { __debugbreak(); }
+            }
+            EndGrid(&InnerGrid);
+            
+            if(Button(&Grid, RenderGroup, 2, 1, GenerateInteractionId(AppState), AppState, String("Middle Right"))) { __debugbreak(); }
+            
+            if(Button(&Grid, RenderGroup, 0, 2, GenerateInteractionId(AppState), AppState, String("Bottom Left"))) { __debugbreak(); }
+            if(Button(&Grid, RenderGroup, 1, 2, GenerateInteractionId(AppState), AppState, String("Bottom Middle"))) { __debugbreak(); }
+            if(Button(&Grid, RenderGroup, 2, 2, GenerateInteractionId(AppState), AppState, String("Bottom Right"))) { __debugbreak(); }
         }
-        EndGrid(&InnerGrid);
+        EndGrid(&Grid);
         
-        if(Button(&Grid, RenderGroup, 2, 1, GenerateId(AppState), AppState, String("Middle Right"))) { __debugbreak(); }
+        debug_state *DebugState = PlatformAPI->DebugState;
+        if(DebugState)
+        {
+            u16 FrameCount = ArrayCount(DebugState->Frames);
+            
+            ui_grid DebugGrid = BeginGrid(UIState, TempMem.Arena, GetCellBounds(&MainGrid, 0, 1), FrameCount, 1);
+            {
+                for(u16 FrameIndex = 0;
+                    FrameIndex < FrameCount;
+                    ++FrameIndex)
+                {
+                    debug_frame *Frame = DebugState->Frames + FrameIndex;
+                    string FPS = FormatString(TempMem.Arena, "%.03f ms %d fps", Frame->SecondsElapsed, (u32)(1000.0f / Frame->SecondsElapsed));
+                    if(Button(&DebugGrid, RenderGroup, 0, FrameIndex, GenerateInteractionId(AppState), AppState, FPS)) { __debugbreak(); }
+                }
+            }
+            EndGrid(&DebugGrid);
+        }
         
-        if(Button(&Grid, RenderGroup, 0, 2, GenerateId(AppState), AppState, String("Bottom Left"))) { __debugbreak(); }
-        if(Button(&Grid, RenderGroup, 1, 2, GenerateId(AppState), AppState, String("Bottom Middle"))) { __debugbreak(); }
-        if(Button(&Grid, RenderGroup, 2, 2, GenerateId(AppState), AppState, String("Bottom Right"))) { __debugbreak(); }
+        
     }
-    EndGrid(&Grid);
+    EndGrid(&MainGrid);
+    
     
     Interact(UIState, Input);
     UIState->ToExecute = UIState->NextToExecute;
@@ -127,3 +163,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     EndTemporaryMemory(TempMem);
     CheckArena(&AppState->TranArena);
 }
+
+#if KENGINE_INTERNAL
+#include "kengine_debug.c"
+#endif

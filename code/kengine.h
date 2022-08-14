@@ -3,6 +3,8 @@
 #include "kengine_platform.h"
 #if KENGINE_INTERNAL
 #include "kengine_generated.h"
+#include "kengine_debug_shared.h"
+#include "kengine_debug.h"
 #endif
 #include "kengine_string.h"
 #include "kengine_intrinsics.h"

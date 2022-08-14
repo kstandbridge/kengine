@@ -28,10 +28,19 @@ AtomicCompareExchangeU32(u32 volatile *Value, u32 New, u32 Expected)
     
     return Result;
 }
+
 inline u32
 AtomicIncrementU32(u32 volatile *Value)
 {
     u32 Result = _InterlockedIncrement((long volatile *)Value);
+    
+    return Result;
+}
+
+inline u32 
+AtomicExchange(u32 volatile *Value, u32 New)
+{
+    u32 Result = (u32)_InterlockedExchange((long volatile *)Value, New);
     
     return Result;
 }
@@ -43,6 +52,15 @@ AtomicExchangeU64(u64 volatile *Value, u64 New)
     
     return Result;
 }
+
+inline u32 
+AtomicAddU32(u32 volatile *Value, u32 Addend)
+{
+    u32 Result = (u32)_InterlockedExchangeAdd((long volatile *)Value, Addend);
+    
+    return Result;
+}    
+
 inline u64 
 AtomicAddU64(u64 volatile *Value, u64 Addend)
 {
@@ -50,8 +68,9 @@ AtomicAddU64(u64 volatile *Value, u64 Addend)
     
     return Result;
 }    
+
 inline u32 
-GetThreadID(void)
+GetThreadID()
 {
     u8 *ThreadLocalStorage = (u8 *)__readgsqword(0x30);
     u32 ThreadID = *(u32 *)(ThreadLocalStorage + 0x48);
@@ -103,6 +122,7 @@ WasPressed(app_button_state State)
 }
 
 typedef struct app_state app_state;
+typedef struct debug_state debug_state;
 typedef struct
 {
     app_state *AppState;
@@ -118,6 +138,8 @@ typedef struct
     get_verticle_advance *GetVerticleAdvance;
     
 #if KENGINE_INTERNAL
+    debug_state *DebugState;
+    struct debug_event_table *DebugEventTable;
     b32 DllReloaded;
 #endif
     
@@ -125,6 +147,8 @@ typedef struct
 
 typedef struct render_commands render_commands;
 typedef void app_update_frame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena, app_input *Input);
+
+typedef void debug_update_frame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena, app_input *Input);
 
 #define KENGINE_PLATFORM_H
 #endif //KENGINE_PLATFORM_H

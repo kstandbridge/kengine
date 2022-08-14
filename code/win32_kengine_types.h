@@ -25,6 +25,8 @@ introspect(win32, Kernel32) typedef BOOL virtual_free(LPVOID lpAddress, SIZE_T d
 introspect(win32, Kernel32) typedef DWORD wait_for_single_object_ex(HANDLE hHandle, DWORD dwMilliseconds, BOOL bAlertable);
 introspect(win32, Kernel32) typedef HMODULE get_module_handle_a(LPCSTR lpModuleName);
 introspect(win32, Kernel32) typedef int mul_div(int nNumber, int nNumerator, int nDenominator);
+introspect(win32, Kernel32) typedef BOOL query_performance_counter(LARGE_INTEGER *lpPerformanceCount);
+introspect(win32, Kernel32) typedef BOOL query_performance_frequency(LARGE_INTEGER *lpFrequency);
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);
@@ -57,8 +59,6 @@ introspect(win32, User32) typedef int release_d_c(HWND hWnd, HDC hDC);
 introspect(win32, User32) typedef BOOL translate_message(const MSG *lpMsg);
 introspect(win32, User32) typedef BOOL get_cursor_pos(LPPOINT lpPoint);
 introspect(win32, User32) typedef BOOL screen_to_client(HWND hWnd, LPPOINT lpPoint);
-
-
 introspect(win32, User32) typedef BOOL get_client_rect(HWND hWnd, LPRECT lpRect);
 
 
