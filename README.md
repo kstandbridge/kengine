@@ -217,9 +217,15 @@ switch(Tokenizer->At[0])
 - [x] Horizontal control rows
 - [x] Grid system for control layout
 - [x] Software mode 30 FPS limit
-- [ ] Fullscreen support
+- [x] Grid split between debug and app controls
+- [x] Grid->AppControls to main.c which is app specfic and not part of the framework
+- [x] Grid->DebugControls to kengine_debug.c
 - [ ] Always specify if an arena is transient or permanent
 - [ ] ToggleButton
+- [ ] Profile tab to show last frame time
+- [ ] Profile frame timing graph
+- [ ] Profile frame selection to show thread breakdown
+- [ ] Fullscreen support
 - [ ] Circular buffer for strings
 - [ ] Debug section with console
 - [ ] Debug output to console
@@ -231,9 +237,6 @@ switch(Tokenizer->At[0])
 - [ ] Caret navigation Left/Right/Up/Down/Home/End
 - [ ] Text selection with keyboard
 - [ ] Text selection with mouse
-- [ ] Profile tab to show last frame time
-- [ ] Profile frame timing graph
-- [ ] Profile frame selection to show thread breakdown
 - [ ] Arena memory usage tab
 - [ ] Arena memory types breakdown
 - [ ] OpenGL rendering
@@ -243,6 +246,3 @@ switch(Tokenizer->At[0])
 - [ ] Dynamically growing memory arenas
 - [ ] Clean up introspect generate methods (double loop)
 - [ ] Buttons can be clicked through other apps
-- [ ] Grid split between debug and app controls
-- [ ] Grid->AppControls to main.c which is app specfic and not part of the framework
-- [ ] Grid->DebugControls to kengine_debug.c
