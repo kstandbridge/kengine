@@ -97,6 +97,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TranArena);
     
+#if KENGINE_INTERNAL
     ui_grid MainGrid = BeginGrid(UIState, TempMem.Arena, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 2, 1);
     {
         SetRowHeight(&MainGrid, 0, SIZE_AUTO);
@@ -109,6 +110,9 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         
     }
     EndGrid(&MainGrid);
+#else
+    DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)));
+#endif
     
     
     Interact(UIState, Input);
