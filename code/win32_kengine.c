@@ -20,6 +20,8 @@ Win32LoadLibraries()
     Assert(User32);
     Gdi32 = Win32LoadLibraryA("Gdi32.dll");
     Assert(Gdi32);
+    Winmm = Win32LoadLibraryA("Winmm.dll");
+    Assert(Winmm);
 }
 
 internal LRESULT
@@ -671,6 +673,24 @@ global debug_event_table GlobalDebugEventTable_;
 debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
 #endif
 
+
+internal void
+Win32TimeBeginPeriod(UINT uPeriod)
+{
+    // NOTE(kstandbridge): Intentionally didn't use preprocessor to generate this because someone decided to use lowerCamelCase naming in this library
+    typedef void time_begin_period(UINT uPeriod);
+    
+    Assert(Winmm);
+    local_persist time_begin_period *Func = 0;
+    if(!Func);
+    {
+        Func = (time_begin_period *)Win32GetProcAddressA(Winmm, "timeBeginPeriod");
+    }
+    Assert(Func);
+    Func(uPeriod);
+}
+
+
 void __stdcall 
 WinMainCRTStartup()
 {
@@ -759,6 +779,13 @@ WinMainCRTStartup()
             ZeroArray(ArrayCount(Input), Input);
             app_input *NewInput = &Input[0];
             app_input *OldInput = &Input[1];
+            
+            // NOTE(kstandbridge): 30fps is our target
+            f32 TargetSeconds = 1.0f / 30.0f;
+            
+            // NOTE(kstandbridge): Otherwise Sleep will be ignored for requests less than 50? citation needed
+            UINT MinSleepPeriod = 1;
+            Win32TimeBeginPeriod(MinSleepPeriod);
             
             Win32State->IsRunning = true;
             while(Win32State->IsRunning)
@@ -852,7 +879,6 @@ WinMainCRTStartup()
                 AppUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
 #endif
                 
-                
                 u32 NeededSortMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
                 if(CurrentSortMemorySize < NeededSortMemorySize)
                 {
@@ -902,10 +928,32 @@ WinMainCRTStartup()
                 NewInput = OldInput;
                 OldInput = Temp;
                 
-                LARGE_INTEGER ThisCounter = Win32GetWallClock();
-                f32 FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, ThisCounter);
+                
+                f32 FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
+                
+                if(FrameSeconds < TargetSeconds)
+                {
+                    DWORD Miliseconds = (DWORD)(1000.0f * (TargetSeconds - FrameSeconds));
+                    if(Miliseconds > 0)
+                    {
+                        Win32Sleep(Miliseconds);
+                    }
+                    
+                    FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
+                    // NOTE(kstandbridge): FINE  I'll make my own sleep function, with blackjack and hookers!
+                    while(FrameSeconds < TargetSeconds)
+                    {
+                        FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
+                    }
+                    
+                }
+                
+                
+                LARGE_INTEGER ThisCounter = Win32GetWallClock();                
+                FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, ThisCounter);
                 DEBUG_FRAME_END(FrameSeconds);
                 LastCounter = ThisCounter;
+                
                 
                 _mm_pause();
             }

@@ -143,8 +143,10 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
                     ++FrameIndex)
                 {
                     debug_frame *Frame = DebugState->Frames + FrameIndex;
-                    string FPS = FormatString(TempMem.Arena, "%.03f ms %d fps", Frame->SecondsElapsed, (u32)(1000.0f / Frame->SecondsElapsed));
-                    if(Button(&DebugGrid, RenderGroup, 0, FrameIndex, GenerateInteractionId(AppState), AppState, FPS)) { __debugbreak(); }
+                    f32 MsPerFrame = Frame->SecondsElapsed;
+                    f32 FramesPerSecond = 1.0f / MsPerFrame;
+                    string FPS = FormatString(TempMem.Arena, "%.02f ms %.02f fps", MsPerFrame*1000.0f, FramesPerSecond);
+                    Button(&DebugGrid, RenderGroup, 0, FrameIndex, GenerateInteractionId(AppState), AppState, FPS);
                 }
             }
             EndGrid(&DebugGrid);

@@ -27,6 +27,7 @@ introspect(win32, Kernel32) typedef HMODULE get_module_handle_a(LPCSTR lpModuleN
 introspect(win32, Kernel32) typedef int mul_div(int nNumber, int nNumerator, int nDenominator);
 introspect(win32, Kernel32) typedef BOOL query_performance_counter(LARGE_INTEGER *lpPerformanceCount);
 introspect(win32, Kernel32) typedef BOOL query_performance_frequency(LARGE_INTEGER *lpFrequency);
+introspect(win32, Kernel32) typedef void sleep(DWORD dwMilliseconds);
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);

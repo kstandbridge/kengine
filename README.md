@@ -216,6 +216,7 @@ switch(Tokenizer->At[0])
 - [x] Set width for controls
 - [x] Horizontal control rows
 - [x] Grid system for control layout
+- [x] Software mode 30 FPS limit
 - [ ] Fullscreen support
 - [ ] Always specify if an arena is transient or permanent
 - [ ] ToggleButton
@@ -242,3 +243,6 @@ switch(Tokenizer->At[0])
 - [ ] Dynamically growing memory arenas
 - [ ] Clean up introspect generate methods (double loop)
 - [ ] Buttons can be clicked through other apps
+- [ ] Grid split between debug and app controls
+- [ ] Grid->AppControls to main.c which is app specfic and not part of the framework
+- [ ] Grid->DebugControls to kengine_debug.c
