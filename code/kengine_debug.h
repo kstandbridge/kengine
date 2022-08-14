@@ -13,6 +13,8 @@ typedef struct
 
 typedef struct debug_state
 {
+    b32 Paused;
+    
     u32 MostRecentFrameOrdinal;
     u32 CollationFrameOrdinal;
     u32 ViewingFrameOrdinal;

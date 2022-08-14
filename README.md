@@ -220,7 +220,6 @@ switch(Tokenizer->At[0])
 - [x] Grid split between debug and app controls
 - [x] Grid->AppControls to main.c which is app specfic and not part of the framework
 - [x] Grid->DebugControls to kengine_debug.c
-- [ ] Always specify if an arena is transient or permanent
 - [ ] ToggleButton
 - [ ] Profile tab to show last frame time
 - [ ] Profile frame timing graph

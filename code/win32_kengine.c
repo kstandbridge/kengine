@@ -780,7 +780,6 @@ WinMainCRTStartup()
             app_input *NewInput = &Input[0];
             app_input *OldInput = &Input[1];
             
-            // NOTE(kstandbridge): 30fps is our target
             f32 TargetSeconds = 1.0f / 30.0f;
             
             // NOTE(kstandbridge): Otherwise Sleep will be ignored for requests less than 50? citation needed
@@ -947,7 +946,6 @@ WinMainCRTStartup()
                     }
                     
                 }
-                
                 
                 LARGE_INTEGER ThisCounter = Win32GetWallClock();                
                 FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, ThisCounter);

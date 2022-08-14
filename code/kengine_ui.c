@@ -563,6 +563,28 @@ SetColumnWidth(ui_grid *Grid, u16 RowIndex, u16 ColumnIndex, f32 Width)
 }
 
 inline void
+SetAllColumnWidths(ui_grid *Grid, u16 ColumnIndex, f32 Width)
+{
+    Assert(!Grid->SizeInitialized);
+    Assert(ColumnIndex <= Grid->Columns);
+    
+    for(ui_row *Row = Grid->FirstRow;
+        Row;
+        Row = Row->Next)
+    {
+        ui_column *Column = Row->FirstColumn;
+        Assert(Column);
+        for(;
+            ColumnIndex;
+            --ColumnIndex)
+        {
+            Column = Column->Next;
+        }
+        Column->Width = Width;
+    }
+}
+
+inline void
 SetRowHeight(ui_grid *Grid, u16 RowIndex, f32 Height)
 {
     Assert(!Grid->SizeInitialized);
