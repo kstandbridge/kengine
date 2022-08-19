@@ -29,15 +29,14 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         PlatformAPI->AppState = PushStruct(Arena, app_state);
         app_state *AppState = PlatformAPI->AppState;
         
-        AppState->TestGlyph = Platform.GetGlyphForCodePoint(Arena, 'K');
         // NOTE(kstandbridge): GetVerticleAdvance will return 0 if no glyphs have been loaded
+        Platform.GetGlyphForCodePoint(Arena, 'K');
         AppState->UIState.LineAdvance = Platform.GetVerticleAdvance();
         
         SubArena(&AppState->TranArena, Arena, Kilobytes(512));
     }
     
     app_state *AppState = PlatformAPI->AppState;
-    Assert(AppState->TestGlyph.Bitmap.Memory);
     
     render_group RenderGroup_;
     ZeroStruct(RenderGroup_);
@@ -88,7 +87,6 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
 #endif
     
     ui_state *UIState = &AppState->UIState;
-    
     
     UIState->MouseDown = Input->MouseButtons[MouseButton_Left].EndedDown;
     UIState->LastMouseP = UIState->MouseP;

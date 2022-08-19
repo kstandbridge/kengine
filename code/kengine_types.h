@@ -58,6 +58,12 @@ introspect(ctor, set1, math) typedef struct
 
 introspect(ctor, set1, math) typedef struct
 {
+    s32 X;
+    s32 Y;
+} v2i;
+
+introspect(ctor, set1, math) typedef struct
+{
     f32 X;
     f32 Y;
     f32 Z;

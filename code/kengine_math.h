@@ -86,6 +86,24 @@ Hadamard(v2 A, v2 B)
     return Result;
 }
 
+inline f32
+V2DistanceBetween(v2 A, v2 B)
+{
+    f32 Result = SquareRoot((A.X - B.X)*(A.X - B.X) + (A.Y - B.Y)*(A.Y - B.Y));
+    return Result;
+}
+
+//
+// NOTE(kstandbridge): v2i operations
+//
+
+inline f32
+V2iDistanceBetween(v2i A, v2i B)
+{
+    f32 Result = V2DistanceBetween(V2((f32)A.X, (f32)A.Y), V2((f32)B.X, (f32)B.Y));
+    return Result;
+}
+
 //
 // NOTE(kstandbridge): v4 operations
 //
@@ -138,7 +156,18 @@ Linear1ToSRGB255(v4 C)
 //
 
 inline rectangle2
-InvertedInfinityRectangle2()
+Rectangle2AddRadiusTo(rectangle2 Rectangle, f32 Radius)
+{
+    rectangle2 Result;
+    
+    Result.Min = V2Subtract(Rectangle.Min, V2Set1(Radius));
+    Result.Max = V2Add(Rectangle.Max, V2Set1(Radius));
+    
+    return Result;
+}
+
+inline rectangle2
+Rectangle2InvertedInfinity()
 {
     rectangle2 Result;
     
@@ -174,7 +203,7 @@ Rectangle2Union(rectangle2 A, rectangle2 B)
 }
 
 inline b32
-IsInRectangle(rectangle2 Rectangle, v2 Test)
+Rectangle2IsIn(rectangle2 Rectangle, v2 Test)
 {
     b32 Result = ((Test.X >= Rectangle.Min.X) &&
                   (Test.Y >= Rectangle.Min.Y) &&
@@ -185,7 +214,7 @@ IsInRectangle(rectangle2 Rectangle, v2 Test)
 }
 
 inline v2
-GetDim(rectangle2 Rectangle)
+Rectangle2GetDim(rectangle2 Rectangle)
 {
     v2 Result = V2Subtract(Rectangle.Max, Rectangle.Min);
     return Result;

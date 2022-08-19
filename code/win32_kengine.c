@@ -939,12 +939,12 @@ WinMainCRTStartup()
                     }
                     
                     FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
-                    // NOTE(kstandbridge): FINE  I'll make my own sleep function, with blackjack and hookers!
+                    
+                    // NOTE(kstandbridge): FINE I'll make my own sleep function, with blackjack and hookers!
                     while(FrameSeconds < TargetSeconds)
                     {
                         FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
                     }
-                    
                 }
                 
                 LARGE_INTEGER ThisCounter = Win32GetWallClock();                

@@ -15,9 +15,7 @@
 
 typedef struct app_state
 {
-    loaded_glyph TestGlyph;
     memory_arena TranArena;
-    
     
     loaded_glyph Glyphs[255];
     

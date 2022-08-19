@@ -88,7 +88,7 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                 v2 ElementHalfDim = V2Multiply(ElementDim, V2Set1(0.5f));
                 
                 rectangle2 TextBounds = GetTextSize(RenderGroup, DebugGrid.Scale, V2Set1(0.0f), Text);
-                v2 TextDim = GetDim(TextBounds);
+                v2 TextDim = Rectangle2GetDim(TextBounds);
                 v2 TextHalfDim = V2Multiply(TextDim, V2Set1(0.5f));
                 
                 v4 TextColor = NewFrameIndex == DebugState->MostRecentFrameOrdinal ? V4(0.0f, 0.0f, 1.0f, 1) : V4(0.0f, 0.0f, 0.0f, 1);

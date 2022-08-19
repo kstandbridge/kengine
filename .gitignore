@@ -1,3 +1,5 @@
 kengine.ctm
+kengine.rdbg
+kengine.mlt
 code/kengine_generated.h
 code/win32_kengine_generated.c

@@ -14,7 +14,7 @@ typedef enum
 internal rectangle2
 TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, string Text)
 {
-    rectangle2 Result = InvertedInfinityRectangle2();
+    rectangle2 Result = Rectangle2InvertedInfinity();
     
     memory_arena *Arena = RenderGroup->Arena;
     loaded_glyph *Glyphs = RenderGroup->Glyphs;
@@ -365,7 +365,7 @@ EndUIElement(ui_element *Element)
     ui_grid *Grid = Element->Grid;
     ui_state *UIState = Grid->UIState;
     
-    if(Element->Interaction.Type && IsInRectangle(Element->Bounds, UIState->MouseP))
+    if(Element->Interaction.Type && Rectangle2IsIn(Element->Bounds, UIState->MouseP))
     {
         UIState->NextHotInteraction = Element->Interaction;
         Element->IsHot = true;
@@ -415,7 +415,7 @@ DrawTextElement_(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 
     v2 ElementHalfDim = V2Multiply(ElementDim, V2Set1(0.5f));
     
     rectangle2 TextBounds = GetTextSize(RenderGroup, Grid->Scale, V2Set1(0.0f), Text);
-    v2 TextDim = GetDim(TextBounds);
+    v2 TextDim = Rectangle2GetDim(TextBounds);
     v2 TextHalfDim = V2Multiply(TextDim, V2Set1(0.5f));
     
     v2 TextOffset = V2Add(V2Subtract(Element.Bounds.Min, TextHalfDim),ElementHalfDim);
