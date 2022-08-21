@@ -648,7 +648,7 @@ GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
     Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\n%SMergeSort__(%S *First, %S *Second, %S_predicate *Predicate)\n", Type, FunctionName, Type, Type, Type);
     Win32ConsoleOut(Tokenizer->Arena, "{\n");
     Win32ConsoleOut(Tokenizer->Arena, "    %S *Result;\n\n", Type);
-        Win32ConsoleOut(Tokenizer->Arena, "    if(!First)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    if(!First)\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
     Win32ConsoleOut(Tokenizer->Arena, "        Result = Second;\n");
     Win32ConsoleOut(Tokenizer->Arena, "    }\n");
@@ -712,7 +712,7 @@ GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
     Win32ConsoleOut(Tokenizer->Arena, "}\n");
     
     Token = GetNextCToken(Tokenizer);
-    while(Token.Type != CToken_CloseParen)
+    while(Token.Type != CToken_CloseBrace)
     {
         Token = GetNextCToken(Tokenizer);
     }
