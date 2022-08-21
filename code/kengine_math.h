@@ -4,7 +4,6 @@
 // NOTE(kstandbridge): Scalar operations
 //
 
-
 inline f32
 SafeRatioN(f32 Numerator, f32 Divisor, f32 N)
 {

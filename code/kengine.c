@@ -112,7 +112,6 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)));
 #endif
     
-    
     Interact(UIState, Input);
     UIState->ToExecute = UIState->NextToExecute;
     ClearInteraction(&UIState->NextToExecute);

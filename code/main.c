@@ -355,7 +355,6 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
                 node *CurrentNode = CurrentLink->Node;
                 CurrentNode->Visited = true;
                 
-                
                 // NOTE(kstandbridge): Check each Neighbour
                 for(node_link *NeighbourLink = CurrentNode->NeighbourSentinal.Next;
                     NeighbourLink != &CurrentNode->NeighbourSentinal;
