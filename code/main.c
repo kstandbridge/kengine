@@ -258,23 +258,21 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
         CurrentLink->Node = StartNode;
         NodeLinkInsertAtLast(&NotTestedSentinel, CurrentLink); 
         
-        u32 NotTestedCount = 1;
         while(!NodeLinkIsEmpty(&NotTestedSentinel) &&
               (CurrentLink->Node != EndNode))
         {
             // NOTE(kstandbridge): Sort NotTestedLinks
             NodeLinkMergeSort(&NotTestedSentinel, NodeLinkPredicate);
             
-            node_link *FirstLink = NotTestedSentinel.Next;
-            if(FirstLink->Node->Visited)
+            while(!NodeLinkIsEmpty(&NotTestedSentinel) && 
+                  NotTestedSentinel.Next->Node->Visited)
             {
-                NodeLinkRemove(FirstLink);
-                --NotTestedCount;
+                NodeLinkRemove(NotTestedSentinel.Next);
             }
-            else
-                
+            
+            if(!NodeLinkIsEmpty(&NotTestedSentinel))
             {            
-                CurrentLink = FirstLink;
+                CurrentLink = NotTestedSentinel.Next;
                 node *CurrentNode = CurrentLink->Node;
                 CurrentNode->Visited = true;
                 
@@ -285,12 +283,11 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
                 {
                     node *NeighbourNode = NeighbourLink->Node;
                     
-                    if(!NeighbourNode->Visited && !NeighbourNode->Obstacle)
+                    if(!NeighbourNode->Visited && NeighbourNode->Obstacle == 0)
                     {
-                        node_link *LinkCopy = PushStruct(PermArena, node_link);
+                        node_link *LinkCopy = PushStruct(TempArena, node_link);
                         LinkCopy->Node = NeighbourNode;
                         NodeLinkInsertAtLast(&NotTestedSentinel, LinkCopy);
-                        ++NotTestedCount;
                     }
                     
                     f32 NewDistance = V2iDistanceBetween(CurrentNode->P, NeighbourNode->P);
@@ -319,8 +316,12 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
             
             v2 NodeP = GetCellP(StartingAt, Node->P.X, Node->P.Y);
             v2 ParentP = GetCellP(StartingAt, Parent->P.X, Parent->P.Y);
-            rectangle2 PathBounds = Rectangle2(V2Add(ParentP, V2Set1(0.5f*CEL_DIM)),
-                                               V2Add(NodeP, V2Set1(0.5f*CEL_DIM)));
+            v2 Min = V2(Minimum(NodeP.X, ParentP.X), Minimum(NodeP.Y, ParentP.Y));
+            v2 Max = V2(Maximum(NodeP.X, ParentP.X), Maximum(NodeP.Y, ParentP.Y));
+            
+            rectangle2 PathBounds = Rectangle2(V2Add(Min, V2Set1(0.5f*CEL_DIM)),
+                                               V2Add(Max, V2Set1(0.5f*CEL_DIM)));
+            
             PathBounds = Rectangle2AddRadiusTo(PathBounds, 3.0f);
             v4 Color = V4(1.0f, 1.0f, 0.0f, 1.0f);
             PushRenderCommandRectangle(RenderGroup, Color, PathBounds, 3.0f);
