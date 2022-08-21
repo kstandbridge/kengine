@@ -130,6 +130,16 @@ typedef struct
     f32 KerningChange;
 } loaded_glyph;
 
+// TODO(kstandbridge): Replace this with a double linked list we use in production
+introspect(dlist) typedef struct double_linked_list
+{
+    u32 SortKey;
+    
+    struct double_linked_list *Prev;
+    struct double_linked_list *Next;
+    
+} double_linked_list;
+
 
 #define KENGINE_TYPES_H
 #endif //KENGINE_TYPES_H

@@ -259,22 +259,6 @@ RunUpperCamelCaseTests(memory_arena *Arena)
     }
 }
 
-typedef struct double_linked_list
-{
-    u32 SortKey;
-    
-    struct double_linked_list *Prev;
-    struct double_linked_list *Next;
-    
-} double_linked_list;
-
-inline void
-DoubleLinkedListInit(double_linked_list *Sentinel)
-{
-    Sentinel->Next = Sentinel;
-    Sentinel->Prev = Sentinel;
-}
-
 inline void
 RunDoubleLinkedListInitTests(memory_arena *Arena)
 {
@@ -283,15 +267,6 @@ RunDoubleLinkedListInitTests(memory_arena *Arena)
     
     ASSERT(Sentinel.Next == &Sentinel);
     ASSERT(Sentinel.Prev == &Sentinel);
-}
-
-inline void
-DoubleLinkedListInsert(double_linked_list *Sentinel, double_linked_list *Element)
-{
-    Element->Next = Sentinel->Next;
-    Element->Prev = Sentinel;
-    Element->Next->Prev = Element;
-    Element->Prev->Next = Element;
 }
 
 inline void
@@ -328,15 +303,6 @@ RunDoubleLinkedListInsertTests(memory_arena *Arena)
 }
 
 inline void
-DoubleLinkedListInsertAtLast(double_linked_list *Sentinel, double_linked_list *Element)
-{
-    Element->Next = Sentinel;
-    Element->Prev = Sentinel->Prev;
-    Element->Next->Prev = Element;
-    Element->Prev->Next = Element;
-}
-
-inline void
 RunDoubleLinkedListInsertAtLastTests(memory_arena *Arena)
 {
     double_linked_list Sentinel;
@@ -354,13 +320,6 @@ RunDoubleLinkedListInsertAtLastTests(memory_arena *Arena)
     ASSERT(Sentinel.Next->Next->Next == &Third);
 }
 
-inline b32
-DoubleLinkedListIsEmpty(double_linked_list *Sentinel)
-{
-    b32 Result = (Sentinel->Next == Sentinel);
-    return Result;
-}
-
 inline void
 RunDoubleLinkedListIsEmptyTests(memory_arena *Arena)
 {
@@ -372,39 +331,6 @@ RunDoubleLinkedListIsEmptyTests(memory_arena *Arena)
     double_linked_list Element;
     DoubleLinkedListInsert(&Sentinel, &Element);
     Assert(!DoubleLinkedListIsEmpty(&Sentinel));
-}
-
-inline void
-DoubleLinkedListSwap(double_linked_list *A, double_linked_list *B)
-{
-    if(A == B)
-    {   
-        InvalidCodePath;
-    }
-    else if(A->Next == B)
-    {
-        A->Next = B->Next;
-        B->Prev = A->Prev;
-        A->Next->Prev = A;
-        B->Prev->Next = B;
-        B->Next = A;
-        A->Prev = B;
-    }
-    else
-    {
-        double_linked_list *ANext = A->Next;
-        double_linked_list *APrev = A->Prev;
-        
-        A->Next = B->Next;
-        A->Prev = B->Prev;
-        A->Next->Prev = A;
-        A->Prev->Next = A;
-        
-        B->Next = ANext;
-        B->Prev = APrev;
-        B->Next->Prev = B;
-        B->Prev->Next = B;
-    }
 }
 
 inline void
@@ -460,46 +386,6 @@ RunDoubleLinkedListSwapTests(memory_arena *Arena)
     }
 }
 
-typedef b32 double_linked_list_predicate(double_linked_list *A, double_linked_list *B);
-
-inline void
-DoubleLinkedListSplit(double_linked_list *Sentinel, double_linked_list** First, double_linked_list **Second)
-{
-    double_linked_list *Head = Sentinel->Next;
-    double_linked_list *Fast = Sentinel->Next;
-    double_linked_list *Slow = Sentinel->Next;
-    if(Sentinel->Prev)
-    {        
-        Sentinel->Prev->Next = 0;
-        Sentinel->Prev = 0;
-        
-        Head = Sentinel->Next;
-        Fast = Sentinel->Next;
-        Slow = Sentinel->Next;
-        
-        Fast->Prev = 0;
-    }
-    else
-    {
-        Head = Sentinel;
-        Fast = Sentinel;
-        Slow = Sentinel;
-    }
-    
-    
-    while((Fast->Next) &&
-          (Fast->Next->Next))
-    {
-        Fast = Fast->Next->Next;
-        Slow = Slow->Next;
-    }
-    
-    double_linked_list *Temp = Slow->Next;
-    Slow->Next = 0;
-    *First = Head;
-    *Second = Temp;
-}
-
 inline void
 RunDoubleLinkedListSplitTests(memory_arena *Arena)
 {
@@ -539,90 +425,12 @@ RunDoubleLinkedListSplitTests(memory_arena *Arena)
     
 }
 
-inline double_linked_list *
-DoubleLinkedListMergeSort__(double_linked_list *First, double_linked_list *Second, double_linked_list_predicate *Predicate)
-{
-    double_linked_list *Result;
-    
-    if(!First)
-    {
-        Result = Second;
-    }
-    else if(!Second)
-    {
-        Result = First;
-    }
-    else if(Predicate(First, Second))
-    {
-        First->Next = DoubleLinkedListMergeSort__(First->Next, Second, Predicate);
-        First->Next->Prev = First;
-        First->Prev = 0;
-        Result = First;
-    }
-    else
-    {
-        Second->Next = DoubleLinkedListMergeSort__(First, Second->Next, Predicate);
-        Second->Next->Prev = Second;
-        Second->Prev = 0;
-        Result = Second;
-    }
-    
-    return Result;
-}
-
-inline double_linked_list *
-DoubleLinkedListMergeSort_(double_linked_list *Head, double_linked_list_predicate *Predicate)
-{
-    double_linked_list *Result;
-    if(!Head || !Head->Next)
-    {
-        Result = Head;
-    }
-    else
-    {    
-        double_linked_list *FirstHalf;
-        double_linked_list *SecondHalf;
-        DoubleLinkedListSplit(Head, &FirstHalf, &SecondHalf);
-        
-        FirstHalf = DoubleLinkedListMergeSort_(FirstHalf, Predicate);
-        SecondHalf = DoubleLinkedListMergeSort_(SecondHalf, Predicate);
-        
-        Result = DoubleLinkedListMergeSort__(FirstHalf, SecondHalf, Predicate);
-    }
-    
-    return Result;
-}
-
-inline void
-DoubleLinkedListMergeSort(double_linked_list *Sentinel, double_linked_list_predicate *Predicate)
-{
-    double_linked_list *FirstHalf;
-    double_linked_list *SecondHalf;
-    DoubleLinkedListSplit(Sentinel, &FirstHalf, &SecondHalf);
-    
-    FirstHalf = DoubleLinkedListMergeSort_(FirstHalf, Predicate);
-    SecondHalf = DoubleLinkedListMergeSort_(SecondHalf, Predicate);
-    
-    double_linked_list *Merged = DoubleLinkedListMergeSort__(FirstHalf, SecondHalf, Predicate);
-    
-    Sentinel->Next = Merged;
-    double_linked_list *Last = Merged;
-    while(Last->Next)
-    {
-        Last = Last->Next;
-    }
-    Sentinel->Prev = Last;
-    Last->Next = Sentinel;
-}
-
-
 internal b32
 DoubleLinkedListPredicate(double_linked_list *A, double_linked_list *B)
 {
     b32 Result = A->SortKey > B->SortKey;
     return Result;
 }
-
 
 inline void
 RunDoubleLinkedListSortTests(memory_arena *Arena)
