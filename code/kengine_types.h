@@ -140,6 +140,15 @@ introspect(dlist) typedef struct double_linked_list
     
 } double_linked_list;
 
+// TODO(kstandbridge): move this to types.h
+introspect(dlist) typedef struct node_link
+{
+    struct node *Node;
+    
+    struct node_link *Prev;
+    struct node_link *Next;
+} node_link;
+
 
 #define KENGINE_TYPES_H
 #endif //KENGINE_TYPES_H

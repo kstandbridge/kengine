@@ -41,73 +41,6 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
 }
 #endif
 
-typedef struct node_link
-{
-    struct node *Node;
-    
-    struct node_link *Prev;
-    struct node_link *Next;
-} node_link;
-
-inline void
-NodeLinkInit(node_link *Sentinel)
-{
-    Sentinel->Node = 0;
-    Sentinel->Prev = Sentinel;
-    Sentinel->Next = Sentinel;
-}
-
-inline void
-NodeLinkInsert(node_link *Sentinel, node_link *Link)
-{
-    Assert(Link->Node);
-    Link->Next = Sentinel->Next;
-    Link->Prev = Sentinel;
-    Link->Next->Prev = Link;
-    Link->Prev->Next = Link;
-}
-
-inline void
-NodeLinkInsertAtLast(node_link *Sentinel, node_link *Link)
-{
-    Assert(Link->Node);
-    Link->Next = Sentinel;
-    Link->Prev = Sentinel->Prev;
-    Link->Next->Prev = Link;
-    Link->Prev->Next = Link;
-}
-
-inline void
-NodeLinkRemove(node_link *Link)
-{
-    Link->Prev->Next = Link->Next;
-    Link->Next->Prev = Link->Prev;
-}
-
-inline node_link *
-NodeLinkSortedGetByIndex(node_link *Sentinel, sort_entry *SortEntries, u32 SortEntryCount, u32 Index)
-{
-    sort_entry *FirstNodeEntry = SortEntries + Index;
-    u32 EntryIndex = FirstNodeEntry->Index;
-    
-    node_link *Result = Sentinel->Next;
-    
-    while(EntryIndex)
-    {
-        Result = Result->Next;
-        --EntryIndex;
-    }
-    
-    return Result;
-}
-
-inline b32
-NodeLinkIsEmpty(node_link *Sentinel)
-{
-    b32 Result = Sentinel->Next == Sentinel;
-    return Result;
-}
-
 typedef struct node
 {
     b32 Obstacle;
@@ -140,6 +73,13 @@ GetCellP(v2 StartingPoint, s32 Column, s32 Row)
     Result.X += (PADDING + CEL_DIM) * Column;
     Result.Y += (PADDING + CEL_DIM) * Row;
     
+    return Result;
+}
+
+internal b32
+NodeLinkPredicate(node_link *A, node_link *B)
+{
+    b32 Result = A->Node->GlobalGoal < B->Node->GlobalGoal;
     return Result;
 }
 
@@ -221,8 +161,6 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
     v2 RemainingDim = V2Subtract(TotalDim, TotalUsedDim);
     v2 StartingAt = V2Add(Bounds.Min, V2Multiply(V2Set1(0.5f), RemainingDim));
     
-    b32 NeedsPathUpdate = false;
-    
     u32 Index = 0;
     u32 TotalNodes = Rows * Columns;
     for(node *Node = Nodes;
@@ -257,7 +195,6 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
                 if(WasPressed(Input->MouseButtons[MouseButton_Left]))
                 {
                     Node->Obstacle = !Node->Obstacle;
-                    NeedsPathUpdate = true;
                 }
                 if(WasPressed(Input->MouseButtons[MouseButton_Middle]))
                 {
@@ -294,7 +231,6 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
     }
     
     // NOTE(kstandbridge): Solve A*
-    if(NeedsPathUpdate)
     {
         
         // NOTE(kstandbridge): Reset nodes
@@ -327,22 +263,9 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
               (CurrentLink->Node != EndNode))
         {
             // NOTE(kstandbridge): Sort NotTestedLinks
-            sort_entry *SortEntries = PushArray(TempArena, NotTestedCount, sort_entry);
-            {
-                node_link *NodeLink = NotTestedSentinel.Next;
-                sort_entry *SortEntry = SortEntries;
-                for(u32 SortIndex = 0;
-                    SortIndex < NotTestedCount;
-                    ++SortIndex, ++SortEntry, NodeLink = NodeLink->Next)
-                {
-                    SortEntry->SortKey = NodeLink->Node->GlobalGoal;
-                    SortEntry->Index = SortIndex;
-                }
-                BubbleSort(NotTestedCount, SortEntries);
-            }
+            NodeLinkMergeSort(&NotTestedSentinel, NodeLinkPredicate);
             
-            
-            node_link *FirstLink = NodeLinkSortedGetByIndex(&NotTestedSentinel, SortEntries, NotTestedCount, 0);
+            node_link *FirstLink = NotTestedSentinel.Next;
             if(FirstLink->Node->Visited)
             {
                 NodeLinkRemove(FirstLink);

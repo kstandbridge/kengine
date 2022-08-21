@@ -476,7 +476,8 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
         InvalidDefaultCase;
     }
     
-    if(Op == GenerateMethod_Ctor || GenerateMethod_Set1)
+    if((Op == GenerateMethod_Ctor) || 
+       (Op == GenerateMethod_Set1))
     {
         Win32ConsoleOut(Tokenizer->Arena, "%S", Types);
     }
@@ -701,20 +702,24 @@ GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
     
     Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SMergeSort(%S *Sentinel, %S_predicate *Predicate)\n", FunctionName, Type, Type);
     Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *FirstHalf;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *SecondHalf;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    %SSplit(Sentinel, &FirstHalf, &SecondHalf);\n\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "    FirstHalf = %SMergeSort_(FirstHalf, Predicate);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "    SecondHalf = %SMergeSort_(SecondHalf, Predicate);\n\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *Merged = %SMergeSort__(FirstHalf, SecondHalf, Predicate);\n\n", Type, FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "    Sentinel->Next = Merged;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *Last = Merged;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    while(Last->Next)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    if(Sentinel->Next->Next != Sentinel)\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Last = Last->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        %S *FirstHalf;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "        %S *SecondHalf;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "        %SSplit(Sentinel, &FirstHalf, &SecondHalf);\n\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        FirstHalf = %SMergeSort_(FirstHalf, Predicate);\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        SecondHalf = %SMergeSort_(SecondHalf, Predicate);\n\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        %S *Merged = %SMergeSort__(FirstHalf, SecondHalf, Predicate);\n\n", Type, FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        Sentinel->Next = Merged;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        Merged->Prev = Sentinel;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        %S *Last = Merged;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "        while(Last->Next)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Last = Last->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        Sentinel->Prev = Last;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        Last->Next = Sentinel;\n");
     Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Sentinel->Prev = Last;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Last->Next = Sentinel;\n");
     Win32ConsoleOut(Tokenizer->Arena, "}\n");
     
     Token = GetNextCToken(Tokenizer);
