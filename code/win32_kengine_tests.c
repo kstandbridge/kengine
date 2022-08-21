@@ -320,6 +320,32 @@ RunDoubleLinkedListInsertAtLastTests(memory_arena *Arena)
     ASSERT(Sentinel.Next->Next->Next == &Third);
 }
 
+
+inline void
+RunDoubleLinkedListRemoveTests(memory_arena *Arena)
+{
+    double_linked_list Sentinel;
+    DoubleLinkedListInit(&Sentinel);
+    
+    double_linked_list First;
+    double_linked_list Second;
+    double_linked_list Third;
+    DoubleLinkedListInsertAtLast(&Sentinel, &First);
+    DoubleLinkedListInsertAtLast(&Sentinel, &Second);
+    DoubleLinkedListInsertAtLast(&Sentinel, &Third);
+    
+    ASSERT(Sentinel.Next == &First);
+    ASSERT(Sentinel.Next->Next == &Second);
+    ASSERT(Sentinel.Next->Next->Next == &Third);
+    
+    DoubleLinkedListRemove(&Second);
+    
+    ASSERT(Sentinel.Next == &First);
+    ASSERT(Sentinel.Next->Next == &Third);
+    ASSERT(Sentinel.Next->Next->Next == &Sentinel);
+}
+
+
 inline void
 RunDoubleLinkedListIsEmptyTests(memory_arena *Arena)
 {
@@ -512,6 +538,7 @@ RunAllTests(memory_arena *Arena)
     RunDoubleLinkedListInitTests(Arena);
     RunDoubleLinkedListInsertTests(Arena);
     RunDoubleLinkedListInsertAtLastTests(Arena);
+    RunDoubleLinkedListRemoveTests(Arena);
     RunDoubleLinkedListIsEmptyTests(Arena);
     RunDoubleLinkedListSwapTests(Arena);
     RunDoubleLinkedListSplitTests(Arena);

@@ -575,6 +575,12 @@ GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
     Win32ConsoleOut(Tokenizer->Arena, "    Element->Prev->Next = Element;\n");
     Win32ConsoleOut(Tokenizer->Arena, "}\n");
     
+    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SRemove(%S *Element)\n", FunctionName, Type);
+    Win32ConsoleOut(Tokenizer->Arena, "{\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    Element->Prev->Next = Element->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    Element->Next->Prev = Element->Prev;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "}\n");
+    
     Win32ConsoleOut(Tokenizer->Arena, "\ninline b32\n%SIsEmpty(%S *Sentinel)\n", FunctionName, Type);
     Win32ConsoleOut(Tokenizer->Arena, "{\n");
     Win32ConsoleOut(Tokenizer->Arena, "    b32 Result = (Sentinel->Next == Sentinel);\n");
