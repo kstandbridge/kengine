@@ -576,6 +576,16 @@ GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
     Win32ConsoleOut(Tokenizer->Arena, "    Element->Prev->Next = Element;\n");
     Win32ConsoleOut(Tokenizer->Arena, "}\n");
     
+    Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\n%SGetByIndex(%S *Sentinel, u32 Index)\n", Type, FunctionName, Type);
+    Win32ConsoleOut(Tokenizer->Arena, "{\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %S *Result = Sentinel->Next;\n\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    while(Index--)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        Result = Result->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    }\n\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    return Result;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "}\n");
+    
     Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SRemove(%S *Element)\n", FunctionName, Type);
     Win32ConsoleOut(Tokenizer->Arena, "{\n");
     Win32ConsoleOut(Tokenizer->Arena, "    Element->Prev->Next = Element->Next;\n");
@@ -618,8 +628,6 @@ GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
     Win32ConsoleOut(Tokenizer->Arena, "    }\n");
     Win32ConsoleOut(Tokenizer->Arena, "}\n");
     
-    Win32ConsoleOut(Tokenizer->Arena, "\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);
-    
     Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SSplit(%S *Sentinel, %S **First, %S **Second)\n", FunctionName, Type, Type, Type);
     Win32ConsoleOut(Tokenizer->Arena, "{\n");
     Win32ConsoleOut(Tokenizer->Arena, "    %S *Head = Sentinel->Next;\n", Type);
@@ -651,6 +659,8 @@ GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
     Win32ConsoleOut(Tokenizer->Arena, "    *First = Head;\n");
     Win32ConsoleOut(Tokenizer->Arena, "    *Second = Temp;\n");
     Win32ConsoleOut(Tokenizer->Arena, "}\n");
+    
+    Win32ConsoleOut(Tokenizer->Arena, "\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);
     
     Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\n%SMergeSort__(%S *First, %S *Second, %S_predicate *Predicate)\n", Type, FunctionName, Type, Type, Type);
     Win32ConsoleOut(Tokenizer->Arena, "{\n");

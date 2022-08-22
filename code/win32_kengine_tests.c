@@ -345,6 +345,26 @@ RunDoubleLinkedListRemoveTests(memory_arena *Arena)
     ASSERT(Sentinel.Next->Next->Next == &Sentinel);
 }
 
+inline void
+RunDoubleLinkedListGetByIndexTests(memory_arena *Arena)
+{
+    double_linked_list Sentinel;
+    DoubleLinkedListInit(&Sentinel);
+    
+    double_linked_list First;
+    double_linked_list Second;
+    double_linked_list Third;
+    DoubleLinkedListInsertAtLast(&Sentinel, &First);
+    DoubleLinkedListInsertAtLast(&Sentinel, &Second);
+    DoubleLinkedListInsertAtLast(&Sentinel, &Third);
+    
+    double_linked_list *Actual = DoubleLinkedListGetByIndex(&Sentinel, 2);
+    ASSERT(Actual == &Third);
+    Actual = DoubleLinkedListGetByIndex(&Sentinel, 0);
+    ASSERT(Actual == &First);
+    Actual = DoubleLinkedListGetByIndex(&Sentinel, 1);
+    ASSERT(Actual == &Second);
+}
 
 inline void
 RunDoubleLinkedListIsEmptyTests(memory_arena *Arena)
@@ -496,7 +516,7 @@ RunDoubleLinkedListSortTests(memory_arena *Arena)
         
         double_linked_list Sentinel;
         DoubleLinkedListInit(&Sentinel);
-        u32 ElementCount = RandomU32(&RandomState) % 100;
+        u32 ElementCount = RandomU32(&RandomState) % 1000;
         for(u32 Index = 0;
             Index < ElementCount;
             ++Index)
@@ -539,10 +559,10 @@ RunAllTests(memory_arena *Arena)
     RunDoubleLinkedListInsertTests(Arena);
     RunDoubleLinkedListInsertAtLastTests(Arena);
     RunDoubleLinkedListRemoveTests(Arena);
+    RunDoubleLinkedListGetByIndexTests(Arena);
     RunDoubleLinkedListIsEmptyTests(Arena);
     RunDoubleLinkedListSwapTests(Arena);
     RunDoubleLinkedListSplitTests(Arena);
-    
     RunDoubleLinkedListSortTests(Arena);
     
     b32 Result = (FailedTests == 0);

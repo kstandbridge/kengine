@@ -261,7 +261,6 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
         while(!NodeLinkIsEmpty(&NotTestedSentinel) &&
               (CurrentLink->Node != EndNode))
         {
-            // NOTE(kstandbridge): Sort NotTestedLinks
             NodeLinkMergeSort(&NotTestedSentinel, NodeLinkPredicate);
             
             while(!NodeLinkIsEmpty(&NotTestedSentinel) && 
@@ -283,7 +282,7 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
                 {
                     node *NeighbourNode = NeighbourLink->Node;
                     
-                    if(!NeighbourNode->Visited && NeighbourNode->Obstacle == 0)
+                    if(!NeighbourNode->Visited && !NeighbourNode->Obstacle)
                     {
                         node_link *LinkCopy = PushStruct(TempArena, node_link);
                         LinkCopy->Node = NeighbourNode;

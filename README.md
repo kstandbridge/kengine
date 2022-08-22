@@ -220,8 +220,8 @@ switch(Tokenizer->At[0])
 - [x] Grid split between debug and app controls
 - [x] Grid->AppControls to main.c which is app specfic and not part of the framework
 - [x] Grid->DebugControls to kengine_debug.c
-- [ ] Introspect double linked list: Init, Inters, InsertLast, Remove, GetByIndex, IsEmpty
-- [ ] Introspect sorting a double linked list?
+- [x] Introspect double linked list: Init, Inters, InsertLast, Remove, GetByIndex, IsEmpty
+- [x] Introspect sorting a double linked list?
 - [ ] ToggleButton
 - [ ] Profile tab to show last frame time
 - [ ] Profile frame timing graph
