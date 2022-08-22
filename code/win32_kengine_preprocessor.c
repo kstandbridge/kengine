@@ -787,7 +787,7 @@ GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
 }
 
 internal void
-GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
+GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter)
 {
     c_token Token = GetNextCToken(Tokenizer);
     Assert(StringsAreEqual(String("typedef"), Token.Str));
@@ -806,6 +806,11 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library)
     string FunctionType = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
     string FunctionName = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
     ToUpperCamelCase(&FunctionName);
+    if(StringsAreEqual(String("lowerCamelCase"), Parameter))
+    {
+        FunctionName.Data[0] = ToLowercase(FunctionName.Data[0]);
+    }
+    
     Token = GetNextCToken(Tokenizer);
     Assert(Token.Type == CToken_OpenParen);
     Win32ConsoleOut(Tokenizer->Arena, "\ninternal %S\n", ReturnType);
@@ -915,6 +920,8 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
         b32 IsDList = false;
         string Parameter;
         ZeroStruct(Parameter);
+        string Parameter2;
+        ZeroStruct(Parameter2);
         
         // NOTE(kstandbridge): Parse params
         c_token Token;
@@ -947,14 +954,21 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
                 }
                 else
                 {
-                    Parameter = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+                    if(!Parameter.Data)
+                    {
+                        Parameter = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+                    }
+                    else
+                    {
+                        Parameter2 = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+                    }
                 }
             }
         }
         
         if(IsWin32)
         {
-            GenerateFunctionPointer(Tokenizer, Parameter);
+            GenerateFunctionPointer(Tokenizer, Parameter, Parameter2);
         }
         else if(IsDList)
         {

@@ -66,7 +66,7 @@ PushRenderCommandClipRectangle(render_group *Group, rectangle2i Bounds)
 internal void
 PushRenderCommandClear(render_group *Group, f32 SortKey, v4 Color)
 {
-    render_group_command_clear *Command = PushRenderCommand(Group, RenderGroupCommandType_Clear, sizeof(render_group_command_clear), SortKey);
+    render_group_command_clear *Command = PushRenderCommand(Group, RenderGroupCommand_Clear, sizeof(render_group_command_clear), SortKey);
     if(Command)
     {
         Command->Color = Color;
@@ -81,7 +81,7 @@ PushRenderCommandClear(render_group *Group, f32 SortKey, v4 Color)
 internal void
 PushRenderCommandRectangle(render_group *Group, v4 Color, rectangle2 Bounds, f32 SortKey)
 {
-    render_group_command_rectangle *Command = PushRenderCommand(Group, RenderGroupCommandType_Rectangle, sizeof(render_group_command_rectangle), SortKey);
+    render_group_command_rectangle *Command = PushRenderCommand(Group, RenderGroupCommand_Rectangle, sizeof(render_group_command_rectangle), SortKey);
     if(Command)
     {
         Command->Color = Color;
@@ -124,7 +124,7 @@ internal void
 PushRenderCommandBitmap(render_group *Group, loaded_bitmap *Bitmap, f32 Height, v2 Offset, v4 Color, f32 SortKey)
 {
     bitmap_dim Dim = GetBitmapDim(Bitmap, Height, Offset);
-    render_group_command_bitmap *Command = PushRenderCommand(Group, RenderGroupCommandType_Bitmap, sizeof(render_group_command_bitmap), SortKey);
+    render_group_command_bitmap *Command = PushRenderCommand(Group, RenderGroupCommand_Bitmap, sizeof(render_group_command_bitmap), SortKey);
     if(Command)
     {
         Command->Bitmap = Bitmap;

@@ -174,8 +174,8 @@ switch(Tokenizer->At[0])
 - [x] Unit test framework
 - [x] DLL hot loading
 - [x] Software rendering
-- [ ] Win32 platform layer
-- [ ] OpenGL rendering
+- [x] Win32 platform layer
+- [x] OpenGL rendering
 - [ ] Immediate mode GUI
 - [ ] Profiling and debugging system
 - [ ] DirectX rendering
@@ -223,6 +223,7 @@ switch(Tokenizer->At[0])
 - [x] Introspect double linked list: Init, Inters, InsertLast, Remove, GetByIndex, IsEmpty
 - [x] Introspect sorting a double linked list?
 - [x] Introspect free list?
+- [x] OpenGL rendering
 - [ ] ToggleButton
 - [ ] Profile tab to show last frame time
 - [ ] Profile frame timing graph
@@ -241,7 +242,6 @@ switch(Tokenizer->At[0])
 - [ ] Text selection with mouse
 - [ ] Arena memory usage tab
 - [ ] Arena memory types breakdown
-- [ ] OpenGL rendering
 - [ ] Orthographic projection
 - [ ] Perspective projection
 - [ ] DirectX rendering

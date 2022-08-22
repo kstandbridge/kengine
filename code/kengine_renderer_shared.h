@@ -8,9 +8,9 @@ typedef struct
 
 typedef enum
 {
-    RenderGroupCommandType_Clear,
-    RenderGroupCommandType_Rectangle,
-    RenderGroupCommandType_Bitmap,
+    RenderGroupCommand_Clear,
+    RenderGroupCommand_Rectangle,
+    RenderGroupCommand_Bitmap,
 } render_group_command_type;
 
 typedef struct render_command_cliprect

@@ -1,7 +1,17 @@
 #include "win32_kengine.h"
 #include "win32_kengine_shared.c"
 
+
 global platform_api Platform;
+
+global GLuint GlobalBlitTextureHandle;
+global wgl_create_context_attribs_arb *wglCreateContextAttribsARB;
+global wgl_choose_pixel_format_arb *wglChoosePixelFormatARB;
+global wgl_swap_interval_ext *wglSwapIntervalEXT;
+global wgl_get_extensions_string_ext *wglGetExtensionsStringEXT;
+global b32 OpenGLSupportsSRGBFramebuffer;
+global GLuint OpenGLDefaultInternalTextureFormat;
+global b32 HardwareRendering = false;
 
 #include "win32_kengine_generated.c"
 #if KENGINE_INTERNAL
@@ -12,6 +22,8 @@ global platform_api Platform;
 #endif
 #include "kengine_renderer_software.c"
 #include "kengine_renderer.c"
+#include "win32_kengine_opengl.c"
+
 
 internal void
 Win32LoadLibraries()
@@ -22,6 +34,8 @@ Win32LoadLibraries()
     Assert(Gdi32);
     Winmm = Win32LoadLibraryA("Winmm.dll");
     Assert(Winmm);
+    Opengl32 = Win32LoadLibraryA("Opengl32.dll");
+    Assert(Opengl32);
 }
 
 internal LRESULT
@@ -673,24 +687,6 @@ global debug_event_table GlobalDebugEventTable_;
 debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
 #endif
 
-
-internal void
-Win32TimeBeginPeriod(UINT uPeriod)
-{
-    // NOTE(kstandbridge): Intentionally didn't use preprocessor to generate this because someone decided to use lowerCamelCase naming in this library
-    typedef void time_begin_period(UINT uPeriod);
-    
-    Assert(Winmm);
-    local_persist time_begin_period *Func = 0;
-    if(!Func);
-    {
-        Func = (time_begin_period *)Win32GetProcAddressA(Winmm, "timeBeginPeriod");
-    }
-    Assert(Func);
-    Func(uPeriod);
-}
-
-
 void __stdcall 
 WinMainCRTStartup()
 {
@@ -723,6 +719,7 @@ WinMainCRTStartup()
 #endif
     
     platform_api PlatformAPI;
+    ZeroStruct(&PlatformAPI);
     
     SYSTEM_INFO SystemInfo;
     Win32GetSystemInfo(&SystemInfo);
@@ -768,6 +765,8 @@ WinMainCRTStartup()
         if(Win32State->Window)
         {
             Win32ShowWindow(Win32State->Window, SW_SHOW);
+            HDC OpenGLDC = Win32GetDC(Win32State->Window);
+            HGLRC OpenGLRC = Win32InitOpenGL(OpenGLDC);
             
             u32 PushBufferSize = Megabytes(64);
             void *PushBuffer = Win32VirtualAlloc(0, PushBufferSize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
@@ -785,11 +784,12 @@ WinMainCRTStartup()
             app_input *NewInput = &Input[0];
             app_input *OldInput = &Input[1];
             
+            // TODO(kstandbridge): Properly set target FPS
             f32 TargetSeconds = 1.0f / 30.0f;
             
             // NOTE(kstandbridge): Otherwise Sleep will be ignored for requests less than 50? citation needed
             UINT MinSleepPeriod = 1;
-            Win32TimeBeginPeriod(MinSleepPeriod);
+            Win32timeBeginPeriod(MinSleepPeriod);
             
             Win32State->IsRunning = true;
             while(Win32State->IsRunning)
@@ -909,7 +909,12 @@ WinMainCRTStartup()
                 SortRenderCommands(Commands, SortMemory);
                 LinearizeClipRects(Commands, ClipMemory);
                 
-                // NOTE(kstandbridge): Software renderer path
+                if(HardwareRendering)
+                {
+                    Win32OpenGLRenderCommands(Commands);
+                    Win32SwapBuffers(DeviceContext);
+                }
+                else
                 {                
                     SoftwareRenderCommands(Platform.PerFrameWorkQueue, Commands, &OutputTarget);
                     if(!Win32StretchDIBits(DeviceContext, 0, 0, Backbuffer->Width, Backbuffer->Height, 0, 0, Backbuffer->Width, Backbuffer->Height,

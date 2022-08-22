@@ -2,6 +2,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <gl/gl.h>
 
 introspect(win32, Kernel32) typedef BOOL close_handle(HANDLE hObject);
 introspect(win32, Kernel32) typedef LONG compare_file_time(const FILETIME *lpFileTime1, const FILETIME *lpFileTime2);
@@ -46,6 +47,10 @@ introspect(win32, Gdi32) typedef BOOL text_out_w(HDC hdc, int x, int y, LPCWSTR 
 introspect(win32, Gdi32) typedef HGDIOBJ select_object(HDC hdc, HGDIOBJ h);
 introspect(win32, Gdi32) typedef int stretch_d_i_bits(HDC hdc, int xDest, int yDest, int DestWidth, int DestHeight, int xSrc, int ySrc, int SrcWidth, int SrcHeight, const VOID *lpBits, const BITMAPINFO *lpbmi, UINT iUsage, DWORD rop);
 introspect(win32, Gdi32) typedef COLORREF get_pixel(HDC hdc, int x, int y);
+introspect(win32, Gdi32) typedef int choose_pixel_format(HDC hdc, const PIXELFORMATDESCRIPTOR *ppfd);
+introspect(win32, Gdi32) typedef int describe_pixel_format(HDC hdc, int iPixelFormat, UINT nBytes, LPPIXELFORMATDESCRIPTOR ppfd);
+introspect(win32, Gdi32) typedef BOOL set_pixel_format(HDC hdc, int format, const PIXELFORMATDESCRIPTOR *ppfd);
+introspect(win32, Gdi32) typedef BOOL swap_buffers(HDC unnamedParam1);
 
 introspect(win32, User32) typedef HWND create_window_ex_a(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName, DWORD dwStyle, int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam);
 introspect(win32, User32) typedef LRESULT def_window_proc_a(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
@@ -62,6 +67,39 @@ introspect(win32, User32) typedef BOOL translate_message(const MSG *lpMsg);
 introspect(win32, User32) typedef BOOL get_cursor_pos(LPPOINT lpPoint);
 introspect(win32, User32) typedef BOOL screen_to_client(HWND hWnd, LPPOINT lpPoint);
 introspect(win32, User32) typedef BOOL get_client_rect(HWND hWnd, LPRECT lpRect);
+introspect(win32, User32) typedef BOOL destroy_window(HWND hWnd);
+
+introspect(win32, Winmm, lowerCamelCase) typedef void time_begin_period(UINT uPeriod);
+
+introspect(win32, Opengl32, lowerCamelCase) typedef HGLRC wgl_create_context(HDC unnamedParam1);
+introspect(win32, Opengl32, lowerCamelCase) typedef BOOL wgl_make_current(HDC unnamedParam1, HGLRC unnamedParam2);
+introspect(win32, Opengl32, lowerCamelCase) typedef PROC wgl_get_proc_address(LPCSTR unnamedParam1);
+introspect(win32, Opengl32, lowerCamelCase) typedef BOOL wgl_delete_context(HGLRC unnamedParam1);
+
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_enable(GLenum cap);
+introspect(win32, Opengl32, lowerCamelCase) typedef GLubyte* gl_get_string(GLenum name);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_begin(GLenum mode);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_color_4f(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_tex_coord_2f(GLfloat s, GLfloat t);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_vertex_2f(GLfloat x, GLfloat y);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_viewport(GLint x, GLint y, GLsizei width, GLsizei height);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_bind_texture(GLenum target, GLuint texture);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_tex_image_2_d(GLenum target, GLint level, GLint internalformat, 
+                                                                                 GLsizei width, GLsizei height, GLint border, GLint format, 
+                                                                                 GLenum type, const GLvoid *pixels);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_tex_parameteri(GLenum target, GLenum pname, GLint param);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_tex_envi(GLenum target, GLenum pname, GLint param);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_clear_color(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_clear(GLbitfield mask);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_matrix_mode(GLenum mode);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_load_identity();
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_gen_textures(GLsizei n, GLuint *textures);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_delete_textures(GLsizei n, const GLuint *textures);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_blend_func(GLenum sfactor, GLenum dfactor);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_disable(GLenum cap);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_load_matrixf(const GLfloat *m);
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_end();
+introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_scissor(GLint x, GLint y, GLsizei width, GLsizei height);
 
 
 #define WIN32_KENGINE_TYPES_H

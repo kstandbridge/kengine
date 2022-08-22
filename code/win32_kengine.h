@@ -4,6 +4,7 @@
 #include "kengine_generated.h"
 #include "kengine_debug_shared.h"
 #include "win32_kengine_types.h"
+#include "win32_kengine_opengl.h"
 #include "kengine_string.h"
 #include "kengine_intrinsics.h"
 #include "kengine_math.h"

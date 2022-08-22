@@ -511,19 +511,19 @@ SoftwareRenderCommandsThread(software_render_commands_work *Work)
         void *Data = (u8 *)Header + sizeof(*Header);
         switch(Header->Type)
         {
-            case RenderGroupCommandType_Clear:
+            case RenderGroupCommand_Clear:
             {
                 render_group_command_clear *Command = (render_group_command_clear *)Data;
                 DrawRectangle(OutputTarget, V2(0.0f, 0.0f), V2((f32)OutputTarget->Width, (f32)OutputTarget->Height), Command->Color, ClipRect);
             } break;
             
-            case RenderGroupCommandType_Rectangle:
+            case RenderGroupCommand_Rectangle:
             {
                 render_group_command_rectangle *Command = (render_group_command_rectangle *)Data;
                 DrawRectangle(OutputTarget, Command->Bounds.Min, Command->Bounds.Max, Command->Color, ClipRect);
             } break;
             
-            case RenderGroupCommandType_Bitmap:
+            case RenderGroupCommand_Bitmap:
             {
                 render_group_command_bitmap *Command = (render_group_command_bitmap *)Data;
                 

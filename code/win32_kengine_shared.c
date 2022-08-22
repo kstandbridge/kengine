@@ -54,6 +54,7 @@ global HMODULE Kernel32;
 global HMODULE User32;
 global HMODULE Gdi32;
 global HMODULE Winmm;
+global HMODULE Opengl32;
 
 internal void *
 Win32GetProcAddressA(HMODULE Module, char *ProcName)
