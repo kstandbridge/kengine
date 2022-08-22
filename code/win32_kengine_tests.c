@@ -540,6 +540,34 @@ RunDoubleLinkedListSortTests(memory_arena *Arena)
     
 }
 
+inline void
+RunFreelistTests(memory_arena *Arena)
+{
+    {
+        double_linked_list_free_list FreeList;
+        DoubleLinkedListFreeListInit(&FreeList, Arena);
+        
+        double_linked_list *First = DoubleLinkedListFreeListAllocate(&FreeList);
+        ASSERT(FreeList.Sentinel.Next == First);
+        double_linked_list *Second = DoubleLinkedListFreeListAllocate(&FreeList);
+        ASSERT(FreeList.Sentinel.Next == Second);
+        ASSERT(FreeList.Sentinel.Next->Next == First);
+        double_linked_list *Third = DoubleLinkedListFreeListAllocate(&FreeList);
+        ASSERT(FreeList.Sentinel.Next == Third);
+        ASSERT(FreeList.Sentinel.Next->Next == Second);
+        ASSERT(FreeList.Sentinel.Next->Next->Next == First);
+        
+        DoubleLinkedListFreeListDeallocate(&FreeList, Second);
+        ASSERT(FreeList.Sentinel.Next == Third);
+        ASSERT(FreeList.Sentinel.Next->Next == First);
+        ASSERT(FreeList.Sentinel.Next->Next->Next == &FreeList.Sentinel);
+        ASSERT(FreeList.FreeSentinel.Next == Second);
+        double_linked_list *Fourth = DoubleLinkedListFreeListAllocate(&FreeList);
+        ASSERT(Fourth == Second);
+        ASSERT(FreeList.FreeSentinel.Next == &FreeList.FreeSentinel);
+    }
+}
+
 internal b32
 RunAllTests(memory_arena *Arena)
 {
@@ -564,6 +592,8 @@ RunAllTests(memory_arena *Arena)
     RunDoubleLinkedListSwapTests(Arena);
     RunDoubleLinkedListSplitTests(Arena);
     RunDoubleLinkedListSortTests(Arena);
+    
+    RunFreelistTests(Arena);
     
     b32 Result = (FailedTests == 0);
     return Result;

@@ -222,6 +222,7 @@ switch(Tokenizer->At[0])
 - [x] Grid->DebugControls to kengine_debug.c
 - [x] Introspect double linked list: Init, Inters, InsertLast, Remove, GetByIndex, IsEmpty
 - [x] Introspect sorting a double linked list?
+- [x] Introspect free list?
 - [ ] ToggleButton
 - [ ] Profile tab to show last frame time
 - [ ] Profile frame timing graph

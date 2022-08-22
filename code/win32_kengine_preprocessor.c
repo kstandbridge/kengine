@@ -732,6 +732,52 @@ GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
     Win32ConsoleOut(Tokenizer->Arena, "    }\n");
     Win32ConsoleOut(Tokenizer->Arena, "}\n");
     
+    
+    Win32ConsoleOut(Tokenizer->Arena, "\ntypedef struct %S_free_list\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "{\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %S Sentinel;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    %S FreeSentinel;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    memory_arena *Arena;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "} %S_free_list;\n", Type);
+    
+    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n");
+    Win32ConsoleOut(Tokenizer->Arena, "%SFreeListInit(%S_free_list *FreeList, memory_arena *Arena)\n", FunctionName, Type);
+    Win32ConsoleOut(Tokenizer->Arena, "{\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %SInit(&FreeList->Sentinel);\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "    %SInit(&FreeList->FreeSentinel);\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "    FreeList->Arena = Arena;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "}\n");
+    
+    Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "%SFreeListAllocate(%S_free_list *FreeList)\n", FunctionName, Type);
+    Win32ConsoleOut(Tokenizer->Arena, "{\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %S *Result = FreeList->FreeSentinel.Next;\n\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    if(Result != &FreeList->FreeSentinel)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        %SRemove(Result);\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    else\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        Result = PushStruct(FreeList->Arena, %S);\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    }\n\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %SInsert(&FreeList->Sentinel, Result);\n\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "    return Result;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "}\n");
+    
+    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n");
+    Win32ConsoleOut(Tokenizer->Arena, "%SFreeListDeallocate(%S_free_list *FreeList, %S *Element)\n", FunctionName, Type);
+    Win32ConsoleOut(Tokenizer->Arena, "{\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    if(Element)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        %SRemove(Element);\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        %SInsert(&FreeList->FreeSentinel, Element);\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    else\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        InvalidCodePath;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "}");
+    
     Token = GetNextCToken(Tokenizer);
     while(Token.Type != CToken_CloseBrace)
     {

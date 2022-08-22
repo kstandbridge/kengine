@@ -724,13 +724,18 @@ WinMainCRTStartup()
     
     platform_api PlatformAPI;
     
-    // TODO(kstandbridge): Get number of cores, PerFrameWorkQueue should be cores*1.5, PerFrameWorkQueue should be cores*0.5
+    SYSTEM_INFO SystemInfo;
+    Win32GetSystemInfo(&SystemInfo);
+    u32 ProcessorCount = SystemInfo.dwNumberOfProcessors;
+    
     platform_work_queue PerFrameWorkQueue;
-    Win32MakeQueue(&PerFrameWorkQueue, 6);
+    u32 PerFrameThreadCount = RoundF32ToU32((f32)ProcessorCount*1.5f);
+    Win32MakeQueue(&PerFrameWorkQueue, PerFrameThreadCount);
     PlatformAPI.PerFrameWorkQueue = &PerFrameWorkQueue;
     
     platform_work_queue BackgroundWorkQueue;
-    Win32MakeQueue(&BackgroundWorkQueue, 2);
+    u32 BackgroundThreadCount = RoundF32ToU32((f32)ProcessorCount/2.0f);
+    Win32MakeQueue(&BackgroundWorkQueue, BackgroundThreadCount);
     PlatformAPI.BackgroundWorkQueue = &BackgroundWorkQueue;
     
     PlatformAPI.AddWorkEntry = Win32AddWorkEntry;
