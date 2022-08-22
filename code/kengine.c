@@ -59,7 +59,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     }
     
     
-#if 0
+#if 1
     // NOTE(kstandbridge): Rectangle with clipping regions
     f32 Width = (f32)Commands->Width;
     f32 Height = (f32)Commands->Height;

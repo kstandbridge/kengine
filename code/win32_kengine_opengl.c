@@ -295,6 +295,7 @@ Win32OpenGLRenderCommands(render_commands *Commands)
     Win32glViewport(0, 0, Commands->Width, Commands->Height);
     
     Win32glEnable(GL_TEXTURE_2D);
+    Win32glEnable(GL_SCISSOR_TEST);
     Win32glEnable(GL_BLEND);
     Win32glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     
