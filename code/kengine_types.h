@@ -9,7 +9,7 @@ typedef int b32;
 typedef unsigned char u8;
 typedef unsigned short int u16;
 typedef unsigned int u32;
-typedef unsigned long int u64;
+typedef unsigned long long u64;
 
 typedef float f32;
 typedef double f64;
@@ -22,8 +22,8 @@ typedef unsigned __int64 umm;
 
 #define U8Max 255
 #define U16Max 65535
-#define S32Min ((s32)0x80000000)
-#define S32Max ((s32)0x7fffffff)
+#define S32Min (-2147483647i32 - 1)
+#define S32Max (2147483647i32)
 #define U32Min 0
 #define U32Max ((u32)-1)
 #define F32Max 3.402823466e+38F

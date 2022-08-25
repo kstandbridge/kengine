@@ -59,7 +59,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     }
     
     
-#if 1
+#if 0
     // NOTE(kstandbridge): Rectangle with clipping regions
     f32 Width = (f32)Commands->Width;
     f32 Height = (f32)Commands->Height;
@@ -102,9 +102,13 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         SetRowHeight(&MainGrid, 1, SIZE_AUTO);
         InitializeGridSize(&MainGrid);
         
+        BEGIN_BLOCK("DrawAppGrid");
         DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 0));
+        END_BLOCK();
         
+        BEGIN_BLOCK("DrawDebugGrid");
         DrawDebugGrid(Platform.DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 1));
+        END_BLOCK();
         
     }
     EndGrid(&MainGrid);

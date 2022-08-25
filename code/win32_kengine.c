@@ -1,9 +1,6 @@
 #include "win32_kengine.h"
 #include "win32_kengine_shared.c"
 
-
-global platform_api Platform;
-
 global GLuint GlobalBlitTextureHandle;
 global wgl_create_context_attribs_arb *wglCreateContextAttribsARB;
 global wgl_choose_pixel_format_arb *wglChoosePixelFormatARB;
@@ -635,7 +632,7 @@ Win32UnloadAppCode(win32_state *Win32State)
 }
 
 internal void
-Win32LoadAppCode(win32_state *Win32State, FILETIME NewDLLWriteTime)
+Win32LoadAppCode(platform_api *Platform, win32_state *Win32State, FILETIME NewDLLWriteTime)
 {
     if(Win32CopyFileA(Win32State->DllFullFilePath, Win32State->TempDllFullFilePath, false))
     {
@@ -653,7 +650,7 @@ Win32LoadAppCode(win32_state *Win32State, FILETIME NewDLLWriteTime)
             }
             
             Win32State->LastDLLWriteTime = NewDLLWriteTime;
-            Platform.DllReloaded = true;
+            Platform->DllReloaded = true;
         }
     }
     else
@@ -718,8 +715,8 @@ WinMainCRTStartup()
     void *BaseAddress = 0;
 #endif
     
-    platform_api PlatformAPI;
-    ZeroStruct(&PlatformAPI);
+    platform_api Platform;
+    ZeroStruct(&Platform);
     
     SYSTEM_INFO SystemInfo;
     Win32GetSystemInfo(&SystemInfo);
@@ -728,24 +725,22 @@ WinMainCRTStartup()
     platform_work_queue PerFrameWorkQueue;
     u32 PerFrameThreadCount = RoundF32ToU32((f32)ProcessorCount*1.5f);
     Win32MakeQueue(&PerFrameWorkQueue, PerFrameThreadCount);
-    PlatformAPI.PerFrameWorkQueue = &PerFrameWorkQueue;
+    Platform.PerFrameWorkQueue = &PerFrameWorkQueue;
     
     platform_work_queue BackgroundWorkQueue;
     u32 BackgroundThreadCount = RoundF32ToU32((f32)ProcessorCount/2.0f);
     Win32MakeQueue(&BackgroundWorkQueue, BackgroundThreadCount);
-    PlatformAPI.BackgroundWorkQueue = &BackgroundWorkQueue;
+    Platform.BackgroundWorkQueue = &BackgroundWorkQueue;
     
-    PlatformAPI.AddWorkEntry = Win32AddWorkEntry;
-    PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
-    PlatformAPI.GetGlyphForCodePoint = Win32GetGlyphForCodePoint;
-    PlatformAPI.GetHorizontalAdvance = Win32GetHorizontalAdvance;
-    PlatformAPI.GetVerticleAdvance = Win32GetVerticleAdvance;;
+    Platform.AddWorkEntry = Win32AddWorkEntry;
+    Platform.CompleteAllWork = Win32CompleteAllWork;
+    Platform.GetGlyphForCodePoint = Win32GetGlyphForCodePoint;
+    Platform.GetHorizontalAdvance = Win32GetHorizontalAdvance;
+    Platform.GetVerticleAdvance = Win32GetVerticleAdvance;;
     
 #if KENGINE_INTERNAL
-    PlatformAPI.DebugEventTable = GlobalDebugEventTable;
+    Platform.DebugEventTable = GlobalDebugEventTable;
 #endif
-    
-    Platform = PlatformAPI;
     
     u64 StorageSize = Megabytes(16);
     void *Storage = Win32VirtualAlloc(BaseAddress, StorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
@@ -852,13 +847,13 @@ WinMainCRTStartup()
                 render_commands Commands_ = BeginRenderCommands(PushBufferSize, PushBuffer, Backbuffer->Width, Backbuffer->Height);
                 render_commands *Commands = &Commands_;
                 
-                
 #if KENGINE_INTERNAL
+                BEGIN_BLOCK("AppUpdateFrame");
                 if(Win32State->AppUpdateFrame)
                 {
                     Win32State->AppUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
                 }
-                
+                END_BLOCK();
                 if(DllNeedsToBeReloaded)
                 {
                     Win32CompleteAllWork(Platform.PerFrameWorkQueue);
@@ -875,13 +870,14 @@ WinMainCRTStartup()
                 if(DllNeedsToBeReloaded)
                 {
                     Win32UnloadAppCode(Win32State);
-                    Win32LoadAppCode(Win32State, NewDLLWriteTime);
+                    Win32LoadAppCode(&Platform, Win32State, NewDLLWriteTime);
                     SetDebugEventRecording(true);
                 }
                 
 #else
-                AppUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
+                AppUpdateFrame(&PlatformAPI, Commands, &Win32State->Arena, NewInput);
 #endif
+                
                 
                 u32 NeededSortMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
                 if(CurrentSortMemorySize < NeededSortMemorySize)
@@ -916,7 +912,7 @@ WinMainCRTStartup()
                 }
                 else
                 {                
-                    SoftwareRenderCommands(Platform.PerFrameWorkQueue, Commands, &OutputTarget);
+                    SoftwareRenderCommands(&Platform, Platform.PerFrameWorkQueue, Commands, &OutputTarget);
                     if(!Win32StretchDIBits(DeviceContext, 0, 0, Backbuffer->Width, Backbuffer->Height, 0, 0, Backbuffer->Width, Backbuffer->Height,
                                            Backbuffer->Memory, &Backbuffer->Info, DIB_RGB_COLORS, SRCCOPY))
                     {
@@ -938,32 +934,34 @@ WinMainCRTStartup()
                 OldInput = Temp;
                 
                 
-                f32 FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
-                
-                if(FrameSeconds < TargetSeconds)
-                {
-                    DWORD Miliseconds = (DWORD)(1000.0f * (TargetSeconds - FrameSeconds));
-                    if(Miliseconds > 0)
-                    {
-                        Win32Sleep(Miliseconds);
-                    }
+                if(!HardwareRendering)
+                {                
+                    f32 FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
                     
-                    FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
-                    
-                    // NOTE(kstandbridge): FINE I'll make my own sleep function, with blackjack and hookers!
-                    while(FrameSeconds < TargetSeconds)
+                    if(FrameSeconds < TargetSeconds)
                     {
+                        DWORD Miliseconds = (DWORD)(1000.0f * (TargetSeconds - FrameSeconds));
+                        if(Miliseconds > 0)
+                        {
+                            Win32Sleep(Miliseconds);
+                        }
+                        
                         FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
+                        
+                        // NOTE(kstandbridge): FINE I'll make my own sleep function, with blackjack and hookers!
+                        while(FrameSeconds < TargetSeconds)
+                        {
+                            FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
+                            _mm_pause();
+                        }
                     }
                 }
                 
                 LARGE_INTEGER ThisCounter = Win32GetWallClock();                
-                FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, ThisCounter);
+                f32 FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, ThisCounter);
                 DEBUG_FRAME_END(FrameSeconds);
                 LastCounter = ThisCounter;
                 
-                
-                _mm_pause();
             }
         }
         else

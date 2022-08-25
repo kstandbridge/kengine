@@ -119,6 +119,8 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
     v2 RemainingDim = V2Subtract(TotalDim, TotalUsedDim);
     v2 StartingAt = V2Add(Bounds.Min, V2Multiply(V2Set1(0.5f), RemainingDim));
     
+    b32 NeedsUpdating = false;
+    
     u32 Index = 0;
     u32 TotalNodes = Rows * Columns;
     for(node *Node = Nodes;
@@ -153,14 +155,17 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
                 if(WasPressed(Input->MouseButtons[MouseButton_Left]))
                 {
                     Node->Obstacle = !Node->Obstacle;
+                    NeedsUpdating = true;
                 }
                 if(WasPressed(Input->MouseButtons[MouseButton_Middle]))
                 {
                     EndNode = Node;
+                    NeedsUpdating = true;
                 }
                 if(WasPressed(Input->MouseButtons[MouseButton_Right]))
                 {
                     StartNode = Node;
+                    NeedsUpdating = true;
                 }
                 Color = V4(0.0f, 1.0f, 0.0f, 1.0f);
             }
@@ -189,6 +194,7 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
     }
     
     // NOTE(kstandbridge): Solve A*
+    if(NeedsUpdating)
     {
         
         // NOTE(kstandbridge): Reset nodes

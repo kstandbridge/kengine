@@ -8,6 +8,11 @@ typedef enum
     
     DebugEvent_FrameEnd,
     
+    DebugEvent_Name,
+    
+    DebugEvent_BeginBlock,
+    DebugEvent_EndBlock,
+    
 } debug_event_type;
 
 typedef struct
@@ -15,7 +20,9 @@ typedef struct
     char *GUID;
     u64 Clock;
     u16 ThreadId;
-    u16 Type;
+    u16 CoreIndex; // TODO(kstandbridge): Do we ever use coreIndex?
+    
+    u8 Type;
     union
     {
         b32 Value_B32;
@@ -30,8 +37,10 @@ typedef struct debug_event_table
 {
     u32 RecordIncrement;
     
-    u32 volatile EventIndex;
-    debug_event Events[32];
+    u32 CurrentEventArrayIndex;
+    
+    u64 volatile EventArrayIndex_EventIndex;
+    debug_event Events[2][256];
 } debug_event_table;
 
 #define SetDebugEventRecording(Enabled) (GlobalDebugEventTable->RecordIncrement = (Enabled) ? 1 : 0)
@@ -40,9 +49,10 @@ typedef struct debug_event_table
 #define GenerateDebugId_(File, Line, Counter, Name) GenerateDebugId__(File, Line, Counter, Name)
 #define GenerateDebugId(Name) GenerateDebugId_(__FILE__, __LINE__, __COUNTER__, Name)
 #define PushDebugEvent(EventType, GUIDInit)  \
-u32 EventIndex = AtomicAddU32(&GlobalDebugEventTable->EventIndex, GlobalDebugEventTable->RecordIncrement); \
-Assert(EventIndex < ArrayCount(GlobalDebugEventTable->Events)); \
-debug_event *Event = GlobalDebugEventTable->Events + EventIndex; \
+u64 ArrayIndex_EventIndex = AtomicAddU64(&GlobalDebugEventTable->EventArrayIndex_EventIndex, GlobalDebugEventTable->RecordIncrement); \
+u32 EventIndex = ArrayIndex_EventIndex & 0xFFFFFFFF; \
+Assert(EventIndex < ArrayCount(GlobalDebugEventTable->Events[0])); \
+debug_event *Event = GlobalDebugEventTable->Events[ArrayIndex_EventIndex >> 32] + EventIndex; \
 Event->GUID = GUIDInit; \
 Event->Clock = (u64)__rdtsc(); \
 Event->ThreadId = (u16)GetThreadID(); \
@@ -53,9 +63,13 @@ Event->Type = (u16)EventType;
 PushDebugEvent(DebugEvent_FrameEnd, GenerateDebugId("Frame End")); \
 Event->Value_F32 = SecondsElapsed; \
 }
+#define BEGIN_BLOCK(GUID) {PushDebugEvent(DebugEvent_BeginBlock, GenerateDebugId(GUID)); }
+#define END_BLOCK() {PushDebugEvent(DebugEvent_EndBlock, GenerateDebugId("END_BLOCK_")); }
 #else
 
 #define DEBUG_FRAME_END(...)
+#define BEGIN_BLOCK(...)
+#define END_BLOCK()
 
 #endif
 

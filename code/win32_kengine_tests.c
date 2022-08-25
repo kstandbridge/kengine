@@ -83,7 +83,7 @@ RunFormatStringSignedDecimalIntegerTests(memory_arena *Arena)
         ASSERT(StringsAreEqual(A, B));
     }
     {
-        string A = String("before -2147483648 after");
+        string A = String("before -18446744071562067968 after");
         string B = FormatString(Arena, "before %d after", S32Min);
         ASSERT(StringsAreEqual(A, B));
     }

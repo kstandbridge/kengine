@@ -1,6 +1,23 @@
 #ifndef KENGINE_STRING_H
 
 
+internal u32
+U32FromString(char *Text)
+{
+    u32 Result = 0;
+    
+    char *At = Text;
+    while((*At >= '0') &&
+          (*At <= '9'))
+    {
+        Result *= 10;
+        Result += (*At - '0');
+        ++At;
+    }
+    
+    return Result;
+}
+
 inline b32
 IsEndOfLine(char C)
 {

@@ -308,6 +308,8 @@ InitializeGridSize(ui_grid *Grid)
 inline rectangle2
 GetCellBounds(ui_grid *Grid, u16 ColumnIndex, u16 RowIndex)
 {
+    BEGIN_BLOCK("GetCellBounds");
+    
     if(!Grid->SizeInitialized)
     {
         InitializeGridSize(Grid);
@@ -333,6 +335,8 @@ GetCellBounds(ui_grid *Grid, u16 ColumnIndex, u16 RowIndex)
     }
     
     rectangle2 Result = Column->Bounds;
+    
+    END_BLOCK();
     
     return Result;
 }

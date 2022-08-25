@@ -141,5 +141,15 @@ CheckArena(memory_arena *Arena)
     Assert(Arena->TempCount == 0);
 }
 
+inline b32
+ArenaHasRoomFor(memory_arena *Arena, umm Size)
+{
+    
+    umm AlignmentOffset = GetAlignmentOffset(Arena, 4);
+    Size += AlignmentOffset;
+    b32 Result = ((Arena->Used + Size) <= Arena->Size);
+    return Result;
+}
+
 #define KENGINE_MEMORY_H
 #endif //KENGINE_MEMORY_H

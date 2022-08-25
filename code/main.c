@@ -7,8 +7,7 @@
 internal void
 DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, memory_arena *PermArena, memory_arena *TempArena, app_input *Input, rectangle2 Bounds)
 {
-    
-#if 0
+#if 1
     DrawPathfinding(AppState, UIState, RenderGroup, PermArena, TempArena, Input, Bounds);
 #else
     ui_grid Grid = BeginGrid(UIState, TempArena, Bounds, 3, 3);
@@ -44,5 +43,4 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
     }
     EndGrid(&Grid);
 #endif
-    
 }

@@ -64,7 +64,7 @@ AtomicAddU32(u32 volatile *Value, u32 Addend)
 inline u64 
 AtomicAddU64(u64 volatile *Value, u64 Addend)
 {
-    u64 Result = (u64)_InterlockedExchangeAdd64((__int64 volatile *)Value, Addend);
+    u64 Result = _InterlockedExchangeAdd64((__int64 volatile *)Value, Addend);
     
     return Result;
 }    

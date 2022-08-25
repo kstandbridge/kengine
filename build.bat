@@ -11,6 +11,8 @@ REM local variable is initialized but not referenced
 set CommonCompilerFlags=%CommonCompilerFlags% -wd4189
 REM nonstandard extension used: nameless struct/union
 set CommonCompilerFlags=%CommonCompilerFlags% -wd4201
+REM possible loss of data
+set CommonCompilerFlags=%CommonCompilerFlags% -wd4244
 REM 'type cast': pointer truncation
 set CommonCompilerFlags=%CommonCompilerFlags% -wd4311
 REM 'type cast': conversion

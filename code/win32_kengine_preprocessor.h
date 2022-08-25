@@ -1,6 +1,7 @@
 #ifndef WIN32_KENGINE_PREPROCESSOR_H
 
 #include "kengine_platform.h"
+#include "kengine_debug_shared.h"
 #include "win32_kengine_types.h"
 #include "kengine_string.h"
 
