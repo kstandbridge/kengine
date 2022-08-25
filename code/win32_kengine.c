@@ -804,9 +804,12 @@ WinMainCRTStartup()
                 }
 #endif
                 
+                BEGIN_BLOCK("ProcessPendingMessages");
                 NewInput->MouseZ = 0;
                 Win32ProcessPendingMessages(Win32State, NewInput);
+                END_BLOCK();
                 
+                BEGIN_BLOCK("ProcessMouseInput");
                 POINT MouseP;
                 Win32GetCursorPos(&MouseP);
                 Win32ScreenToClient(Win32State->Window, &MouseP);
@@ -832,6 +835,7 @@ WinMainCRTStartup()
                     ProcessInputMessage(&NewInput->MouseButtons[ButtonIndex],
                                         Win32GetKeyState(ButtonVKs[ButtonIndex]) & (1 << 15));
                 }
+                END_BLOCK();
                 
                 HDC DeviceContext = Win32GetDC(Win32State->Window);
                 
@@ -878,7 +882,7 @@ WinMainCRTStartup()
                 AppUpdateFrame(&PlatformAPI, Commands, &Win32State->Arena, NewInput);
 #endif
                 
-                
+                BEGIN_BLOCK("ExpandRenderStorage");
                 u32 NeededSortMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
                 if(CurrentSortMemorySize < NeededSortMemorySize)
                 {
@@ -901,7 +905,9 @@ WinMainCRTStartup()
                     }
                     ClipMemory = Win32VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
                 }
+                END_BLOCK();
                 
+                BEGIN_BLOCK("Render");
                 SortRenderCommands(Commands, SortMemory);
                 LinearizeClipRects(Commands, ClipMemory);
                 
@@ -926,7 +932,7 @@ WinMainCRTStartup()
                 {
                     InvalidCodePath;
                 }
-                
+                END_BLOCK();
                 Win32CompleteAllWork(Platform.PerFrameWorkQueue);
                 
                 app_input *Temp = NewInput;
@@ -934,8 +940,9 @@ WinMainCRTStartup()
                 OldInput = Temp;
                 
                 
-                if(!HardwareRendering)
+                //if(!HardwareRendering)
                 {                
+                    BEGIN_BLOCK("FrameWait");
                     f32 FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
                     
                     if(FrameSeconds < TargetSeconds)
@@ -955,6 +962,7 @@ WinMainCRTStartup()
                             _mm_pause();
                         }
                     }
+                    END_BLOCK();
                 }
                 
                 LARGE_INTEGER ThisCounter = Win32GetWallClock();                

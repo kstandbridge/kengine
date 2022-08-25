@@ -103,11 +103,15 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         InitializeGridSize(&MainGrid);
         
         BEGIN_BLOCK("DrawAppGrid");
-        DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 0));
+        {
+            DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 0));
+        }
         END_BLOCK();
         
         BEGIN_BLOCK("DrawDebugGrid");
-        DrawDebugGrid(Platform.DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 1));
+        {
+            DrawDebugGrid(Platform.DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 1));
+        }
         END_BLOCK();
         
     }

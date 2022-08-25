@@ -39,6 +39,7 @@ NodeLinkPredicate(node_link *A, node_link *B)
 {
     b32 Result = A->Node->GlobalGoal < B->Node->GlobalGoal;
     return Result;
+    
 }
 
 internal void
@@ -121,85 +122,89 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
     
     b32 NeedsUpdating = false;
     
-    u32 Index = 0;
+    BEGIN_BLOCK("DrawNodes");
     u32 TotalNodes = Rows * Columns;
-    for(node *Node = Nodes;
-        Index < TotalNodes;
-        ++Index, ++Node)
     {
-        v2 CellP = GetCellP(StartingAt, Node->P.X, Node->P.Y);
-        v2 CellDim = V2Add(CellP, V2Set1(CEL_DIM));
-        rectangle2 CellBounds = Rectangle2(CellP, CellDim);
-        v4 Color = V4(1.0f, 0.5f, 0.0f, 1.0f);
-        
-        
-        // NOTE(kstandbridge): Draw paths between nodes
-        {        
-            for(node_link *NeighbourLink = Node->NeighbourSentinal.Next;
-                NeighbourLink != &Node->NeighbourSentinal;
-                NeighbourLink = NeighbourLink->Next)
-            {
-                node *NeighbourNode = NeighbourLink->Node;
-                v2 PathP = GetCellP(StartingAt, NeighbourNode->P.X, NeighbourNode->P.Y);
-                rectangle2 PathBounds = Rectangle2(V2Add(CellP, V2Set1(0.5f*CEL_DIM)),
-                                                   V2Add(PathP, V2Set1(0.5f*CEL_DIM)));
-                PathBounds = Rectangle2AddRadiusTo(PathBounds, 1.0f);
-                PushRenderCommandRectangle(RenderGroup, Color, PathBounds, 1.0f);
-            }
-        }
-        
-        // NOTE(kstandbridge): Draw Node
-        {   
-            if(Rectangle2IsIn(CellBounds, MouseP))
-            {
-                if(WasPressed(Input->MouseButtons[MouseButton_Left]))
+        u32 Index = 0;
+        for(node *Node = Nodes;
+            Index < TotalNodes;
+            ++Index, ++Node)
+        {
+            v2 CellP = GetCellP(StartingAt, Node->P.X, Node->P.Y);
+            v2 CellDim = V2Add(CellP, V2Set1(CEL_DIM));
+            rectangle2 CellBounds = Rectangle2(CellP, CellDim);
+            v4 Color = V4(1.0f, 0.5f, 0.0f, 1.0f);
+            
+            
+            // NOTE(kstandbridge): Draw paths between nodes
+            {        
+                for(node_link *NeighbourLink = Node->NeighbourSentinal.Next;
+                    NeighbourLink != &Node->NeighbourSentinal;
+                    NeighbourLink = NeighbourLink->Next)
                 {
-                    Node->Obstacle = !Node->Obstacle;
-                    NeedsUpdating = true;
+                    node *NeighbourNode = NeighbourLink->Node;
+                    v2 PathP = GetCellP(StartingAt, NeighbourNode->P.X, NeighbourNode->P.Y);
+                    rectangle2 PathBounds = Rectangle2(V2Add(CellP, V2Set1(0.5f*CEL_DIM)),
+                                                       V2Add(PathP, V2Set1(0.5f*CEL_DIM)));
+                    PathBounds = Rectangle2AddRadiusTo(PathBounds, 1.0f);
+                    PushRenderCommandRectangle(RenderGroup, Color, PathBounds, 1.0f);
                 }
-                if(WasPressed(Input->MouseButtons[MouseButton_Middle]))
+            }
+            
+            // NOTE(kstandbridge): Draw Node
+            {   
+                if(Rectangle2IsIn(CellBounds, MouseP))
                 {
-                    EndNode = Node;
-                    NeedsUpdating = true;
+                    if(WasPressed(Input->MouseButtons[MouseButton_Left]))
+                    {
+                        Node->Obstacle = !Node->Obstacle;
+                        NeedsUpdating = true;
+                    }
+                    if(WasPressed(Input->MouseButtons[MouseButton_Middle]))
+                    {
+                        EndNode = Node;
+                        NeedsUpdating = true;
+                    }
+                    if(WasPressed(Input->MouseButtons[MouseButton_Right]))
+                    {
+                        StartNode = Node;
+                        NeedsUpdating = true;
+                    }
+                    Color = V4(0.0f, 1.0f, 0.0f, 1.0f);
                 }
-                if(WasPressed(Input->MouseButtons[MouseButton_Right]))
+                
+                if(Node->Visited)
                 {
-                    StartNode = Node;
-                    NeedsUpdating = true;
+                    Color = V4(0.0f, 0.5f, 0.0f, 1.0f);
                 }
-                Color = V4(0.0f, 1.0f, 0.0f, 1.0f);
+                
+                if(Node->Obstacle)
+                {
+                    Color = V4(0.3f, 0.3f, 0.3f, 1.0f);
+                }
+                
+                if(Node == StartNode)
+                {
+                    Color = V4(0.0f, 1.0f, 0.0f, 1.0f);
+                }
+                if(Node == EndNode)
+                {
+                    Color = V4(1.0f, 0.0f, 0.0f, 1.0f);
+                }
+                
+                PushRenderCommandRectangle(RenderGroup, Color, CellBounds, 1.5f);
             }
-            
-            if(Node->Visited)
-            {
-                Color = V4(0.0f, 0.5f, 0.0f, 1.0f);
-            }
-            
-            if(Node->Obstacle)
-            {
-                Color = V4(0.3f, 0.3f, 0.3f, 1.0f);
-            }
-            
-            if(Node == StartNode)
-            {
-                Color = V4(0.0f, 1.0f, 0.0f, 1.0f);
-            }
-            if(Node == EndNode)
-            {
-                Color = V4(1.0f, 0.0f, 0.0f, 1.0f);
-            }
-            
-            PushRenderCommandRectangle(RenderGroup, Color, CellBounds, 1.5f);
         }
     }
+    END_BLOCK();
     
     // NOTE(kstandbridge): Solve A*
-    if(NeedsUpdating)
+    //if(NeedsUpdating)
+    BEGIN_BLOCK("SolveAStar");
     {
-        
         // NOTE(kstandbridge): Reset nodes
         {        
-            Index = 0;
+            u32 Index = 0;
             for(node *Node = Nodes;
                 Index < TotalNodes;
                 ++Index, ++Node)
@@ -267,10 +272,11 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
                 
             }
         }
-        
     }
+    END_BLOCK();
     
     // NOTE(kstandbridge): Draw path
+    BEGIN_BLOCK("DrawPath");
     {
         node *Node = EndNode;
         while(Node->Parent)
@@ -292,4 +298,5 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
             Node = Parent;
         }
     }
+    END_BLOCK();
 }

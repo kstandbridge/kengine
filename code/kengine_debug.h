@@ -34,7 +34,7 @@ if(Pointer) {(Pointer)->NextFree = (FreeListPointer); (FreeListPointer) = (Point
 
 
 
-#define DEBUG_FRAME_COUNT 8
+#define DEBUG_FRAME_COUNT 60
 typedef struct debug_profile_node
 {
     struct debug_element *Element;
@@ -43,9 +43,7 @@ typedef struct debug_profile_node
     u64 Duration;
     u64 DurationOfChildren;
     u64 ParentRelativeClock;
-    u32 Reserved;
-    u16 ThreadOrdinal;
-    u16 CoreIndex;
+    u32 ThreadOrdinal;
 } debug_profile_node;
 
 typedef struct debug_stored_event
@@ -71,13 +69,10 @@ typedef struct debug_frame
     u64 EndClock;
     f32 SecondsElapsed;
     
-    f32 FrameBarScale;
-    
     u32 FrameIndex;
     
     u32 StoredEventCount;
     u32 ProfileBlockCount;
-    u32 DataBlockCount;
     
     debug_stored_event *RootProfileNode;
     
@@ -91,7 +86,6 @@ typedef struct debug_element_frame
 
 typedef struct debug_element
 {
-    char *OriginalGUID; // NOTE(kstandbridge): Might point to an unloaded DLL?
     string GUID;
     string Name;
     u32 FileNameCount;
@@ -133,9 +127,6 @@ typedef struct open_debug_block
     u64 BeginClock;
     debug_stored_event *Node;
     
-    // TODO(kstandbridge): Check if only for data blocks.
-    debug_variable_link *Group;
-    
 } open_debug_block;
 
 typedef struct debug_thread
@@ -149,7 +140,6 @@ typedef struct debug_thread
     u32 Id;
     u32 LaneIndex;
     open_debug_block *FirstOpenCodeBlock;
-    //open_debug_block *FirstOpenDataBlock;
     
 } debug_thread;
 
@@ -193,7 +183,6 @@ typedef struct debug_state
     
     debug_element *RootProfileElement;
     
-    // TODO(kstandbridge): What is this per frame stuff?
     debug_stored_event *FirstFreeStoredEvent;
 } debug_state;
 

@@ -8,8 +8,6 @@ typedef enum
     
     DebugEvent_FrameEnd,
     
-    DebugEvent_Name,
-    
     DebugEvent_BeginBlock,
     DebugEvent_EndBlock,
     
@@ -20,7 +18,6 @@ typedef struct
     char *GUID;
     u64 Clock;
     u16 ThreadId;
-    u16 CoreIndex; // TODO(kstandbridge): Do we ever use coreIndex?
     
     u8 Type;
     union

@@ -224,10 +224,14 @@ InteractionIsHot(ui_state *UIState, ui_interaction Interaction)
 inline void
 PushRenderCommandText(render_group *RenderGroup, f32 Scale, v2 P, v4 Color, string Text)
 {
-    // TODO(kstandbridge): NAMING Internally this is calling PushRenderCommandBitmap for each of the glyphs,
-    // nothing is being drawn now, its a push call so shouldn't be DrawText
-    
-    TextOp_(RenderGroup, TextOpText_Draw, Scale, P, Color, Text);
+    BEGIN_BLOCK("PushRenderCommandText");
+    {
+        // TODO(kstandbridge): NAMING Internally this is calling PushRenderCommandBitmap for each of the glyphs,
+        // nothing is being drawn now, its a push call so shouldn't be DrawText
+        
+        TextOp_(RenderGroup, TextOpText_Draw, Scale, P, Color, Text);
+    }
+    END_BLOCK();
 }
 
 inline rectangle2
@@ -308,8 +312,6 @@ InitializeGridSize(ui_grid *Grid)
 inline rectangle2
 GetCellBounds(ui_grid *Grid, u16 ColumnIndex, u16 RowIndex)
 {
-    BEGIN_BLOCK("GetCellBounds");
-    
     if(!Grid->SizeInitialized)
     {
         InitializeGridSize(Grid);
@@ -335,8 +337,6 @@ GetCellBounds(ui_grid *Grid, u16 ColumnIndex, u16 RowIndex)
     }
     
     rectangle2 Result = Column->Bounds;
-    
-    END_BLOCK();
     
     return Result;
 }

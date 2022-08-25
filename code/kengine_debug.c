@@ -206,7 +206,6 @@ GetElementFromEvent(debug_state *DebugState, debug_event *Event, debug_variable_
     {
         Result = PushStruct(&DebugState->Arena, debug_element);
         ZeroStruct(*Result);
-        Result->OriginalGUID = Event->GUID;
         Result->GUID = PushString_(&DebugState->Arena, GetNullTerminiatedStringLength(Event->GUID), (u8 *)Event->GUID);
         Result->FileNameCount = ParsedName.FileNameCount;
         Result->LineNumber = ParsedName.LineNumber;
@@ -385,7 +384,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                 CollationFrame = DebugState->Frames + DebugState->CollationFrameOrdinal;
             }
             CollationFrame->FrameIndex = DebugState->TotalFrameCount++;
-            CollationFrame->FrameBarScale = 1.0f;
             CollationFrame->BeginClock = Event->Clock;
         }
         else
@@ -395,15 +393,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
             u32 FrameIndex = DebugState->TotalFrameCount - 1;
             debug_thread *Thread = GetDebugThread(DebugState, Event->ThreadId);
             u64 RelativeClock = Event->Clock - CollationFrame->BeginClock;
-            
-            
-#if 0            
-            debug_variable_link *DefaultParentGroup = DebugState->RootGroup;
-            if(Thread->FirstOpenDataBlock)
-            {
-                DefaultParentGroup = Thread->FirstOpenDataBlock->Group;
-            }
-#endif
             
             switch(Event->Type)
             {
@@ -432,7 +421,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                         Node->Duration = 0;
                         Node->DurationOfChildren = 0;
                         Node->ThreadOrdinal = 0;
-                        Node->CoreIndex = 0;
                         
                         ClockBasis = CollationFrame->BeginClock;
                         CollationFrame->RootProfileNode = ParentEvent;
@@ -446,7 +434,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                     Node->Duration = 0;
                     Node->DurationOfChildren = 0;
                     Node->ThreadOrdinal = (u16)Thread->LaneIndex;
-                    Node->CoreIndex = Event->CoreIndex;
                     
                     Node->NextSameParent = ParentEvent->ProfileNode.FirstChild;
                     ParentEvent->ProfileNode.FirstChild = StoredEvent;
@@ -476,7 +463,7 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                     }
                     else
                     {
-                        // TODO(kstandbridge): Is this InvalidCodePath?
+                        InvalidCodePath;
                     }
                 } break;
                 
@@ -497,13 +484,12 @@ DebugUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_ar
     Assert(EventArrayIndex <= 1);
     u32 EventCount = ArrayIndex_EventIndex & 0xFFFFFFFF;
     
-    
     if(!PlatformAPI->DebugState)
     {
         PlatformAPI->DebugState = PushStruct(Arena, debug_state);
         ZeroStruct(*PlatformAPI->DebugState);
         debug_state *DebugState = PlatformAPI->DebugState;
-        SubArena(&DebugState->Arena, Arena, Kilobytes(64));
+        SubArena(&DebugState->Arena, Arena, Megabytes(4));
         
         DebugState->RootGroup = CreateVariableLink(DebugState, 4, "Root");
         DebugState->ProfileGroup = CreateVariableLink(DebugState, 7, "Profile");
@@ -514,27 +500,36 @@ DebugUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_ar
     }
     debug_state *DebugState = PlatformAPI->DebugState;
     
+    CollateDebugRecords(DebugState, EventCount, GlobalDebugEventTable->Events[EventArrayIndex]);
+    
     if(!DebugState->Paused)
     {
         DebugState->ViewingFrameOrdinal = DebugState->MostRecentFrameOrdinal;
     }
+}
+
+
+inline u64
+SumTotalClock(debug_stored_event *RootEvent)
+{
+    u64 Result = 0;
     
-    CollateDebugRecords(DebugState, EventCount, GlobalDebugEventTable->Events[EventArrayIndex]);
+    for(debug_stored_event *Event = RootEvent;
+        Event;
+        Event = Event->Next)
+    {
+        Result += Event->ProfileNode.Duration;
+    }
+    
+    return Result;
 }
 
 internal void
 DrawProfileBars(render_group *RenderGroup, debug_profile_node *RootNode, v2 MouseP, rectangle2 EventRect,
-                f32 LaneHeight, u32 TotalDepth, u32 DepthRemaining)
+                u32 TotalDepth, u32 DepthRemaining, f32 Scale)
 {
-    f32 FrameSpan = (f32)RootNode->Duration;
     v2 PixelSpan = Rectangle2GetDim(EventRect);
-    f32 Base = 100.0f - 10.0f*(f32)DepthRemaining;
     
-    f32 Scale = 0.0f;
-    if(FrameSpan > 0)
-    {
-        Scale = PixelSpan.X / FrameSpan;
-    }
     for(debug_stored_event *StoredEvent = RootNode->FirstChild;
         StoredEvent;
         StoredEvent = StoredEvent->ProfileNode.NextSameParent)
@@ -544,32 +539,39 @@ DrawProfileBars(render_group *RenderGroup, debug_profile_node *RootNode, v2 Mous
         Assert(Element);
         
         v4 Color = V4(0.0f, 0.0f, 0.0f, 1.0f);
-        f32 ThisMinX = EventRect.Min.X + Scale*(f32)Node->ParentRelativeClock;
-        f32 ThisMaxX = ThisMinX + Scale*(f32)Node->Duration;
+        f32 ThisMinX = EventRect.Min.X;
+        ThisMinX += Scale*(Node->ParentRelativeClock);
+        u64 TotalClock = SumTotalClock(StoredEvent);
+        f32 ThisMaxX = ThisMinX + Scale*TotalClock;
+        f32 BarWidth = ThisMaxX - ThisMinX;
         
-        f32 HeightPerBar = PixelSpan.Y / TotalDepth;
+        u32 Row = TotalDepth - DepthRemaining;
+        f32 HeightPerBar = PixelSpan.Y / (TotalDepth + 1);
         
-        f32 ThisMinY = EventRect.Min.Y; // + HeightPerBar*DepthRemaining;
+        f32 ThisMinY = EventRect.Min.Y + Row*HeightPerBar;
         f32 ThisMaxY = ThisMinY + HeightPerBar;
         
 #if 0        
         u32 LaneIndex = Node->ThreadOrdinal;
-        f32 LaneY = EventRect.Max.Y - LaneHeight*LaneIndex;
+        f32 LaneY = EventRect.Max.Y - PixelSpan.Y*LaneIndex;
 #endif
         
         rectangle2 RegionRect = Rectangle2(V2(ThisMinX, ThisMinY),
                                            V2(ThisMaxX, ThisMaxY));
+        PushRenderCommandRectangle(RenderGroup, V4(0.3f, 0.3f, 0.3f, 1.0f), RegionRect, 1.0f);
         PushRenderCommandRectangleOutline(RenderGroup, 1.0f, Color, RegionRect, 2.0f);
-        
         
         if(Rectangle2IsIn(RegionRect, MouseP))
         {
-            PushRenderCommandText(RenderGroup, 1.0f, MouseP, V4(0, 0, 0, 1), Element->GUID);
+            v2 TextP = V2Add(EventRect.Min, V2Set1(Platform.GetVerticleAdvance()));
+            PushRenderCommandText(RenderGroup, 1.0f, TextP, V4(0, 0, 0, 1), Element->GUID);
         }
         
         if(DepthRemaining > 0)
         {
-            DrawProfileBars(RenderGroup, Node, MouseP, RegionRect, LaneHeight, TotalDepth, DepthRemaining - 1);
+            RegionRect.Min.Y = EventRect.Min.Y;
+            RegionRect.Max.Y = EventRect.Max.Y;
+            DrawProfileBars(RenderGroup, Node, MouseP, RegionRect, TotalDepth, DepthRemaining - 1, Scale);
         }
     }
 }
@@ -582,59 +584,62 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
     {
         v2 MouseP = V2(Input->MouseX, Input->MouseY);
         
-        ui_grid ProfileSplit = BeginGrid(UIState, TempArena, Bounds, 3, 1);
+        ui_grid ProfileSplit = BeginGrid(UIState, TempArena, Bounds, 2, 1);
         {
             SetRowHeight(&ProfileSplit, 0, 64.0f);
             SetRowHeight(&ProfileSplit, 1, SIZE_AUTO);
-            SetRowHeight(&ProfileSplit, 2, 280.0f);
             
             u16 FrameCount = ArrayCount(DebugState->Frames);
             
-            ui_grid FrameGrid = BeginGrid(UIState, TempArena, GetCellBounds(&ProfileSplit, 0, 0), 1, FrameCount);
-            {
-                SetRowHeight(&FrameGrid, 0, 64.0f);
-                SetColumnWidth(&FrameGrid, 0, 0, 128.0f);
-                
-                // TODO(kstandbridge): Use toggle button
-                if(Button(&FrameGrid, RenderGroup, 0, 0, GenerateInteractionId(DebugState), DebugState, DebugState->Paused ? String("Resume") : String("Pause"))) 
+            BEGIN_BLOCK("DrawFrameBars");
+            {            
+                ui_grid FrameGrid = BeginGrid(UIState, TempArena, GetCellBounds(&ProfileSplit, 0, 0), 1, FrameCount);
                 {
-                    DebugState->Paused = !DebugState->Paused;
-                }
-                
-                for(u16 FrameIndex = 1;
-                    FrameIndex < FrameCount;
-                    ++FrameIndex)
-                {
-                    u16 NewFrameIndex = (u16)((DebugState->MostRecentFrameOrdinal + FrameIndex + 1) % ArrayCount(DebugState->Frames));
-                    debug_frame *Frame = DebugState->Frames + NewFrameIndex;
-                    rectangle2 BarBounds = GetCellBounds(&FrameGrid, FrameIndex, 0);
+                    SetRowHeight(&FrameGrid, 0, 64.0f);
+                    SetColumnWidth(&FrameGrid, 0, 0, 128.0f);
                     
-                    f32 Thickness = 1.0f;
-                    if(Rectangle2IsIn(BarBounds, MouseP))
+                    // TODO(kstandbridge): Use toggle button
+                    if(Button(&FrameGrid, RenderGroup, 0, 0, GenerateInteractionId(DebugState), DebugState, DebugState->Paused ? String("Resume") : String("Pause"))) 
                     {
-                        if(WasPressed(Input->MouseButtons[MouseButton_Left]))
+                        DebugState->Paused = !DebugState->Paused;
+                    }
+                    
+                    for(u16 FrameIndex = 1;
+                        FrameIndex < FrameCount;
+                        ++FrameIndex)
+                    {
+                        u16 NewFrameIndex = (u16)((DebugState->MostRecentFrameOrdinal + FrameIndex + 1) % ArrayCount(DebugState->Frames));
+                        debug_frame *Frame = DebugState->Frames + NewFrameIndex;
+                        rectangle2 BarBounds = GetCellBounds(&FrameGrid, FrameIndex, 0);
+                        
+                        f32 Thickness = 1.0f;
+                        if(Rectangle2IsIn(BarBounds, MouseP))
                         {
-                            DebugState->ViewingFrameOrdinal = NewFrameIndex;
-                            DebugState->Paused = true;
+                            if(WasPressed(Input->MouseButtons[MouseButton_Left]))
+                            {
+                                DebugState->ViewingFrameOrdinal = NewFrameIndex;
+                                DebugState->Paused = true;
+                            }
+                            Thickness = 3.0f;
                         }
-                        Thickness = 3.0f;
+                        PushRenderCommandRectangleOutline(RenderGroup, Thickness, V4(0, 0.5f, 0, 1), BarBounds, 2.0f);
+                        
+                        v2 Dim = V2Subtract(BarBounds.Max, BarBounds.Min);
+                        f32 MaxScale = 100.0f;
+                        BarBounds.Max.Y = BarBounds.Min.Y + (Dim.Y / MaxScale)*(Frame->SecondsElapsed*1000.0f);
+                        
+                        v4 Color = V4(0.0f, 1.0f, 0.0f, 1.0f);
+                        if(NewFrameIndex == DebugState->ViewingFrameOrdinal)
+                        {
+                            Color = V4(1.0f, 1.0f, 0.0f, 1.0f);
+                        }
+                        
+                        PushRenderCommandRectangle(RenderGroup, Color, BarBounds, 1.0f);
                     }
-                    PushRenderCommandRectangleOutline(RenderGroup, Thickness, V4(0, 0.5f, 0, 1), BarBounds, 2.0f);
-                    
-                    v2 Dim = V2Subtract(BarBounds.Max, BarBounds.Min);
-                    f32 MaxScale = 100.0f;
-                    BarBounds.Max.Y = BarBounds.Min.Y + (Dim.Y / MaxScale)*(Frame->SecondsElapsed*1000.0f);
-                    
-                    v4 Color = V4(0.0f, 1.0f, 0.0f, 1.0f);
-                    if(NewFrameIndex == DebugState->ViewingFrameOrdinal)
-                    {
-                        Color = V4(1.0f, 1.0f, 0.0f, 1.0f);
-                    }
-                    
-                    PushRenderCommandRectangle(RenderGroup, Color, BarBounds, 1.0f);
                 }
+                EndGrid(&FrameGrid);
             }
-            EndGrid(&FrameGrid);
+            END_BLOCK();
             
             ui_grid CurrentFrameGrid = BeginGrid(UIState, TempArena, GetCellBounds(&ProfileSplit, 0, 1), 2, 1);
             {
@@ -725,7 +730,7 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                     }
                     END_BLOCK();
                     
-                    BEGIN_BLOCK("DrawBarThings");
+                    BEGIN_BLOCK("DrawFrameGraph");
                     {
                         rectangle2 CellBounds = GetCellBounds(&TopClockSplitGrid, 1, 0);
                         v2 CellDim = Rectangle2GetDim(CellBounds);
@@ -736,33 +741,23 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             LaneHeight = CellDim.Y / LaneCount;
                         }
                         
-                        
                         debug_element *ViewingElement = DebugState->RootProfileElement;
                         debug_element_frame *RootFrame = ViewingElement->Frames + DebugState->ViewingFrameOrdinal;
-                        f32 NextX = CellBounds.Min.X;
-                        u64 TotalClock = 0;
-                        for(debug_stored_event *Event = RootFrame->OldestEvent;
-                            Event;
-                            Event = Event->Next)
-                        {
-                            TotalClock += Event->ProfileNode.Duration;
-                        }
-                        u64 RelativeClock = 0;
+                        u64 TotalClock = SumTotalClock(RootFrame->OldestEvent);
                         
                         for(debug_stored_event *Event = RootFrame->OldestEvent;
                             Event;
                             Event = Event->Next)
                         {
                             debug_profile_node *RootNode = &Event->ProfileNode;
-                            rectangle2 EventRect = CellBounds;
-                            
-                            RelativeClock += RootNode->Duration;
-                            f32 t = (f32)((f64)RelativeClock / (f64)TotalClock);
-                            EventRect.Min.X = NextX;
-                            EventRect.Max.X = (1.0f - t)*CellBounds.Min.X + t*CellBounds.Max.X;
-                            NextX = EventRect.Max.X;
-                            
-                            DrawProfileBars(RenderGroup, RootNode, MouseP, EventRect, LaneHeight, 2, 2);
+                            f32 FrameSpan = (f32)RootNode->Duration;
+                            v2 PixelSpan = Rectangle2GetDim(CellBounds);
+                            f32 Scale = 0.0f;
+                            if(FrameSpan > 0)
+                            {
+                                Scale = PixelSpan.X / FrameSpan;
+                            }
+                            DrawProfileBars(RenderGroup, RootNode, MouseP, CellBounds, 3, 3, Scale);
                             
                         }
                     }
@@ -775,6 +770,7 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
             }
             EndGrid(&CurrentFrameGrid);
             
+#if 0            
             ui_grid DebugGrid = BeginGrid(UIState, TempArena, GetCellBounds(&ProfileSplit, 0, 2), FrameCount, 2);
             {
                 SetAllColumnWidths(&DebugGrid, 0, 256.0f);
@@ -812,6 +808,8 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                 }
             }
             EndGrid(&DebugGrid);
+#endif
+            
         }
         EndGrid(&ProfileSplit);
         
