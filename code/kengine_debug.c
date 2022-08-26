@@ -711,10 +711,10 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             At.Y -= UIState->LineAdvance*(Index+1);
                             RunningSum += Stat->Sum;
                             PushRenderCommandText(RenderGroup, TopClockSplitGrid.Scale, At, V4(0, 0, 0, 1),
-                                                  FormatString(TempArena, "%ucy %.02f%% %d %S",
+                                                  FormatString(TempArena, "Count:%2d %10ucy %3.2f%% %S",
+                                                               Stat->Count,
                                                                (u32)Stat->Sum,
                                                                (PC*Stat->Sum),
-                                                               Stat->Count,
                                                                Element->ParsedName.Name)); // TODO(kstandbridge): GetName()?
                             
                             // TODO(kstandbridge): Add tooltip

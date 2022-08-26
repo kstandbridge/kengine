@@ -229,10 +229,10 @@ switch(Tokenizer->At[0])
 - [x] Profile frame selection to show thread breakdown
 - [x] Shortened name of top clock
 - [x] More info on FrameGraph Method 123cy
+- [x] Formatting on top clock
 - [ ] Propper tooltip support
 - [ ] Sort top cycles
 - [ ] Introspect radix sort?
-- [ ] Formatting on top clock
 - [ ] Clipping top clocks
 - [ ] Top clocks text offset with mouse wheel and scroll bar
 - [ ] Colors for the frame graph

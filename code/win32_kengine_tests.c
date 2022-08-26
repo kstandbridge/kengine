@@ -102,6 +102,12 @@ RunFormatStringUnsignedDecimalIntegerTests(memory_arena *Arena)
         string B = FormatString(Arena, "before %u after", U32Min);
         ASSERT(StringsAreEqual(A, B));
     }
+    {
+        string A = String("before    42 after");
+        string B = FormatString(Arena, "before %5u after", 42);
+        ASSERT(StringsAreEqual(A, B));
+    }
+    
 }
 
 inline void
@@ -120,6 +126,11 @@ RunFormatStringDecimalFloatingPoint(memory_arena *Arena)
     {
         string A = String("before 3.141 after");
         string B = FormatString(Arena, "before %.3f after", Pi32);
+        ASSERT(StringsAreEqual(A, B));
+    }
+    {
+        string A = String("before   3.141 after");
+        string B = FormatString(Arena, "before %3.3f after", Pi32);
         ASSERT(StringsAreEqual(A, B));
     }
     {

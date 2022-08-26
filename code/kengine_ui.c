@@ -95,9 +95,13 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
             }
             else
             {
-                f32 AdvanceX = (Scale*Platform.GetHorizontalAdvance(PrevCodePoint, CodePoint));
                 
-                AtX += AdvanceX;
+                f32 AdvanceX = Platform.GetHorizontalAdvance(PrevCodePoint, CodePoint);
+                if(AdvanceX)
+                {
+                    AtX += AdvanceX*Scale;
+                }
+                
             }
             
             
