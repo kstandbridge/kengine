@@ -34,7 +34,7 @@ if(Pointer) {(Pointer)->NextFree = (FreeListPointer); (FreeListPointer) = (Point
 
 
 
-#define DEBUG_FRAME_COUNT 60
+#define DEBUG_FRAME_COUNT 256
 typedef struct debug_profile_node
 {
     struct debug_element *Element;

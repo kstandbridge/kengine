@@ -1,6 +1,11 @@
 #include "win32_kengine.h"
 #include "win32_kengine_shared.c"
 
+#if KENGINE_INTERNAL
+global debug_event_table GlobalDebugEventTable_;
+debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
+#endif
+
 global GLuint GlobalBlitTextureHandle;
 global wgl_create_context_attribs_arb *wglCreateContextAttribsARB;
 global wgl_choose_pixel_format_arb *wglChoosePixelFormatARB;
@@ -678,11 +683,6 @@ Win32GetWallClock()
     Win32QueryPerformanceCounter(&Result);
     return Result;
 }
-
-#if KENGINE_INTERNAL
-global debug_event_table GlobalDebugEventTable_;
-debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
-#endif
 
 void __stdcall 
 WinMainCRTStartup()

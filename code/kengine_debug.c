@@ -113,11 +113,13 @@ GetDebugThread(debug_state *DebugState, u32 ThreadId)
 }
 
 inline debug_parsed_name
-DebugParseName(memory_arena *Arena, char *GUID)
+DebugParseName(char *GUID)
 {
     debug_parsed_name Result;
     ZeroStruct(Result);
-    Result.GUID = PushString_(Arena, GetNullTerminiatedStringLength(GUID), (u8 *)GUID);;
+    //Result.GUID = PushString_(Arena, GetNullTerminiatedStringLength(GUID), (u8 *)GUID);
+    // TODO(kstandbridge): This cannot work with dll hotloading, since the memory could no longer exist
+    Result.GUID = String_(GetNullTerminiatedStringLength(GUID), (u8 *)GUID);
     
     u32 PipeCount = 0;
     u8 *Scan = Result.GUID.Data;
@@ -191,7 +193,7 @@ GetElementFromEvent(debug_state *DebugState, debug_event *Event, debug_variable_
         Parent = DebugState->RootGroup;
     }
     
-    debug_parsed_name ParsedName = DebugParseName(&DebugState->Arena, Event->GUID);
+    debug_parsed_name ParsedName = DebugParseName(Event->GUID);
     u32 Index = (ParsedName.HashValue % ArrayCount(DebugState->ElementHash));
     
     debug_element *Result = GetElementFromGUID(DebugState, Index, Event->GUID);
@@ -479,7 +481,7 @@ DebugUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_ar
         PlatformAPI->DebugState = PushStruct(Arena, debug_state);
         ZeroStruct(*PlatformAPI->DebugState);
         debug_state *DebugState = PlatformAPI->DebugState;
-        SubArena(&DebugState->Arena, Arena, Megabytes(4));
+        SubArena(&DebugState->Arena, Arena, Kilobytes(256));
         
         DebugState->RootGroup = CreateVariableLink(DebugState, 4, "Root");
         DebugState->ProfileGroup = CreateVariableLink(DebugState, 7, "Profile");
@@ -642,7 +644,7 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                 f32 FramesPerSecond = 1.0f / MsPerFrame;
                 Button(&CurrentFrameGrid, RenderGroup, 0, 0, GenerateInteractionId(DebugState), DebugState, FormatString(TempArena, "%d : %.02f ms %.02f fps | Arena %u / %u", 
                                                                                                                          Frame->FrameIndex, MsPerFrame*1000.0f, FramesPerSecond,
-                                                                                                                         PermArena->Used/1024, PermArena->Size/1024));
+                                                                                                                         TempArena->Used/1024, TempArena->Size/1024));
                 
                 ui_grid TopClockSplitGrid = BeginGrid(UIState, TempArena, GetCellBounds(&CurrentFrameGrid, 0, 1), 1, 2);
                 {
@@ -651,8 +653,6 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                     // NOTE(kstandbridge): Draw top clocks list
                     BEGIN_BLOCK("DrawTopClocks");
                     {
-                        temporary_memory TempMem = BeginTemporaryMemory(&DebugState->Arena);
-                        
                         u32 LinkCount = 0;
                         for(debug_variable_link *Link = GetSentinel(DebugState->ProfileGroup)->Next;
                             Link != GetSentinel(DebugState->ProfileGroup);
@@ -661,7 +661,7 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             ++LinkCount;
                         }
                         
-                        debug_clock_entry *Entries = PushArray(TempMem.Arena, LinkCount, debug_clock_entry);
+                        debug_clock_entry *Entries = PushArray(TempArena, LinkCount, debug_clock_entry);
                         
                         f64 TotalTime = 0.0f;
                         u32 Index = 0;
@@ -711,7 +711,7 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             At.Y -= UIState->LineAdvance*(Index+1);
                             RunningSum += Stat->Sum;
                             PushRenderCommandText(RenderGroup, TopClockSplitGrid.Scale, At, V4(0, 0, 0, 1),
-                                                  FormatString(TempMem.Arena, "%ucy %.02f%% %d %S",
+                                                  FormatString(TempArena, "%ucy %.02f%% %d %S",
                                                                (u32)Stat->Sum,
                                                                (PC*Stat->Sum),
                                                                Stat->Count,
@@ -719,15 +719,11 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             
                             // TODO(kstandbridge): Add tooltip
                         }
-                        
-                        EndTemporaryMemory(TempMem);
                     }
                     END_BLOCK();
                     
                     BEGIN_BLOCK("DrawFrameGraph");
                     {
-                        temporary_memory TempMem = BeginTemporaryMemory(&DebugState->Arena);
-                        
                         rectangle2 CellBounds = GetCellBounds(&TopClockSplitGrid, 1, 0);
                         v2 CellDim = Rectangle2GetDim(CellBounds);
                         u32 LaneCount = DebugState->FrameBarLaneCount;
@@ -753,11 +749,9 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             {
                                 Scale = PixelSpan.X / FrameSpan;
                             }
-                            DrawProfileBars(TempMem.Arena, RenderGroup, RootNode, MouseP, CellBounds, 3, 3, Scale);
+                            DrawProfileBars(TempArena, RenderGroup, RootNode, MouseP, CellBounds, 3, 3, Scale);
                             
                         }
-                        
-                        EndTemporaryMemory(TempMem);
                     }
                     END_BLOCK();
                     
@@ -807,6 +801,10 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
             }
             EndGrid(&DebugGrid);
 #endif
+            PushRenderCommandText(RenderGroup, 2.0f, V2(50, 800), V4(0, 0, 0, 1), 
+                                  FormatString(TempArena, "PermArena %u / %u\nTempArena %u / %u", 
+                                               DebugState->Arena.Used, DebugState->Arena.Size,
+                                               TempArena->Used, TempArena->Size));
             
         }
         EndGrid(&ProfileSplit);

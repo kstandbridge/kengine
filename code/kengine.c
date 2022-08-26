@@ -127,4 +127,5 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     
     EndTemporaryMemory(TempMem);
     CheckArena(&AppState->TranArena);
+    CheckArena(Arena);
 }

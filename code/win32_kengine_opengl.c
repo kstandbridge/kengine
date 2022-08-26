@@ -364,7 +364,6 @@ Win32OpenGLRenderCommands(render_commands *Commands)
                 
                 Win32glBindTexture(GL_TEXTURE_2D, (GLuint)Command->Bitmap->TextureHandle);
                 Win32OpenGLRectangle(MinP, MaxP, Command->Color);
-                
             } break;
             case RenderGroupCommand_Rectangle:
             {
