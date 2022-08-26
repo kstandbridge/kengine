@@ -224,14 +224,10 @@ InteractionIsHot(ui_state *UIState, ui_interaction Interaction)
 inline void
 PushRenderCommandText(render_group *RenderGroup, f32 Scale, v2 P, v4 Color, string Text)
 {
-    BEGIN_BLOCK("PushRenderCommandText");
-    {
-        // TODO(kstandbridge): NAMING Internally this is calling PushRenderCommandBitmap for each of the glyphs,
-        // nothing is being drawn now, its a push call so shouldn't be DrawText
-        
-        TextOp_(RenderGroup, TextOpText_Draw, Scale, P, Color, Text);
-    }
-    END_BLOCK();
+    // TODO(kstandbridge): NAMING Internally this is calling PushRenderCommandBitmap for each of the glyphs,
+    // nothing is being drawn now, its a push call so shouldn't be DrawText
+    
+    TextOp_(RenderGroup, TextOpText_Draw, Scale, P, Color, Text);
 }
 
 inline rectangle2

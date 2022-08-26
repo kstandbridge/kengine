@@ -84,13 +84,19 @@ typedef struct debug_element_frame
     debug_stored_event *MostRecentEvent;
 } debug_element_frame;
 
+typedef struct debug_parsed_name
+{
+    u32 HashValue;
+    string FileName;
+    u32 LineNumber;
+    string Name;
+    
+    string GUID;
+} debug_parsed_name;
+
 typedef struct debug_element
 {
-    string GUID;
-    string Name;
-    u32 FileNameCount;
-    u32 LineNumber;
-    u32 NameStartsAt;
+    debug_parsed_name ParsedName;
     
     debug_event_type Type;
     

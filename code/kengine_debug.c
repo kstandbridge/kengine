@@ -112,47 +112,40 @@ GetDebugThread(debug_state *DebugState, u32 ThreadId)
     return Result;
 }
 
-typedef struct debug_parsed_name
-{
-    u32 HashValue;
-    u32 FileNameCount;
-    u32 NameStartsAt;
-    u32 LineNumber;
-    
-    u32 NameLength;
-    char *Name;
-} debug_parsed_name;
-
 inline debug_parsed_name
-DebugParseName(char *GUID)
+DebugParseName(memory_arena *Arena, char *GUID)
 {
     debug_parsed_name Result;
     ZeroStruct(Result);
+    Result.GUID = PushString_(Arena, GetNullTerminiatedStringLength(GUID), (u8 *)GUID);;
     
     u32 PipeCount = 0;
-    char *Scan = GUID;
+    u8 *Scan = Result.GUID.Data;
+    u32 Index = 0;
     for(;
-        *Scan;
-        ++Scan)
+        Index < Result.GUID.Size;
+        ++Scan, ++Index)
     {
         if(*Scan == '|')
         {
             if(PipeCount == 0)
             {
-                Result.FileNameCount = (u32)(Scan - GUID);
-                Result.LineNumber = U32FromString(Scan + 1);
+                u32 FileNameEndsAt = (u32)(Scan - Result.GUID.Data);
+                Result.FileName = String_(FileNameEndsAt, (u8 *)(Result.GUID.Data));
+                Result.LineNumber = U32FromString((char *)Scan + 1);
             }
             else if(PipeCount == 1)
             {
+                
             }
             else
             {
-                Result.NameStartsAt = (u32)(Scan - GUID + 1);
+                u32 NameStartsAt = (u32)(Scan - Result.GUID.Data + 1);
+                Result.Name = String_(Result.GUID.Size - NameStartsAt, (u8 *)(Result.GUID.Data + NameStartsAt));
             }
             
             ++PipeCount;
         }
-        
         // TODO(kstandbridge): Better hash function
         Result.HashValue = 65599*Result.HashValue + *Scan;
     }
@@ -171,7 +164,7 @@ GetElementFromGUID(debug_state *DebugState, u32 Index, char *GUID)
         Chain;
         Chain = Chain->NextInHash)
     {
-        if(StringsAreEqual(Chain->GUID, String_(GetNullTerminiatedStringLength(GUID), (u8 *)GUID)))
+        if(StringsAreEqual(Chain->ParsedName.GUID, String_(GetNullTerminiatedStringLength(GUID), (u8 *)GUID)))
         {
             Result = Chain;
             break;
@@ -198,7 +191,7 @@ GetElementFromEvent(debug_state *DebugState, debug_event *Event, debug_variable_
         Parent = DebugState->RootGroup;
     }
     
-    debug_parsed_name ParsedName = DebugParseName(Event->GUID);
+    debug_parsed_name ParsedName = DebugParseName(&DebugState->Arena, Event->GUID);
     u32 Index = (ParsedName.HashValue % ArrayCount(DebugState->ElementHash));
     
     debug_element *Result = GetElementFromGUID(DebugState, Index, Event->GUID);
@@ -206,10 +199,7 @@ GetElementFromEvent(debug_state *DebugState, debug_event *Event, debug_variable_
     {
         Result = PushStruct(&DebugState->Arena, debug_element);
         ZeroStruct(*Result);
-        Result->GUID = PushString_(&DebugState->Arena, GetNullTerminiatedStringLength(Event->GUID), (u8 *)Event->GUID);
-        Result->FileNameCount = ParsedName.FileNameCount;
-        Result->LineNumber = ParsedName.LineNumber;
-        Result->NameStartsAt = ParsedName.NameStartsAt;
+        Result->ParsedName = ParsedName;
         Result->Type = (debug_event_type)Event->Type;
         
         Result->NextInHash = DebugState->ElementHash[Index];
@@ -525,7 +515,7 @@ SumTotalClock(debug_stored_event *RootEvent)
 }
 
 internal void
-DrawProfileBars(render_group *RenderGroup, debug_profile_node *RootNode, v2 MouseP, rectangle2 EventRect,
+DrawProfileBars(memory_arena *Arena, render_group *RenderGroup, debug_profile_node *RootNode, v2 MouseP, rectangle2 EventRect,
                 u32 TotalDepth, u32 DepthRemaining, f32 Scale)
 {
     v2 PixelSpan = Rectangle2GetDim(EventRect);
@@ -564,14 +554,16 @@ DrawProfileBars(render_group *RenderGroup, debug_profile_node *RootNode, v2 Mous
         if(Rectangle2IsIn(RegionRect, MouseP))
         {
             v2 TextP = V2Add(EventRect.Min, V2Set1(Platform.GetVerticleAdvance()));
-            PushRenderCommandText(RenderGroup, 1.0f, TextP, V4(0, 0, 0, 1), Element->GUID);
+            PushRenderCommandText(RenderGroup, 1.0f, TextP, V4(0, 0, 0, 1),
+                                  FormatString(Arena, "%S %ucy",
+                                               Element->ParsedName.Name, TotalClock));
         }
         
         if(DepthRemaining > 0)
         {
             RegionRect.Min.Y = EventRect.Min.Y;
             RegionRect.Max.Y = EventRect.Max.Y;
-            DrawProfileBars(RenderGroup, Node, MouseP, RegionRect, TotalDepth, DepthRemaining - 1, Scale);
+            DrawProfileBars(Arena, RenderGroup, Node, MouseP, RegionRect, TotalDepth, DepthRemaining - 1, Scale);
         }
     }
 }
@@ -648,7 +640,9 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                 
                 f32 MsPerFrame = Frame->SecondsElapsed;
                 f32 FramesPerSecond = 1.0f / MsPerFrame;
-                Button(&CurrentFrameGrid, RenderGroup, 0, 0, GenerateInteractionId(DebugState), DebugState, FormatString(TempArena, "%d : %.02f ms %.02f fps", Frame->FrameIndex, MsPerFrame*1000.0f, FramesPerSecond));
+                Button(&CurrentFrameGrid, RenderGroup, 0, 0, GenerateInteractionId(DebugState), DebugState, FormatString(TempArena, "%d : %.02f ms %.02f fps | Arena %u / %u", 
+                                                                                                                         Frame->FrameIndex, MsPerFrame*1000.0f, FramesPerSecond,
+                                                                                                                         PermArena->Used/1024, PermArena->Size/1024));
                 
                 ui_grid TopClockSplitGrid = BeginGrid(UIState, TempArena, GetCellBounds(&CurrentFrameGrid, 0, 1), 1, 2);
                 {
@@ -721,7 +715,7 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                                                                (u32)Stat->Sum,
                                                                (PC*Stat->Sum),
                                                                Stat->Count,
-                                                               Element->GUID)); // TODO(kstandbridge): GetName()?
+                                                               Element->ParsedName.Name)); // TODO(kstandbridge): GetName()?
                             
                             // TODO(kstandbridge): Add tooltip
                         }
@@ -732,6 +726,8 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                     
                     BEGIN_BLOCK("DrawFrameGraph");
                     {
+                        temporary_memory TempMem = BeginTemporaryMemory(&DebugState->Arena);
+                        
                         rectangle2 CellBounds = GetCellBounds(&TopClockSplitGrid, 1, 0);
                         v2 CellDim = Rectangle2GetDim(CellBounds);
                         u32 LaneCount = DebugState->FrameBarLaneCount;
@@ -757,9 +753,11 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             {
                                 Scale = PixelSpan.X / FrameSpan;
                             }
-                            DrawProfileBars(RenderGroup, RootNode, MouseP, CellBounds, 3, 3, Scale);
+                            DrawProfileBars(TempMem.Arena, RenderGroup, RootNode, MouseP, CellBounds, 3, 3, Scale);
                             
                         }
+                        
+                        EndTemporaryMemory(TempMem);
                     }
                     END_BLOCK();
                     

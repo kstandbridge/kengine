@@ -33,7 +33,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         Platform.GetGlyphForCodePoint(Arena, 'K');
         AppState->UIState.LineAdvance = Platform.GetVerticleAdvance();
         
-        SubArena(&AppState->TranArena, Arena, Kilobytes(512));
+        SubArena(&AppState->TranArena, Arena, Kilobytes(1024));
     }
     
     app_state *AppState = PlatformAPI->AppState;

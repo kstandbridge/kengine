@@ -176,8 +176,8 @@ switch(Tokenizer->At[0])
 - [x] Software rendering
 - [x] Win32 platform layer
 - [x] OpenGL rendering
-- [ ] Immediate mode GUI
 - [ ] Profiling and debugging system
+- [ ] Immediate mode GUI
 - [ ] DirectX rendering
 - [ ] Client side socket framework
 - [ ] Server side socket framework using I/O Completion Ports
@@ -224,10 +224,22 @@ switch(Tokenizer->At[0])
 - [x] Introspect sorting a double linked list?
 - [x] Introspect free list?
 - [x] OpenGL rendering
+- [x] Profile tab to show last frame time
+- [x] Profile frame timing graph
+- [x] Profile frame selection to show thread breakdown
+- [x] Shortened name of top clock
+- [x] More info on FrameGraph Method 123cy
+- [ ] Propper tooltip support
+- [ ] Sort top cycles
+- [ ] Introspect radix sort?
+- [ ] Formatting on top clock
+- [ ] Clipping top clocks
+- [ ] Top clocks text offset with mouse wheel and scroll bar
+- [ ] Colors for the frame graph
+- [ ] More info on selected FrameGraph main.c(42): AppUpdateFrame
+- [ ] Clickable framegraph to set as root element
+- [ ] Back button to set root element on framegraph
 - [ ] ToggleButton
-- [ ] Profile tab to show last frame time
-- [ ] Profile frame timing graph
-- [ ] Profile frame selection to show thread breakdown
 - [ ] Fullscreen support
 - [ ] Circular buffer for strings
 - [ ] Debug section with console
