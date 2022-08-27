@@ -517,38 +517,6 @@ RunDoubleLinkedListSortTests(memory_arena *Arena)
         ASSERT(Sentinel.Next->Next == &First);
         ASSERT(Sentinel.Next->Next->Next == &Second);
     }
-    
-    
-    {
-        LARGE_INTEGER LastCounter;
-        Win32QueryPerformanceCounter(&LastCounter);
-        random_state RandomState;
-        RandomState.Value = (u32)LastCounter.QuadPart;
-        
-        double_linked_list Sentinel;
-        DoubleLinkedListInit(&Sentinel);
-        u32 ElementCount = RandomU32(&RandomState) % 1000;
-        for(u32 Index = 0;
-            Index < ElementCount;
-            ++Index)
-        {
-            double_linked_list *Element = PushStruct(Arena, double_linked_list);
-            Element->SortKey = RandomU32(&RandomState);
-            DoubleLinkedListInsert(&Sentinel, Element);
-        }
-        
-        DoubleLinkedListMergeSort(&Sentinel, DoubleLinkedListPredicate);
-        
-        u32 LastSoryKey = U32Max;
-        for(double_linked_list *Element = Sentinel.Next;
-            Element != &Sentinel;
-            Element = Element->Next)
-        {
-            ASSERT(Element->SortKey < LastSoryKey);
-            LastSoryKey = Element->SortKey;
-        }
-    }
-    
 }
 
 inline void
@@ -579,6 +547,49 @@ RunFreelistTests(memory_arena *Arena)
     }
 }
 
+inline void
+RunRadixSortTests(memory_arena *Arena)
+{
+    LARGE_INTEGER LastCounter;
+    Win32QueryPerformanceCounter(&LastCounter);
+    random_state RandomState;
+    RandomState.Value = (u32)LastCounter.QuadPart;
+    
+    u32 Count = RandomU32(&RandomState) % 1000;
+    debug_clock_entry *Entries = PushArray(Arena, Count, debug_clock_entry);
+    for(u32 Index = 0;
+        Index < Count;
+        ++Index)
+    {
+        debug_clock_entry *Entry = Entries + Index;
+        Entry->Sum = RandomU32(&RandomState);
+    }
+    
+    debug_clock_entry *TempEntries = PushArray(Arena, Count, debug_clock_entry);
+    DebugClockEntryRadixSort(Count, Entries, TempEntries, Sort_Ascending);
+    
+    u32 LastSum = U32Min;
+    for(u32 Index = 0;
+        Index < Count;
+        ++Index)
+    {
+        debug_clock_entry *Entry = Entries + Index;
+        ASSERT(Entry->Sum > LastSum);
+        LastSum = Entry->Sum;
+    }
+    
+    DebugClockEntryRadixSort(Count, Entries, TempEntries, Sort_Descending);
+    LastSum = U32Max;
+    for(u32 Index = 0;
+        Index < Count;
+        ++Index)
+    {
+        debug_clock_entry *Entry = Entries + Index;
+        ASSERT(Entry->Sum < LastSum);
+        LastSum = Entry->Sum;
+    }
+}
+
 internal b32
 RunAllTests(memory_arena *Arena)
 {
@@ -605,6 +616,8 @@ RunAllTests(memory_arena *Arena)
     RunDoubleLinkedListSortTests(Arena);
     
     RunFreelistTests(Arena);
+    
+    RunRadixSortTests(Arena);
     
     b32 Result = (FailedTests == 0);
     return Result;

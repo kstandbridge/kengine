@@ -235,6 +235,7 @@ switch(Tokenizer->At[0])
 - [ ] Introspect radix sort?
 - [ ] Clipping top clocks
 - [ ] Top clocks text offset with mouse wheel and scroll bar
+- [ ] Labels for elements on framegraph? Check if would fit/display short form
 - [ ] Colors for the frame graph
 - [ ] More info on selected FrameGraph main.c(42): AppUpdateFrame
 - [ ] Clickable framegraph to set as root element

@@ -39,44 +39,44 @@ AddElementToGroup(debug_state *DebugState, debug_variable_link *Parent, debug_el
 }
 
 inline void
-BeginDebugStatistic(debug_statistic *Stat)
+BeginDebugStatistic(debug_clock_entry *Entry)
 {
-    Stat->Min = F32Max;
-    Stat->Max = F32Min;
-    Stat->Sum = 0.0f;
-    Stat->Count = 0;
+    Entry->Min = F32Max;
+    Entry->Max = F32Min;
+    Entry->Sum = 0.0f;
+    Entry->Count = 0;
 }
 
 inline void
-AccumDebugStatistic(debug_statistic *Stat, f64 Value)
+AccumDebugStatistic(debug_clock_entry *Entry, f64 Value)
 {
-    ++Stat->Count;
+    ++Entry->Count;
     
-    if(Stat->Min > Value)
+    if(Entry->Min > Value)
     {
-        Stat->Min = Value;
+        Entry->Min = Value;
     }
     
-    if(Stat->Max < Value)
+    if(Entry->Max < Value)
     {
-        Stat->Max = Value;
+        Entry->Max = Value;
     }
     
-    Stat->Sum += Value;
+    Entry->Sum += Value;
 }
 
 inline void
-EndDebugStatistic(debug_statistic *Stat)
+EndDebugStatistic(debug_clock_entry *Entry)
 {
-    if(Stat->Count)
+    if(Entry->Count)
     {
-        Stat->Avg = Stat->Sum / (f64)Stat->Count;
+        Entry->Avg = Entry->Sum / (f64)Entry->Count;
     }
     else
     {
-        Stat->Min = 0.0f;
-        Stat->Max = 0.0f;
-        Stat->Avg = 0.0f;
+        Entry->Min = 0.0f;
+        Entry->Max = 0.0f;
+        Entry->Avg = 0.0f;
     }
 }
 
@@ -675,17 +675,17 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             Entry->Element = Link->Element;
                             debug_element *Element = Entry->Element;
                             
-                            BeginDebugStatistic(&Entry->Stat);
+                            BeginDebugStatistic(Entry);
                             for(debug_stored_event *Event = Element->Frames[DebugState->ViewingFrameOrdinal].OldestEvent;
                                 Event;
                                 Event = Event->Next)
                             {
                                 u64 ClocksWithChildren = Event->ProfileNode.Duration;
                                 u64 ClocksWithoutChildren = ClocksWithChildren - Event->ProfileNode.DurationOfChildren;
-                                AccumDebugStatistic(&Entry->Stat, (f64)ClocksWithoutChildren);
+                                AccumDebugStatistic(Entry, (f64)ClocksWithoutChildren);
                             }
-                            EndDebugStatistic(&Entry->Stat);
-                            TotalTime += Entry->Stat.Sum;
+                            EndDebugStatistic(Entry);
+                            TotalTime += Entry->Sum;
                         }
                         
                         f64 PC = 0.0f;
@@ -703,18 +703,17 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             ++Index)
                         {
                             debug_clock_entry *Entry = Entries + Index;
-                            debug_statistic *Stat = &Entry->Stat;
                             debug_element *Element = Entry->Element;
                             
                             v2 At = V2(CellBounds.Min.X, CellBounds.Max.Y);
                             At.X += UIState->LineAdvance;
                             At.Y -= UIState->LineAdvance*(Index+1);
-                            RunningSum += Stat->Sum;
+                            RunningSum += Entry->Sum;
                             PushRenderCommandText(RenderGroup, TopClockSplitGrid.Scale, At, V4(0, 0, 0, 1),
                                                   FormatString(TempArena, "Count:%2d %10ucy %3.2f%% %S",
-                                                               Stat->Count,
-                                                               (u32)Stat->Sum,
-                                                               (PC*Stat->Sum),
+                                                               Entry->Count,
+                                                               (u32)Entry->Sum,
+                                                               (PC*Entry->Sum),
                                                                Element->ParsedName.Name)); // TODO(kstandbridge): GetName()?
                             
                             // TODO(kstandbridge): Add tooltip
