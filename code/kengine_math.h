@@ -4,6 +4,21 @@
 // NOTE(kstandbridge): Scalar operations
 //
 
+inline u32
+F32ToRadixValue(f32 Value)
+{
+    u32 Result = *(u32 *)&Value;
+    if(Result & 0x80000000)
+    {
+        Result = ~Result;
+    }
+    else
+    {
+        Result |= 0x80000000;
+    }
+    return(Result);
+}
+
 inline f32
 SafeRatioN(f32 Numerator, f32 Divisor, f32 N)
 {

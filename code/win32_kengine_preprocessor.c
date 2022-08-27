@@ -909,15 +909,97 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
 }
 
 internal void
+GenerateRadixSort(c_tokenizer *Tokenizer, string SortKey)
+{
+    c_token Token = GetNextCToken(Tokenizer);
+    Assert(StringsAreEqual(String("typedef"), Token.Str));
+    Token = GetNextCToken(Tokenizer);
+    Assert(StringsAreEqual(String("struct"), Token.Str));
+    Token = GetNextCToken(Tokenizer);
+    string Type = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+    string FunctionName = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+    ToUpperCamelCase(&FunctionName);
+    
+    Win32ConsoleOut(Tokenizer->Arena, "\ninternal void\n%SRadixSort(u32 Count, %S *First, %S *Temp, sort_type SortType)\n", FunctionName, Type, Type);
+    Win32ConsoleOut(Tokenizer->Arena, "{\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %S *Source = First;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    %S *Dest = Temp;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    for(u32 ByteIndex = 0;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        ByteIndex < 32;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        ByteIndex += 8)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        u32 SortKeyOffsets[256];\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        ZeroArray(ArrayCount(SortKeyOffsets), SortKeyOffsets);\n\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        for(u32 Index = 0;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Index < Count;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            ++Index)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            u32 RadixValue;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            if(SortType == Sort_Descending)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
+    Win32ConsoleOut(Tokenizer->Arena, "            }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            else\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "                Assert(SortType == Sort_Ascending);\n");
+    Win32ConsoleOut(Tokenizer->Arena, "                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
+    Win32ConsoleOut(Tokenizer->Arena, "            }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            ++SortKeyOffsets[RadixPiece];\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        }\n\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        u32 Total = 0;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        for(u32 SortKeyIndex = 0;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            SortKeyIndex < ArrayCount(SortKeyOffsets);\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            ++SortKeyIndex)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            u32 OffsetCount = SortKeyOffsets[SortKeyIndex];\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            SortKeyOffsets[SortKeyIndex] = Total;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Total += OffsetCount;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        }\n\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        \n");
+    Win32ConsoleOut(Tokenizer->Arena, "        for(u32 Index = 0;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Index < Count;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            ++Index)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            u32 RadixValue;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            if(SortType == Sort_Descending)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
+    Win32ConsoleOut(Tokenizer->Arena, "            }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            else\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "                Assert(SortType == Sort_Ascending);\n");
+    Win32ConsoleOut(Tokenizer->Arena, "                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
+    Win32ConsoleOut(Tokenizer->Arena, "            }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Dest[SortKeyOffsets[RadixPiece]++] = Source[Index];\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        }\n\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        %S *SwapTemp = Dest;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "        Dest = Source;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        Source = SwapTemp;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "}\n");
+    
+    Token = GetNextCToken(Tokenizer);
+    while(Token.Type != CToken_CloseBrace)
+    {
+        Token = GetNextCToken(Tokenizer);
+    }
+    Token = GetNextCToken(Tokenizer);
+}
+
+internal void
 ParseIntrospectable_(c_tokenizer *Tokenizer)
 {
     if(RequireCToken(Tokenizer, CToken_OpenParen))
     {
+        // TODO(kstandbridge): This is pretty horrible, surely theres a better way to pickup keywords?
         b32 IsCtor = false;
         b32 IsSet1 = false;
         b32 IsMath = false;
         b32 IsWin32 = false;
         b32 IsDList = false;
+        b32 IsRadix = false;
         string Parameter;
         ZeroStruct(Parameter);
         string Parameter2;
@@ -952,6 +1034,10 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
                 {
                     IsDList = true;
                 }
+                else if(StringsAreEqual(String("radix"), Token.Str))
+                {
+                    IsRadix = true;
+                }
                 else
                 {
                     if(!Parameter.Data)
@@ -973,6 +1059,10 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
         else if(IsDList)
         {
             GenerateDoubleLinkedList(Tokenizer);
+        }
+        else if(IsRadix)
+        {
+            GenerateRadixSort(Tokenizer, Parameter);
         }
         else
         {

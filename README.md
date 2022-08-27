@@ -230,9 +230,9 @@ switch(Tokenizer->At[0])
 - [x] Shortened name of top clock
 - [x] More info on FrameGraph Method 123cy
 - [x] Formatting on top clock
+- [x] Introspect radix sort?
 - [ ] Propper tooltip support
 - [ ] Sort top cycles
-- [ ] Introspect radix sort?
 - [ ] Clipping top clocks
 - [ ] Top clocks text offset with mouse wheel and scroll bar
 - [ ] Labels for elements on framegraph? Check if would fit/display short form
@@ -261,3 +261,4 @@ switch(Tokenizer->At[0])
 - [ ] Dynamically growing memory arenas
 - [ ] Clean up introspect generate methods (double loop)
 - [ ] Buttons can be clicked through other apps
+- [ ] Double linked list merge sort direction, use sort_type enum

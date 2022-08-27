@@ -130,6 +130,14 @@ typedef struct
     f32 KerningChange;
 } loaded_glyph;
 
+
+typedef enum sort_type
+{
+    Sort_Ascending,
+    Sort_Descending
+} sort_type;
+
+
 // TODO(kstandbridge): Replace this with a double linked list we use in production
 introspect(dlist) typedef struct double_linked_list
 {

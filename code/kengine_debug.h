@@ -149,7 +149,7 @@ typedef struct debug_thread
     
 } debug_thread;
 
-typedef struct debug_clock_entry
+introspect(radix, Sum) typedef struct debug_clock_entry
 {
     debug_element *Element;
     
@@ -159,96 +159,6 @@ typedef struct debug_clock_entry
     f64 Avg;
     u32 Count;
 } debug_clock_entry;
-
-
-inline u32
-F32ToRadixValue(f32 Value)
-{
-    u32 Result = *(u32 *)&Value;
-    if(Result & 0x80000000)
-    {
-        Result = ~Result;
-    }
-    else
-    {
-        Result |= 0x80000000;
-    }
-    return(Result);
-}
-
-typedef enum sort_type
-{
-    Sort_Ascending,
-    Sort_Descending
-} sort_type;
-
-internal void
-DebugClockEntryRadixSort(u32 Count, debug_clock_entry *First, debug_clock_entry *Temp, sort_type SortType)
-{
-    debug_clock_entry *Source = First;
-    debug_clock_entry *Dest = Temp;
-    for(u32 ByteIndex = 0;
-        ByteIndex < 32;
-        ByteIndex += 8)
-    {
-        u32 SortKeyOffsets[256];
-        ZeroArray(ArrayCount(SortKeyOffsets), SortKeyOffsets);
-        
-        // NOTE(kstandbridge): First pass - count how many of each key
-        for(u32 Index = 0;
-            Index < Count;
-            ++Index)
-        {
-            u32 RadixValue;
-            if(SortType == Sort_Descending)
-            {
-                RadixValue = F32ToRadixValue(-Source[Index].Sum);
-            }
-            else
-            {
-                Assert(SortType == Sort_Ascending);
-                RadixValue = F32ToRadixValue(Source[Index].Sum);
-            }
-            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;
-            ++SortKeyOffsets[RadixPiece];
-        }
-        
-        // NOTE(kstandbridge): Change counts to offsets
-        u32 Total = 0;
-        for(u32 SortKeyIndex = 0;
-            SortKeyIndex < ArrayCount(SortKeyOffsets);
-            ++SortKeyIndex)
-        {
-            u32 OffsetCount = SortKeyOffsets[SortKeyIndex];
-            SortKeyOffsets[SortKeyIndex] = Total;
-            Total += OffsetCount;
-        }
-        
-        // NOTE(kstandbridge): Second pass - place elements into the right location
-        for(u32 Index = 0;
-            Index < Count;
-            ++Index)
-        {
-            u32 RadixValue;
-            if(SortType == Sort_Descending)
-            {
-                RadixValue = F32ToRadixValue(-Source[Index].Sum);
-            }
-            else
-            {
-                Assert(SortType == Sort_Ascending);
-                RadixValue = F32ToRadixValue(Source[Index].Sum);
-            }
-            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;
-            Dest[SortKeyOffsets[RadixPiece]++] = Source[Index];
-        }
-        
-        debug_clock_entry *SwapTemp = Dest;
-        Dest = Source;
-        Source = SwapTemp;
-    }
-}
-
 
 typedef struct debug_state
 {
