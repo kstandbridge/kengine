@@ -688,6 +688,9 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             TotalTime += Entry->Sum;
                         }
                         
+                        debug_clock_entry *EntriesTemp = PushArray(TempArena, LinkCount, debug_clock_entry);
+                        DebugClockEntryRadixSort(LinkCount, Entries, EntriesTemp, Sort_Descending);
+                        
                         f64 PC = 0.0f;
                         if(TotalTime > 0)
                         {

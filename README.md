@@ -231,8 +231,8 @@ switch(Tokenizer->At[0])
 - [x] More info on FrameGraph Method 123cy
 - [x] Formatting on top clock
 - [x] Introspect radix sort?
+- [x] Sort top cycles
 - [ ] Propper tooltip support
-- [ ] Sort top cycles
 - [ ] Clipping top clocks
 - [ ] Top clocks text offset with mouse wheel and scroll bar
 - [ ] Labels for elements on framegraph? Check if would fit/display short form
