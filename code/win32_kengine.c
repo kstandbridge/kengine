@@ -149,6 +149,37 @@ Win32ProcessPendingMessages(win32_state *Win32State, app_input *Input)
                 Input->MouseZ = GET_WHEEL_DELTA_WPARAM(Message.wParam);
             } break;
             
+            case WM_SYSKEYDOWN:
+            case WM_SYSKEYUP:
+            case WM_KEYDOWN:
+            case WM_KEYUP:
+            {
+                u32 VKCode = (u32)Message.wParam;
+                
+                b32 AltKeyWasDown = (Message.lParam & (1 << 29));
+                b32 ShiftKeyWasDown = (Win32GetKeyState(VK_SHIFT) & (1 << 15));
+                
+                b32 WasDown = ((Message.lParam & (1 << 30)) != 0);
+                b32 IsDown = ((Message.lParam & (1UL << 31)) == 0);
+                if(WasDown != IsDown)
+                {
+                    // TODO(kstandbridge): Process individual keys?
+                }
+                
+                if(IsDown)
+                {
+                    if((VKCode == VK_F4) && AltKeyWasDown)
+                    {
+                        Win32State->IsRunning = false;
+                    }
+                    else if((VKCode >= VK_F1) && (VKCode <= VK_F12))
+                    {
+                        Input->FKeyPressed[VKCode - VK_F1 + 1] = true;
+                    }
+                }
+                
+            } break;
+            
             default:
             {
                 Win32TranslateMessage(&Message);
@@ -806,6 +837,7 @@ WinMainCRTStartup()
                 
                 BEGIN_BLOCK("ProcessPendingMessages");
                 NewInput->MouseZ = 0;
+                ZeroStruct(NewInput->FKeyPressed);
                 Win32ProcessPendingMessages(Win32State, NewInput);
                 END_BLOCK();
                 
@@ -815,6 +847,10 @@ WinMainCRTStartup()
                 Win32ScreenToClient(Win32State->Window, &MouseP);
                 NewInput->MouseX = (f32)MouseP.x;
                 NewInput->MouseY = (f32)((Win32State->Backbuffer.Height - 1) - MouseP.y);
+                
+                NewInput->ShiftDown = (Win32GetKeyState(VK_SHIFT) & (1 << 15));
+                NewInput->AltDown = (Win32GetKeyState(VK_MENU) & (1 << 15));
+                NewInput->ControlDown = (Win32GetKeyState(VK_CONTROL) & (1 << 15));
                 
                 // NOTE(kstandbridge): The order of these needs to match the order on enum app_input_mouse_button_type
                 DWORD ButtonVKs[MouseButton_Count] =

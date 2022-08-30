@@ -7,9 +7,17 @@
 internal void
 DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, memory_arena *PermArena, memory_arena *TempArena, app_input *Input, rectangle2 Bounds)
 {
-#if 1
+#if 0
     DrawPathfinding(AppState, UIState, RenderGroup, PermArena, TempArena, Input, Bounds);
 #else
+    
+    ui_grid Grid = BeginGrid(UIState, TempArena, Bounds, 2, 1);
+    {
+        Button(&Grid, RenderGroup, 0, 0, GenerateInteractionId(AppState), AppState, String("Top"));
+        Button(&Grid, RenderGroup, 0, 1, GenerateInteractionId(AppState), AppState, String("Bottom"));
+    }
+    EndGrid(&Grid);
+#if 0    
     ui_grid Grid = BeginGrid(UIState, TempArena, Bounds, 3, 3);
     {
         SetColumnWidth(&Grid, 0, 0, 128.0f);
@@ -42,5 +50,7 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
         if(Button(&Grid, RenderGroup, 2, 2, GenerateInteractionId(AppState), AppState, String("Bottom Right"))) { __debugbreak(); }
     }
     EndGrid(&Grid);
+#endif
+    
 #endif
 }

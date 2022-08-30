@@ -96,26 +96,33 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     temporary_memory TempMem = BeginTemporaryMemory(&AppState->TranArena);
     
 #if KENGINE_INTERNAL
-    ui_grid MainGrid = BeginGrid(UIState, TempMem.Arena, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 2, 1);
+    if(AppState->ShowDebugTab)
     {
-        SetRowHeight(&MainGrid, 0, SIZE_AUTO);
-        SetRowHeight(&MainGrid, 1, SIZE_AUTO);
-        InitializeGridSize(&MainGrid);
-        
-        BEGIN_BLOCK("DrawAppGrid");
+        ui_grid MainGrid = BeginGrid(UIState, TempMem.Arena, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 2, 1);
         {
-            DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 0));
+            SetRowHeight(&MainGrid, 0, SIZE_AUTO);
+            SetRowHeight(&MainGrid, 1, SIZE_AUTO);
+            InitializeGridSize(&MainGrid);
+            
+            BEGIN_BLOCK("DrawAppGrid");
+            {
+                DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 0));
+            }
+            END_BLOCK();
+            
+            BEGIN_BLOCK("DrawDebugGrid");
+            {
+                DrawDebugGrid(Platform.DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 1));
+            }
+            END_BLOCK();
+            
         }
-        END_BLOCK();
-        
-        BEGIN_BLOCK("DrawDebugGrid");
-        {
-            DrawDebugGrid(Platform.DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 1));
-        }
-        END_BLOCK();
-        
+        EndGrid(&MainGrid);
     }
-    EndGrid(&MainGrid);
+    else
+    {
+        DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)));
+    }
 #else
     DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)));
 #endif
@@ -124,6 +131,11 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     UIState->ToExecute = UIState->NextToExecute;
     ClearInteraction(&UIState->NextToExecute);
     ClearInteraction(&UIState->NextHotInteraction);
+    
+    if(Input->FKeyPressed[11])
+    {
+        AppState->ShowDebugTab = !AppState->ShowDebugTab;
+    }
     
     EndTemporaryMemory(TempMem);
     CheckArena(&AppState->TranArena);

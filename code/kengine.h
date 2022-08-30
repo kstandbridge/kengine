@@ -21,6 +21,10 @@ typedef struct app_state
     loaded_glyph Glyphs[255];
     
     ui_state UIState;
+    
+#if KENGINE_INTERNAL
+    b32 ShowDebugTab;
+#endif
 } app_state;
 
 #define KENGINE_H

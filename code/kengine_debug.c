@@ -764,49 +764,15 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
             }
             EndGrid(&CurrentFrameGrid);
             
-#if 0            
-            ui_grid DebugGrid = BeginGrid(UIState, TempArena, GetCellBounds(&ProfileSplit, 0, 2), FrameCount, 2);
-            {
-                SetAllColumnWidths(&DebugGrid, 0, 256.0f);
-                
-                for(u16 FrameIndex = 1;
-                    FrameIndex < FrameCount;
-                    ++FrameIndex)
-                {
-                    u16 NewFrameIndex = (u16)((DebugState->MostRecentFrameOrdinal + FrameIndex + 1) % ArrayCount(DebugState->Frames));
-                    debug_frame *Frame = DebugState->Frames + NewFrameIndex;
-                    f32 MsPerFrame = Frame->SecondsElapsed;
-                    f32 FramesPerSecond = 1.0f / MsPerFrame;
-                    string Text = FormatString(TempArena, "%d : %.02f ms %.02f fps", Frame->FrameIndex, MsPerFrame*1000.0f, FramesPerSecond);
-                    
-                    ui_interaction Interaction;
-                    ZeroStruct(Interaction);
-                    Interaction.Type = Interaction_None;
-                    
-                    ui_element Element = BeginUIElement(&DebugGrid, 0, FrameIndex - 1);
-                    SetUIElementDefaultAction(&Element, Interaction);
-                    EndUIElement(&Element);
-                    
-                    v2 ElementDim = V2Subtract(Element.Bounds.Max, Element.Bounds.Min);
-                    v2 ElementHalfDim = V2Multiply(ElementDim, V2Set1(0.5f));
-                    
-                    rectangle2 TextBounds = GetTextSize(RenderGroup, DebugGrid.Scale, V2Set1(0.0f), Text);
-                    v2 TextDim = Rectangle2GetDim(TextBounds);
-                    v2 TextHalfDim = V2Multiply(TextDim, V2Set1(0.5f));
-                    
-                    v4 TextColor = NewFrameIndex == DebugState->MostRecentFrameOrdinal ? V4(0.0f, 0.0f, 1.0f, 1) : V4(0.0f, 0.0f, 0.0f, 1);
-                    
-                    v2 TextOffset = V2Add(V2Subtract(Element.Bounds.Min, TextHalfDim),ElementHalfDim);
-                    PushRenderCommandText(RenderGroup, DebugGrid.Scale, TextOffset, TextColor, Text);
-                    
-                }
-            }
-            EndGrid(&DebugGrid);
-#endif
-            PushRenderCommandText(RenderGroup, 2.0f, V2(50, 800), V4(0, 0, 0, 1), 
+            
+#if 1
+            // NOTE(kstandbridge): Hack to show memory usage
+            // TODO(kstandbridge): Memory usage tab
+            PushRenderCommandText(RenderGroup, 2.0f, V2(50, 100), V4(0, 0, 0, 1), 
                                   FormatString(TempArena, "PermArena %u / %u\nTempArena %u / %u", 
                                                DebugState->Arena.Used, DebugState->Arena.Size,
                                                TempArena->Used, TempArena->Size));
+#endif
             
         }
         EndGrid(&ProfileSplit);

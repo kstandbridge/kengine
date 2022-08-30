@@ -485,8 +485,6 @@ BeginGrid(ui_state *UIState, memory_arena *TempArena, rectangle2 Bounds, u16 Row
     Result.SpacingY = 4.0f;
     Result.FirstRow = 0;
     
-    f32 DefaultRowHeight = UIState->LineAdvance + Result.SpacingY*4.0f;
-    
     ui_row *CurrentRow = Result.FirstRow;
     for(u16 Row = 0;
         Row < Rows;
@@ -502,7 +500,7 @@ BeginGrid(ui_state *UIState, memory_arena *TempArena, rectangle2 Bounds, u16 Row
             CurrentRow->Next = PushStruct(TempArena, ui_row);
             CurrentRow = CurrentRow->Next;
         }
-        CurrentRow->Height = DefaultRowHeight;
+        CurrentRow->Height = SIZE_AUTO;
         CurrentRow->FirstColumn = 0;
         CurrentRow->Next = 0;
         
@@ -521,7 +519,7 @@ BeginGrid(ui_state *UIState, memory_arena *TempArena, rectangle2 Bounds, u16 Row
                 CurrentColumn->Next = PushStruct(TempArena, ui_column);
                 CurrentColumn = CurrentColumn->Next;
             }
-            CurrentColumn->Width = 0;
+            CurrentColumn->Width = SIZE_AUTO;
             CurrentColumn->Next = 0;
         }
     }
@@ -539,7 +537,6 @@ EndGrid(ui_grid *Grid)
     Assert(Grid->SizeInitialized);
 }
 
-#define SIZE_AUTO 0.0f
 inline void
 SetColumnWidth(ui_grid *Grid, u16 RowIndex, u16 ColumnIndex, f32 Width)
 {

@@ -260,5 +260,8 @@ switch(Tokenizer->At[0])
 - [ ] DirectX rendering
 - [ ] Dynamically growing memory arenas
 - [ ] Clean up introspect generate methods (double loop)
-- [ ] Buttons can be clicked through other apps
+- [ ] fix: buttons can be clicked when window not active
 - [ ] Double linked list merge sort direction, use sort_type enum
+- [ ] RenderCommands to use introspect radix sort?
+- [ ] Renderer Begin/End clipregion?
+- [ ] Fix cannot print debug values following reloads

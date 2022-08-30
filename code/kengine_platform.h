@@ -110,6 +110,9 @@ typedef struct
     f32 MouseX;
     f32 MouseY;
     f32 MouseZ;
+    
+    b32 ShiftDown, AltDown, ControlDown;
+    b32 FKeyPressed[13];
 } app_input;
 
 inline b32 
