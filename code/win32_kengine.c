@@ -954,19 +954,26 @@ WinMainCRTStartup()
                 SortRenderCommands(Commands, SortMemory);
                 LinearizeClipRects(Commands, ClipMemory);
                 
-                if(HardwareRendering)
+                b32 ForceSoftwareRendering = false;
+                
+                DEBUG_IF(ForceSoftwareRendering)
                 {
-                    Win32OpenGLRenderCommands(Commands);
-                    Win32SwapBuffers(DeviceContext);
+                    ForceSoftwareRendering = true;
                 }
-                else
-                {                
+                
+                if(ForceSoftwareRendering || !HardwareRendering)
+                {
                     SoftwareRenderCommands(Platform, Platform->PerFrameWorkQueue, Commands, &OutputTarget);
                     if(!Win32StretchDIBits(DeviceContext, 0, 0, Backbuffer->Width, Backbuffer->Height, 0, 0, Backbuffer->Width, Backbuffer->Height,
                                            Backbuffer->Memory, &Backbuffer->Info, DIB_RGB_COLORS, SRCCOPY))
                     {
                         InvalidCodePath;
                     }
+                }
+                else
+                {                
+                    Win32OpenGLRenderCommands(Commands);
+                    Win32SwapBuffers(DeviceContext);
                 }
                 
                 EndRenderCommands(Commands);

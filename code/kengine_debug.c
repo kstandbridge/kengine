@@ -796,9 +796,15 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                 
                 case DebugView_Settings:
                 {
-                    ui_grid Grid = BeginGrid(UIState, TempArena, TabBounds, 1, 1);
+                    ui_grid Grid = BeginGrid(UIState, TempArena, TabBounds, 2, 1);
                     {
-                        Label(&Grid, RenderGroup, 0, 0, String("Settings"), TextPosition_MiddleMiddle);
+                        SetRowHeight(&Grid, 0, 32.0f);
+                        SetRowHeight(&Grid, 1, 32.0f);
+                        
+                        Checkbox(&Grid, RenderGroup, 0, 0, &GlobalDebugEventTable->Settings.ForceSoftwareRendering, 
+                                 String("ForceSoftwareRendering"));
+                        Checkbox(&Grid, RenderGroup, 0, 1, &GlobalDebugEventTable->Settings.ShowUIElementOutlines, 
+                                 String("ShowUIElementOutlines"));
                     }
                     EndGrid(&Grid);
                 } break;

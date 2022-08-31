@@ -588,8 +588,10 @@ Label(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, s
     SetUIElementDefaultAction(&Element, Interaction);
     EndUIElement(&Element);
     
-    // TODO(kstandbridge): Remove this
-    PushRenderCommandRectangleOutline(RenderGroup, 1.0f, V4(0.0f, 0.0f, 0.0f, 0.5f), Element.Bounds, 3.0f);
+    DEBUG_IF(ShowUIElementOutlines)
+    {
+        PushRenderCommandRectangleOutline(RenderGroup, 1.0f, V4(0.0f, 0.0f, 0.0f, 0.5f), Element.Bounds, 3.0f);
+    }
     
     v2 TextOffset = GetTextOffset(RenderGroup, Element.Bounds, Grid->Scale, Text, TextPosition);
     PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
@@ -669,8 +671,10 @@ Checkbox(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex
     
     rectangle2 RemainingBounds = Element.Bounds;
     
-    // TODO(kstandbridge): Remove this
-    PushRenderCommandRectangleOutline(RenderGroup, 1.0f, V4(0.0f, 0.0f, 0.0f, 0.5f), RemainingBounds, 3.0f);
+    DEBUG_IF(ShowUIElementOutlines)
+    {
+        PushRenderCommandRectangleOutline(RenderGroup, 1.0f, V4(0.0f, 0.0f, 0.0f, 0.5f), RemainingBounds, 3.0f);
+    }
     
     rectangle2 CheckBounds = Rectangle2(RemainingBounds.Min, V2(RemainingBounds.Min.X + UIState->LineAdvance, RemainingBounds.Max.Y));
     string CheckText = String("\\2713");
