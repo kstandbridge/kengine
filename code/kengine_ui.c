@@ -366,6 +366,18 @@ BeginUIElement(ui_grid *Grid, u16 ColumnIndex, u16 RowIndex)
     return Element;
 }
 
+inline ui_element
+BeginUIElementWithBounds(ui_grid *Grid, rectangle2 Bounds)
+{
+    ui_element Element;
+    ZeroStruct(Element);
+    
+    Element.Grid = Grid;
+    Element.Bounds = Bounds;
+    
+    return Element;
+}
+
 inline void
 SetUIElementDefaultAction(ui_element *Element, ui_interaction Interaction)
 {
@@ -565,7 +577,7 @@ GetTextOffset(render_group *RenderGroup, rectangle2 Bounds, f32 Scale, string Te
 }
 
 internal void
-StaticLabel(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, string Text, text_position TextPosition)
+Label(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, string Text, text_position TextPosition)
 {
     ui_state *UIState = Grid->UIState;
     
@@ -583,13 +595,70 @@ StaticLabel(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIn
     PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
 }
 
+internal rectangle2
+TabView(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, u32 TabCount, string *TabHeaders, u32 *CurrentTab)
+{
+    ui_state *UIState = Grid->UIState;
+    colors *Colors = RenderGroup->Colors;
+    
+    rectangle2 CellBounds = GetCellBounds(Grid, ColumnIndex, RowIndex);
+    rectangle2 Result = Rectangle2(V2Add(CellBounds.Min, V2(Grid->SpacingX, Grid->SpacingY)),
+                                   V2Subtract(CellBounds.Max, V2(Grid->SpacingX*2.0f, Grid->SpacingY*2.0f)));
+    v2 At = V2(Result.Min.X, Result.Max.Y - UIState->LineAdvance);
+    for(u32 TabIndex = 0;
+        TabIndex < TabCount;
+        ++TabIndex)
+    {
+        string TabHeader = TabHeaders[TabIndex];
+        rectangle2 TextBounds = GetTextSize(RenderGroup, Grid->Scale, V2Set1(0.0f), TabHeader);
+        v2 TextDim = Rectangle2GetDim(TextBounds);
+        
+        rectangle2 TabHeaderBounds = Rectangle2(At, V2(At.X + TextDim.X + Grid->SpacingX*2.0f, Result.Max.Y));
+        
+        if(TabIndex == *CurrentTab)
+        {
+            PushRenderCommandRectangle(RenderGroup, Colors->TabBackground, TabHeaderBounds, 1.0f);
+        }
+        else
+        {
+            ui_interaction Interaction;
+            Interaction.Id = InteractionIdFromU32s(TabIndex, TabCount);
+            Interaction.Type = Interaction_SetU32;
+            Interaction.Target = (void *)CurrentTab;
+            Interaction.U32_Value = TabIndex;
+            
+            ui_element Element = BeginUIElementWithBounds(Grid, TabHeaderBounds);
+            SetUIElementDefaultAction(&Element, Interaction);
+            EndUIElement(&Element);
+            
+            v4 TabBackgroundColor = Colors->TabHeaderBackground;
+            if(InteractionIsHot(UIState, Interaction))
+            {
+                TabBackgroundColor = Colors->TabHeaderHotBackground;;
+            }
+            PushRenderCommandRectangle(RenderGroup, TabBackgroundColor, TabHeaderBounds, 1.0f);
+        }
+        
+        PushRenderCommandRectangleOutline(RenderGroup, 1.0f, RGBColor(217, 217, 217, 255), TabHeaderBounds, 3.0f);
+        PushRenderCommandText(RenderGroup, Grid->Scale, V2Add(At, V2(Grid->SpacingX*2.0f, Grid->SpacingY)), V4(0.0f, 0.0f, 0.0f, 1.0f), TabHeader);
+        At.X = TabHeaderBounds.Max.X;
+    }
+    
+    Result.Max.Y -= UIState->LineAdvance;
+    PushRenderCommandRectangleOutline(RenderGroup, 1.0f, Colors->TabBorder, Result, 2.0f); 
+    PushRenderCommandRectangle(RenderGroup, Colors->TabBackground, Result, 1.0f); 
+    
+    return Result;
+}
+
 internal void
 Checkbox(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, b32 *Target, string Text)
 {
     ui_state *UIState = Grid->UIState;
     
     ui_interaction Interaction;
-    Interaction.Id = GenerateInteractionId(Target);;
+    // TODO(kstandbridge): Create macro to pass this
+    Interaction.Id = InteractionIdFromPtr(Target);
     Interaction.Type = Interaction_SetU32;
     Interaction.Target = (void *)Target;
     Interaction.U32_Value = !*Target;
@@ -633,7 +702,6 @@ Checkbox(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex
     
     v2 TextOffset = GetTextOffset(RenderGroup, RemainingBounds, Grid->Scale, Text, TextPosition_MiddleLeft);
     PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
-    
 }
 
 inline ui_grid

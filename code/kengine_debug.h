@@ -160,6 +160,16 @@ introspect(radix, Sum) typedef struct debug_clock_entry
     u32 Count;
 } debug_clock_entry;
 
+typedef enum debug_view_type
+{
+    DebugView_Console,
+    DebugView_Settings,
+    DebugView_Profiler,
+    DebugView_Memory,
+    
+    DebugView_Count,
+} debug_view_type;
+
 typedef struct debug_state
 {
     memory_arena Arena;
@@ -186,6 +196,8 @@ typedef struct debug_state
     debug_element *RootProfileElement;
     
     debug_stored_event *FirstFreeStoredEvent;
+    
+    debug_view_type CurrentView;
 } debug_state;
 
 #define KENGINE_DEBUG_H

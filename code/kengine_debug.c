@@ -570,142 +570,140 @@ DrawProfileBars(memory_arena *Arena, render_group *RenderGroup, debug_profile_no
     }
 }
 
-
 internal void
-DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGroup, memory_arena *PermArena, memory_arena *TempArena, app_input *Input, rectangle2 Bounds)
+DrawProfilerTab(debug_state *DebugState, ui_state *UIState, render_group *RenderGroup, memory_arena *TempArena, app_input *Input, rectangle2 Bounds)
 {
-    if(DebugState)
+    v2 MouseP = V2(Input->MouseX, Input->MouseY);
+    
+    ui_grid ProfileSplit = BeginGrid(UIState, TempArena, Bounds, 2, 1);
     {
-        v2 MouseP = V2(Input->MouseX, Input->MouseY);
+        SetRowHeight(&ProfileSplit, 0, 64.0f);
+        SetRowHeight(&ProfileSplit, 1, SIZE_AUTO);
         
-        ui_grid ProfileSplit = BeginGrid(UIState, TempArena, Bounds, 2, 1);
-        {
-            SetRowHeight(&ProfileSplit, 0, 64.0f);
-            SetRowHeight(&ProfileSplit, 1, SIZE_AUTO);
-            
-            u16 FrameCount = ArrayCount(DebugState->Frames);
-            
-            BEGIN_BLOCK("DrawFrameBars");
-            {            
-                ui_grid FrameGrid = BeginGrid(UIState, TempArena, GetCellBounds(&ProfileSplit, 0, 0), 1, FrameCount);
-                {
-                    SetRowHeight(&FrameGrid, 0, 64.0f);
-                    SetColumnWidth(&FrameGrid, 0, 0, 128.0f);
-                    
-                    // TODO(kstandbridge): Use toggle button
-                    if(Button(&FrameGrid, RenderGroup, 0, 0, GenerateInteractionId(DebugState), DebugState, DebugState->Paused ? String("Resume") : String("Pause"))) 
-                    {
-                        DebugState->Paused = !DebugState->Paused;
-                    }
-                    
-                    for(u16 FrameIndex = 1;
-                        FrameIndex < FrameCount;
-                        ++FrameIndex)
-                    {
-                        u16 NewFrameIndex = (u16)((DebugState->MostRecentFrameOrdinal + FrameIndex + 1) % ArrayCount(DebugState->Frames));
-                        debug_frame *Frame = DebugState->Frames + NewFrameIndex;
-                        rectangle2 BarBounds = GetCellBounds(&FrameGrid, FrameIndex, 0);
-                        
-                        f32 Thickness = 1.0f;
-                        if(Rectangle2IsIn(BarBounds, MouseP))
-                        {
-                            if(WasPressed(Input->MouseButtons[MouseButton_Left]))
-                            {
-                                DebugState->ViewingFrameOrdinal = NewFrameIndex;
-                                DebugState->Paused = true;
-                            }
-                            Thickness = 3.0f;
-                        }
-                        PushRenderCommandRectangleOutline(RenderGroup, Thickness, V4(0, 0.5f, 0, 1), BarBounds, 2.0f);
-                        
-                        v2 Dim = V2Subtract(BarBounds.Max, BarBounds.Min);
-                        f32 MaxScale = 100.0f;
-                        BarBounds.Max.Y = BarBounds.Min.Y + (Dim.Y / MaxScale)*(Frame->SecondsElapsed*1000.0f);
-                        
-                        v4 Color = V4(0.0f, 1.0f, 0.0f, 1.0f);
-                        if(NewFrameIndex == DebugState->ViewingFrameOrdinal)
-                        {
-                            Color = V4(1.0f, 1.0f, 0.0f, 1.0f);
-                        }
-                        
-                        PushRenderCommandRectangle(RenderGroup, Color, BarBounds, 1.0f);
-                    }
-                }
-                EndGrid(&FrameGrid);
-            }
-            END_BLOCK();
-            
-            ui_grid CurrentFrameGrid = BeginGrid(UIState, TempArena, GetCellBounds(&ProfileSplit, 0, 1), 2, 1);
+        u16 FrameCount = ArrayCount(DebugState->Frames);
+        
+        BEGIN_BLOCK("DrawFrameBars");
+        {            
+            ui_grid FrameGrid = BeginGrid(UIState, TempArena, GetCellBounds(&ProfileSplit, 0, 0), 1, FrameCount);
             {
-                SetRowHeight(&CurrentFrameGrid, 1, SIZE_AUTO);
-                debug_frame *Frame = DebugState->Frames + DebugState->ViewingFrameOrdinal;
+                SetRowHeight(&FrameGrid, 0, 64.0f);
+                SetColumnWidth(&FrameGrid, 0, 0, 128.0f);
                 
-                f32 MsPerFrame = Frame->SecondsElapsed;
-                f32 FramesPerSecond = 1.0f / MsPerFrame;
-                Button(&CurrentFrameGrid, RenderGroup, 0, 0, GenerateInteractionId(DebugState), DebugState, FormatString(TempArena, "%d : %.02f ms %.02f fps | Arena %u / %u", 
-                                                                                                                         Frame->FrameIndex, MsPerFrame*1000.0f, FramesPerSecond,
-                                                                                                                         TempArena->Used/1024, TempArena->Size/1024));
-                
-                ui_grid TopClockSplitGrid = BeginGrid(UIState, TempArena, GetCellBounds(&CurrentFrameGrid, 0, 1), 1, 2);
+                // TODO(kstandbridge): Use toggle button
+                if(Button(&FrameGrid, RenderGroup, 0, 0, InteractionIdFromPtr(DebugState), DebugState, DebugState->Paused ? String("Resume") : String("Pause"))) 
                 {
-                    SetRowHeight(&TopClockSplitGrid, 0, SIZE_AUTO);
+                    DebugState->Paused = !DebugState->Paused;
+                }
+                
+                for(u16 FrameIndex = 1;
+                    FrameIndex < FrameCount;
+                    ++FrameIndex)
+                {
+                    u16 NewFrameIndex = (u16)((DebugState->MostRecentFrameOrdinal + FrameIndex + 1) % ArrayCount(DebugState->Frames));
+                    debug_frame *Frame = DebugState->Frames + NewFrameIndex;
+                    rectangle2 BarBounds = GetCellBounds(&FrameGrid, FrameIndex, 0);
                     
-                    // NOTE(kstandbridge): Draw top clocks list
-                    BEGIN_BLOCK("DrawTopClocks");
+                    f32 Thickness = 1.0f;
+                    // TODO(kstandbridge): NO use interactions you tool!
+                    if(Rectangle2IsIn(BarBounds, MouseP))
                     {
-                        u32 LinkCount = 0;
-                        for(debug_variable_link *Link = GetSentinel(DebugState->ProfileGroup)->Next;
-                            Link != GetSentinel(DebugState->ProfileGroup);
-                            Link = Link->Next)
+                        if(WasPressed(Input->MouseButtons[MouseButton_Left]))
                         {
-                            ++LinkCount;
+                            DebugState->ViewingFrameOrdinal = NewFrameIndex;
+                            DebugState->Paused = true;
                         }
+                        Thickness = 3.0f;
+                    }
+                    PushRenderCommandRectangleOutline(RenderGroup, Thickness, V4(0, 0.5f, 0, 1), BarBounds, 2.0f);
+                    
+                    v2 Dim = V2Subtract(BarBounds.Max, BarBounds.Min);
+                    f32 MaxScale = 100.0f;
+                    BarBounds.Max.Y = BarBounds.Min.Y + (Dim.Y / MaxScale)*(Frame->SecondsElapsed*1000.0f);
+                    
+                    v4 Color = V4(0.0f, 1.0f, 0.0f, 1.0f);
+                    if(NewFrameIndex == DebugState->ViewingFrameOrdinal)
+                    {
+                        Color = V4(1.0f, 1.0f, 0.0f, 1.0f);
+                    }
+                    
+                    PushRenderCommandRectangle(RenderGroup, Color, BarBounds, 1.0f);
+                }
+            }
+            EndGrid(&FrameGrid);
+        }
+        END_BLOCK();
+        
+        ui_grid CurrentFrameGrid = BeginGrid(UIState, TempArena, GetCellBounds(&ProfileSplit, 0, 1), 2, 1);
+        {
+            SetRowHeight(&CurrentFrameGrid, 0, 32.0f);
+            debug_frame *Frame = DebugState->Frames + DebugState->ViewingFrameOrdinal;
+            
+            f32 MsPerFrame = Frame->SecondsElapsed;
+            f32 FramesPerSecond = 1.0f / MsPerFrame;
+            Button(&CurrentFrameGrid, RenderGroup, 0, 0, InteractionIdFromPtr(DebugState), DebugState, FormatString(TempArena, "%d : %.02f ms %.02f fps | Arena %u / %u", 
+                                                                                                                    Frame->FrameIndex, MsPerFrame*1000.0f, FramesPerSecond,
+                                                                                                                    TempArena->Used/1024, TempArena->Size/1024));
+            
+            ui_grid TopClockSplitGrid = BeginGrid(UIState, TempArena, GetCellBounds(&CurrentFrameGrid, 0, 1), 1, 2);
+            {
+                // NOTE(kstandbridge): Draw top clocks list
+                BEGIN_BLOCK("DrawTopClocks");
+                {
+                    u32 LinkCount = 0;
+                    for(debug_variable_link *Link = GetSentinel(DebugState->ProfileGroup)->Next;
+                        Link != GetSentinel(DebugState->ProfileGroup);
+                        Link = Link->Next)
+                    {
+                        ++LinkCount;
+                    }
+                    
+                    debug_clock_entry *Entries = PushArray(TempArena, LinkCount, debug_clock_entry);
+                    
+                    f64 TotalTime = 0.0f;
+                    u32 Index = 0;
+                    for(debug_variable_link *Link = GetSentinel(DebugState->ProfileGroup)->Next;
+                        Link != GetSentinel(DebugState->ProfileGroup);
+                        Link = Link->Next, ++Index)
+                    {
+                        Assert(Link->FirstChild == GetSentinel(Link));
                         
-                        debug_clock_entry *Entries = PushArray(TempArena, LinkCount, debug_clock_entry);
+                        debug_clock_entry *Entry = Entries + Index;
+                        Entry->Element = Link->Element;
+                        debug_element *Element = Entry->Element;
                         
-                        f64 TotalTime = 0.0f;
-                        u32 Index = 0;
-                        for(debug_variable_link *Link = GetSentinel(DebugState->ProfileGroup)->Next;
-                            Link != GetSentinel(DebugState->ProfileGroup);
-                            Link = Link->Next, ++Index)
+                        BeginDebugStatistic(Entry);
+                        for(debug_stored_event *Event = Element->Frames[DebugState->ViewingFrameOrdinal].OldestEvent;
+                            Event;
+                            Event = Event->Next)
                         {
-                            Assert(Link->FirstChild == GetSentinel(Link));
-                            
-                            debug_clock_entry *Entry = Entries + Index;
-                            Entry->Element = Link->Element;
-                            debug_element *Element = Entry->Element;
-                            
-                            BeginDebugStatistic(Entry);
-                            for(debug_stored_event *Event = Element->Frames[DebugState->ViewingFrameOrdinal].OldestEvent;
-                                Event;
-                                Event = Event->Next)
-                            {
-                                u64 ClocksWithChildren = Event->ProfileNode.Duration;
-                                u64 ClocksWithoutChildren = ClocksWithChildren - Event->ProfileNode.DurationOfChildren;
-                                AccumDebugStatistic(Entry, (f64)ClocksWithoutChildren);
-                            }
-                            EndDebugStatistic(Entry);
-                            TotalTime += Entry->Sum;
+                            u64 ClocksWithChildren = Event->ProfileNode.Duration;
+                            u64 ClocksWithoutChildren = ClocksWithChildren - Event->ProfileNode.DurationOfChildren;
+                            AccumDebugStatistic(Entry, (f64)ClocksWithoutChildren);
                         }
-                        
-                        debug_clock_entry *EntriesTemp = PushArray(TempArena, LinkCount, debug_clock_entry);
-                        DebugClockEntryRadixSort(LinkCount, Entries, EntriesTemp, Sort_Descending);
-                        
-                        f64 PC = 0.0f;
-                        if(TotalTime > 0)
+                        EndDebugStatistic(Entry);
+                        TotalTime += Entry->Sum;
+                    }
+                    
+                    debug_clock_entry *EntriesTemp = PushArray(TempArena, LinkCount, debug_clock_entry);
+                    DebugClockEntryRadixSort(LinkCount, Entries, EntriesTemp, Sort_Descending);
+                    
+                    f64 PC = 0.0f;
+                    if(TotalTime > 0)
+                    {
+                        PC = 100.0f / TotalTime;
+                    }
+                    
+                    f64 RunningSum = 0.0f;
+                    
+                    // TODO(kstandbridge): Clip?
+                    rectangle2 CellBounds = GetCellBounds(&TopClockSplitGrid, 0, 0);
+                    for(Index = 0;
+                        Index < LinkCount;
+                        ++Index)
+                    {
+                        debug_clock_entry *Entry = Entries + Index;
+                        if(Entry->Count)
                         {
-                            PC = 100.0f / TotalTime;
-                        }
-                        
-                        f64 RunningSum = 0.0f;
-                        
-                        // TODO(kstandbridge): Clip?
-                        rectangle2 CellBounds = GetCellBounds(&TopClockSplitGrid, 0, 0);
-                        for(Index = 0;
-                            Index < LinkCount;
-                            ++Index)
-                        {
-                            debug_clock_entry *Entry = Entries + Index;
                             debug_element *Element = Entry->Element;
                             
                             v2 At = V2(CellBounds.Min.X, CellBounds.Max.Y);
@@ -722,60 +720,113 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                             // TODO(kstandbridge): Add tooltip
                         }
                     }
-                    END_BLOCK();
-                    
-                    BEGIN_BLOCK("DrawFrameGraph");
-                    {
-                        rectangle2 CellBounds = GetCellBounds(&TopClockSplitGrid, 1, 0);
-                        v2 CellDim = Rectangle2GetDim(CellBounds);
-                        u32 LaneCount = DebugState->FrameBarLaneCount;
-                        f32 LaneHeight = 0.0f;
-                        if(LaneCount > 0)
-                        {
-                            LaneHeight = CellDim.Y / LaneCount;
-                        }
-                        
-                        debug_element *ViewingElement = DebugState->RootProfileElement;
-                        debug_element_frame *RootFrame = ViewingElement->Frames + DebugState->ViewingFrameOrdinal;
-                        u64 TotalClock = SumTotalClock(RootFrame->OldestEvent);
-                        
-                        for(debug_stored_event *Event = RootFrame->OldestEvent;
-                            Event;
-                            Event = Event->Next)
-                        {
-                            debug_profile_node *RootNode = &Event->ProfileNode;
-                            f32 FrameSpan = (f32)RootNode->Duration;
-                            v2 PixelSpan = Rectangle2GetDim(CellBounds);
-                            f32 Scale = 0.0f;
-                            if(FrameSpan > 0)
-                            {
-                                Scale = PixelSpan.X / FrameSpan;
-                            }
-                            DrawProfileBars(TempArena, RenderGroup, RootNode, MouseP, CellBounds, 3, 3, Scale);
-                            
-                        }
-                    }
-                    END_BLOCK();
-                    
                 }
-                EndGrid(&TopClockSplitGrid);
+                END_BLOCK();
                 
+                BEGIN_BLOCK("DrawFrameGraph");
+                {
+                    rectangle2 CellBounds = GetCellBounds(&TopClockSplitGrid, 1, 0);
+                    v2 CellDim = Rectangle2GetDim(CellBounds);
+                    u32 LaneCount = DebugState->FrameBarLaneCount;
+                    f32 LaneHeight = 0.0f;
+                    if(LaneCount > 0)
+                    {
+                        LaneHeight = CellDim.Y / LaneCount;
+                    }
+                    
+                    debug_element *ViewingElement = DebugState->RootProfileElement;
+                    debug_element_frame *RootFrame = ViewingElement->Frames + DebugState->ViewingFrameOrdinal;
+                    u64 TotalClock = SumTotalClock(RootFrame->OldestEvent);
+                    
+                    for(debug_stored_event *Event = RootFrame->OldestEvent;
+                        Event;
+                        Event = Event->Next)
+                    {
+                        debug_profile_node *RootNode = &Event->ProfileNode;
+                        f32 FrameSpan = (f32)RootNode->Duration;
+                        v2 PixelSpan = Rectangle2GetDim(CellBounds);
+                        f32 Scale = 0.0f;
+                        if(FrameSpan > 0)
+                        {
+                            Scale = PixelSpan.X / FrameSpan;
+                        }
+                        DrawProfileBars(TempArena, RenderGroup, RootNode, MouseP, CellBounds, 3, 3, Scale);
+                        
+                    }
+                }
+                END_BLOCK();
                 
             }
-            EndGrid(&CurrentFrameGrid);
+            EndGrid(&TopClockSplitGrid);
             
-            
-#if 1
-            // NOTE(kstandbridge): Hack to show memory usage
-            // TODO(kstandbridge): Memory usage tab
-            PushRenderCommandText(RenderGroup, 2.0f, V2(50, 100), V4(0, 0, 0, 1), 
-                                  FormatString(TempArena, "PermArena %u / %u\nTempArena %u / %u", 
-                                               DebugState->Arena.Used, DebugState->Arena.Size,
-                                               TempArena->Used, TempArena->Size));
-#endif
             
         }
-        EndGrid(&ProfileSplit);
+        EndGrid(&CurrentFrameGrid);
+    }
+    EndGrid(&ProfileSplit);
+    
+}
+
+internal void
+DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGroup, memory_arena *PermArena, memory_arena *TempArena, app_input *Input, rectangle2 Bounds)
+{
+    if(DebugState)
+    {
+        v2 MouseP = V2(Input->MouseX, Input->MouseY);
+        
+        string DebugViewTexts[DebugView_Count];
+        DebugViewTexts[DebugView_Console] = String("Console");
+        DebugViewTexts[DebugView_Settings] = String("Settings");
+        DebugViewTexts[DebugView_Profiler] = String("Profiler");
+        DebugViewTexts[DebugView_Memory] = String("Memory");
+        
+        ui_grid DebugGrid = BeginGrid(UIState, TempArena, Bounds, 1, 1);
+        {
+            rectangle2 TabBounds = TabView(&DebugGrid, RenderGroup, 0, 0, DebugView_Count, DebugViewTexts, (u32 *)&DebugState->CurrentView);
+            switch(DebugState->CurrentView)
+            {
+                case DebugView_Console:
+                {
+                    ui_grid Grid = BeginGrid(UIState, TempArena, TabBounds, 1, 1);
+                    {
+                        Label(&Grid, RenderGroup, 0, 0, String("Console"), TextPosition_MiddleMiddle);
+                    }
+                    EndGrid(&Grid);
+                } break;
+                
+                case DebugView_Settings:
+                {
+                    ui_grid Grid = BeginGrid(UIState, TempArena, TabBounds, 1, 1);
+                    {
+                        Label(&Grid, RenderGroup, 0, 0, String("Settings"), TextPosition_MiddleMiddle);
+                    }
+                    EndGrid(&Grid);
+                } break;
+                
+                case DebugView_Profiler:
+                {
+                    DrawProfilerTab(DebugState, UIState, RenderGroup, TempArena, Input, TabBounds);
+                } break;
+                
+                case DebugView_Memory:
+                {
+                    ui_grid Grid = BeginGrid(UIState, TempArena, TabBounds, 1, 1);
+                    {
+                        // NOTE(kstandbridge): Hack to show memory usage
+                        // TODO(kstandbridge): Memory usage tab
+                        Label(&Grid, RenderGroup, 0, 0, 
+                              FormatString(TempArena, "PermArena %u / %u\nTempArena %u / %u", 
+                                           DebugState->Arena.Used, DebugState->Arena.Size,
+                                           TempArena->Used, TempArena->Size),
+                              TextPosition_MiddleMiddle);
+                    }
+                    EndGrid(&Grid);
+                } break;
+                
+                InvalidDefaultCase;
+            }
+        }
+        EndGrid(&DebugGrid);
         
     }
 }

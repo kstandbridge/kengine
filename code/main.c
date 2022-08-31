@@ -60,19 +60,19 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
             SetColumnWidth(&TopBarGrid, 0, 3, 116.0f);
             SetColumnWidth(&TopBarGrid, 0, 5, 64.0f);
             SetColumnWidth(&TopBarGrid, 0, 6, 128.0f);
-            StaticLabel(&TopBarGrid, RenderGroup, 0, 0, String("Show:"), TextPosition_MiddleLeft);
+            Label(&TopBarGrid, RenderGroup, 0, 0, String("Show:"), TextPosition_MiddleLeft);
             Checkbox(&TopBarGrid, RenderGroup, 1, 0, &AppState->ShowEmptyWorlds, String("Empty Worlds"));
             Checkbox(&TopBarGrid, RenderGroup, 2, 0, &AppState->ShowLocal, String("Local"));
             Checkbox(&TopBarGrid, RenderGroup, 3, 0, &AppState->ShowAvailable, String("Available"));
             
-            StaticLabel(&TopBarGrid, RenderGroup, 5, 0, String("Filter:"), TextPosition_MiddleLeft);
-            Button(&TopBarGrid, RenderGroup, 6, 0, GenerateInteractionId(AppState), AppState, String("<search>"));
+            Label(&TopBarGrid, RenderGroup, 5, 0, String("Filter:"), TextPosition_MiddleLeft);
+            Button(&TopBarGrid, RenderGroup, 6, 0, InteractionIdFromPtr(AppState), AppState, String("<search>"));
         }
         EndGrid(&TopBarGrid);
         
-        Button(&Grid, RenderGroup, 0, 1, GenerateInteractionId(AppState), AppState, String("Worlds"));
-        Button(&Grid, RenderGroup, 0, 2, GenerateInteractionId(AppState), AppState, String("Logs"));
-        Button(&Grid, RenderGroup, 0, 3, GenerateInteractionId(AppState), AppState, String("BottomBar"));
+        Button(&Grid, RenderGroup, 0, 1, InteractionIdFromPtr(AppState), AppState, String("Worlds"));
+        Button(&Grid, RenderGroup, 0, 2, InteractionIdFromPtr(AppState), AppState, String("Logs"));
+        Button(&Grid, RenderGroup, 0, 3, InteractionIdFromPtr(AppState), AppState, String("BottomBar"));
         
     }
     EndGrid(&Grid);

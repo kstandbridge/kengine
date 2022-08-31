@@ -4,6 +4,8 @@
 #if KENGINE_INTERNAL
 global debug_event_table GlobalDebugEventTable_;
 debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
+#else
+global platform_api *Platform;
 #endif
 
 global GLuint GlobalBlitTextureHandle;
@@ -740,15 +742,19 @@ WinMainCRTStartup()
     Win32QueryPerformanceFrequency(&PerfCountFrequencyResult);
     Win32State->PerfCountFrequency = (s64)PerfCountFrequencyResult.QuadPart;
     
-#if KENGINE_INTERNAL
-    void *BaseAddress = (void *)Terabytes(2);
-#else
-    void *BaseAddress = 0;
-#endif
+    
+    
+    
     
     platform_api Platform_;
     ZeroStruct(&Platform_);
+#if KENGINE_INTERNAL
     platform_api *Platform = &Platform_;
+    void *BaseAddress = (void *)Terabytes(2);
+#else
+    Platform = &Platform_;
+    void *BaseAddress = 0;
+#endif
     
     SYSTEM_INFO SystemInfo;
     Win32GetSystemInfo(&SystemInfo);
@@ -916,7 +922,7 @@ WinMainCRTStartup()
                 }
                 
 #else
-                AppUpdateFrame(&PlatformAPI, Commands, &Win32State->Arena, NewInput);
+                AppUpdateFrame(Platform, Commands, &Win32State->Arena, NewInput);
 #endif
                 
                 BEGIN_BLOCK("ExpandRenderStorage");

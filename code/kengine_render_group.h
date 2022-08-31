@@ -9,6 +9,9 @@ typedef struct
     
     // TODO(kstandbridge): Arena will be removed when we no longer load glyphs in draw routine
     memory_arena *Arena;
+    
+    struct colors *Colors;
+    
 } render_group;
 
 typedef struct

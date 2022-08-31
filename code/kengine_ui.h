@@ -31,13 +31,26 @@ typedef struct
     ui_interaction_id_value Value[2];
 } ui_interaction_id;
 
-#define GenerateInteractionId(Ptr) InteractionIdFromPtr_((Ptr), (char *)(FILE_AND_LINE))
+#define InteractionIdFromPtr(Ptr) InteractionIdFromPtr_((Ptr), (char *)(FILE_AND_LINE))
 internal ui_interaction_id
 InteractionIdFromPtr_(void *Ptr, char *Text)
 {
     ui_interaction_id Result;
     
     Result.Value[0].Ptr = Ptr;
+    Result.Value[1].Ptr = Text;
+    
+    return Result;
+}
+
+#define InteractionIdFromU32s(A, B) InteractionIdFromU32s_((A), (B), (char *)(FILE_AND_LINE))
+internal ui_interaction_id
+InteractionIdFromU32s_(u32 A, u32 B, char *Text)
+{
+    ui_interaction_id Result;
+    
+    Result.Value[0].U32[0] = A;
+    Result.Value[0].U32[1] = B;
     Result.Value[1].Ptr = Text;
     
     return Result;

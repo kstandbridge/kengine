@@ -547,7 +547,7 @@ SoftwareRenderCommandsThread(software_render_commands_work *Work)
 }
 
 internal void
-SoftwareRenderCommands(platform_api *Platform, platform_work_queue *Queue, render_commands *Commands, loaded_bitmap *OutputTarget)
+SoftwareRenderCommands(platform_api *PlatformAPI, platform_work_queue *Queue, render_commands *Commands, loaded_bitmap *OutputTarget)
 {
 #if 0
     Queue;
@@ -598,11 +598,11 @@ SoftwareRenderCommands(platform_api *Platform, platform_work_queue *Queue, rende
             Work->OutputTarget = OutputTarget;
             Work->ClipRect = ClipRect;
             
-            Platform->AddWorkEntry(Queue, SoftwareRenderCommandsThread, Work);
+            PlatformAPI->AddWorkEntry(Queue, SoftwareRenderCommandsThread, Work);
         }
     }
     
-    Platform->CompleteAllWork(Queue);
+    PlatformAPI->CompleteAllWork(Queue);
 #endif
     
 }
