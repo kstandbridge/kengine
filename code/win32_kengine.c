@@ -746,8 +746,9 @@ WinMainCRTStartup()
     void *BaseAddress = 0;
 #endif
     
-    platform_api Platform;
-    ZeroStruct(&Platform);
+    platform_api Platform_;
+    ZeroStruct(&Platform_);
+    platform_api *Platform = &Platform_;
     
     SYSTEM_INFO SystemInfo;
     Win32GetSystemInfo(&SystemInfo);
@@ -756,21 +757,21 @@ WinMainCRTStartup()
     platform_work_queue PerFrameWorkQueue;
     u32 PerFrameThreadCount = RoundF32ToU32((f32)ProcessorCount*1.5f);
     Win32MakeQueue(&PerFrameWorkQueue, PerFrameThreadCount);
-    Platform.PerFrameWorkQueue = &PerFrameWorkQueue;
+    Platform->PerFrameWorkQueue = &PerFrameWorkQueue;
     
     platform_work_queue BackgroundWorkQueue;
     u32 BackgroundThreadCount = RoundF32ToU32((f32)ProcessorCount/2.0f);
     Win32MakeQueue(&BackgroundWorkQueue, BackgroundThreadCount);
-    Platform.BackgroundWorkQueue = &BackgroundWorkQueue;
+    Platform->BackgroundWorkQueue = &BackgroundWorkQueue;
     
-    Platform.AddWorkEntry = Win32AddWorkEntry;
-    Platform.CompleteAllWork = Win32CompleteAllWork;
-    Platform.GetGlyphForCodePoint = Win32GetGlyphForCodePoint;
-    Platform.GetHorizontalAdvance = Win32GetHorizontalAdvance;
-    Platform.GetVerticleAdvance = Win32GetVerticleAdvance;;
+    Platform->AddWorkEntry = Win32AddWorkEntry;
+    Platform->CompleteAllWork = Win32CompleteAllWork;
+    Platform->GetGlyphForCodePoint = Win32GetGlyphForCodePoint;
+    Platform->GetHorizontalAdvance = Win32GetHorizontalAdvance;
+    Platform->GetVerticleAdvance = Win32GetVerticleAdvance;;
     
 #if KENGINE_INTERNAL
-    Platform.DebugEventTable = GlobalDebugEventTable;
+    Platform->DebugEventTable = GlobalDebugEventTable;
 #endif
     
     u64 StorageSize = Megabytes(16);
@@ -822,7 +823,7 @@ WinMainCRTStartup()
             {
                 
 #if KENGINE_INTERNAL
-                Platform.DllReloaded = false;
+                Platform->DllReloaded = false;
                 b32 DllNeedsToBeReloaded = false;
                 FILETIME NewDLLWriteTime = Win32GetLastWriteTime(Win32State->DllFullFilePath);
                 if(Win32CompareFileTime(&NewDLLWriteTime, &Win32State->LastDLLWriteTime) != 0)
@@ -891,26 +892,26 @@ WinMainCRTStartup()
                 BEGIN_BLOCK("AppUpdateFrame");
                 if(Win32State->AppUpdateFrame)
                 {
-                    Win32State->AppUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
+                    Win32State->AppUpdateFrame(Platform, Commands, &Win32State->Arena, NewInput);
                 }
                 END_BLOCK();
                 if(DllNeedsToBeReloaded)
                 {
-                    Win32CompleteAllWork(Platform.PerFrameWorkQueue);
-                    Win32CompleteAllWork(Platform.BackgroundWorkQueue);
+                    Win32CompleteAllWork(Platform->PerFrameWorkQueue);
+                    Win32CompleteAllWork(Platform->BackgroundWorkQueue);
                     SetDebugEventRecording(false);
                 }
                 
                 if(Win32State->DebugUpdateFrame)
                 {
-                    Win32State->DebugUpdateFrame(&Platform, Commands, &Win32State->Arena, NewInput);
+                    Win32State->DebugUpdateFrame(Platform, Commands, &Win32State->Arena, NewInput);
                 }
                 
                 
                 if(DllNeedsToBeReloaded)
                 {
                     Win32UnloadAppCode(Win32State);
-                    Win32LoadAppCode(&Platform, Win32State, NewDLLWriteTime);
+                    Win32LoadAppCode(Platform, Win32State, NewDLLWriteTime);
                     SetDebugEventRecording(true);
                 }
                 
@@ -954,7 +955,7 @@ WinMainCRTStartup()
                 }
                 else
                 {                
-                    SoftwareRenderCommands(&Platform, Platform.PerFrameWorkQueue, Commands, &OutputTarget);
+                    SoftwareRenderCommands(Platform, Platform->PerFrameWorkQueue, Commands, &OutputTarget);
                     if(!Win32StretchDIBits(DeviceContext, 0, 0, Backbuffer->Width, Backbuffer->Height, 0, 0, Backbuffer->Width, Backbuffer->Height,
                                            Backbuffer->Memory, &Backbuffer->Info, DIB_RGB_COLORS, SRCCOPY))
                     {
@@ -969,7 +970,7 @@ WinMainCRTStartup()
                     InvalidCodePath;
                 }
                 END_BLOCK();
-                Win32CompleteAllWork(Platform.PerFrameWorkQueue);
+                Win32CompleteAllWork(Platform->PerFrameWorkQueue);
                 
                 app_input *Temp = NewInput;
                 NewInput = OldInput;

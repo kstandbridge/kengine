@@ -1,4 +1,37 @@
 
+inline b32
+InteractionIdsAreEqual(ui_interaction_id A, ui_interaction_id B)
+{
+    b32 Result = ((A.Value[0].U64 == B.Value[0].U64) &&
+                  (A.Value[1].U64 == B.Value[1].U64));
+    
+    return Result;
+}
+
+inline b32
+InteractionsAreEqual(ui_interaction A, ui_interaction B)
+{
+    b32 Result = (InteractionIdsAreEqual(A.Id, B.Id) &&
+                  (A.Type == B.Type) &&
+                  (A.Target == B.Target) &&
+                  (A.Generic == A.Generic));
+    
+    return Result;
+}
+
+inline b32
+InteractionIsHot(ui_state *UIState, ui_interaction Interaction)
+{
+    b32 Result = InteractionsAreEqual(UIState->HotInteraction, Interaction);
+    
+    if(Interaction.Type == Interaction_None)
+    {
+        Result = false;
+    }
+    
+    return Result;
+}
+
 inline void
 ClearInteraction(ui_interaction *Interaction)
 {
@@ -34,7 +67,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
         }
         else if(Text.Data[Index] == '\n')
         {
-            AtY -= Platform.GetVerticleAdvance()*Scale;
+            AtY -= Platform->GetVerticleAdvance()*Scale;
             AtX = P.X;
         }
         else
@@ -57,7 +90,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
                 if(Glyphs[CodePoint].Bitmap.Memory == 0)
                 {
                     // TODO(kstandbridge): This should be threaded
-                    Glyphs[CodePoint] = Platform.GetGlyphForCodePoint(Arena, CodePoint);
+                    Glyphs[CodePoint] = Platform->GetGlyphForCodePoint(Arena, CodePoint);
                 }
                 
                 loaded_glyph *Glyph = Glyphs + CodePoint;
@@ -87,7 +120,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
                 
                 PrevCodePoint = CodePoint;
                 
-                f32 AdvanceX = (Scale*Platform.GetHorizontalAdvance(PrevCodePoint, CodePoint)) + Glyph->KerningChange;
+                f32 AdvanceX = (Scale*Platform->GetHorizontalAdvance(PrevCodePoint, CodePoint)) + Glyph->KerningChange;
                 loaded_glyph *PreviousGlyph = Glyphs + PrevCodePoint;
                 AdvanceX += PreviousGlyph->KerningChange;
                 
@@ -96,7 +129,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
             else
             {
                 
-                f32 AdvanceX = Platform.GetHorizontalAdvance(PrevCodePoint, CodePoint);
+                f32 AdvanceX = Platform->GetHorizontalAdvance(PrevCodePoint, CodePoint);
                 if(AdvanceX)
                 {
                     AtX += AdvanceX*Scale;
@@ -163,6 +196,16 @@ Interact(ui_state *UIState, app_input *Input)
                 }
             } break;
             
+            case Interaction_SetU32:
+            {
+                UIState->ClickedId = UIState->Interaction.Id;
+                if(MouseUp)
+                {
+                    *(u32 *)UIState->Interaction.Target = UIState->Interaction.U32_Value;
+                    EndInteraction = true;
+                }
+            } break;
+            
             case Interaction_None:
             {
                 UIState->HotInteraction = UIState->NextHotInteraction;
@@ -190,39 +233,6 @@ Interact(ui_state *UIState, app_input *Input)
         MouseButton = !MouseButton;
     }
     
-}
-
-inline b32
-InteractionIdsAreEqual(ui_interaction_id A, ui_interaction_id B)
-{
-    b32 Result = ((A.Value[0].U64 == B.Value[0].U64) &&
-                  (A.Value[1].U64 == B.Value[1].U64));
-    
-    return Result;
-}
-
-inline b32
-InteractionsAreEqual(ui_interaction A, ui_interaction B)
-{
-    b32 Result = (InteractionIdsAreEqual(A.Id, B.Id) &&
-                  (A.Type == B.Type) &&
-                  (A.Target == B.Target) &&
-                  (A.Generic == A.Generic));
-    
-    return Result;
-}
-
-inline b32
-InteractionIsHot(ui_state *UIState, ui_interaction Interaction)
-{
-    b32 Result = InteractionsAreEqual(UIState->HotInteraction, Interaction);
-    
-    if(Interaction.Type == Interaction_None)
-    {
-        Result = false;
-    }
-    
-    return Result;
 }
 
 inline void
@@ -466,6 +476,164 @@ Button(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, 
     }
     
     return Result;
+}
+
+typedef enum text_position
+{
+    TextPosition_TopLeft,
+    TextPosition_TopMiddle,
+    TextPosition_TopRight,
+    TextPosition_MiddleLeft,
+    TextPosition_MiddleMiddle,
+    TextPosition_MiddleRight,
+    TextPosition_BottomLeft,
+    TextPosition_BottomMiddle,
+    TextPosition_BottomRight
+} text_position;
+
+inline v2
+GetTextOffset(render_group *RenderGroup, rectangle2 Bounds, f32 Scale, string Text, text_position TextPosition)
+{
+    v2 ElementDim = V2Subtract(Bounds.Max, Bounds.Min);
+    v2 ElementHalfDim = V2Multiply(ElementDim, V2Set1(0.5f));
+    rectangle2 TextBounds = GetTextSize(RenderGroup, Scale, V2Set1(0.0f), Text);
+    v2 TextDim = Rectangle2GetDim(TextBounds);
+    v2 TextHalfDim = V2Multiply(TextDim, V2Set1(0.5f));
+    
+    v2 Result = V2(0, 0);
+    
+    switch(TextPosition)
+    {
+        case TextPosition_TopLeft:
+        {
+            Result = V2(Bounds.Min.X, Bounds.Max.Y - TextDim.Y);
+        } break;
+        
+        case TextPosition_TopMiddle:
+        {
+            Result = V2(Bounds.Min.X + ElementHalfDim.X - TextHalfDim.X, 
+                        Bounds.Max.Y - TextDim.Y);
+        } break;
+        
+        case TextPosition_TopRight:
+        {
+            Result = V2(Bounds.Max.X - TextDim.X, Bounds.Max.Y - TextDim.Y);
+        } break;
+        
+        case TextPosition_MiddleLeft:
+        {
+            Result = V2(Bounds.Min.X, 
+                        Bounds.Max.Y - ElementHalfDim.Y - TextHalfDim.Y);
+        } break;
+        
+        case TextPosition_MiddleMiddle:
+        {
+            Result = V2(Bounds.Min.X + ElementHalfDim.X - TextHalfDim.X,
+                        Bounds.Max.Y - ElementHalfDim.Y - TextHalfDim.Y);
+        } break;
+        
+        case TextPosition_MiddleRight:
+        {
+            Result = V2(Bounds.Max.X - TextDim.X, 
+                        Bounds.Max.Y - ElementHalfDim.Y - TextHalfDim.Y);
+        } break;
+        
+        case TextPosition_BottomLeft:
+        {
+            Result = V2(Bounds.Min.X, 
+                        Bounds.Min.Y);
+        } break;
+        
+        case TextPosition_BottomMiddle:
+        {
+            Result = V2(Bounds.Min.X + ElementHalfDim.X - TextHalfDim.X,
+                        Bounds.Min.Y);
+        } break;
+        
+        case TextPosition_BottomRight:
+        {
+            Result = V2(Bounds.Max.X - TextDim.X, 
+                        Bounds.Min.Y);
+        } break;
+        
+        
+        InvalidDefaultCase;
+    }
+    
+    
+    return Result;
+}
+
+internal void
+StaticLabel(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, string Text, text_position TextPosition)
+{
+    ui_state *UIState = Grid->UIState;
+    
+    ui_interaction Interaction;
+    Interaction.Type = Interaction_NOP;
+    
+    ui_element Element = BeginUIElement(Grid, ColumnIndex, RowIndex);
+    SetUIElementDefaultAction(&Element, Interaction);
+    EndUIElement(&Element);
+    
+    // TODO(kstandbridge): Remove this
+    PushRenderCommandRectangleOutline(RenderGroup, 1.0f, V4(0.0f, 0.0f, 0.0f, 0.5f), Element.Bounds, 3.0f);
+    
+    v2 TextOffset = GetTextOffset(RenderGroup, Element.Bounds, Grid->Scale, Text, TextPosition);
+    PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+}
+
+internal void
+Checkbox(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, b32 *Target, string Text)
+{
+    ui_state *UIState = Grid->UIState;
+    
+    ui_interaction Interaction;
+    Interaction.Id = GenerateInteractionId(Target);;
+    Interaction.Type = Interaction_SetU32;
+    Interaction.Target = (void *)Target;
+    Interaction.U32_Value = !*Target;
+    
+    ui_element Element = BeginUIElement(Grid, ColumnIndex, RowIndex);
+    SetUIElementDefaultAction(&Element, Interaction);
+    EndUIElement(&Element);
+    
+    rectangle2 RemainingBounds = Element.Bounds;
+    
+    // TODO(kstandbridge): Remove this
+    PushRenderCommandRectangleOutline(RenderGroup, 1.0f, V4(0.0f, 0.0f, 0.0f, 0.5f), RemainingBounds, 3.0f);
+    
+    rectangle2 CheckBounds = Rectangle2(RemainingBounds.Min, V2(RemainingBounds.Min.X + UIState->LineAdvance, RemainingBounds.Max.Y));
+    string CheckText = String("\\2713");
+    rectangle2 CheckTextBounds = GetTextSize(RenderGroup, Grid->Scale, V2Set1(0.0f), CheckText);
+    v2 CheckOffset = GetTextOffset(RenderGroup, CheckBounds, Grid->Scale, CheckText, TextPosition_MiddleMiddle);
+    rectangle2 CheckBorder = Rectangle2(V2Subtract(CheckOffset, V2Set1(2.5f)), 
+                                        V2Add(CheckOffset, V2Set1(15.0f)));
+    v4 CheckColor = RGBColor(0, 0, 0, 255);
+    v4 CheckBorderColor = RGBColor(51, 51, 51, 255);
+    if(InteractionIsHot(UIState, Interaction))
+    {
+        CheckColor = RGBColor(0, 120, 215, 255);
+        CheckBorderColor = RGBColor(0, 120, 215, 255);
+    }
+    if(InteractionIdsAreEqual(UIState->ClickedId, Interaction.Id) &&
+       Element.IsHot)
+    {
+        CheckColor = RGBColor(0, 84, 153, 255);
+        CheckBorderColor = RGBColor(0, 84, 153, 255);
+        PushRenderCommandRectangle(RenderGroup, RGBColor(204, 228, 247, 255), CheckBounds, 1.0f);
+    }
+    PushRenderCommandRectangleOutline(RenderGroup, 1.0f, CheckBorderColor, CheckBounds, 2.0f);
+    if(*Target)
+    {
+        PushRenderCommandText(RenderGroup, Grid->Scale, CheckOffset, CheckColor, CheckText);
+    }
+    
+    RemainingBounds.Min.X = CheckBounds.Max.X + Grid->SpacingX;
+    
+    v2 TextOffset = GetTextOffset(RenderGroup, RemainingBounds, Grid->Scale, Text, TextPosition_MiddleLeft);
+    PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    
 }
 
 inline ui_grid

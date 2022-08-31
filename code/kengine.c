@@ -1,6 +1,6 @@
 #include "kengine.h"
 
-global platform_api Platform;
+global platform_api *Platform;
 
 #if KENGINE_INTERNAL
 global debug_event_table *GlobalDebugEventTable;
@@ -19,24 +19,28 @@ global debug_event_table *GlobalDebugEventTable;
 extern void
 AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena, app_input *Input)
 {
-    Platform = *PlatformAPI;
+    Platform = PlatformAPI;
+    
 #if KENGINE_INTERNAL
-    GlobalDebugEventTable = PlatformAPI->DebugEventTable;
+    GlobalDebugEventTable = Platform->DebugEventTable;
 #endif
     
-    if(!PlatformAPI->AppState)
+    if(!Platform->AppState)
     {
-        PlatformAPI->AppState = PushStruct(Arena, app_state);
-        app_state *AppState = PlatformAPI->AppState;
-        
-        // NOTE(kstandbridge): GetVerticleAdvance will return 0 if no glyphs have been loaded
-        Platform.GetGlyphForCodePoint(Arena, 'K');
-        AppState->UIState.LineAdvance = Platform.GetVerticleAdvance();
-        
-        SubArena(&AppState->TranArena, Arena, Kilobytes(1024));
+        Platform->AppState = PushStruct(Arena, app_state);
     }
     
-    app_state *AppState = PlatformAPI->AppState;
+    if(!Platform->UIState)
+    {
+        Platform->UIState = PushStruct(Arena, ui_state);
+        SubArena(&Platform->UIState->TranArena, Arena, Kilobytes(1024));
+        
+        // NOTE(kstandbridge): GetVerticleAdvance will return 0 if no glyphs have been loaded
+        Platform->GetGlyphForCodePoint(Arena, 'K');
+        Platform->UIState->LineAdvance = Platform->GetVerticleAdvance();
+    }
+    
+    ui_state *UIState = Platform->UIState;
     
     render_group RenderGroup_;
     ZeroStruct(RenderGroup_);
@@ -44,11 +48,11 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     RenderGroup->Commands = Commands;
     RenderGroup->CurrentClipRectIndex = PushRenderCommandClipRectangle(RenderGroup, Rectangle2i(0, Commands->Width, 0, Commands->Height));
     RenderGroup->Arena = Arena;
-    RenderGroup->Glyphs = AppState->Glyphs;
+    RenderGroup->Glyphs = UIState->Glyphs;
     
     
 #if KENGINE_INTERNAL 
-    if(Platform.DllReloaded)
+    if(Platform->DllReloaded)
     {
         PushRenderCommandClear(RenderGroup, 0.0f, V4(0.0f, 1.0f, 0.0f, 1.0f));
     }
@@ -86,17 +90,15 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     RenderGroup->CurrentClipRectIndex = OldClipRect;
 #endif
     
-    ui_state *UIState = &AppState->UIState;
-    
     UIState->MouseDown = Input->MouseButtons[MouseButton_Left].EndedDown;
     UIState->LastMouseP = UIState->MouseP;
     UIState->MouseP = V2(Input->MouseX, Input->MouseY);
     UIState->dMouseP = V2Subtract(UIState->LastMouseP, UIState->MouseP);
     
-    temporary_memory TempMem = BeginTemporaryMemory(&AppState->TranArena);
+    temporary_memory TempMem = BeginTemporaryMemory(&UIState->TranArena);
     
 #if KENGINE_INTERNAL
-    if(AppState->ShowDebugTab)
+    if(UIState->ShowDebugTab)
     {
         ui_grid MainGrid = BeginGrid(UIState, TempMem.Arena, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 2, 1);
         {
@@ -106,13 +108,13 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
             
             BEGIN_BLOCK("DrawAppGrid");
             {
-                DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 0));
+                DrawAppGrid(Platform->AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 0));
             }
             END_BLOCK();
             
             BEGIN_BLOCK("DrawDebugGrid");
             {
-                DrawDebugGrid(Platform.DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 1));
+                DrawDebugGrid(Platform->DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 1));
             }
             END_BLOCK();
             
@@ -121,10 +123,10 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     }
     else
     {
-        DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)));
+        DrawAppGrid(Platform->AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)));
     }
 #else
-    DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)));
+    DrawAppGrid(AppStatePlatform->, UIState, RenderGroup, Arena, TempMem.Arena, Input, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)));
 #endif
     
     Interact(UIState, Input);
@@ -134,10 +136,10 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     
     if(Input->FKeyPressed[11])
     {
-        AppState->ShowDebugTab = !AppState->ShowDebugTab;
+        UIState->ShowDebugTab = !UIState->ShowDebugTab;
     }
     
     EndTemporaryMemory(TempMem);
-    CheckArena(&AppState->TranArena);
+    CheckArena(&UIState->TranArena);
     CheckArena(Arena);
 }

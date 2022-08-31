@@ -14,18 +14,5 @@
 #include "kengine_render_group.h"
 #include "kengine_ui.h"
 
-typedef struct app_state
-{
-    memory_arena TranArena;
-    
-    loaded_glyph Glyphs[255];
-    
-    ui_state UIState;
-    
-#if KENGINE_INTERNAL
-    b32 ShowDebugTab;
-#endif
-} app_state;
-
 #define KENGINE_H
 #endif //KENGINE_H

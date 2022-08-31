@@ -123,12 +123,10 @@ WasPressed(app_button_state State)
     
     return Result;
 }
-
-typedef struct app_state app_state;
-typedef struct debug_state debug_state;
-typedef struct
+typedef struct platform_api
 {
-    app_state *AppState;
+    struct app_state *AppState;
+    struct ui_state *UIState;
     
     struct platform_work_queue *PerFrameWorkQueue;
     struct platform_work_queue *BackgroundWorkQueue;
@@ -141,7 +139,7 @@ typedef struct
     get_verticle_advance *GetVerticleAdvance;
     
 #if KENGINE_INTERNAL
-    debug_state *DebugState;
+    struct debug_state *DebugState;
     struct debug_event_table *DebugEventTable;
     b32 DllReloaded;
 #endif

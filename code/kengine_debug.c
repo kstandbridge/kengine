@@ -555,7 +555,7 @@ DrawProfileBars(memory_arena *Arena, render_group *RenderGroup, debug_profile_no
         
         if(Rectangle2IsIn(RegionRect, MouseP))
         {
-            v2 TextP = V2Add(EventRect.Min, V2Set1(Platform.GetVerticleAdvance()));
+            v2 TextP = V2Add(EventRect.Min, V2Set1(Platform->GetVerticleAdvance()));
             PushRenderCommandText(RenderGroup, 1.0f, TextP, V4(0, 0, 0, 1),
                                   FormatString(Arena, "%S %ucy",
                                                Element->ParsedName.Name, TotalClock));

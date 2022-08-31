@@ -10,6 +10,7 @@ typedef enum
     
     Interaction_ImmediateButton,
     Interaction_Draggable,
+    Interaction_SetU32,
     
 } interaction_type;
 
@@ -53,11 +54,20 @@ typedef struct
         void *Generic;
         void *Ptr;
         v2 *P;
+        u32 U32_Value;
     };
 } ui_interaction;
 
-typedef struct
+typedef struct ui_state
 {
+    memory_arena TranArena;
+    
+    loaded_glyph Glyphs[255];
+    
+#if KENGINE_INTERNAL
+    b32 ShowDebugTab;
+#endif
+    
     f32 LineAdvance;
     
     v2 MouseP;
