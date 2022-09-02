@@ -1,4 +1,49 @@
-
+inline ui_value *
+GetUIValue(ui_state *UIState, char *GUIDInit)
+{
+    memory_arena *Arena = UIState->PermArena;
+    string GUID = String_(GetNullTerminiatedStringLength(GUIDInit), (u8 *)GUIDInit);
+    u32 HashValue = StringToHashValue(GUID);
+    u32 Index = HashValue % ArrayCount(UIState->ValueHash);
+    
+    ui_value *Result = UIState->ValueHash[Index];
+    if(Result == 0)
+    {
+        Result = PushStruct(Arena, ui_value);
+        UIState->ValueHash[Index] = Result;
+        
+        Result->GUID = GUID;
+        Result->NextInHash = 0;
+    }
+    else
+    {
+        for(;;)
+        {
+            if(StringsAreEqual(GUID, Result->GUID))
+            {
+                break;
+            }
+            else
+            {
+                // NOTE(kstandbridge): Hash conflict
+                if(Result->NextInHash)
+                {
+                    Result = Result->NextInHash;
+                }
+                else
+                {
+                    Result->NextInHash = PushStruct(Arena, ui_value);
+                    Result = Result->NextInHash;
+                    Result->GUID = GUID;
+                    Result->NextInHash = 0;
+                    break;
+                }
+            }
+        }
+    }
+    
+    return Result;
+}
 inline b32
 InteractionIdsAreEqual(ui_interaction_id A, ui_interaction_id B)
 {
@@ -177,8 +222,8 @@ Interact(ui_state *UIState, app_input *Input)
         {
             case Interaction_Draggable:
             {
-                ((v2 *)UIState->Interaction.Target)->X += UIState->dMouseP.X;
-                ((v2 *)UIState->Interaction.Target)->Y += UIState->dMouseP.Y;
+                ((ui_value *)UIState->Interaction.Target)->V2_Value.X += UIState->dMouseP.X;
+                ((ui_value *)UIState->Interaction.Target)->V2_Value.Y += UIState->dMouseP.Y;
                 if(MouseUp)
                 {
                     EndInteraction = true;
@@ -187,7 +232,7 @@ Interact(ui_state *UIState, app_input *Input)
             
             case Interaction_DraggableX:
             {
-                *((f32 *)UIState->Interaction.Target) += UIState->dMouseP.X;
+                ((ui_value *)UIState->Interaction.Target)->F32_Value += UIState->dMouseP.X;
                 if(MouseUp)
                 {
                     EndInteraction = true;
@@ -196,7 +241,7 @@ Interact(ui_state *UIState, app_input *Input)
             
             case Interaction_DraggableY:
             {
-                *((f32 *)UIState->Interaction.Target) += UIState->dMouseP.Y;
+                ((ui_value *)UIState->Interaction.Target)->F32_Value += UIState->dMouseP.Y;
                 if(MouseUp)
                 {
                     EndInteraction = true;
@@ -891,47 +936,56 @@ typedef enum split_panel_orientation
     SplitPanel_Horizontal,
 } split_panel_orientation;
 
+
+// TODO(kstandbridge): Better GUID?
 #define GenerateGUID__(File, Line, Counter, Name) File "|" #Line "|" #Counter "|" Name
 #define GenerateGUID_(File, Line, Counter, Name) GenerateGUID__(File, Line, Counter, Name)
 #define GenerateGUID(Name) GenerateGUID_(__FILE__, __LINE__, __COUNTER__, Name)
 
+#define BeginSplitPanelGrid(UIState, RenderGroup, TempArena, Bounds, Input, Orientation) \
+BeginSplitPanelGrid_(UIState, RenderGroup, TempArena, Bounds, Input, Orientation, GenerateGUID("SplitPanel"))
+
 inline ui_grid
-BeginSplitPanelGrid(ui_state *UIState, render_group *RenderGroup, memory_arena *TempArena, rectangle2 Bounds,
-                    app_input *Input, f32 *Size, split_panel_orientation Orientation)
+BeginSplitPanelGrid_(ui_state *UIState, render_group *RenderGroup, memory_arena *TempArena, rectangle2 Bounds,
+                     app_input *Input, split_panel_orientation Orientation, char *GUID)
 {
     ui_grid Result;
     v2 SplitterMax;
     v2 SplitterMin;
     ui_interaction Interaction;
-    Interaction.Id = InteractionIdFromPtr(Size);
-    Interaction.Target = (void *)Size;
+    
+    ui_value *Value = GetUIValue(UIState, GUID);
+    
+    
+    Interaction.Id = InteractionIdFromPtr(Value);
+    Interaction.Target = (void *)Value;
     
     if(Orientation == SplitPanel_Verticle)
     {
         Result = BeginGrid(UIState, TempArena, Bounds, 2, 1);
         
-        if(*Size == 0.0f)
+        if(Value->F32_Value == 0.0f)
         {
-            *Size = 0.5f*(Bounds.Max.Y - Bounds.Min.Y);
+            Value->F32_Value = 0.5f*(Bounds.Max.Y - Bounds.Min.Y);
         }
-        SetRowHeight(&Result, 0, *Size);
+        SetRowHeight(&Result, 0, Value->F32_Value);
         SetRowHeight(&Result, 1, SIZE_AUTO);
         
         f32 MinSize = 0.25f*(Bounds.Max.Y - Bounds.Min.Y);
         f32 MaxSize = 0.75f*(Bounds.Max.Y - Bounds.Min.Y);
-        if(*Size < MinSize)
+        if(Value->F32_Value < MinSize)
         {
-            *Size = MinSize;
+            Value->F32_Value = MinSize;
         }
-        if(*Size > MaxSize)
+        if(Value->F32_Value > MaxSize)
         {
-            *Size = MaxSize;
+            Value->F32_Value = MaxSize;
         }
         
         
         Interaction.Type = Interaction_DraggableY;
         
-        SplitterMax = V2(Bounds.Max.X, Bounds.Max.Y - *Size - Result.SpacingY*2.0f);
+        SplitterMax = V2(Bounds.Max.X, Bounds.Max.Y - Value->F32_Value - Result.SpacingY*2.0f);
         SplitterMin = V2(Bounds.Min.X, SplitterMax.Y + Result.SpacingY*3.0f); 
         if(SplitterMin.Y > SplitterMax.Y)
         {
@@ -945,26 +999,26 @@ BeginSplitPanelGrid(ui_state *UIState, render_group *RenderGroup, memory_arena *
         Assert(Orientation == SplitPanel_Horizontal);
         Result = BeginGrid(UIState, TempArena, Bounds, 1, 2);
         
-        if(*Size == 0.0f)
+        if(Value->F32_Value == 0.0f)
         {
-            *Size = 0.5f*(Bounds.Max.X - Bounds.Min.X);
+            Value->F32_Value = 0.5f*(Bounds.Max.X - Bounds.Min.X);
         }
         SetAllColumnWidths(&Result, 0, SIZE_AUTO);
-        SetAllColumnWidths(&Result, 1, *Size);
+        SetAllColumnWidths(&Result, 1, Value->F32_Value);
         f32 MinSize = 0.25f*(Bounds.Max.X - Bounds.Min.X);
         f32 MaxSize = 0.75f*(Bounds.Max.X - Bounds.Min.X);
-        if(*Size < MinSize)
+        if(Value->F32_Value < MinSize)
         {
-            *Size = MinSize;
+            Value->F32_Value = MinSize;
         }
-        if(*Size > MaxSize)
+        if(Value->F32_Value > MaxSize)
         {
-            *Size = MaxSize;
+            Value->F32_Value = MaxSize;
         }
         
         Interaction.Type = Interaction_DraggableX;
         
-        SplitterMax = V2(Bounds.Max.X - *Size - Result.SpacingX*2.0f, Bounds.Max.Y);
+        SplitterMax = V2(Bounds.Max.X - Value->F32_Value - Result.SpacingX*2.0f, Bounds.Max.Y);
         SplitterMin = V2(SplitterMax.X + Result.SpacingY*3.0f, Bounds.Min.Y); 
         if(SplitterMin.X > SplitterMax.X)
         {

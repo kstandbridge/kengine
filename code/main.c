@@ -9,11 +9,6 @@ typedef struct app_state
     b32 ShowEmptyWorlds;
     b32 ShowLocal;
     b32 ShowAvailable;
-    
-    f32 WorldsPanelHeight;
-    f32 BuildsPanelWidth;
-    f32 LogPanelHeight;
-    
 } app_state;
 
 
@@ -25,7 +20,6 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
 {
     if(!AppState->IsInitialized)
     {
-        AppState->LogPanelHeight = F32Max;
         AppState->IsInitialized = true;
     }
     
@@ -76,16 +70,13 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
         }
         EndGrid(&TopBarGrid);
         
-        ui_grid LogSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&Grid, 0, 1), Input,
-                                               &AppState->LogPanelHeight, SplitPanel_Verticle);
+        ui_grid LogSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&Grid, 0, 1), Input, SplitPanel_Verticle);
         {
-            ui_grid WorldsBuildsSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&LogSplit, 0, 0), Input,
-                                                            &AppState->WorldsPanelHeight, SplitPanel_Verticle);
+            ui_grid WorldsBuildsSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&LogSplit, 0, 0), Input, SplitPanel_Verticle);
             {
                 Button(&WorldsBuildsSplit, RenderGroup, 0, 0, InteractionIdFromPtr(AppState), AppState, String("Worlds"));
                 
-                ui_grid BuildsRunSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&WorldsBuildsSplit, 0, 1), Input,
-                                                             &AppState->BuildsPanelWidth, SplitPanel_Horizontal);
+                ui_grid BuildsRunSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&WorldsBuildsSplit, 0, 1), Input, SplitPanel_Horizontal);
                 {
                     Button(&BuildsRunSplit, RenderGroup, 0, 0, InteractionIdFromPtr(AppState), AppState, String("Builds"));
                     Button(&BuildsRunSplit, RenderGroup, 1, 0, InteractionIdFromPtr(AppState), AppState, String("Run"));

@@ -182,8 +182,6 @@ typedef struct debug_state
     
     b32 Paused;
     
-    f32 PanelSize;
-    
     u32 ViewingFrameOrdinal;
     
     u32 MostRecentFrameOrdinal;

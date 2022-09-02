@@ -234,11 +234,10 @@ switch(Tokenizer->At[0])
 - [x] Sort top cycles
 - [x] Tab control
 - [x] ToggleButton
-- [ ] Horizontal split panel
-- [ ] Set cursor on split panel
-- [ ] Color on split panel
-- [ ] Propper tooltip support
+- [x] Horizontal split panel
+- [x] Cached UI values
 - [ ] Clipping top clocks
+- [ ] Propper tooltip support
 - [ ] Top clocks text offset with mouse wheel and scroll bar
 - [ ] Labels for elements on framegraph? Check if would fit/display short form
 - [ ] Colors for the frame graph
@@ -268,3 +267,5 @@ switch(Tokenizer->At[0])
 - [ ] RenderCommands to use introspect radix sort?
 - [ ] Renderer Begin/End clipregion?
 - [ ] Fix cannot print debug values following reloads
+- [ ] Color on split panel
+- [ ] Set cursor on split panel

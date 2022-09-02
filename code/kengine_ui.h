@@ -75,12 +75,26 @@ typedef struct
     };
 } ui_interaction;
 
+typedef struct ui_value
+{
+    string GUID;
+    
+    struct ui_value *NextInHash;
+    
+    union
+    {
+        f32 F32_Value;
+        v2 V2_Value;
+    };
+} ui_value;
+
 typedef struct ui_state
 {
     memory_arena *PermArena;
     memory_arena TranArena;
     
     loaded_glyph Glyphs[255];
+    ui_value *ValueHash[255];
     
     f32 LineAdvance;
     

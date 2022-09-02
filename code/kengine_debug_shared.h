@@ -54,6 +54,7 @@ typedef struct debug_event_table
 #define GenerateDebugId__(File, Line, Counter, Name) File "|" #Line "|" #Counter "|" Name
 #define GenerateDebugId_(File, Line, Counter, Name) GenerateDebugId__(File, Line, Counter, Name)
 #define GenerateDebugId(Name) GenerateDebugId_(__FILE__, __LINE__, __COUNTER__, Name)
+
 #define PushDebugEvent(EventType, GUIDInit)  \
 u64 ArrayIndex_EventIndex = AtomicAddU64(&GlobalDebugEventTable->EventArrayIndex_EventIndex, GlobalDebugEventTable->RecordIncrement); \
 u32 EventIndex = ArrayIndex_EventIndex & 0xFFFFFFFF; \

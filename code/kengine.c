@@ -108,7 +108,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     {
         ui_grid SplitPanel = BeginSplitPanelGrid(UIState, RenderGroup, TempMem.Arena, 
                                                  Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 
-                                                 Input, &Platform->DebugState->PanelSize, SplitPanel_Verticle);
+                                                 Input, SplitPanel_Verticle);
         {
             BEGIN_BLOCK("DrawAppGrid");
             DrawAppGrid(Platform->AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&SplitPanel, 0, 0));
