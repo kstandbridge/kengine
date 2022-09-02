@@ -1,5 +1,21 @@
 #ifndef KENGINE_STRING_H
 
+inline u32
+StringToHashValue(string Text)
+{
+    u32 Result = 0;
+    
+    u8 *At = Text.Data;
+    u32 Index = 0;
+    for(;
+        Index < Text.Size;
+        ++At, ++Index)
+    {
+        Result = 65599*Result + *At;
+    }
+    
+    return Result;
+}
 
 internal u32
 U32FromString(char *Text)

@@ -41,6 +41,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     if(!Platform->UIState)
     {
         Platform->UIState = PushStruct(Arena, ui_state);
+        Platform->UIState->PermArena = Arena;
         SubArena(&Platform->UIState->TranArena, Arena, Kilobytes(1024));
         
         // NOTE(kstandbridge): GetVerticleAdvance will return 0 if no glyphs have been loaded
@@ -107,7 +108,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     {
         ui_grid SplitPanel = BeginSplitPanelGrid(UIState, RenderGroup, TempMem.Arena, 
                                                  Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 
-                                                 Input);
+                                                 Input, &Platform->DebugState->PanelSize, SplitPanel_Verticle);
         {
             BEGIN_BLOCK("DrawAppGrid");
             DrawAppGrid(Platform->AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&SplitPanel, 0, 0));

@@ -69,12 +69,13 @@ typedef struct
         void *Ptr;
         v2 *P;
         u32 U32_Value;
-        f32 F32_Value[2];
+        f32 F32_Value;
     };
 } ui_interaction;
 
 typedef struct ui_state
 {
+    memory_arena *PermArena;
     memory_arena TranArena;
     
     loaded_glyph Glyphs[255];

@@ -10,6 +10,10 @@ typedef struct app_state
     b32 ShowLocal;
     b32 ShowAvailable;
     
+    v2 WorldsPanelHeight;
+    v2 BuildsPanelWidth;
+    v2 LogPanelHeight;
+    
 } app_state;
 
 
@@ -48,10 +52,10 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
     }
     EndGrid(&Grid);
 #else
-    ui_grid Grid = BeginGrid(UIState, TempArena, Bounds, 4, 1);
+    ui_grid Grid = BeginGrid(UIState, TempArena, Bounds, 3, 1);
     {
         SetRowHeight(&Grid, 0, 32.0f);
-        SetRowHeight(&Grid, 3, 32.0f);
+        SetRowHeight(&Grid, 2, 32.0f);
         
         ui_grid TopBarGrid = BeginGrid(UIState, TempArena, GetCellBounds(&Grid, 0, 0), 1, 7);
         {        
@@ -71,9 +75,30 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
         }
         EndGrid(&TopBarGrid);
         
-        Button(&Grid, RenderGroup, 0, 1, InteractionIdFromPtr(AppState), AppState, String("Worlds"));
-        Button(&Grid, RenderGroup, 0, 2, InteractionIdFromPtr(AppState), AppState, String("Logs"));
-        Button(&Grid, RenderGroup, 0, 3, InteractionIdFromPtr(AppState), AppState, String("BottomBar"));
+        ui_grid LogSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&Grid, 0, 1), Input,
+                                               &AppState->LogPanelHeight, SplitPanel_Verticle);
+        {
+            ui_grid WorldsBuildsSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&LogSplit, 0, 0), Input,
+                                                            &AppState->WorldsPanelHeight, SplitPanel_Verticle);
+            {
+                Button(&WorldsBuildsSplit, RenderGroup, 0, 0, InteractionIdFromPtr(AppState), AppState, String("Worlds"));
+                
+                ui_grid BuildsRunSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&WorldsBuildsSplit, 0, 1), Input,
+                                                             &AppState->BuildsPanelWidth, SplitPanel_Horizontal);
+                {
+                    Button(&BuildsRunSplit, RenderGroup, 0, 0, InteractionIdFromPtr(AppState), AppState, String("Builds"));
+                    Button(&BuildsRunSplit, RenderGroup, 1, 0, InteractionIdFromPtr(AppState), AppState, String("Run"));
+                }
+                EndGrid(&BuildsRunSplit);
+            }
+            EndGrid(&WorldsBuildsSplit);
+            
+            
+            Button(&LogSplit, RenderGroup, 0, 1, InteractionIdFromPtr(AppState), AppState, String("Logs"));
+        }
+        EndGrid(&LogSplit);
+        
+        Button(&Grid, RenderGroup, 0, 2, InteractionIdFromPtr(AppState), AppState, String("BottomBar"));
         
     }
     EndGrid(&Grid);
