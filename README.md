@@ -236,6 +236,7 @@ switch(Tokenizer->At[0])
 - [x] ToggleButton
 - [x] Horizontal split panel
 - [x] Cached UI values
+- [x] Renderer Begin/End clipregion
 - [ ] Clipping top clocks
 - [ ] Propper tooltip support
 - [ ] Top clocks text offset with mouse wheel and scroll bar
@@ -265,7 +266,6 @@ switch(Tokenizer->At[0])
 - [ ] fix: buttons can be clicked when window not active
 - [ ] Double linked list merge sort direction, use sort_type enum
 - [ ] RenderCommands to use introspect radix sort?
-- [ ] Renderer Begin/End clipregion?
 - [ ] Fix cannot print debug values following reloads
 - [ ] Color on split panel
 - [ ] Set cursor on split panel

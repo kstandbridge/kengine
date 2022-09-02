@@ -3,6 +3,7 @@
 typedef struct
 {
     render_commands *Commands;
+    u16 OldClipRectIndex;
     u16 CurrentClipRectIndex;
     
     loaded_glyph *Glyphs;

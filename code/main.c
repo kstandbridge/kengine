@@ -78,13 +78,13 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
                 
                 ui_grid BuildsRunSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&WorldsBuildsSplit, 0, 1), Input, SplitPanel_Horizontal);
                 {
-                    Button(&BuildsRunSplit, RenderGroup, 0, 0, InteractionIdFromPtr(AppState), AppState, String("Builds"));
+                    string LongString = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
+                    Label(&BuildsRunSplit, RenderGroup, 0, 0, LongString, TextPosition_TopLeft);
                     Button(&BuildsRunSplit, RenderGroup, 1, 0, InteractionIdFromPtr(AppState), AppState, String("Run"));
                 }
                 EndGrid(&BuildsRunSplit);
             }
             EndGrid(&WorldsBuildsSplit);
-            
             
             Button(&LogSplit, RenderGroup, 0, 1, InteractionIdFromPtr(AppState), AppState, String("Logs"));
         }

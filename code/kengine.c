@@ -74,26 +74,22 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     f32 Width = (f32)Commands->Width;
     f32 Height = (f32)Commands->Height;
     
-    u16 OldClipRect = RenderGroup->CurrentClipRectIndex;
-    // TODO(kstandbridge): BeginClip/EndClip?
-    RenderGroup->CurrentClipRectIndex =
-        PushRenderCommandClipRectangle(RenderGroup, Rectangle2i((s32)(Width*0.1f), (s32)(Width*0.9f), 
-                                                                (s32)(Height*0.1f), (s32)(Height*0.9f)));
+    BeginClipRect(RenderGroup, Rectangle2(V2(Width*0.1f, Height*0.1f), V2(Width*0.9f,  Height*0.9f)));
+    {    
+        PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f),
+                                   Rectangle2(V2(0.0f, 0.0f), V2(Width*0.5f, Height*0.5f)), 1.0f);
+        
+        PushRenderCommandRectangle(RenderGroup, V4(0.0f, 1.0f, 0.0f, 1.0f),
+                                   Rectangle2(V2(Width*0.5f, 0.0f), V2(Width, Height*0.5f)), 1.0f);
+        
+        PushRenderCommandRectangle(RenderGroup, V4(0.0f, 0.0f, 1.0f, 1.0f),
+                                   Rectangle2(V2(0.0f, Height*0.5f), V2(Width*0.5f, Height)), 1.0f);
+        
+        PushRenderCommandRectangle(RenderGroup, V4(1.0f, 1.0f, 0.0f, 1.0f),
+                                   Rectangle2(V2(Width*0.5f, Height*0.5f), V2(Width, Height)), 1.0f);
+    }
     
-    
-    PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f),
-                               Rectangle2(V2(0.0f, 0.0f), V2(Width*0.5f, Height*0.5f)), 1.0f);
-    
-    PushRenderCommandRectangle(RenderGroup, V4(0.0f, 1.0f, 0.0f, 1.0f),
-                               Rectangle2(V2(Width*0.5f, 0.0f), V2(Width, Height*0.5f)), 1.0f);
-    
-    PushRenderCommandRectangle(RenderGroup, V4(0.0f, 0.0f, 1.0f, 1.0f),
-                               Rectangle2(V2(0.0f, Height*0.5f), V2(Width*0.5f, Height)), 1.0f);
-    
-    PushRenderCommandRectangle(RenderGroup, V4(1.0f, 1.0f, 0.0f, 1.0f),
-                               Rectangle2(V2(Width*0.5f, Height*0.5f), V2(Width, Height)), 1.0f);
-    
-    RenderGroup->CurrentClipRectIndex = OldClipRect;
+    EndClipRect(RenderGroup);
 #endif
     
     UIState->MouseDown = Input->MouseButtons[MouseButton_Left].EndedDown;

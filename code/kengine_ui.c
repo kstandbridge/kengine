@@ -664,6 +664,22 @@ GetTextOffset(render_group *RenderGroup, rectangle2 Bounds, f32 Scale, f32 LineA
     return Result;
 }
 
+inline void
+BeginClipRect(render_group *RenderGroup, rectangle2 BoundsInit)
+{
+    Assert(RenderGroup->OldClipRectIndex == 0);
+    RenderGroup->OldClipRectIndex = RenderGroup->CurrentClipRectIndex;
+    rectangle2i Bounds = Rectangle2i(BoundsInit.Min.X, BoundsInit.Max.X, BoundsInit.Min.Y, BoundsInit.Max.Y);
+    RenderGroup->CurrentClipRectIndex = PushRenderCommandClipRectangle(RenderGroup, Bounds);
+}
+
+inline void
+EndClipRect(render_group *RenderGroup)
+{
+    RenderGroup->CurrentClipRectIndex = RenderGroup->OldClipRectIndex;
+    RenderGroup->OldClipRectIndex = 0;
+}
+
 internal void
 Label(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, string Text, text_position TextPosition)
 {
@@ -681,8 +697,12 @@ Label(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, s
         PushRenderCommandRectangleOutline(RenderGroup, 1.0f, V4(0.0f, 0.0f, 0.0f, 0.5f), Element.Bounds, 3.0f);
     }
     
-    v2 TextOffset = GetTextOffset(RenderGroup, Element.Bounds, Grid->Scale, UIState->LineAdvance, Text, TextPosition);
-    PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    BeginClipRect(RenderGroup, Element.Bounds);
+    {
+        v2 TextOffset = GetTextOffset(RenderGroup, Element.Bounds, Grid->Scale, UIState->LineAdvance, Text, TextPosition);
+        PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    }
+    EndClipRect(RenderGroup);
 }
 
 internal rectangle2
