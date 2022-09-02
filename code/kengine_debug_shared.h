@@ -34,6 +34,7 @@ typedef struct debug_settings
 {
     b32 ForceSoftwareRendering;
     b32 ShowUIElementOutlines;
+    b32 ShowDebugTab;
 } debug_settings;
 
 typedef struct debug_event_table
@@ -47,8 +48,6 @@ typedef struct debug_event_table
     u64 volatile EventArrayIndex_EventIndex;
     debug_event Events[2][256];
 } debug_event_table;
-
-
 
 #define SetDebugEventRecording(Enabled) (GlobalDebugEventTable->RecordIncrement = (Enabled) ? 1 : 0)
 
@@ -73,7 +72,7 @@ Event->Value_F32 = SecondsElapsed; \
 #define BEGIN_BLOCK(GUID) {PushDebugEvent(DebugEvent_BeginBlock, GenerateDebugId(GUID)); }
 #define END_BLOCK() {PushDebugEvent(DebugEvent_EndBlock, GenerateDebugId("END_BLOCK_")); }
 
-#define DEBUG_IF(B32) if(GlobalDebugEventTable->Settings.B32)
+#define DEBUG_IF(B32) if(GlobalDebugEventTable && GlobalDebugEventTable->Settings.B32)
 
 #else
 

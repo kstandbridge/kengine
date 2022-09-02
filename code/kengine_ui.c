@@ -102,7 +102,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
                 if(Op == TextOpText_Draw)
                 {
                     PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, Offset, Color, 2.0f);
-#if 0                    
+#if 0
                     PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, V2Add(Offset, V2(2.0f, -2.0f)), V4(0.0f, 0.0f, 0.0f, 1.0f), 1.0f);
 #endif
                     
@@ -175,8 +175,28 @@ Interact(ui_state *UIState, app_input *Input)
         
         switch(UIState->Interaction.Type)
         {
-            case Interaction_ImmediateButton:
             case Interaction_Draggable:
+            {
+                f32 Min = UIState->Interaction.F32_Value[0];
+                f32 Max = UIState->Interaction.F32_Value[1];
+                *(f32 *)UIState->Interaction.Target += UIState->dMouseP.Y;
+                if(*(f32 *)UIState->Interaction.Target > Max)
+                {
+                    *(f32 *)UIState->Interaction.Target = Max;
+                }
+                
+                if(*(f32 *)UIState->Interaction.Target < Min)
+                {
+                    *(f32 *)UIState->Interaction.Target = Min;
+                }
+                
+                if(MouseUp)
+                {
+                    EndInteraction = true;
+                }
+            } break;
+            
+            case Interaction_ImmediateButton:
             {
                 UIState->ClickedId = UIState->Interaction.Id;
                 if(MouseUp)
@@ -504,7 +524,7 @@ typedef enum text_position
 } text_position;
 
 inline v2
-GetTextOffset(render_group *RenderGroup, rectangle2 Bounds, f32 Scale, string Text, text_position TextPosition)
+GetTextOffset(render_group *RenderGroup, rectangle2 Bounds, f32 Scale, f32 LineAdvance, string Text, text_position TextPosition)
 {
     v2 ElementDim = V2Subtract(Bounds.Max, Bounds.Min);
     v2 ElementHalfDim = V2Multiply(ElementDim, V2Set1(0.5f));
@@ -512,60 +532,76 @@ GetTextOffset(render_group *RenderGroup, rectangle2 Bounds, f32 Scale, string Te
     v2 TextDim = Rectangle2GetDim(TextBounds);
     v2 TextHalfDim = V2Multiply(TextDim, V2Set1(0.5f));
     
+    s32 LineCount = 0;
+    for(u32 CharIndex = 0;
+        CharIndex < Text.Size;
+        ++CharIndex)
+    {
+        if(Text.Data[CharIndex] == '\n')
+        {
+            ++LineCount;
+        }
+    }
+    
     v2 Result = V2(0, 0);
     
     switch(TextPosition)
     {
         case TextPosition_TopLeft:
         {
-            Result = V2(Bounds.Min.X, Bounds.Max.Y - TextDim.Y);
+            Result = V2(Bounds.Min.X, 
+                        Bounds.Max.Y - LineAdvance);
         } break;
         
         case TextPosition_TopMiddle:
         {
             Result = V2(Bounds.Min.X + ElementHalfDim.X - TextHalfDim.X, 
-                        Bounds.Max.Y - TextDim.Y);
+                        Bounds.Max.Y - LineAdvance);
         } break;
         
         case TextPosition_TopRight:
         {
-            Result = V2(Bounds.Max.X - TextDim.X, Bounds.Max.Y - TextDim.Y);
+            Result = V2(Bounds.Max.X - TextDim.X, 
+                        Bounds.Max.Y - LineAdvance);
         } break;
         
         case TextPosition_MiddleLeft:
         {
-            Result = V2(Bounds.Min.X, 
-                        Bounds.Max.Y - ElementHalfDim.Y - TextHalfDim.Y);
+            Result = V2(Bounds.Min.X,  
+                        Bounds.Max.Y - ElementHalfDim.Y +
+                        ((LineCount == 0) ? -TextHalfDim.Y : LineAdvance*(0.5f*(LineCount))));
         } break;
         
         case TextPosition_MiddleMiddle:
         {
             Result = V2(Bounds.Min.X + ElementHalfDim.X - TextHalfDim.X,
-                        Bounds.Max.Y - ElementHalfDim.Y - TextHalfDim.Y);
+                        Bounds.Max.Y - ElementHalfDim.Y + 
+                        ((LineCount == 0) ? -TextHalfDim.Y : LineAdvance*(0.5f*(LineCount))));
         } break;
         
         case TextPosition_MiddleRight:
         {
             Result = V2(Bounds.Max.X - TextDim.X, 
-                        Bounds.Max.Y - ElementHalfDim.Y - TextHalfDim.Y);
+                        Bounds.Max.Y - ElementHalfDim.Y + 
+                        ((LineCount == 0) ? -TextHalfDim.Y : LineAdvance*(0.5f*(LineCount))));
         } break;
         
         case TextPosition_BottomLeft:
         {
             Result = V2(Bounds.Min.X, 
-                        Bounds.Min.Y);
+                        Bounds.Min.Y + LineAdvance*LineCount);
         } break;
         
         case TextPosition_BottomMiddle:
         {
             Result = V2(Bounds.Min.X + ElementHalfDim.X - TextHalfDim.X,
-                        Bounds.Min.Y);
+                        Bounds.Min.Y + LineAdvance*LineCount);
         } break;
         
         case TextPosition_BottomRight:
         {
             Result = V2(Bounds.Max.X - TextDim.X, 
-                        Bounds.Min.Y);
+                        Bounds.Min.Y + LineAdvance*LineCount);
         } break;
         
         
@@ -593,7 +629,7 @@ Label(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, s
         PushRenderCommandRectangleOutline(RenderGroup, 1.0f, V4(0.0f, 0.0f, 0.0f, 0.5f), Element.Bounds, 3.0f);
     }
     
-    v2 TextOffset = GetTextOffset(RenderGroup, Element.Bounds, Grid->Scale, Text, TextPosition);
+    v2 TextOffset = GetTextOffset(RenderGroup, Element.Bounds, Grid->Scale, UIState->LineAdvance, Text, TextPosition);
     PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
 }
 
@@ -679,7 +715,7 @@ Checkbox(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex
     rectangle2 CheckBounds = Rectangle2(RemainingBounds.Min, V2(RemainingBounds.Min.X + UIState->LineAdvance, RemainingBounds.Max.Y));
     string CheckText = String("\\2713");
     rectangle2 CheckTextBounds = GetTextSize(RenderGroup, Grid->Scale, V2Set1(0.0f), CheckText);
-    v2 CheckOffset = GetTextOffset(RenderGroup, CheckBounds, Grid->Scale, CheckText, TextPosition_MiddleMiddle);
+    v2 CheckOffset = GetTextOffset(RenderGroup, CheckBounds, Grid->Scale, UIState->LineAdvance, CheckText, TextPosition_MiddleMiddle);
     rectangle2 CheckBorder = Rectangle2(V2Subtract(CheckOffset, V2Set1(2.5f)), 
                                         V2Add(CheckOffset, V2Set1(15.0f)));
     v4 CheckColor = RGBColor(0, 0, 0, 255);
@@ -704,8 +740,73 @@ Checkbox(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex
     
     RemainingBounds.Min.X = CheckBounds.Max.X + Grid->SpacingX;
     
-    v2 TextOffset = GetTextOffset(RenderGroup, RemainingBounds, Grid->Scale, Text, TextPosition_MiddleLeft);
+    v2 TextOffset = GetTextOffset(RenderGroup, RemainingBounds, Grid->Scale, UIState->LineAdvance, Text, TextPosition_MiddleLeft);
     PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+}
+
+inline void
+SetColumnWidth(ui_grid *Grid, u16 RowIndex, u16 ColumnIndex, f32 Width)
+{
+    Assert(!Grid->SizeInitialized);
+    Assert(RowIndex <= Grid->Rows);
+    Assert(ColumnIndex <= Grid->Columns);
+    
+    ui_row *Row = Grid->FirstRow;
+    Assert(Row);
+    for(;
+        RowIndex;
+        --RowIndex)
+    {
+        Row = Row->Next;
+    } 
+    ui_column *Column = Row->FirstColumn;
+    Assert(Column);
+    for(;
+        ColumnIndex;
+        --ColumnIndex)
+    {
+        Column = Column->Next;
+    }
+    Column->Width = Width;
+}
+
+inline void
+SetAllColumnWidths(ui_grid *Grid, u16 ColumnIndex, f32 Width)
+{
+    Assert(!Grid->SizeInitialized);
+    Assert(ColumnIndex <= Grid->Columns);
+    
+    for(ui_row *Row = Grid->FirstRow;
+        Row;
+        Row = Row->Next)
+    {
+        ui_column *Column = Row->FirstColumn;
+        Assert(Column);
+        for(;
+            ColumnIndex;
+            --ColumnIndex)
+        {
+            Column = Column->Next;
+        }
+        Column->Width = Width;
+    }
+}
+
+inline void
+SetRowHeight(ui_grid *Grid, u16 RowIndex, f32 Height)
+{
+    Assert(!Grid->SizeInitialized);
+    Assert(RowIndex <= Grid->Rows);
+    
+    ui_row *Row = Grid->FirstRow;
+    Assert(Row);
+    for(;
+        RowIndex;
+        --RowIndex)
+    {
+        Row = Row->Next;
+    } 
+    Row->Height = Height;
 }
 
 inline ui_grid
@@ -777,67 +878,50 @@ EndGrid(ui_grid *Grid)
     Assert(Grid->SizeInitialized);
 }
 
-inline void
-SetColumnWidth(ui_grid *Grid, u16 RowIndex, u16 ColumnIndex, f32 Width)
+inline ui_grid
+BeginSplitPanelGrid(ui_state *UIState, render_group *RenderGroup, memory_arena *TempArena, rectangle2 Bounds,
+                    app_input *Input)
 {
-    Assert(!Grid->SizeInitialized);
-    Assert(RowIndex <= Grid->Rows);
-    Assert(ColumnIndex <= Grid->Columns);
+    ui_grid Result = BeginGrid(UIState, TempArena, Bounds, 2, 1);
     
-    ui_row *Row = Grid->FirstRow;
-    Assert(Row);
-    for(;
-        RowIndex;
-        --RowIndex)
+    // TODO(kstandbridge): This needs to persist better
+    local_persist f32 Split;
+    if(Split == 0.0f)
     {
-        Row = Row->Next;
-    } 
-    ui_column *Column = Row->FirstColumn;
-    Assert(Column);
-    for(;
-        ColumnIndex;
-        --ColumnIndex)
-    {
-        Column = Column->Next;
+        Split = 0.5f*(Bounds.Max.Y - Bounds.Min.Y);
     }
-    Column->Width = Width;
-}
-
-inline void
-SetAllColumnWidths(ui_grid *Grid, u16 ColumnIndex, f32 Width)
-{
-    Assert(!Grid->SizeInitialized);
-    Assert(ColumnIndex <= Grid->Columns);
+    SetRowHeight(&Result, 0, Split);
+    SetRowHeight(&Result, 1, SIZE_AUTO);
     
-    for(ui_row *Row = Grid->FirstRow;
-        Row;
-        Row = Row->Next)
+    ui_interaction Interaction;
+    Interaction.Id = InteractionIdFromPtr(&Split);
+    Interaction.Type = Interaction_Draggable;
+    Interaction.Target = (void *)&Split;
+    Interaction.F32_Value[0] = 0.25f*(Bounds.Max.Y - Bounds.Min.Y);
+    Interaction.F32_Value[1] = 0.75f*(Bounds.Max.Y - Bounds.Min.Y);
+    
+    v2 SplitterMax = V2(Bounds.Max.X, Bounds.Max.Y - Split - Result.SpacingY*2.0f);
+    v2 SplitterMin = V2(Bounds.Min.X, SplitterMax.Y + Result.SpacingY*3.0f); 
+    if(SplitterMin.Y > SplitterMax.Y)
     {
-        ui_column *Column = Row->FirstColumn;
-        Assert(Column);
-        for(;
-            ColumnIndex;
-            --ColumnIndex)
-        {
-            Column = Column->Next;
-        }
-        Column->Width = Width;
+        f32 Temp = SplitterMax.Y;
+        SplitterMax.Y = SplitterMin.Y;
+        SplitterMin.Y = Temp;
     }
-}
-
-inline void
-SetRowHeight(ui_grid *Grid, u16 RowIndex, f32 Height)
-{
-    Assert(!Grid->SizeInitialized);
-    Assert(RowIndex <= Grid->Rows);
+    rectangle2 SplitterBounds = Rectangle2(SplitterMin, SplitterMax);
     
-    ui_row *Row = Grid->FirstRow;
-    Assert(Row);
-    for(;
-        RowIndex;
-        --RowIndex)
+    ui_element Element = BeginUIElementWithBounds(&Result, SplitterBounds);
+    SetUIElementDefaultAction(&Element, Interaction);
+    EndUIElement(&Element);
+    
+    if(Element.IsHot)
     {
-        Row = Row->Next;
-    } 
-    Row->Height = Height;
+        PushRenderCommandRectangle(RenderGroup, V4(1, 0, 0, 1), SplitterBounds, 2.0f);
+    }
+    else
+    {
+        PushRenderCommandRectangle(RenderGroup, V4(1, 0.5f, 0, 1), SplitterBounds, 2.0f);
+    }
+    
+    return Result;
 }

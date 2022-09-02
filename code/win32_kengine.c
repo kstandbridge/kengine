@@ -400,6 +400,68 @@ global KERNINGPAIR *GlobalKerningPairs;
 global u32 GlobalKerningPairCount;
 global TEXTMETRICA GlobalTextMetric;
 
+
+#define uint32_t u32
+#define uint8_t u8
+void vertical_flip(uint32_t w, uint32_t h, uint32_t* p)
+{
+    int Top = 0;
+    int Bottom = (h - 1) * w;
+    
+    while(Top < Bottom)
+    {
+        for(uint32_t Column = 0; 
+            Column < w; 
+            ++Column)
+        {
+            uint32_t Temp = p[Top + Column];
+            p[Top + Column] = p[Bottom + Column];
+            p[Bottom + Column] = Temp;
+        }
+        
+        Top += w;
+        Bottom -= w;
+    }
+}
+
+
+void saturate_image(int w, int h, uint32_t *p, float saturation)
+{
+    uint32_t *Pixel = p;
+    
+    for(int Y = 0;
+        Y < w;
+        ++Y)
+    {
+        for(int X = 0;
+            X < w;
+            ++X)
+        {
+            uint8_t A = (*Pixel >> 24);
+            uint8_t R = (*Pixel >> 16);
+            uint8_t G = (*Pixel >> 8);
+            uint8_t B = (*Pixel >> 06);
+            
+            float Average = (1.0f / 3.0f) * (R + G + B);
+            float DeltaR = R - Average;
+            float DeltaG = G - Average;
+            float DeltaB = B - Average;
+            
+            R = R + saturation*DeltaR;
+            G = G + saturation*DeltaG;
+            B = B + saturation*DeltaB;
+            
+            *Pixel = (((uint32_t)(A << 24)) |
+                      ((uint32_t)(R << 16)) |
+                      ((uint32_t)(G << 8)) |
+                      ((uint32_t)(B << 0))); 
+            
+            ++Pixel;
+        }
+    }
+}
+
+
 global HDC FontDeviceContext;
 internal loaded_glyph
 Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
@@ -611,6 +673,8 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         Result.KerningChange = (f32)(MinX - PreStepX);
         
     }
+    
+    saturate_image(Result.Bitmap.Width, Result.Bitmap.Height, Result.Bitmap.Memory, -1.0f);
     
     return Result;
 }

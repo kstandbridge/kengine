@@ -67,7 +67,7 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     RenderGroup->Colors = &Colors;
     
     PushRenderCommandClear(RenderGroup, 0.0f, Colors.Clear);
-       
+    
 #if 0
     // NOTE(kstandbridge): Rectangle with clipping regions
     f32 Width = (f32)Commands->Width;
@@ -103,28 +103,21 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     temporary_memory TempMem = BeginTemporaryMemory(&UIState->TranArena);
     
 #if KENGINE_INTERNAL
-    if(UIState->ShowDebugTab)
+    DEBUG_IF(ShowDebugTab)
     {
-        ui_grid MainGrid = BeginGrid(UIState, TempMem.Arena, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 2, 1);
+        ui_grid SplitPanel = BeginSplitPanelGrid(UIState, RenderGroup, TempMem.Arena, 
+                                                 Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 
+                                                 Input);
         {
-            SetRowHeight(&MainGrid, 0, SIZE_AUTO);
-            SetRowHeight(&MainGrid, 1, SIZE_AUTO);
-            InitializeGridSize(&MainGrid);
-            
             BEGIN_BLOCK("DrawAppGrid");
-            {
-                DrawAppGrid(Platform->AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 0));
-            }
+            DrawAppGrid(Platform->AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&SplitPanel, 0, 0));
             END_BLOCK();
             
             BEGIN_BLOCK("DrawDebugGrid");
-            {
-                DrawDebugGrid(Platform->DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&MainGrid, 0, 1));
-            }
+            DrawDebugGrid(Platform->DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&SplitPanel, 0, 1));
             END_BLOCK();
-            
         }
-        EndGrid(&MainGrid);
+        EndGrid(&SplitPanel);
     }
     else
     {
@@ -140,9 +133,9 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     ClearInteraction(&UIState->NextHotInteraction);
     
 #if KENGINE_INTERNAL
-    if(Input->FKeyPressed[11])
+    if(Input->FKeyPressed[10])
     {
-        UIState->ShowDebugTab = !UIState->ShowDebugTab;
+        GlobalDebugEventTable->Settings.ShowDebugTab = !GlobalDebugEventTable->Settings.ShowDebugTab;
     }
 #endif
     

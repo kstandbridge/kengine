@@ -33,17 +33,18 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
 #if 0
     ui_grid Grid = BeginGrid(UIState, TempArena, Bounds, 3, 3);
     {
-        StaticLabel(&Grid, RenderGroup, 0, 0, String("TopLeft"), TextPosition_TopLeft);
-        StaticLabel(&Grid, RenderGroup, 1, 0, String("TopMiddle"), TextPosition_TopMiddle);
-        StaticLabel(&Grid, RenderGroup, 2, 0, String("TopRight"), TextPosition_TopRight);
+        Label(&Grid, RenderGroup, 0, 0, String("TopLeft"), TextPosition_TopLeft);
+        Label(&Grid, RenderGroup, 1, 0, String("TopMiddle"), TextPosition_TopMiddle);
+        Label(&Grid, RenderGroup, 2, 0, String("TopRight"), TextPosition_TopRight);
         
-        StaticLabel(&Grid, RenderGroup, 0, 1, String("MiddleLeft"), TextPosition_MiddleLeft);
-        StaticLabel(&Grid, RenderGroup, 1, 1, String("MiddleMiddle"), TextPosition_MiddleMiddle);
-        StaticLabel(&Grid, RenderGroup, 2, 1, String("MiddleRight"), TextPosition_MiddleRight);
+        Label(&Grid, RenderGroup, 0, 1, String("MiddleLeft\nfoo"), TextPosition_MiddleLeft);
+        Label(&Grid, RenderGroup, 1, 1, String("MiddleMiddle"), TextPosition_MiddleMiddle);
+        Label(&Grid, RenderGroup, 2, 1, String("MiddleRight\nfoo\nbar\nbas"), TextPosition_MiddleRight);
         
-        StaticLabel(&Grid, RenderGroup, 0, 2, String("BottomLeft"), TextPosition_BottomLeft);
-        StaticLabel(&Grid, RenderGroup, 1, 2, String("BottomMiddle"), TextPosition_BottomMiddle);
-        StaticLabel(&Grid, RenderGroup, 2, 2, String("BottomRight"), TextPosition_BottomRight);
+        Label(&Grid, RenderGroup, 0, 2, String("BottomLeft"), TextPosition_BottomLeft);
+        Label(&Grid, RenderGroup, 1, 2, String("BottomMiddle"), TextPosition_BottomMiddle);
+        Label(&Grid, RenderGroup, 2, 2, String("BottomRight"), TextPosition_BottomRight);
+        
     }
     EndGrid(&Grid);
 #else

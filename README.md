@@ -232,6 +232,11 @@ switch(Tokenizer->At[0])
 - [x] Formatting on top clock
 - [x] Introspect radix sort?
 - [x] Sort top cycles
+- [x] Tab control
+- [x] ToggleButton
+- [ ] Horizontal split panel
+- [ ] Set cursor on split panel
+- [ ] Color on split panel
 - [ ] Propper tooltip support
 - [ ] Clipping top clocks
 - [ ] Top clocks text offset with mouse wheel and scroll bar
@@ -240,13 +245,11 @@ switch(Tokenizer->At[0])
 - [ ] More info on selected FrameGraph main.c(42): AppUpdateFrame
 - [ ] Clickable framegraph to set as root element
 - [ ] Back button to set root element on framegraph
-- [ ] ToggleButton
 - [ ] Fullscreen support
 - [ ] Circular buffer for strings
 - [ ] Debug section with console
 - [ ] Debug output to console
 - [ ] Replace all TODO errors with debug output to console
-- [ ] Tab control
 - [ ] Debug values tab to show hot interaction details
 - [ ] Keyboard input
 - [ ] TextBox and editable string
