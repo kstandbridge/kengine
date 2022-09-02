@@ -465,42 +465,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
     }
 }
 
-extern void
-DebugUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena, app_input *Input)
-{
-    GlobalDebugEventTable->CurrentEventArrayIndex = !GlobalDebugEventTable->CurrentEventArrayIndex;
-    u64 ArrayIndex_EventIndex = AtomicExchangeU64(&GlobalDebugEventTable->EventArrayIndex_EventIndex,
-                                                  (u64)GlobalDebugEventTable->CurrentEventArrayIndex << 32);
-    
-    u32 EventArrayIndex = ArrayIndex_EventIndex >> 32;
-    Assert(EventArrayIndex <= 1);
-    u32 EventCount = ArrayIndex_EventIndex & 0xFFFFFFFF;
-    
-    if(!PlatformAPI->DebugState)
-    {
-        PlatformAPI->DebugState = PushStruct(Arena, debug_state);
-        ZeroStruct(*PlatformAPI->DebugState);
-        debug_state *DebugState = PlatformAPI->DebugState;
-        SubArena(&DebugState->Arena, Arena, Kilobytes(256));
-        
-        DebugState->RootGroup = CreateVariableLink(DebugState, 4, "Root");
-        DebugState->ProfileGroup = CreateVariableLink(DebugState, 7, "Profile");
-        debug_event RootProfileEvent;
-        ZeroStruct(RootProfileEvent);
-        RootProfileEvent.GUID = GenerateDebugId("RootProfile");
-        DebugState->RootProfileElement = GetElementFromEvent(DebugState, &RootProfileEvent, 0, 0);
-    }
-    debug_state *DebugState = PlatformAPI->DebugState;
-    
-    CollateDebugRecords(DebugState, EventCount, GlobalDebugEventTable->Events[EventArrayIndex]);
-    
-    if(!DebugState->Paused)
-    {
-        DebugState->ViewingFrameOrdinal = DebugState->MostRecentFrameOrdinal;
-    }
-}
-
-
 inline u64
 SumTotalClock(debug_stored_event *RootEvent)
 {
@@ -550,8 +514,8 @@ DrawProfileBars(memory_arena *Arena, render_group *RenderGroup, debug_profile_no
         
         rectangle2 RegionRect = Rectangle2(V2(ThisMinX, ThisMinY),
                                            V2(ThisMaxX, ThisMaxY));
-        PushRenderCommandRectangle(RenderGroup, V4(0.3f, 0.3f, 0.3f, 1.0f), RegionRect, 1.0f);
-        PushRenderCommandRectangleOutline(RenderGroup, 1.0f, Color, RegionRect, 2.0f);
+        PushRenderCommandRectangle(RenderGroup, V4(0.3f, 0.3f, 0.3f, 1.0f), RegionRect, 10.0f);
+        PushRenderCommandRectangleOutline(RenderGroup, 1.0f, Color, RegionRect, 20.0f);
         
         if(Rectangle2IsIn(RegionRect, MouseP))
         {
@@ -614,7 +578,7 @@ DrawProfilerTab(debug_state *DebugState, ui_state *UIState, render_group *Render
                         }
                         Thickness = 3.0f;
                     }
-                    PushRenderCommandRectangleOutline(RenderGroup, Thickness, V4(0, 0.5f, 0, 1), BarBounds, 2.0f);
+                    PushRenderCommandRectangleOutline(RenderGroup, Thickness, V4(0, 0.5f, 0, 1), BarBounds, 20.0f);
                     
                     v2 Dim = V2Subtract(BarBounds.Max, BarBounds.Min);
                     f32 MaxScale = 100.0f;
@@ -626,7 +590,7 @@ DrawProfilerTab(debug_state *DebugState, ui_state *UIState, render_group *Render
                         Color = V4(1.0f, 1.0f, 0.0f, 1.0f);
                     }
                     
-                    PushRenderCommandRectangle(RenderGroup, Color, BarBounds, 1.0f);
+                    PushRenderCommandRectangle(RenderGroup, Color, BarBounds, 10.0f);
                 }
             }
             EndGrid(&FrameGrid);
@@ -834,5 +798,40 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
         }
         EndGrid(&DebugGrid);
         
+    }
+}
+
+extern void
+DebugUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena, app_input *Input)
+{
+    GlobalDebugEventTable->CurrentEventArrayIndex = !GlobalDebugEventTable->CurrentEventArrayIndex;
+    u64 ArrayIndex_EventIndex = AtomicExchangeU64(&GlobalDebugEventTable->EventArrayIndex_EventIndex,
+                                                  (u64)GlobalDebugEventTable->CurrentEventArrayIndex << 32);
+    
+    u32 EventArrayIndex = ArrayIndex_EventIndex >> 32;
+    Assert(EventArrayIndex <= 1);
+    u32 EventCount = ArrayIndex_EventIndex & 0xFFFFFFFF;
+    
+    if(!PlatformAPI->DebugState)
+    {
+        PlatformAPI->DebugState = PushStruct(Arena, debug_state);
+        ZeroStruct(*PlatformAPI->DebugState);
+        debug_state *DebugState = PlatformAPI->DebugState;
+        SubArena(&DebugState->Arena, Arena, Megabytes(64));
+        
+        DebugState->RootGroup = CreateVariableLink(DebugState, 4, "Root");
+        DebugState->ProfileGroup = CreateVariableLink(DebugState, 7, "Profile");
+        debug_event RootProfileEvent;
+        ZeroStruct(RootProfileEvent);
+        RootProfileEvent.GUID = GenerateDebugId("RootProfile");
+        DebugState->RootProfileElement = GetElementFromEvent(DebugState, &RootProfileEvent, 0, 0);
+    }
+    debug_state *DebugState = PlatformAPI->DebugState;
+    
+    CollateDebugRecords(DebugState, EventCount, GlobalDebugEventTable->Events[EventArrayIndex]);
+    
+    if(!DebugState->Paused)
+    {
+        DebugState->ViewingFrameOrdinal = DebugState->MostRecentFrameOrdinal;
     }
 }

@@ -26,6 +26,7 @@ GetUIValue(ui_state *UIState, char *GUIDInit)
             else
             {
                 // NOTE(kstandbridge): Hash conflict
+                __debugbreak();
                 if(Result->NextInHash)
                 {
                     Result = Result->NextInHash;
@@ -146,7 +147,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
                 
                 if(Op == TextOpText_Draw)
                 {
-                    PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, Offset, Color, 2.0f);
+                    PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, Offset, Color, 200.0f);
 #if 0
                     PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, V2Add(Offset, V2(2.0f, -2.0f)), V4(0.0f, 0.0f, 0.0f, 1.0f), 1.0f);
 #endif
@@ -278,6 +279,24 @@ Interact(ui_state *UIState, app_input *Input)
                 }
             } break;
             
+            case Interaction_AddDeltaTimeF32:
+            {
+                ((ui_value *)UIState->Interaction.Target)->F32_Value += 1.0f; // TODO(kstandbridge): *UIState->DeltaTime;
+                if(MouseUp)
+                {
+                    EndInteraction = true; 
+                }
+            } break;
+            
+            case Interaction_SubtractDeltaTimeF32:
+            {
+                ((ui_value *)UIState->Interaction.Target)->F32_Value -= 1.0f; // TODO(kstandbridge): *UIState->DeltaTime;
+                if(MouseUp)
+                {
+                    EndInteraction = true;
+                }
+            } break;
+            
             case Interaction_None:
             {
                 UIState->HotInteraction = UIState->NextHotInteraction;
@@ -317,9 +336,9 @@ PushRenderCommandText(render_group *RenderGroup, f32 Scale, v2 P, v4 Color, stri
 }
 
 inline rectangle2
-GetTextSize(render_group *RenderGroup, f32 Scale, v2 P, string Text)
+GetTextSize(render_group *RenderGroup, f32 Scale, string Text)
 {
-    rectangle2 Result = TextOp_(RenderGroup, TextOpText_Size, Scale, P, V4(1.0f, 1.0f, 1.0f, 1.0f), Text);
+    rectangle2 Result = TextOp_(RenderGroup, TextOpText_Size, Scale, V2Set1(0.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), Text);
     return Result;
 }
 
@@ -512,7 +531,7 @@ DrawTextElement_(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 
     v2 ElementDim = V2Subtract(Element.Bounds.Max, Element.Bounds.Min);
     v2 ElementHalfDim = V2Multiply(ElementDim, V2Set1(0.5f));
     
-    rectangle2 TextBounds = GetTextSize(RenderGroup, Grid->Scale, V2Set1(0.0f), Text);
+    rectangle2 TextBounds = GetTextSize(RenderGroup, Grid->Scale, Text);
     v2 TextDim = Rectangle2GetDim(TextBounds);
     v2 TextHalfDim = V2Multiply(TextDim, V2Set1(0.5f));
     
@@ -578,9 +597,11 @@ typedef enum text_position
 inline v2
 GetTextOffset(render_group *RenderGroup, rectangle2 Bounds, f32 Scale, f32 LineAdvance, string Text, text_position TextPosition)
 {
+    BEGIN_BLOCK("GetTextOffset");
+    
     v2 ElementDim = V2Subtract(Bounds.Max, Bounds.Min);
     v2 ElementHalfDim = V2Multiply(ElementDim, V2Set1(0.5f));
-    rectangle2 TextBounds = GetTextSize(RenderGroup, Scale, V2Set1(0.0f), Text);
+    rectangle2 TextBounds = GetTextSize(RenderGroup, Scale, Text);
     v2 TextDim = Rectangle2GetDim(TextBounds);
     v2 TextHalfDim = V2Multiply(TextDim, V2Set1(0.5f));
     
@@ -660,6 +681,7 @@ GetTextOffset(render_group *RenderGroup, rectangle2 Bounds, f32 Scale, f32 LineA
         InvalidDefaultCase;
     }
     
+    END_BLOCK();
     
     return Result;
 }
@@ -683,6 +705,8 @@ EndClipRect(render_group *RenderGroup)
 internal void
 Label(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, string Text, text_position TextPosition)
 {
+    BEGIN_BLOCK("Label");
+    
     ui_state *UIState = Grid->UIState;
     
     ui_interaction Interaction;
@@ -703,11 +727,207 @@ Label(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, s
         PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
     }
     EndClipRect(RenderGroup);
+    
+    END_BLOCK();
+}
+
+internal void
+Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIndex, u16 RowIndex, string Text)
+{
+    BEGIN_BLOCK("Textbox");
+    
+    ui_state *UIState = Grid->UIState;
+    memory_arena *Arena = &UIState->TranArena;
+    
+    rectangle2 CellBounds = GetCellBounds(Grid, ColumnIndex, RowIndex);
+    rectangle2 Bounds = Rectangle2(V2Add(CellBounds.Min, V2(Grid->SpacingX, Grid->SpacingY)),
+                                   V2Subtract(CellBounds.Max, V2(Grid->SpacingX*2.0f, Grid->SpacingY*2.0f)));
+    
+    DEBUG_IF(ShowUIElementOutlines)
+    {
+        PushRenderCommandRectangleOutline(RenderGroup, 1.0f, V4(0.0f, 0.0f, 0.0f, 0.5f), Bounds, 3.0f);
+    }
+    
+    ui_value *ValueY = GetUIValue(UIState, GenerateGUID("TextY"));
+    ValueY->F32_Value -= Input->MouseZ*0.1f;
+    {
+        // NOTE(kstandbridge): Verticle scroll bar
+        
+        // NOTE(kstandbridge): Up button
+        {        
+            v2 ButtonMax = Bounds.Max;
+            v2 ButtonMin = V2Subtract(ButtonMax, V2Set1(UIState->LineAdvance));;
+            rectangle2 ButtonBounds = Rectangle2(ButtonMin, ButtonMax);
+            
+            ui_interaction Interaction;
+            Interaction.Id = InteractionIdFromPtr(ValueY);
+            Interaction.Target = (void *)ValueY;
+            Interaction.Type = Interaction_SubtractDeltaTimeF32;
+            ui_element Element = BeginUIElementWithBounds(Grid, ButtonBounds);
+            SetUIElementDefaultAction(&Element, Interaction);
+            EndUIElement(&Element);
+            
+            if(Element.IsHot)
+            {
+                PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
+            }
+            else
+            {
+                PushRenderCommandRectangle(RenderGroup, V4(0.1f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
+            }
+        }
+        
+        // NOTE(kstandbridge): Down button
+        {        
+            v2 ButtonMax = V2(Bounds.Max.X, Bounds.Min.Y + UIState->LineAdvance*2.0f);
+            v2 ButtonMin = V2Subtract(ButtonMax, V2Set1(UIState->LineAdvance));;
+            rectangle2 ButtonBounds = Rectangle2(ButtonMin, ButtonMax);
+            
+            ui_interaction Interaction;
+            Interaction.Id = InteractionIdFromPtr(ValueY);
+            Interaction.Target = (void *)ValueY;
+            Interaction.Type = Interaction_AddDeltaTimeF32;
+            ui_element Element = BeginUIElementWithBounds(Grid, ButtonBounds);
+            SetUIElementDefaultAction(&Element, Interaction);
+            EndUIElement(&Element);
+            
+            if(Element.IsHot)
+            {
+                PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
+            }
+            else
+            {
+                PushRenderCommandRectangle(RenderGroup, V4(0.1f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
+            }
+        }
+        
+#if 0        
+        v2 BoundsMax = Bounds.Max;
+        v2 BoundsMin = V2(Bounds.Max.X - UIState->LineAdvance, Bounds.Min.Y + UIState->LineAdvance);
+        PushRenderCommandRectangle(RenderGroup, V4(0.0f, 0.0f, 1.0f, 1.0f), Rectangle2(BoundsMin, BoundsMax), 3.0f);
+#endif
+    }
+    
+    ui_value *ValueX = GetUIValue(UIState, GenerateGUID("TextX"));
+    {
+        // NOTE(kstandbridge): Horizontal scroll bar
+        
+        // NOTE(kstandbridge): Left Button
+        {        
+            v2 ButtonMax = V2Add(Bounds.Min, V2Set1(UIState->LineAdvance));
+            v2 ButtonMin = Bounds.Min;
+            rectangle2 ButtonBounds = Rectangle2(ButtonMin, ButtonMax);
+            
+            ui_interaction Interaction;
+            Interaction.Id = InteractionIdFromPtr(ValueX);
+            Interaction.Target = (void *)ValueX;
+            Interaction.Type = Interaction_AddDeltaTimeF32;
+            ui_element Element = BeginUIElementWithBounds(Grid, ButtonBounds);
+            SetUIElementDefaultAction(&Element, Interaction);
+            EndUIElement(&Element);
+            
+            if(Element.IsHot)
+            {
+                PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
+            }
+            else
+            {
+                PushRenderCommandRectangle(RenderGroup, V4(0.1f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
+            }
+        }
+        
+        // NOTE(kstandbridge): Right Button
+        {        
+            v2 ButtonMax = V2(Bounds.Max.X - UIState->LineAdvance, Bounds.Min.Y + UIState->LineAdvance);
+            v2 ButtonMin = V2Subtract(ButtonMax, V2Set1(UIState->LineAdvance));
+            rectangle2 ButtonBounds = Rectangle2(ButtonMin, ButtonMax);
+            
+            ui_interaction Interaction;
+            Interaction.Id = InteractionIdFromPtr(ValueX);
+            Interaction.Target = (void *)ValueX;
+            Interaction.Type = Interaction_SubtractDeltaTimeF32;
+            ui_element Element = BeginUIElementWithBounds(Grid, ButtonBounds);
+            SetUIElementDefaultAction(&Element, Interaction);
+            EndUIElement(&Element);
+            
+            if(Element.IsHot)
+            {
+                PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
+            }
+            else
+            {
+                PushRenderCommandRectangle(RenderGroup, V4(0.1f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
+            }
+        }
+        
+        
+#if 0        
+        v2 BoundsMax = V2(Bounds.Max.X - UIState->LineAdvance, Bounds.Min.Y + UIState->LineAdvance);
+        v2 BoundsMin = V2(Bounds.Min.X, Bounds.Min.Y);
+        PushRenderCommandRectangle(RenderGroup, V4(0.0f, 1.0f, 1.0f, 1.0f), Rectangle2(BoundsMin, BoundsMax), 3.0f);
+#endif
+        
+        
+    }
+    
+    rectangle2 TextSize = GetTextSize(RenderGroup, Grid->Scale, Text);
+    v2 TextDim = Rectangle2GetDim(TextSize);
+    
+    Bounds.Min.Y += UIState->LineAdvance;
+    Bounds.Max.X -= UIState->LineAdvance;
+    v2 BoundsDim = Rectangle2GetDim(Bounds);
+    BeginClipRect(RenderGroup, Bounds);
+    {
+        v2 TextOffset = GetTextOffset(RenderGroup, Bounds, Grid->Scale, UIState->LineAdvance, Text, TextPosition_TopLeft);
+        
+        if(ValueX->F32_Value > 0.0f)
+        {
+            ValueX->F32_Value = 0.0f;
+        }
+        
+        f32 MaxX = BoundsDim.X - TextDim.X;
+        if(ValueX->F32_Value < MaxX)
+        {
+            ValueX->F32_Value = MaxX;
+        }
+        
+        if(ValueY->F32_Value < 0.0f)
+        {
+            ValueY->F32_Value = 0.0f;
+        }
+        
+        f32 MaxY = TextDim.Y - BoundsDim.Y + UIState->LineAdvance;
+        if(ValueY->F32_Value > MaxY)
+        {
+            ValueY->F32_Value = MaxY;
+        }
+        
+        if(TextDim.X > BoundsDim.X)
+        {
+            TextOffset.X += ValueX->F32_Value;
+        }
+        if(TextDim.Y > BoundsDim.Y)
+        {
+            TextOffset.Y += ValueY->F32_Value;
+        }
+        PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    }
+    EndClipRect(RenderGroup);
+    
+    PushRenderCommandText(RenderGroup, Grid->Scale, V2(UIState->LineAdvance, UIState->LineAdvance*4.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), 
+                          FormatString(Arena, "X: %.02f / Y: %.02f\nDim: %.02f / %.02f\nTest: %.02f", 
+                                       ValueX->F32_Value, ValueY->F32_Value,
+                                       TextDim.X, TextDim.Y,
+                                       TextDim.Y - BoundsDim.Y + UIState->LineAdvance));
+    
+    END_BLOCK();
 }
 
 internal rectangle2
 TabView(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, u32 TabCount, string *TabHeaders, u32 *CurrentTab)
 {
+    BEGIN_BLOCK("TabView");
+    
     ui_state *UIState = Grid->UIState;
     colors *Colors = RenderGroup->Colors;
     
@@ -720,7 +940,7 @@ TabView(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex,
         ++TabIndex)
     {
         string TabHeader = TabHeaders[TabIndex];
-        rectangle2 TextBounds = GetTextSize(RenderGroup, Grid->Scale, V2Set1(0.0f), TabHeader);
+        rectangle2 TextBounds = GetTextSize(RenderGroup, Grid->Scale, TabHeader);
         v2 TextDim = Rectangle2GetDim(TextBounds);
         
         rectangle2 TabHeaderBounds = Rectangle2(At, V2(At.X + TextDim.X + Grid->SpacingX*2.0f, Result.Max.Y));
@@ -758,12 +978,16 @@ TabView(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex,
     PushRenderCommandRectangleOutline(RenderGroup, 1.0f, Colors->TabBorder, Result, 2.0f); 
     PushRenderCommandRectangle(RenderGroup, Colors->TabBackground, Result, 1.0f); 
     
+    END_BLOCK();
+    
     return Result;
 }
 
 internal void
 Checkbox(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, b32 *Target, string Text)
 {
+    BEGIN_BLOCK("Checkbox");
+    
     ui_state *UIState = Grid->UIState;
     
     ui_interaction Interaction;
@@ -786,7 +1010,7 @@ Checkbox(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex
     
     rectangle2 CheckBounds = Rectangle2(RemainingBounds.Min, V2(RemainingBounds.Min.X + UIState->LineAdvance, RemainingBounds.Max.Y));
     string CheckText = String("\\2713");
-    rectangle2 CheckTextBounds = GetTextSize(RenderGroup, Grid->Scale, V2Set1(0.0f), CheckText);
+    rectangle2 CheckTextBounds = GetTextSize(RenderGroup, Grid->Scale, CheckText);
     v2 CheckOffset = GetTextOffset(RenderGroup, CheckBounds, Grid->Scale, UIState->LineAdvance, CheckText, TextPosition_MiddleMiddle);
     rectangle2 CheckBorder = Rectangle2(V2Subtract(CheckOffset, V2Set1(2.5f)), 
                                         V2Add(CheckOffset, V2Set1(15.0f)));
@@ -814,6 +1038,8 @@ Checkbox(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex
     
     v2 TextOffset = GetTextOffset(RenderGroup, RemainingBounds, Grid->Scale, UIState->LineAdvance, Text, TextPosition_MiddleLeft);
     PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    
+    END_BLOCK();
 }
 
 inline void
@@ -884,6 +1110,8 @@ SetRowHeight(ui_grid *Grid, u16 RowIndex, f32 Height)
 inline ui_grid
 BeginGrid(ui_state *UIState, memory_arena *TempArena, rectangle2 Bounds, u16 Rows, u16 Columns)
 {
+    BEGIN_BLOCK("BeginGrid");
+    
     Assert(Rows > 0);
     Assert(Columns > 0);
     
@@ -941,13 +1169,19 @@ BeginGrid(ui_state *UIState, memory_arena *TempArena, rectangle2 Bounds, u16 Row
     Result.Rows = Rows;
     Result.Columns = Columns;
     
+    END_BLOCK();
+    
     return Result;
 }
 
 inline void
 EndGrid(ui_grid *Grid)
 {
+    BEGIN_BLOCK("EndGrid");
+    
     Assert(Grid->SizeInitialized);
+    
+    END_BLOCK();
 }
 
 typedef enum split_panel_orientation
@@ -957,11 +1191,6 @@ typedef enum split_panel_orientation
 } split_panel_orientation;
 
 
-// TODO(kstandbridge): Better GUID?
-#define GenerateGUID__(File, Line, Counter, Name) File "|" #Line "|" #Counter "|" Name
-#define GenerateGUID_(File, Line, Counter, Name) GenerateGUID__(File, Line, Counter, Name)
-#define GenerateGUID(Name) GenerateGUID_(__FILE__, __LINE__, __COUNTER__, Name)
-
 #define BeginSplitPanelGrid(UIState, RenderGroup, TempArena, Bounds, Input, Orientation) \
 BeginSplitPanelGrid_(UIState, RenderGroup, TempArena, Bounds, Input, Orientation, GenerateGUID("SplitPanel"))
 
@@ -969,6 +1198,8 @@ inline ui_grid
 BeginSplitPanelGrid_(ui_state *UIState, render_group *RenderGroup, memory_arena *TempArena, rectangle2 Bounds,
                      app_input *Input, split_panel_orientation Orientation, char *GUID)
 {
+    BEGIN_BLOCK("BeginSplitPanelGrid");
+    
     ui_grid Result;
     v2 SplitterMax;
     v2 SplitterMin;
@@ -988,9 +1219,6 @@ BeginSplitPanelGrid_(ui_state *UIState, render_group *RenderGroup, memory_arena 
         {
             Value->F32_Value = 0.5f*(Bounds.Max.Y - Bounds.Min.Y);
         }
-        SetRowHeight(&Result, 0, Value->F32_Value);
-        SetRowHeight(&Result, 1, SIZE_AUTO);
-        
         f32 MinSize = 0.25f*(Bounds.Max.Y - Bounds.Min.Y);
         f32 MaxSize = 0.75f*(Bounds.Max.Y - Bounds.Min.Y);
         if(Value->F32_Value < MinSize)
@@ -1001,6 +1229,10 @@ BeginSplitPanelGrid_(ui_state *UIState, render_group *RenderGroup, memory_arena 
         {
             Value->F32_Value = MaxSize;
         }
+        
+        SetRowHeight(&Result, 0, Value->F32_Value);
+        SetRowHeight(&Result, 1, SIZE_AUTO);
+        
         
         
         Interaction.Type = Interaction_DraggableY;
@@ -1023,8 +1255,6 @@ BeginSplitPanelGrid_(ui_state *UIState, render_group *RenderGroup, memory_arena 
         {
             Value->F32_Value = 0.5f*(Bounds.Max.X - Bounds.Min.X);
         }
-        SetAllColumnWidths(&Result, 0, SIZE_AUTO);
-        SetAllColumnWidths(&Result, 1, Value->F32_Value);
         f32 MinSize = 0.25f*(Bounds.Max.X - Bounds.Min.X);
         f32 MaxSize = 0.75f*(Bounds.Max.X - Bounds.Min.X);
         if(Value->F32_Value < MinSize)
@@ -1035,6 +1265,8 @@ BeginSplitPanelGrid_(ui_state *UIState, render_group *RenderGroup, memory_arena 
         {
             Value->F32_Value = MaxSize;
         }
+        SetAllColumnWidths(&Result, 0, SIZE_AUTO);
+        SetAllColumnWidths(&Result, 1, Value->F32_Value);
         
         Interaction.Type = Interaction_DraggableX;
         
@@ -1062,6 +1294,8 @@ BeginSplitPanelGrid_(ui_state *UIState, render_group *RenderGroup, memory_arena 
     {
         PushRenderCommandRectangle(RenderGroup, V4(1, 0.5f, 0, 1), SplitterBounds, 2.0f);
     }
+    
+    END_BLOCK();
     
     return Result;
 }

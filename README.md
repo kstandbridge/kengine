@@ -269,3 +269,5 @@ switch(Tokenizer->At[0])
 - [ ] Fix cannot print debug values following reloads
 - [ ] Color on split panel
 - [ ] Set cursor on split panel
+- [ ] Monospace font for debug view?
+- [ ] Reusable scrollable control?

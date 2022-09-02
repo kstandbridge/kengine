@@ -1,5 +1,10 @@
 #ifndef KENGINE_UI_H
 
+// TODO(kstandbridge): Better GUID?
+#define GenerateGUID__(File, Line, Counter, Name) File "|" #Line "|" #Counter "|" Name
+#define GenerateGUID_(File, Line, Counter, Name) GenerateGUID__(File, Line, Counter, Name)
+#define GenerateGUID(Name) GenerateGUID_(__FILE__, __LINE__, __COUNTER__, Name)
+
 typedef enum
 {
     Interaction_None,
@@ -14,6 +19,9 @@ typedef enum
     Interaction_Draggable,
     Interaction_SetU32,
     Interaction_SetF32,
+    
+    Interaction_AddDeltaTimeF32,
+    Interaction_SubtractDeltaTimeF32,
     
 } interaction_type;
 
@@ -77,6 +85,7 @@ typedef struct
 
 typedef struct ui_value
 {
+    // TODO(kstandbridge): Ditch GUID and use some comparison similar to ui_interaction_id
     string GUID;
     
     struct ui_value *NextInHash;
@@ -98,6 +107,8 @@ typedef struct ui_state
     
     f32 LineAdvance;
     
+    // TODO(kstandbridge): Map deltatime
+    f32 DeltaTime;
     v2 MouseP;
     v2 dMouseP;
     v2 LastMouseP;

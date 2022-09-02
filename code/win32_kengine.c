@@ -844,7 +844,7 @@ WinMainCRTStartup()
     Platform->DebugEventTable = GlobalDebugEventTable;
 #endif
     
-    u64 StorageSize = Megabytes(16);
+    u64 StorageSize = Megabytes(128);
     void *Storage = Win32VirtualAlloc(BaseAddress, StorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     Assert(Storage);
     InitializeArena(&Win32State->Arena, StorageSize, Storage);
