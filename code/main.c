@@ -10,9 +10,9 @@ typedef struct app_state
     b32 ShowLocal;
     b32 ShowAvailable;
     
-    v2 WorldsPanelHeight;
-    v2 BuildsPanelWidth;
-    v2 LogPanelHeight;
+    f32 WorldsPanelHeight;
+    f32 BuildsPanelWidth;
+    f32 LogPanelHeight;
     
 } app_state;
 
@@ -25,6 +25,7 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
 {
     if(!AppState->IsInitialized)
     {
+        AppState->LogPanelHeight = F32Max;
         AppState->IsInitialized = true;
     }
     

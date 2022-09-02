@@ -9,6 +9,8 @@ typedef enum
     Interaction_Select,
     
     Interaction_ImmediateButton,
+    Interaction_DraggableX,
+    Interaction_DraggableY,
     Interaction_Draggable,
     Interaction_SetU32,
     Interaction_SetF32,

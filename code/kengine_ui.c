@@ -185,6 +185,24 @@ Interact(ui_state *UIState, app_input *Input)
                 }
             } break;
             
+            case Interaction_DraggableX:
+            {
+                *((f32 *)UIState->Interaction.Target) += UIState->dMouseP.X;
+                if(MouseUp)
+                {
+                    EndInteraction = true;
+                }
+            } break;
+            
+            case Interaction_DraggableY:
+            {
+                *((f32 *)UIState->Interaction.Target) += UIState->dMouseP.Y;
+                if(MouseUp)
+                {
+                    EndInteraction = true;
+                }
+            } break;
+            
             case Interaction_ImmediateButton:
             {
                 UIState->ClickedId = UIState->Interaction.Id;
@@ -879,110 +897,97 @@ typedef enum split_panel_orientation
 
 inline ui_grid
 BeginSplitPanelGrid(ui_state *UIState, render_group *RenderGroup, memory_arena *TempArena, rectangle2 Bounds,
-                    app_input *Input, v2 *Size, split_panel_orientation Orientation)
+                    app_input *Input, f32 *Size, split_panel_orientation Orientation)
 {
     ui_grid Result;
+    v2 SplitterMax;
+    v2 SplitterMin;
+    ui_interaction Interaction;
+    Interaction.Id = InteractionIdFromPtr(Size);
+    Interaction.Target = (void *)Size;
+    
     if(Orientation == SplitPanel_Verticle)
     {
         Result = BeginGrid(UIState, TempArena, Bounds, 2, 1);
         
-        if(Size->Y == 0.0f)
+        if(*Size == 0.0f)
         {
-            Size->Y = 0.5f*(Bounds.Max.Y - Bounds.Min.Y);
+            *Size = 0.5f*(Bounds.Max.Y - Bounds.Min.Y);
         }
-        SetRowHeight(&Result, 0, Size->Y);
+        SetRowHeight(&Result, 0, *Size);
         SetRowHeight(&Result, 1, SIZE_AUTO);
         
         f32 MinSize = 0.25f*(Bounds.Max.Y - Bounds.Min.Y);
         f32 MaxSize = 0.75f*(Bounds.Max.Y - Bounds.Min.Y);
-        if(Size->Y < MinSize)
+        if(*Size < MinSize)
         {
-            Size->Y = MinSize;
+            *Size = MinSize;
         }
-        if(Size->Y > MaxSize)
+        if(*Size > MaxSize)
         {
-            Size->Y = MaxSize;
+            *Size = MaxSize;
         }
         
-        ui_interaction Interaction;
-        Interaction.Id = InteractionIdFromPtr(Size);
-        Interaction.Type = Interaction_Draggable;
-        Interaction.Target = (void *)Size;
         
-        v2 SplitterMax = V2(Bounds.Max.X, Bounds.Max.Y - Size->Y - Result.SpacingY*2.0f);
-        v2 SplitterMin = V2(Bounds.Min.X, SplitterMax.Y + Result.SpacingY*3.0f); 
+        Interaction.Type = Interaction_DraggableY;
+        
+        SplitterMax = V2(Bounds.Max.X, Bounds.Max.Y - *Size - Result.SpacingY*2.0f);
+        SplitterMin = V2(Bounds.Min.X, SplitterMax.Y + Result.SpacingY*3.0f); 
         if(SplitterMin.Y > SplitterMax.Y)
         {
             f32 Temp = SplitterMax.Y;
             SplitterMax.Y = SplitterMin.Y;
             SplitterMin.Y = Temp;
         }
-        rectangle2 SplitterBounds = Rectangle2(SplitterMin, SplitterMax);
-        
-        ui_element Element = BeginUIElementWithBounds(&Result, SplitterBounds);
-        SetUIElementDefaultAction(&Element, Interaction);
-        EndUIElement(&Element);
-        
-        if(Element.IsHot)
-        {
-            PushRenderCommandRectangle(RenderGroup, V4(1, 0, 0, 1), SplitterBounds, 2.0f);
-        }
-        else
-        {
-            PushRenderCommandRectangle(RenderGroup, V4(1, 0.5f, 0, 1), SplitterBounds, 2.0f);
-        }
-        
     }
     else
     {
         Assert(Orientation == SplitPanel_Horizontal);
         Result = BeginGrid(UIState, TempArena, Bounds, 1, 2);
         
-        if(Size->X == 0.0f)
+        if(*Size == 0.0f)
         {
-            Size->X = 0.5f*(Bounds.Max.X - Bounds.Min.X);
+            *Size = 0.5f*(Bounds.Max.X - Bounds.Min.X);
         }
         SetAllColumnWidths(&Result, 0, SIZE_AUTO);
-        SetAllColumnWidths(&Result, 1, Size->X);
+        SetAllColumnWidths(&Result, 1, *Size);
         f32 MinSize = 0.25f*(Bounds.Max.X - Bounds.Min.X);
         f32 MaxSize = 0.75f*(Bounds.Max.X - Bounds.Min.X);
-        if(Size->X < MinSize)
+        if(*Size < MinSize)
         {
-            Size->X = MinSize;
+            *Size = MinSize;
         }
-        if(Size->X > MaxSize)
+        if(*Size > MaxSize)
         {
-            Size->X = MaxSize;
+            *Size = MaxSize;
         }
         
-        ui_interaction Interaction;
-        Interaction.Id = InteractionIdFromPtr(Size);
-        Interaction.Type = Interaction_Draggable;
-        Interaction.Target = (void *)Size;
+        Interaction.Type = Interaction_DraggableX;
         
-        v2 SplitterMax = V2(Bounds.Max.X - Size->X - Result.SpacingX*2.0f, Bounds.Max.Y);
-        v2 SplitterMin = V2(SplitterMax.X + Result.SpacingY*3.0f, Bounds.Min.Y); 
+        SplitterMax = V2(Bounds.Max.X - *Size - Result.SpacingX*2.0f, Bounds.Max.Y);
+        SplitterMin = V2(SplitterMax.X + Result.SpacingY*3.0f, Bounds.Min.Y); 
         if(SplitterMin.X > SplitterMax.X)
         {
             f32 Temp = SplitterMax.X;
             SplitterMax.X = SplitterMin.X;
             SplitterMin.X = Temp;
         }
-        rectangle2 SplitterBounds = Rectangle2(SplitterMin, SplitterMax);
-        
-        ui_element Element = BeginUIElementWithBounds(&Result, SplitterBounds);
-        SetUIElementDefaultAction(&Element, Interaction);
-        EndUIElement(&Element);
-        
-        if(Element.IsHot)
-        {
-            PushRenderCommandRectangle(RenderGroup, V4(1, 0, 0, 1), SplitterBounds, 2.0f);
-        }
-        else
-        {
-            PushRenderCommandRectangle(RenderGroup, V4(1, 0.5f, 0, 1), SplitterBounds, 2.0f);
-        }
-        
     }
+    
+    rectangle2 SplitterBounds = Rectangle2(SplitterMin, SplitterMax);
+    
+    ui_element Element = BeginUIElementWithBounds(&Result, SplitterBounds);
+    SetUIElementDefaultAction(&Element, Interaction);
+    EndUIElement(&Element);
+    
+    if(Element.IsHot)
+    {
+        PushRenderCommandRectangle(RenderGroup, V4(1, 0, 0, 1), SplitterBounds, 2.0f);
+    }
+    else
+    {
+        PushRenderCommandRectangle(RenderGroup, V4(1, 0.5f, 0, 1), SplitterBounds, 2.0f);
+    }
+    
     return Result;
 }
