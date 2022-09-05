@@ -26,7 +26,6 @@ GetUIValue(ui_state *UIState, char *GUIDInit)
             else
             {
                 // NOTE(kstandbridge): Hash conflict
-                __debugbreak();
                 if(Result->NextInHash)
                 {
                     Result = Result->NextInHash;
@@ -281,6 +280,7 @@ Interact(ui_state *UIState, app_input *Input)
             
             case Interaction_AddDeltaTimeF32:
             {
+                UIState->ClickedId = UIState->Interaction.Id;
                 ((ui_value *)UIState->Interaction.Target)->F32_Value += 100.0f * Input->dtForFrame;
                 if(MouseUp)
                 {
@@ -290,6 +290,7 @@ Interact(ui_state *UIState, app_input *Input)
             
             case Interaction_SubtractDeltaTimeF32:
             {
+                UIState->ClickedId = UIState->Interaction.Id;
                 ((ui_value *)UIState->Interaction.Target)->F32_Value -= 100.0f * Input->dtForFrame;
                 if(MouseUp)
                 {
@@ -687,6 +688,67 @@ GetTextOffset(render_group *RenderGroup, rectangle2 Bounds, f32 Scale, f32 LineA
 }
 
 inline void
+DrawScrollbutton(ui_grid *Grid, render_group *RenderGroup, ui_interaction Interaction, string ButtonText, rectangle2 ButtonBounds)
+{
+    ui_state *UIState = Grid->UIState;
+    colors *Colors = RenderGroup->Colors;
+    
+    ui_element Element = BeginUIElementWithBounds(Grid, ButtonBounds);
+    SetUIElementDefaultAction(&Element, Interaction);
+    EndUIElement(&Element);
+    
+    v2 ButtonTextOffset = GetTextOffset(RenderGroup, ButtonBounds, Grid->Scale, UIState->LineAdvance, ButtonText, TextPosition_MiddleMiddle);
+    
+    if(Element.IsHot)
+    {
+        if(InteractionIdsAreEqual(UIState->ClickedId, Interaction.Id) && 
+           UIState->MouseDown)
+        {
+            PushRenderCommandRectangle(RenderGroup, Colors->ScrollButtonClicked, ButtonBounds, 2.0f);
+            PushRenderCommandText(RenderGroup, Grid->Scale, ButtonTextOffset, Colors->ScrollButtonClickedText, ButtonText);
+        }
+        else
+        {
+            PushRenderCommandRectangle(RenderGroup, Colors->ScrollButtonHot, ButtonBounds, 2.0f);
+            PushRenderCommandText(RenderGroup, Grid->Scale, ButtonTextOffset, Colors->ScrollButtonHotText, ButtonText);
+        }
+    }
+    else
+    {
+        PushRenderCommandRectangle(RenderGroup, Colors->ScrollButton, ButtonBounds, 2.0f);
+        PushRenderCommandText(RenderGroup, Grid->Scale, ButtonTextOffset, Colors->ScrollButtonText, ButtonText);
+    }
+}
+
+inline void
+DrawScrollbar(ui_grid *Grid, render_group *RenderGroup, ui_interaction Interaction, rectangle2 ScrollBounds)
+{
+    ui_state *UIState = Grid->UIState;
+    colors *Colors = RenderGroup->Colors;
+    
+    ui_element Element = BeginUIElementWithBounds(Grid, ScrollBounds);
+    SetUIElementDefaultAction(&Element, Interaction);
+    EndUIElement(&Element);
+    
+    if(Element.IsHot)
+    {
+        if(InteractionIdsAreEqual(UIState->ClickedId, Interaction.Id) && 
+           UIState->MouseDown)
+        {
+            PushRenderCommandRectangle(RenderGroup, Colors->ScrollBarClicked, ScrollBounds, 3.0f);
+        }
+        else
+        {
+            PushRenderCommandRectangle(RenderGroup, Colors->ScrollBarHot, ScrollBounds, 3.0f);
+        }
+    }
+    else
+    {
+        PushRenderCommandRectangle(RenderGroup, Colors->ScrollBar, ScrollBounds, 3.0f);
+    }
+}
+
+inline void
 BeginClipRect(render_group *RenderGroup, rectangle2 BoundsInit)
 {
     Assert(RenderGroup->OldClipRectIndex == 0);
@@ -738,6 +800,7 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
     
     ui_state *UIState = Grid->UIState;
     memory_arena *Arena = &UIState->TranArena;
+    colors *Colors = RenderGroup->Colors;
     
     rectangle2 CellBounds = GetCellBounds(Grid, ColumnIndex, RowIndex);
     rectangle2 Bounds = Rectangle2(V2Add(CellBounds.Min, V2(Grid->SpacingX, Grid->SpacingY)),
@@ -748,11 +811,17 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
         PushRenderCommandRectangleOutline(RenderGroup, 1.0f, V4(0.0f, 0.0f, 0.0f, 0.5f), Bounds, 3.0f);
     }
     
+    rectangle2 TextSize = GetTextSize(RenderGroup, Grid->Scale, Text);
+    v2 TextDim = Rectangle2GetDim(TextSize);
+    v2 ElementDim = Rectangle2GetDim(Bounds);
     ui_value *ValueY = GetUIValue(UIState, GenerateGUID("TextY"));
     ValueY->F32_Value -= Input->MouseZ*0.1f;
+    
+    b32 DrawVerticleBar = TextDim.Y > ElementDim.Y;
+    b32 DrawHorizontalBar = TextDim.X > ElementDim.X;
+    
+    if(DrawVerticleBar)
     {
-        // NOTE(kstandbridge): Verticle scroll bar
-        
         // NOTE(kstandbridge): Up button
         {        
             v2 ButtonMax = Bounds.Max;
@@ -763,23 +832,18 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
             Interaction.Id = InteractionIdFromPtr(ValueY);
             Interaction.Target = (void *)ValueY;
             Interaction.Type = Interaction_SubtractDeltaTimeF32;
-            ui_element Element = BeginUIElementWithBounds(Grid, ButtonBounds);
-            SetUIElementDefaultAction(&Element, Interaction);
-            EndUIElement(&Element);
             
-            if(Element.IsHot)
-            {
-                PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
-            }
-            else
-            {
-                PushRenderCommandRectangle(RenderGroup, V4(0.1f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
-            }
+            DrawScrollbutton(Grid, RenderGroup, Interaction, String("\\02C4"), ButtonBounds);
+            
         }
         
         // NOTE(kstandbridge): Down button
         {        
-            v2 ButtonMax = V2(Bounds.Max.X, Bounds.Min.Y + UIState->LineAdvance*2.0f);
+            v2 ButtonMax = V2(Bounds.Max.X, Bounds.Min.Y + UIState->LineAdvance);
+            if(DrawHorizontalBar)
+            {
+                ButtonMax.Y += UIState->LineAdvance;
+            }
             v2 ButtonMin = V2Subtract(ButtonMax, V2Set1(UIState->LineAdvance));;
             rectangle2 ButtonBounds = Rectangle2(ButtonMin, ButtonMax);
             
@@ -787,30 +851,16 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
             Interaction.Id = InteractionIdFromPtr(ValueY);
             Interaction.Target = (void *)ValueY;
             Interaction.Type = Interaction_AddDeltaTimeF32;
-            ui_element Element = BeginUIElementWithBounds(Grid, ButtonBounds);
-            SetUIElementDefaultAction(&Element, Interaction);
-            EndUIElement(&Element);
             
-            if(Element.IsHot)
-            {
-                PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
-            }
-            else
-            {
-                PushRenderCommandRectangle(RenderGroup, V4(0.1f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
-            }
+            DrawScrollbutton(Grid, RenderGroup, Interaction, String("\\02C5"), ButtonBounds);
         }
-        
-#if 0        
-        v2 BoundsMax = Bounds.Max;
-        v2 BoundsMin = V2(Bounds.Max.X - UIState->LineAdvance, Bounds.Min.Y + UIState->LineAdvance);
-        PushRenderCommandRectangle(RenderGroup, V4(0.0f, 0.0f, 1.0f, 1.0f), Rectangle2(BoundsMin, BoundsMax), 3.0f);
-#endif
+        Bounds.Max.X -= UIState->LineAdvance;
     }
     
     ui_value *ValueX = GetUIValue(UIState, GenerateGUID("TextX"));
+    
+    if(DrawHorizontalBar)
     {
-        // NOTE(kstandbridge): Horizontal scroll bar
         
         // NOTE(kstandbridge): Left Button
         {        
@@ -822,23 +872,13 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
             Interaction.Id = InteractionIdFromPtr(ValueX);
             Interaction.Target = (void *)ValueX;
             Interaction.Type = Interaction_AddDeltaTimeF32;
-            ui_element Element = BeginUIElementWithBounds(Grid, ButtonBounds);
-            SetUIElementDefaultAction(&Element, Interaction);
-            EndUIElement(&Element);
             
-            if(Element.IsHot)
-            {
-                PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
-            }
-            else
-            {
-                PushRenderCommandRectangle(RenderGroup, V4(0.1f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
-            }
+            DrawScrollbutton(Grid, RenderGroup, Interaction, String("<"), ButtonBounds);
         }
         
         // NOTE(kstandbridge): Right Button
         {        
-            v2 ButtonMax = V2(Bounds.Max.X - UIState->LineAdvance, Bounds.Min.Y + UIState->LineAdvance);
+            v2 ButtonMax = V2(Bounds.Max.X, Bounds.Min.Y + UIState->LineAdvance);
             v2 ButtonMin = V2Subtract(ButtonMax, V2Set1(UIState->LineAdvance));
             rectangle2 ButtonBounds = Rectangle2(ButtonMin, ButtonMax);
             
@@ -846,36 +886,17 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
             Interaction.Id = InteractionIdFromPtr(ValueX);
             Interaction.Target = (void *)ValueX;
             Interaction.Type = Interaction_SubtractDeltaTimeF32;
-            ui_element Element = BeginUIElementWithBounds(Grid, ButtonBounds);
-            SetUIElementDefaultAction(&Element, Interaction);
-            EndUIElement(&Element);
             
-            if(Element.IsHot)
-            {
-                PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
-            }
-            else
-            {
-                PushRenderCommandRectangle(RenderGroup, V4(0.1f, 0.0f, 0.0f, 1.0f), ButtonBounds, 2.0f);
-            }
+            DrawScrollbutton(Grid, RenderGroup, Interaction, String(">"), ButtonBounds);
         }
         
-        
-#if 0        
-        v2 BoundsMax = V2(Bounds.Max.X - UIState->LineAdvance, Bounds.Min.Y + UIState->LineAdvance);
-        v2 BoundsMin = V2(Bounds.Min.X, Bounds.Min.Y);
-        PushRenderCommandRectangle(RenderGroup, V4(0.0f, 1.0f, 1.0f, 1.0f), Rectangle2(BoundsMin, BoundsMax), 3.0f);
-#endif
-        
-        
+        Bounds.Min.Y += UIState->LineAdvance;
     }
     
-    rectangle2 TextSize = GetTextSize(RenderGroup, Grid->Scale, Text);
-    v2 TextDim = Rectangle2GetDim(TextSize);
-    
-    Bounds.Min.Y += UIState->LineAdvance;
-    Bounds.Max.X -= UIState->LineAdvance;
+    PushRenderCommandRectangle(RenderGroup, Colors->TextboxBackground, Bounds, 2.0f);
     v2 BoundsDim = Rectangle2GetDim(Bounds);
+    f32 MaxY;
+    f32 MaxX;
     BeginClipRect(RenderGroup, Bounds);
     {
         v2 TextOffset = GetTextOffset(RenderGroup, Bounds, Grid->Scale, UIState->LineAdvance, Text, TextPosition_TopLeft);
@@ -885,7 +906,7 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
             ValueX->F32_Value = 0.0f;
         }
         
-        f32 MaxX = BoundsDim.X - TextDim.X;
+        MaxX = BoundsDim.X - TextDim.X;
         if(ValueX->F32_Value < MaxX)
         {
             ValueX->F32_Value = MaxX;
@@ -896,7 +917,7 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
             ValueY->F32_Value = 0.0f;
         }
         
-        f32 MaxY = TextDim.Y - BoundsDim.Y + UIState->LineAdvance;
+        MaxY = TextDim.Y - BoundsDim.Y + UIState->LineAdvance;
         if(ValueY->F32_Value > MaxY)
         {
             ValueY->F32_Value = MaxY;
@@ -914,12 +935,48 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
     }
     EndClipRect(RenderGroup);
     
-    PushRenderCommandText(RenderGroup, Grid->Scale, V2(UIState->LineAdvance, UIState->LineAdvance*4.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), 
-                          FormatString(Arena, "X: %.02f / Y: %.02f\nDim: %.02f / %.02f\nTest: %.02f\ndt: %.02f", 
-                                       ValueX->F32_Value, ValueY->F32_Value,
-                                       TextDim.X, TextDim.Y,
-                                       TextDim.Y - BoundsDim.Y + UIState->LineAdvance,
-                                       Input->dtForFrame));
+    if(DrawVerticleBar)
+    {
+        v2 ScrollMax = V2(Bounds.Max.X + UIState->LineAdvance, Bounds.Max.Y - UIState->LineAdvance);
+        v2 ScrollMin = V2(ScrollMax.X - UIState->LineAdvance, Bounds.Min.Y + UIState->LineAdvance);
+        
+        rectangle2 ScrollBounds = Rectangle2(ScrollMin, ScrollMax);
+        v2 ScrollDim = Rectangle2GetDim(ScrollBounds);
+        ScrollMin.Y += 0.5f*ScrollDim.Y;
+        
+        f32 Percent = ValueY->F32_Value / MaxY;
+        ScrollMax.Y -= 0.50f*ScrollDim.Y*Percent;
+        ScrollMin.Y -= 0.50f*ScrollDim.Y*Percent;
+        ScrollBounds = Rectangle2(ScrollMin, ScrollMax);
+        
+        ui_interaction Interaction;
+        Interaction.Id = InteractionIdFromPtr(ValueY);
+        Interaction.Target = (void *)ValueY;
+        Interaction.Type = Interaction_DraggableY;
+        
+        DrawScrollbar(Grid, RenderGroup, Interaction, ScrollBounds);
+    }
+    if(DrawHorizontalBar)
+    {
+        v2 ScrollMax = V2(Bounds.Max.X - UIState->LineAdvance, Bounds.Min.Y);
+        v2 ScrollMin = V2(Bounds.Min.X + UIState->LineAdvance, Bounds.Min.Y - UIState->LineAdvance);
+        
+        rectangle2 ScrollBounds = Rectangle2(ScrollMin, ScrollMax);
+        v2 ScrollDim = Rectangle2GetDim(ScrollBounds);
+        ScrollMax.X -= 0.5f*ScrollDim.X;
+        
+        f32 Percent = ValueX->F32_Value / MaxX;
+        ScrollMax.X += 0.50f*ScrollDim.X*Percent;
+        ScrollMin.X += 0.50f*ScrollDim.X*Percent;
+        ScrollBounds = Rectangle2(ScrollMin, ScrollMax);
+        
+        ui_interaction Interaction;
+        Interaction.Id = InteractionIdFromPtr(ValueX);
+        Interaction.Target = (void *)ValueX;
+        Interaction.Type = Interaction_DraggableX;
+        
+        DrawScrollbar(Grid, RenderGroup, Interaction, ScrollBounds);
+    }
     
     END_BLOCK();
 }
