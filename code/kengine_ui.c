@@ -281,7 +281,7 @@ Interact(ui_state *UIState, app_input *Input)
             
             case Interaction_AddDeltaTimeF32:
             {
-                ((ui_value *)UIState->Interaction.Target)->F32_Value += 1.0f; // TODO(kstandbridge): *UIState->DeltaTime;
+                ((ui_value *)UIState->Interaction.Target)->F32_Value += 100.0f * Input->dtForFrame;
                 if(MouseUp)
                 {
                     EndInteraction = true; 
@@ -290,7 +290,7 @@ Interact(ui_state *UIState, app_input *Input)
             
             case Interaction_SubtractDeltaTimeF32:
             {
-                ((ui_value *)UIState->Interaction.Target)->F32_Value -= 1.0f; // TODO(kstandbridge): *UIState->DeltaTime;
+                ((ui_value *)UIState->Interaction.Target)->F32_Value -= 100.0f * Input->dtForFrame;
                 if(MouseUp)
                 {
                     EndInteraction = true;
@@ -915,10 +915,11 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
     EndClipRect(RenderGroup);
     
     PushRenderCommandText(RenderGroup, Grid->Scale, V2(UIState->LineAdvance, UIState->LineAdvance*4.0f), V4(0.0f, 0.0f, 0.0f, 1.0f), 
-                          FormatString(Arena, "X: %.02f / Y: %.02f\nDim: %.02f / %.02f\nTest: %.02f", 
+                          FormatString(Arena, "X: %.02f / Y: %.02f\nDim: %.02f / %.02f\nTest: %.02f\ndt: %.02f", 
                                        ValueX->F32_Value, ValueY->F32_Value,
                                        TextDim.X, TextDim.Y,
-                                       TextDim.Y - BoundsDim.Y + UIState->LineAdvance));
+                                       TextDim.Y - BoundsDim.Y + UIState->LineAdvance,
+                                       Input->dtForFrame));
     
     END_BLOCK();
 }

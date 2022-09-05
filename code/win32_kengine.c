@@ -881,12 +881,19 @@ WinMainCRTStartup()
             app_input *NewInput = &Input[0];
             app_input *OldInput = &Input[1];
             
-            // TODO(kstandbridge): Properly set target FPS
-            f32 TargetSeconds = 1.0f / 30.0f;
+            s32 MonitorRefreshHz = 60;
+            s32 Win32RefreshRate = Win32GetDeviceCaps(OpenGLDC, VREFRESH);
+            if(Win32RefreshRate > 1)
+            {
+                MonitorRefreshHz = Win32RefreshRate;
+            }
             
             // NOTE(kstandbridge): Otherwise Sleep will be ignored for requests less than 50? citation needed
             UINT MinSleepPeriod = 1;
             Win32timeBeginPeriod(MinSleepPeriod);
+            
+            u32 ExpectedFramesPerUpdate = 1;
+            f32 TargetSecondsPerFrame = (f32)ExpectedFramesPerUpdate / MonitorRefreshHz;
             
             Win32State->IsRunning = true;
             while(Win32State->IsRunning)
@@ -907,6 +914,7 @@ WinMainCRTStartup()
 #endif
                 
                 BEGIN_BLOCK("ProcessPendingMessages");
+                NewInput->dtForFrame = TargetSecondsPerFrame;
                 NewInput->MouseZ = 0;
                 ZeroStruct(NewInput->FKeyPressed);
                 Win32ProcessPendingMessages(Win32State, NewInput);
@@ -1054,6 +1062,7 @@ WinMainCRTStartup()
                 OldInput = Temp;
                 
                 
+#if 0
                 //if(!HardwareRendering)
                 {                
                     BEGIN_BLOCK("FrameWait");
@@ -1078,10 +1087,17 @@ WinMainCRTStartup()
                     }
                     END_BLOCK();
                 }
+#endif
                 
                 LARGE_INTEGER ThisCounter = Win32GetWallClock();                
-                f32 FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, ThisCounter);
-                DEBUG_FRAME_END(FrameSeconds);
+                f32 MeasuredSecondsPerFrame = Win32GetSecondsElapsed(Win32State, LastCounter, ThisCounter);
+                f32 ExactTargetFramesPerUpdate = MeasuredSecondsPerFrame*(f32)MonitorRefreshHz;
+                u32 NewExpectedFramesPerUpdate = RoundF32ToU32(ExactTargetFramesPerUpdate);
+                ExpectedFramesPerUpdate = NewExpectedFramesPerUpdate;
+                
+                TargetSecondsPerFrame = MeasuredSecondsPerFrame;
+                
+                DEBUG_FRAME_END(MeasuredSecondsPerFrame);
                 LastCounter = ThisCounter;
                 
             }

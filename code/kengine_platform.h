@@ -106,6 +106,8 @@ typedef enum
 
 typedef struct
 {
+    f32 dtForFrame;
+    
     app_button_state MouseButtons[MouseButton_Count];
     f32 MouseX;
     f32 MouseY;

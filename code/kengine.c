@@ -49,6 +49,15 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         Platform->UIState->LineAdvance = Platform->GetVerticleAdvance();
     }
     
+    if(Input->dtForFrame > 0.1f)
+    {
+        Input->dtForFrame = 0.1f;
+    }
+    else if(Input->dtForFrame < 0.001f)
+    {
+        Input->dtForFrame = 0.001f;
+    }
+    
     ui_state *UIState = Platform->UIState;
     
     colors Colors;
