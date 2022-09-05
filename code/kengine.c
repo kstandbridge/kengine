@@ -8,6 +8,10 @@ typedef struct colors
     v4 TabHeaderHotBackground;
     v4 TabBorder;
     
+    v4 SelectedTextBackground;
+    v4 SelectedText;
+    v4 Text;
+    
     v4 TextboxBackground;
     
     v4 ScrollButton;
@@ -81,6 +85,12 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     Colors.TabHeaderBackground = RGBColor(240, 240, 240, 255);
     Colors.TabHeaderHotBackground = RGBColor(216, 234, 249, 255);
     Colors.TabBorder = RGBColor(217, 217, 217, 255);
+    
+    
+    Colors.SelectedTextBackground = RGBColor(0, 120, 215, 255);
+    Colors.SelectedText = RGBColor(255, 255, 255, 255);
+    Colors.Text = RGBColor(0, 0, 0, 255);
+    
     
     Colors.TextboxBackground = RGBColor(255, 255, 255, 255);
     

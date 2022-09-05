@@ -50,6 +50,17 @@ typedef struct
     u8 *Data;
 } string;
 
+typedef struct editable_string
+{
+    umm Size;
+    umm Length;
+    u8 *Data;
+    
+    u32 SelectionStart;
+    u32 SelectionEnd;
+    
+} editable_string;
+
 introspect(ctor, set1, math) typedef struct
 {
     f32 X;

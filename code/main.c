@@ -9,6 +9,8 @@ typedef struct app_state
     b32 ShowEmptyWorlds;
     b32 ShowLocal;
     b32 ShowAvailable;
+    
+    editable_string EditText;
 } app_state;
 
 
@@ -20,6 +22,9 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
 {
     if(!AppState->IsInitialized)
     {
+        string LongString = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
+        AppState->EditText = PushEditableString(PermArena, Kilobytes(1024), LongString);
+        
         AppState->IsInitialized = true;
     }
     
@@ -78,8 +83,8 @@ DrawAppGrid(app_state *AppState, ui_state *UIState, render_group *RenderGroup, m
                 
                 ui_grid BuildsRunSplit = BeginSplitPanelGrid(UIState, RenderGroup, TempArena, GetCellBounds(&WorldsBuildsSplit, 0, 1), Input, SplitPanel_Horizontal);
                 {
-                    string LongString = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
-                    Textbox(&BuildsRunSplit, RenderGroup, Input, 0, 0, LongString);
+                    
+                    Textbox(&BuildsRunSplit, RenderGroup, Input, 0, 0, AppState->EditText);
                     Button(&BuildsRunSplit, RenderGroup, 1, 0, InteractionIdFromPtr(AppState), AppState, String("Run"));
                 }
                 EndGrid(&BuildsRunSplit);

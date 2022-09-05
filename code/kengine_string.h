@@ -211,6 +211,35 @@ PushString_(memory_arena *Arena, umm Length, u8 *Data)
     return Result;
 }
 
+inline editable_string
+PushEditableString(memory_arena *Arena, umm Size, string Text)
+{
+    editable_string Result;
+    
+    Result.Size = Size;
+    Result.Length = Text.Size;
+    Result.Data = PushSize(Arena, Size);
+    Copy(Text.Size, Text.Data, Result.Data);
+    Result.SelectionStart = 3;
+    Result.SelectionEnd = 70;
+    
+    return Result;
+}
+
+inline editable_string
+ToEditableString(string Text)
+{
+    editable_string Result;
+    
+    Result.Size = Text.Size;
+    Result.Length = Text.Size;
+    Result.Data = Text.Data;
+    Result.SelectionStart = U32Max;
+    Result.SelectionEnd = U32Max;
+    
+    return Result;
+}
+
 typedef enum
 {
     FormatStringToken_Unknown,

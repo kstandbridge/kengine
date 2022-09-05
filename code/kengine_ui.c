@@ -90,8 +90,10 @@ typedef enum
     TextOpText_Size,
 } text_op_type;
 internal rectangle2
-TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, string Text)
+TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, editable_string Text)
 {
+    colors *Colors = RenderGroup->Colors;
+    
     rectangle2 Result = Rectangle2InvertedInfinity();
     
     memory_arena *Arena = RenderGroup->Arena;
@@ -102,7 +104,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
     u32 PrevCodePoint = 0;
     
     for(u32 Index = 0;
-        Index < Text.Size;
+        Index < Text.Length;
         ++Index)
     {
         u32 CodePoint = Text.Data[Index];
@@ -146,11 +148,18 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
                 
                 if(Op == TextOpText_Draw)
                 {
-                    PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, Offset, Color, 200.0f);
-#if 0
-                    PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, V2Add(Offset, V2(2.0f, -2.0f)), V4(0.0f, 0.0f, 0.0f, 1.0f), 1.0f);
-#endif
-                    
+                    if(Text.SelectionStart < Index && Text.SelectionEnd > Index)
+                    {
+                        bitmap_dim Dim = GetBitmapDim(&Glyph->Bitmap, BitmapScale, Offset);
+                        PushRenderCommandRectangle(RenderGroup, Colors->SelectedTextBackground, Rectangle2MinDim(V2(AtX - 2.0f, AtY - 4.0f), V2(Dim.Size.X + 3.0f, Platform->GetVerticleAdvance())), 10.0f);
+                        PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, Offset, Colors->SelectedText, 200.0f);
+                        // PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, V2Add(Offset, V2(2.0f, -2.0f)), V4(0, 0, 0, 1), 12.0f);
+                    }
+                    else
+                    {
+                        PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, Offset, Color, 200.0f);
+                        // PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, V2Add(Offset, V2(2.0f, -2.0f)), V4(0.5f, 0.5f, 0.5f, 1.0f), 12.0f);
+                    }
                 }
                 else
                 {
@@ -175,6 +184,10 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, s
             {
                 
                 f32 AdvanceX = Platform->GetHorizontalAdvance(PrevCodePoint, CodePoint);
+                if(Text.SelectionStart < Index && Text.SelectionEnd > Index)
+                {
+                    PushRenderCommandRectangle(RenderGroup, Colors->SelectedTextBackground, Rectangle2MinDim(V2(AtX - 2.0f, AtY - 4.0f), V2(AdvanceX + 2.0f, Platform->GetVerticleAdvance())), 10.0f);
+                }
                 if(AdvanceX)
                 {
                     AtX += AdvanceX*Scale;
@@ -333,13 +346,22 @@ PushRenderCommandText(render_group *RenderGroup, f32 Scale, v2 P, v4 Color, stri
     // TODO(kstandbridge): NAMING Internally this is calling PushRenderCommandBitmap for each of the glyphs,
     // nothing is being drawn now, its a push call so shouldn't be DrawText
     
+    TextOp_(RenderGroup, TextOpText_Draw, Scale, P, Color, ToEditableString(Text));
+}
+
+inline void
+PushRenderCommandEditableText(render_group *RenderGroup, f32 Scale, v2 P, v4 Color, editable_string Text)
+{
+    // TODO(kstandbridge): NAMING Internally this is calling PushRenderCommandBitmap for each of the glyphs,
+    // nothing is being drawn now, its a push call so shouldn't be DrawText
+    
     TextOp_(RenderGroup, TextOpText_Draw, Scale, P, Color, Text);
 }
 
 inline rectangle2
 GetTextSize(render_group *RenderGroup, f32 Scale, string Text)
 {
-    rectangle2 Result = TextOp_(RenderGroup, TextOpText_Size, Scale, V2Set1(0.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), Text);
+    rectangle2 Result = TextOp_(RenderGroup, TextOpText_Size, Scale, V2Set1(0.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), ToEditableString(Text));
     return Result;
 }
 
@@ -794,8 +816,10 @@ Label(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex, s
 }
 
 internal void
-Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIndex, u16 RowIndex, string Text)
+Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIndex, u16 RowIndex, editable_string EditText)
 {
+    string Text = String_(EditText.Length, EditText.Data);
+    
     BEGIN_BLOCK("Textbox");
     
     ui_state *UIState = Grid->UIState;
@@ -931,7 +955,7 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
         {
             TextOffset.Y += ValueY->F32_Value;
         }
-        PushRenderCommandText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+        PushRenderCommandEditableText(RenderGroup, Grid->Scale, TextOffset, V4(0.0f, 0.0f, 0.0f, 1.0f), EditText);
     }
     EndClipRect(RenderGroup);
     
