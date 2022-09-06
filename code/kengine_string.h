@@ -141,6 +141,29 @@ ToUppercase(char Char)
 }
 
 inline void
+SnakeToLowerCase(string *Text)
+{
+    u32 ToSkip = 0;
+    Text->Data[0] = ToLowercase(Text->Data[0]);
+    for(u32 Index = 0;
+        Index < Text->Size;
+        ++Index)
+    {
+        if(Text->Data[Index + ToSkip] == '_')
+        {
+            Text->Data[Index + ToSkip + 1] = ToLowercase(Text->Data[Index + ToSkip + 1]);
+            ++ToSkip;
+        }
+        
+        if(ToSkip)
+        {
+            Text->Data[Index] = Text->Data[Index + ToSkip];
+        }
+    }
+    Text->Size -= ToSkip;
+}
+
+inline void
 ToUpperCamelCase(string *Text)
 {
     u32 ToSkip = 0;
@@ -647,6 +670,14 @@ FormatString(memory_arena *Arena, char *Format, ...)
     string Result = EndFormatString(&StringState);
     
     return Result;
+}
+
+inline void
+StringToCString(string Text, u32 BufferSize, char *Buffer)
+{
+    Assert(BufferSize >= Text.Size + 1);
+    Copy(Text.Size, Text.Data, Buffer);
+    Buffer[Text.Size] = '\0';
 }
 
 #define KENGINE_STRING_H

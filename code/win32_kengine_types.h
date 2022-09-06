@@ -1,8 +1,21 @@
 #ifndef WIN32_KENGINE_TYPES_H
 
-#define WIN32_LEAN_AND_MEAN
+#define SECURITY_WIN32
+
+#include <WS2tcpip.h>
 #include <Windows.h>
+#include <CommCtrl.h>
+#include <Shlobj.h>
+#include <Uxtheme.h>
+#include <vssym32.h>
+#include <Wininet.h>
+#include <sspi.h>
+#include <Schnlsp.h>
+
+
+
 #include <gl/gl.h>
+
 
 introspect(win32, Kernel32) typedef BOOL close_handle(HANDLE hObject);
 introspect(win32, Kernel32) typedef LONG compare_file_time(const FILETIME *lpFileTime1, const FILETIME *lpFileTime2);
@@ -33,6 +46,7 @@ introspect(win32, Kernel32) typedef void sleep(DWORD dwMilliseconds);
 introspect(win32, Kernel32) typedef void get_system_info(LPSYSTEM_INFO lpSystemInfo);
 introspect(win32, Kernel32) typedef DWORD get_environment_variable_a(LPCTSTR lpName, LPTSTR lpBuffer, DWORD nSize);
 introspect(win32, Kernel32) typedef DWORD expand_environment_strings_a(LPCSTR lpSrc, LPSTR lpDst, DWORD nSize);
+introspect(win32, Kernel32) typedef void move_memory(PVOID Destination, const VOID *Source, SIZE_T Length);
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);
@@ -104,6 +118,25 @@ introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_load_matrixf(
 introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_end();
 introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_scissor(GLint x, GLint y, GLsizei width, GLsizei height);
 
+introspect(win32, Shell32) typedef int s_h_create_directory_ex_a(HWND hwnd, LPCSTR pszPath, SECURITY_ATTRIBUTES *psa);
+
+introspect(win32, Urlmon) typedef HRESULT u_r_l_download_to_file_a(LPUNKNOWN pCaller, LPCTSTR szURL, LPCTSTR szFileName, DWORD dwReserved,LPBINDSTATUSCALLBACK lpfnCB);
+
+introspect(win32, Ws2_32, lowercase) typedef INT WSAAPI wsa_get_addr_info(PCSTR pNodeName, PCSTR pServiceName, const ADDRINFOA *pHints, PADDRINFOA *ppResult);
+
+introspect(win32, Ws2_32) typedef int w_s_a_get_last_error();
+introspect(win32, Ws2_32, lowercase) typedef SOCKET WSAAPI wsa_socket(int af, int type, int protocol);
+introspect(win32, Ws2_32, lowercase) typedef int WSAAPI wsa_connect(SOCKET s, struct sockaddr *name, int namelen);
+introspect(win32, Ws2_32, lowercase) typedef int WSAAPI wsa_set_sock_opt(SOCKET s, int level, int optname, const char *optval, int optlen);
+introspect(win32, Ws2_32, lowercase) typedef int WSAAPI wsa_send(SOCKET s, const char *buf, int len, int flags);
+introspect(win32, Ws2_32, lowercase) typedef int WSAAPI wsa_recv(SOCKET s, char *buf, int len, int flags);
+introspect(win32, Ws2_32, lowercase) typedef int WSAAPI wsa_close_socket(SOCKET s);
+introspect(win32, Ws2_32, lowercase) typedef void WSAAPI wsa_free_addr_info(PADDRINFOA pAddrInfo);
+introspect(win32, Ws2_32, lowercase) typedef int WSAAPI wsa_shutdown(SOCKET s, int how);
+introspect(win32, Ws2_32) typedef int w_s_a_startup(WORD wVersionRequired, LPWSADATA lpWSAData);
+introspect(win32, Ws2_32) typedef int w_s_a_cleanup();
+
+introspect(win32, Secur32) typedef PSecurityFunctionTableA init_security_interface_a();
 
 #define WIN32_KENGINE_TYPES_H
 #endif //WIN32_KENGINE_TYPES_H

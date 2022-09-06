@@ -798,6 +798,12 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     {
         Token = GetNextCToken(Tokenizer);
     }
+    b32 TrimWsa = false;
+    if(StringsAreEqual(Token.Str, String("WSAAPI")))
+    {
+        TrimWsa = true;
+        Token = GetNextCToken(Tokenizer);
+    }
     if(Token.Type == CToken_Asterisk)
     {
         ReturnType = FormatString(Tokenizer->Arena, "%S *", ReturnType);
@@ -805,11 +811,30 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     }
     string FunctionType = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
     string FunctionName = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+    string MethodName = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+    if(TrimWsa)
+    {
+        FunctionName.Data += 4;
+        FunctionName.Size -= 4;
+        
+        MethodName.Data += 4;
+        MethodName.Size -= 4;
+    }
+    
+    if(StringsAreEqual(String("lowercase"), Parameter))
+    {
+        SnakeToLowerCase(&MethodName);
+    }
+    else
+    {
+        ToUpperCamelCase(&MethodName);
+    }
     ToUpperCamelCase(&FunctionName);
     if(StringsAreEqual(String("lowerCamelCase"), Parameter))
     {
         FunctionName.Data[0] = ToLowercase(FunctionName.Data[0]);
     }
+    
     
     Token = GetNextCToken(Tokenizer);
     Assert(Token.Type == CToken_OpenParen);
@@ -834,6 +859,12 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
                 if(StringsAreEqual(Token.Str, String("const")))
                 {
                     IsConst = true;
+                    Token = GetNextCToken(Tokenizer);
+                }
+                b32 IsStruct = false;
+                if(StringsAreEqual(Token.Str, String("struct")))
+                {
+                    IsStruct = true;
                     Token = GetNextCToken(Tokenizer);
                 }
                 string Type = Token.Str;
@@ -867,8 +898,9 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
                 {
                     FirstParamFound = true;
                 }
-                Win32ConsoleOut(Tokenizer->Arena, "%s%S%s %s%S", 
+                Win32ConsoleOut(Tokenizer->Arena, "%s%s%S%s %s%S", 
                                 IsConst ? "const " : "",
+                                IsStruct ? "struct " : "",
                                 Type, 
                                 IsVolatile ? " volatile" : "", 
                                 IsPointer ? (IsPointerToPointer ? "**" : "*") : "", 
@@ -889,11 +921,18 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     {
         Win32ConsoleOut(Tokenizer->Arena, "    %S Result;\n\n", ReturnType);
     }
+    if(!StringsAreEqual(Library, String("Kernel32")))
+    {
+        Win32ConsoleOut(Tokenizer->Arena, "    if(!%S)\n", Library);
+        Win32ConsoleOut(Tokenizer->Arena, "    {\n");
+        Win32ConsoleOut(Tokenizer->Arena, "        %S = Win32LoadLibraryA(\"%S.dll\");\n", Library, Library);
+        Win32ConsoleOut(Tokenizer->Arena, "    }\n");
+    }
     Win32ConsoleOut(Tokenizer->Arena, "    Assert(%S);\n", Library);
     Win32ConsoleOut(Tokenizer->Arena, "    local_persist %S *Func = 0;\n", FunctionType);
     Win32ConsoleOut(Tokenizer->Arena, "    if(!Func);\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "         Func = (%S *)Win32GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "         Func = (%S *)Win32GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, MethodName);
     Win32ConsoleOut(Tokenizer->Arena, "    }\n");
     Win32ConsoleOut(Tokenizer->Arena, "    Assert(Func);\n");
     if(HasResult)
