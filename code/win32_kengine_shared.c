@@ -466,7 +466,7 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
     struct addrinfo *AddressInfos;
     if(Win32GetAddrInfo(Url, Port, &Hints, &AddressInfos))
     {
-        Result = PushString(Arena, L"Hostname look up failed");
+        Result = PushString(Arena, "Hostname look up failed");
     }
     else
     {
@@ -539,7 +539,7 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                     
                     if(SEC_I_CONTINUE_NEEDED != SecurityStatus)
                     {
-                        Result = PushString(Arena, L"Handshake failed initalizing security context");
+                        Result = PushString(Arena, "Handshake failed initalizing security context");
                     }
                     
                     Assert(SEC_I_CONTINUE_NEEDED == SecurityStatus);
@@ -559,7 +559,7 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                         
                         if(SEC_E_OK != SecurityStatus)
                         {
-                            Result = PushString(Arena, L"Handshake failed sending data");
+                            Result = PushString(Arena, "Handshake failed sending data");
                         }
                         else
                         {
@@ -586,13 +586,13 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                                     if(SOCKET_ERROR == BytesRecieved)
                                     {
                                         SecurityStatus = SEC_E_INTERNAL_ERROR;
-                                        Result = PushString(Arena, L"Socket error");
+                                        Result = PushString(Arena, "Socket error");
                                         break;
                                     }
                                     else if(BytesRecieved == 0)
                                     {
                                         SecurityStatus = SEC_E_INTERNAL_ERROR;
-                                        Result = PushString(Arena, L"Server disconnected");
+                                        Result = PushString(Arena, "Server disconnected");
                                         break;
                                     }
                                     
@@ -663,9 +663,9 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                                         
                                         ExtraData.pvBuffer = PushSize(Arena, InputBuffers[1].cbBuffer);
                                         
-                                        Win32MoveMemory(ExtraData.pvBuffer,
-                                                        &Buffer[(BufferLength - InputBuffers[1].cbBuffer)],
-                                                        InputBuffers[1].cbBuffer);
+                                        memmove(ExtraData.pvBuffer,
+                                                &Buffer[(BufferLength - InputBuffers[1].cbBuffer)],
+                                                InputBuffers[1].cbBuffer);
                                         ExtraData.cbBuffer = InputBuffers[1].cbBuffer;
                                         ExtraData.BufferType = SECBUFFER_TOKEN;
                                     }
@@ -684,15 +684,15 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                                 if(FAILED(Socket))
                                 {
                                     __debugbreak();
-                                    Result = PushString(Arena, L"Socket error");
+                                    Result = PushString(Arena, "Socket error");
                                     break;
                                 }
                                 
                                 if(InputBuffers[1].BufferType == SECBUFFER_EXTRA)
                                 {
-                                    Win32MoveMemory(Buffer,
-                                                    Buffer + (BufferLength - InputBuffers[1].cbBuffer),
-                                                    InputBuffers[1].cbBuffer);
+                                    memmove(Buffer,
+                                            Buffer + (BufferLength - InputBuffers[1].cbBuffer),
+                                            InputBuffers[1].cbBuffer);
                                     
                                     BufferLength = InputBuffers[1].cbBuffer;
                                 }
@@ -706,12 +706,10 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                             if(SEC_E_OK != SecurityStatus)
                             {
                                 __debugbreak();
-                                Result = PushString(Arena, L"Socket error");
+                                Result = PushString(Arena, "Socket error");
                             }
                             else
                             {
-                                // TODO(kstandbridge): TlsEncypt
-                                
                                 SecurityStatus = Win32TlsEncrypt(Socket, (u8 *)Request, Length, &SSPICtxtHandle);
                                 if(SEC_E_OK == SecurityStatus)
                                 {
@@ -745,7 +743,7 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                                                 
                                                 if(BytesRecieved < 0)
                                                 {
-                                                    Result = PushString(Arena, L"Socket error");
+                                                    Result = PushString(Arena, "Socket error");
                                                     break;
                                                 }
                                                 
@@ -754,7 +752,7 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                                                     // NOTE(kstandbridge): Server disconnected
                                                     if(BufferLength)
                                                     {
-                                                        Result = PushString(Arena, L"Disconnected while reciving data");
+                                                        Result = PushString(Arena, "Disconnected while reciving data");
                                                         break;
                                                     }
                                                     // NOTE(kstandbridge): Session ended, we read all the data
@@ -781,9 +779,14 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                                             
                                             SecurityStatus = Win32SecurityFunctionTable->DecryptMessage(&SSPICtxtHandle, &DecryptBufferDesc, 0, 0);
                                             
+                                            if(SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
+                                            {
+                                                continue;
+                                            }
+                                            
                                             if(SecurityStatus == SEC_I_CONTEXT_EXPIRED)
                                             {
-                                                Result = PushString(Arena, L"Context expired");
+                                                Result = PushString(Arena, "Context expired");
                                                 break;
                                             }
                                             
@@ -791,14 +794,61 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                                                (SecurityStatus != SEC_I_RENEGOTIATE) &&
                                                (SecurityStatus != SEC_I_CONTEXT_EXPIRED))
                                             {
-                                                Result = PushString(Arena, L"Decryption error");
+                                                Result = PushString(Arena, "Decryption error");
                                                 break;
                                             }
                                             
+                                            SecBuffer *pDataBuffer = 0;
+                                            SecBuffer *pExtraBuffer = 0;
+                                            for(u32 Index = 0;
+                                                Index < 4;
+                                                ++Index)
+                                            {
+                                                if((pDataBuffer == 0) &&
+                                                   DecryptBuffers[Index].BufferType == SECBUFFER_DATA)
+                                                {
+                                                    pDataBuffer = DecryptBuffers + Index;
+                                                }
+                                                
+                                                if((pExtraBuffer == 0) &&
+                                                   DecryptBuffers[Index].BufferType == SECBUFFER_EXTRA)
+                                                {
+                                                    pExtraBuffer = DecryptBuffers + Index;
+                                                }
+                                            }
+                                            
+                                            if(pDataBuffer)
+                                            {
+                                                __debugbreak();
+                                                char *EndPointer = (char *)pDataBuffer->pvBuffer + pDataBuffer->cbBuffer;
+                                                EndPointer[0] = '\0';
+                                                AppendStringFormat(&StringState, "%s", (char *)pDataBuffer->pvBuffer);
+                                            }
+                                            
+                                            if(pExtraBuffer)
+                                            {
+                                                MoveMemory(Buffer, pExtraBuffer->pvBuffer, pExtraBuffer->cbBuffer);
+                                                BufferLength = pExtraBuffer->cbBuffer;
+                                                continue;
+                                            }
+                                            else
+                                            {
+                                                __debugbreak();
+                                                // NOTE(kstandbridge): This means we're done?
+                                            }
+                                            
+                                            if(SecurityStatus == SEC_I_RENEGOTIATE)
+                                            {
+                                                __debugbreak();
+                                                // TODO(kstandbridge): We need to connect again!
+                                            }
+                                            
+#if 0                                            
                                             char *EndPointer = (char *)DecryptBuffers[1].pvBuffer + DecryptBuffers[1].cbBuffer;
                                             EndPointer[0] = '\0';
                                             AppendStringFormat(&StringState, "%s", (char *)DecryptBuffers[1].pvBuffer);
                                             break;
+#endif
                                         }
                                         
                                         Result = EndFormatString(&StringState);
@@ -807,7 +857,7 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
                                 }
                                 else
                                 {
-                                    Result = PushString(Arena, L"Failed to send encrypted data");
+                                    Result = PushString(Arena, "Failed to send encrypted data");
                                 }
                                 
                             }
@@ -847,6 +897,31 @@ Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
     }
     EndPushString(Arena, &Result);
 #endif
+    
+    return Result;
+}
+
+internal u64
+Win32GetTimestamp(s16 Year, s16 Month, s16 Day, s16 Hour, s16 Minute, s16 Second)
+{
+    u64 Result = 0;
+    
+    SYSTEMTIME Date;
+    Date.wYear = Year;
+    Date.wMonth = Month;
+    Date.wDay = Day;
+    Date.wHour = Hour;
+    Date.wMinute = Minute;
+    Date.wSecond = Second;
+    
+    FILETIME Time;
+    Win32SystemTimeToFileTime(&Date, &Time);
+    
+    ULARGE_INTEGER Large;
+    Large.LowPart = Time.dwLowDateTime;
+    Large.HighPart = Time.dwHighDateTime;
+    
+    Result = Large.QuadPart;
     
     return Result;
 }

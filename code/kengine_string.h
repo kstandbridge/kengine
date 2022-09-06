@@ -18,11 +18,11 @@ StringToHashValue(string Text)
 }
 
 internal u32
-U32FromString(char *Text)
+U32FromString_(char **Text)
 {
     u32 Result = 0;
     
-    char *At = Text;
+    char *At = *Text;
     while((*At >= '0') &&
           (*At <= '9'))
     {
@@ -31,6 +31,16 @@ U32FromString(char *Text)
         ++At;
     }
     
+    *Text = At;
+    
+    return Result;
+}
+
+inline u32
+U32FromString(char *Text)
+{
+    char *Ignored = Text;
+    u32 Result = U32FromString_(&Ignored);
     return Result;
 }
 
@@ -678,6 +688,121 @@ StringToCString(string Text, u32 BufferSize, char *Buffer)
     Assert(BufferSize >= Text.Size + 1);
     Copy(Text.Size, Text.Data, Buffer);
     Buffer[Text.Size] = '\0';
+}
+
+internal void
+ParseFromString_(char *Text, char *Format, va_list ArgList)
+{
+    char *Source = Text;
+    char *At = Format;
+    while(At[0])
+    {
+        if(*At == '%')
+        {
+            ++At;
+            switch(*At)
+            {
+                case 'd':
+                {
+                    s32 *Value = va_arg(ArgList, s32 *);
+                    *Value = U32FromString_(&Source);
+                } break;
+                
+                case 'S':
+                {
+                    string *SubStr = va_arg(ArgList, string *);
+                    SubStr->Data = (u8 *)Source;
+                    ++At;
+                    char End = *At;
+                    while(*Source != End)
+                    {
+                        ++Source;
+                    }
+                    SubStr->Size = Source - (char *)SubStr->Data;
+                    --At;
+                } break;
+                
+                // TODO(kstandbridge): Support types?
+                InvalidDefaultCase;
+            }
+        }
+        else
+        {
+            ++Source;
+        }
+        ++At;
+    }
+}
+
+internal void
+ParseFromString(char *Text, char *Format, ...)
+{
+    va_list ArgList;
+    
+    va_start(ArgList, Format);
+    ParseFromString_(Text, Format, ArgList);
+    va_end(ArgList);
+}
+
+inline s16
+ParseMonth(string Text)
+{
+    s16 Result = 0;
+    
+    if(StringsAreEqual(String("Jan"), Text))
+    {
+        Result = 1;
+    }
+    else if(StringsAreEqual(String("Feb"), Text))
+    {
+        Result = 2;
+    }
+    else if(StringsAreEqual(String("Mar"), Text))
+    {
+        Result = 3;
+    }
+    else if(StringsAreEqual(String("Apr"), Text))
+    {
+        Result = 4;
+    }
+    else if(StringsAreEqual(String("May"), Text))
+    {
+        Result = 5;
+    }
+    else if(StringsAreEqual(String("Jun"), Text))
+    {
+        Result = 6;
+    }
+    else if(StringsAreEqual(String("Jul"), Text))
+    {
+        Result = 7;
+    }
+    else if(StringsAreEqual(String("Aug"), Text))
+    {
+        Result = 8;
+    }
+    else if(StringsAreEqual(String("Sep"), Text))
+    {
+        Result = 9;
+    }
+    else if(StringsAreEqual(String("Oct"), Text))
+    {
+        Result = 10;
+    }
+    else if(StringsAreEqual(String("Nov"), Text))
+    {
+        Result = 11;
+    }
+    else if(StringsAreEqual(String("Dec"), Text))
+    {
+        Result = 12;
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+    
+    return Result;
 }
 
 #define KENGINE_STRING_H

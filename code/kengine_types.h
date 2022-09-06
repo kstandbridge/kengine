@@ -26,6 +26,7 @@ typedef unsigned __int64 umm;
 #define S32Max (2147483647i32)
 #define U32Min 0
 #define U32Max ((u32)-1)
+#define U64Max ((u64)-1)
 #define F32Max 3.402823466e+38F
 #define F32Min -1.175494351e-38F
 

@@ -543,7 +543,7 @@ RunRadixSortTests(memory_arena *Arena)
         ++Index)
     {
         debug_clock_entry *Entry = Entries + Index;
-        ASSERT(Entry->Sum > LastSum);
+        ASSERT(Entry->Sum >= LastSum);
         LastSum = Entry->Sum;
     }
     
@@ -554,11 +554,40 @@ RunRadixSortTests(memory_arena *Arena)
         ++Index)
     {
         debug_clock_entry *Entry = Entries + Index;
-        ASSERT(Entry->Sum < LastSum);
+        ASSERT(Entry->Sum <= LastSum);
         LastSum = Entry->Sum;
     }
 }
 
+inline void
+RunParseFromStringTests(memory_arena *Arena)
+{
+    {
+        s32 First = 0;
+        s32 Second = 0;
+        ParseFromString("42-24", "%d-%d", &First, &Second);
+        ASSERT(First == 42);
+        ASSERT(Second == 24);
+    }
+    {
+        char *Input = "27-Nov-2020 17:52  2.13 MB";
+        char *Format = "%d-%S-%d %d:%d";
+        s32 Day = 0;
+        string Month;
+        Month.Size = 0;
+        Month.Data = 0;
+        s32 Year = 0;
+        s32 Hour = 0;
+        s32 Minute = 0;
+        ParseFromString(Input, Format,
+                        &Day, &Month, &Year, &Hour, &Minute);
+        ASSERT(Day == 27);
+        ASSERT(StringsAreEqual(Month, String("Nov")));
+        ASSERT(Year == 2020);
+        ASSERT(Hour == 17);
+        ASSERT(Minute == 52);
+    }
+}
 
 internal string
 DEBUGWin32ReadEntireFile(memory_arena *Arena, char *FilePath)
@@ -595,246 +624,6 @@ DEBUGWin32ReadEntireFile(memory_arena *Arena, char *FilePath)
     return Result;
 }
 
-typedef enum http_token_type
-{
-    HttpToken_OpenTag,
-    HttpToken_CloseTag,
-    
-    HttpToken_Equals,
-    
-    HttpToken_String,
-    
-    HttpToken_EndOfStream,
-} http_token_type;
-
-typedef struct http_token
-{
-    http_token_type Type;
-    string Text;
-} http_token;
-
-typedef struct http_tokenizer
-{
-    memory_arena *Arena;
-    char *At;
-} http_tokenizer;
-
-inline void
-HttpTokenizerEatallWhitespace(http_tokenizer *Tokenizer)
-{
-    for(;;)
-    {
-        // TODO(kstandbridge): Eat comments?
-        if(IsWhitespace(Tokenizer->At[0]))
-        {
-            ++Tokenizer->At;
-        }
-        else
-        {
-            break;
-        }
-    }
-}
-
-internal http_token
-GetNextHttpToken(http_tokenizer *Tokenizer)
-{
-    HttpTokenizerEatallWhitespace(Tokenizer);
-    
-    http_token Result;
-    Result.Text = String_(1, (u8 *)Tokenizer->At);
-    char C = Tokenizer->At[0];
-    ++Tokenizer->At;
-    switch(C)
-    {
-        case '\0': {Result.Type = HttpToken_EndOfStream; } break;
-        case '=': { Result.Type = HttpToken_Equals; } break;
-        case '<': 
-        {
-            if(Tokenizer->At[0] == '/')
-            {
-                Result.Type = HttpToken_CloseTag; 
-                ++Tokenizer->At;
-            }
-            else
-            {
-                Result.Type = HttpToken_OpenTag; 
-            }
-            
-            Result.Text.Data = (u8 *)Tokenizer->At;
-            
-            while(!IsWhitespace(Tokenizer->At[0]) &&
-                  (Tokenizer->At[0] != '>') &&
-                  (Tokenizer->At[0] != '/'))
-            {
-                ++Tokenizer->At;
-            }
-            
-            Result.Text.Size = Tokenizer->At - (char *)Result.Text.Data;
-            
-            if(Tokenizer->At[0] == '>')
-            {
-                ++Tokenizer->At;
-            }
-            else if((Tokenizer->At[0] == '/') &&
-                    (Tokenizer->At[1] == '>'))
-            {
-                Tokenizer->At += 2;
-            }
-        } break;
-        case '/':
-        {
-            if(Tokenizer->At[0] == '>')
-            {
-                ++Tokenizer->At;
-                Result.Type = HttpToken_CloseTag; 
-            }
-            else
-            {
-                // NOTE(kstandbridge): Something didn't parse correctly, we are expecting a nameless end tag
-                // like this <meta name="robots" />
-                __debugbreak();
-            }
-        } break;
-        
-        default:
-        {
-            --Tokenizer->At;
-            Result.Type = HttpToken_String; 
-            if(Tokenizer->At[0] == '"')
-            {
-                
-                ++Tokenizer->At;
-            }
-            
-            Result.Text.Data = (u8 *)Tokenizer->At;
-            
-            while(Tokenizer->At[0] &&
-                  Tokenizer->At[0] != '"' &&
-                  Tokenizer->At[0] != '=' &&
-                  Tokenizer->At[0] != '<')
-            {
-                ++Tokenizer->At;
-            }
-            
-            Result.Text.Size = Tokenizer->At - (char *)Result.Text.Data;
-            
-            if(Tokenizer->At[0] == '"')
-            {
-                ++Tokenizer->At;
-            }
-        } break;
-    }
-    
-    return Result;
-}
-
-inline b32
-RequireHttpToken(http_tokenizer *Tokenizer, http_token_type DesiredType)
-{
-    http_token Token = GetNextHttpToken(Tokenizer);
-    b32 Result = (Token.Type == DesiredType);
-    return Result;
-}
-
-internal void
-ParseHttpLinks(http_tokenizer *Tokenizer)
-{
-    http_token Token;
-    for(;;)
-    {
-        Token = GetNextHttpToken(Tokenizer);
-        if(Token.Type == HttpToken_EndOfStream)
-        {
-            break;
-        }
-        if(Token.Type == HttpToken_OpenTag)
-        {
-            if(StringsAreEqual(Token.Text, String("a")))
-            {
-                break;
-            }
-        }
-    }
-    
-    for(;;)
-    {
-        if(Token.Type == HttpToken_EndOfStream)
-        {
-            break;
-        }
-        Token = GetNextHttpToken(Tokenizer);
-        if(Token.Type == HttpToken_String)
-        {
-            if(StringsAreEqual(Token.Text, String("href")))
-            {
-                if(RequireHttpToken(Tokenizer, HttpToken_Equals))
-                {
-                    Token = GetNextHttpToken(Tokenizer);
-                    if(!StringsAreEqual(Token.Text, String("../")))
-                    {
-                        string FileName = Token.Text;
-                        Token = GetNextHttpToken(Tokenizer);
-                        // NOTE(kstandbridge): Should be file name again
-                        Token = GetNextHttpToken(Tokenizer);
-                        // NOTE(kstandbridge): Should be close tag A
-                        Token = GetNextHttpToken(Tokenizer);
-                        string DateAndSize = Token.Text;
-                        int x = 5;
-                        // TODO(kstandbridge): ParseDate and compare to get oldest?
-                    }
-                }
-            }
-        }
-    }
-}
-
-internal void
-RunParseHttpTests(memory_arena *Arena)
-{
-    string Response = DEBUGWin32ReadEntireFile(Arena, "response.txt");
-    Assert(Response.Size > 0);
-    
-    http_tokenizer Tokenizer;
-    Tokenizer.Arena = Arena;
-    Tokenizer.At = (char *)Response.Data;
-    
-    // TODO(kstandbridge): Hack to skip over http header
-    while(Tokenizer.At[0] &&
-          Tokenizer.At[0] != '<')
-    {
-        ++Tokenizer.At;
-    }
-    ++Tokenizer.At;
-    // NOTE(kstandbridge): Skip over DOCTYPE
-    while(Tokenizer.At[0] &&
-          Tokenizer.At[0] != '<')
-    {
-        ++Tokenizer.At;
-    }
-    
-    b32 Parsing = true;
-    while(Parsing)
-    {
-        http_token Token = GetNextHttpToken(&Tokenizer);
-        switch(Token.Type)
-        {
-            case HttpToken_EndOfStream:
-            {
-                Parsing = false;
-            } break;
-            
-            case HttpToken_OpenTag:
-            {
-                if(StringsAreEqual(Token.Text, String("html")))
-                {
-                    ParseHttpLinks(&Tokenizer);
-                }
-            } break;
-        }
-    }
-}
-
 internal b32
 RunAllTests(memory_arena *Arena)
 {
@@ -864,7 +653,7 @@ RunAllTests(memory_arena *Arena)
     
     RunRadixSortTests(Arena);
     
-    RunParseHttpTests(Arena);
+    RunParseFromStringTests(Arena);
     
     b32 Result = (FailedTests == 0);
     return Result;

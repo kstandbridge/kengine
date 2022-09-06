@@ -105,3 +105,11 @@ void *memcpy(void *DestInit, void const *SourceInit, size_t Size)
     
     return(DestInit);
 }
+
+#pragma function(memmove)
+void *memmove(void *Dest, const void *Source, size_t Size)
+{
+    // TODO(kstandbridge): surely a memmove would just be a memcpy and a memset
+    // do some testing with the CRT, which happens to source? 
+    return memcpy(Dest, Source, Size);
+}
