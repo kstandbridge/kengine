@@ -30,6 +30,8 @@ introspect(win32, Kernel32) typedef BOOL query_performance_counter(LARGE_INTEGER
 introspect(win32, Kernel32) typedef BOOL query_performance_frequency(LARGE_INTEGER *lpFrequency);
 introspect(win32, Kernel32) typedef void sleep(DWORD dwMilliseconds);
 introspect(win32, Kernel32) typedef void get_system_info(LPSYSTEM_INFO lpSystemInfo);
+introspect(win32, Kernel32) typedef DWORD get_environment_variable_a(LPCTSTR lpName, LPTSTR lpBuffer, DWORD nSize);
+introspect(win32, Kernel32) typedef DWORD expand_environment_strings_a(LPCSTR lpSrc, LPSTR lpDst, DWORD nSize);
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);
