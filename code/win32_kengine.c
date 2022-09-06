@@ -29,20 +29,6 @@ global b32 HardwareRendering = false;
 #include "kengine_renderer.c"
 #include "win32_kengine_opengl.c"
 
-
-internal void
-Win32LoadLibraries()
-{
-    User32 = Win32LoadLibraryA("User32.dll");
-    Assert(User32);
-    Gdi32 = Win32LoadLibraryA("Gdi32.dll");
-    Assert(Gdi32);
-    Winmm = Win32LoadLibraryA("Winmm.dll");
-    Assert(Winmm);
-    Opengl32 = Win32LoadLibraryA("Opengl32.dll");
-    Assert(Opengl32);
-}
-
 internal LRESULT
 Win32MainWindowCallback_(win32_state *Win32State, HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
 {
@@ -194,26 +180,6 @@ Win32ProcessPendingMessages(win32_state *Win32State, app_input *Input)
 
 
 
-internal FILETIME
-Win32GetLastWriteTime(char *Filename)
-{
-    FILETIME LastWriteTime;
-    ZeroStruct(LastWriteTime);
-    
-    WIN32_FILE_ATTRIBUTE_DATA Data;
-    if(Win32GetFileAttributesExA(Filename, GetFileExInfoStandard, &Data))
-    {
-        LastWriteTime = Data.ftLastWriteTime;
-    }
-    else
-    {
-        // TODO(kstandbridge): Error failed to GetFileAttributesExA
-        InvalidCodePath;
-    }
-    
-    return LastWriteTime;
-}
-
 inline void
 AppendCString(char *StartAt, char *Text)
 {
@@ -303,165 +269,10 @@ Win32ParseCommandLingArgs(win32_state *Win32State)
     }
 }
 
-
-internal void
-Win32AddWorkEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data)
-{
-    u32 NewNextEntryToWrite = (Queue->NextEntryToWrite + 1) % ArrayCount(Queue->Entries);
-    Assert(NewNextEntryToWrite != Queue->NextEntryToRead);
-    platform_work_queue_entry *Entry = Queue->Entries + Queue->NextEntryToWrite;
-    Entry->Callback = Callback;
-    Entry->Data = Data;
-    ++Queue->CompletionGoal;
-    _WriteBarrier();
-    Queue->NextEntryToWrite = NewNextEntryToWrite;
-    Win32ReleaseSemaphore(Queue->SemaphoreHandle, 1, 0);
-}
-
-internal b32
-Win32DoNextWorkQueueEntry(platform_work_queue *Queue)
-{
-    b32 WeShouldSleep = false;
-    
-    u32 OriginalNextEntryToRead = Queue->NextEntryToRead;
-    u32 NewNextEntryToRead = (OriginalNextEntryToRead + 1) % ArrayCount(Queue->Entries);
-    if(OriginalNextEntryToRead != Queue->NextEntryToWrite)
-    {
-        u32 Index = AtomicCompareExchangeU32(&Queue->NextEntryToRead,
-                                             NewNextEntryToRead,
-                                             OriginalNextEntryToRead);
-        if(Index == OriginalNextEntryToRead)
-        {        
-            platform_work_queue_entry Entry = Queue->Entries[Index];
-            Entry.Callback(Entry.Data);
-            AtomicIncrementU32(&Queue->CompletionCount);
-        }
-    }
-    else
-    {
-        WeShouldSleep = true;
-    }
-    
-    return WeShouldSleep;
-}
-
-internal void
-Win32CompleteAllWork(platform_work_queue *Queue)
-{
-    while(Queue->CompletionGoal != Queue->CompletionCount)
-    {
-        Win32DoNextWorkQueueEntry(Queue);
-    }
-    
-    Queue->CompletionGoal = 0;
-    Queue->CompletionCount = 0;
-}
-
-DWORD WINAPI
-Win32WorkQueueThread(void *lpParameter)
-{
-    platform_work_queue *Queue = (platform_work_queue *)lpParameter;
-    
-    u32 TestThreadId = GetThreadID();
-    Assert(TestThreadId == Win32GetCurrentThreadId());
-    
-    for(;;)
-    {
-        if(Win32DoNextWorkQueueEntry(Queue))
-        {
-            Win32WaitForSingleObjectEx(Queue->SemaphoreHandle, INFINITE, false);
-        }
-    }
-}
-
-internal void
-Win32MakeQueue(platform_work_queue *Queue, u32 ThreadCount)
-{
-    Queue->CompletionGoal = 0;
-    Queue->CompletionCount = 0;
-    
-    Queue->NextEntryToWrite = 0;
-    Queue->NextEntryToRead = 0;
-    
-    u32 InitialCount = 0;
-    Queue->SemaphoreHandle = Win32CreateSemaphoreExA(0, InitialCount, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
-    for(u32 ThreadIndex = 0;
-        ThreadIndex < ThreadCount;
-        ++ThreadIndex)
-    {
-        u32 ThreadId;
-        HANDLE ThreadHandle = Win32CreateThread(0, 0, Win32WorkQueueThread, Queue, 0, (LPDWORD)&ThreadId);
-        Win32CloseHandle(ThreadHandle);
-    }
-}
-
-
 #define MAX_GLYPH_COUNT 5000
 global KERNINGPAIR *GlobalKerningPairs;
 global u32 GlobalKerningPairCount;
 global TEXTMETRICA GlobalTextMetric;
-
-
-#define uint32_t u32
-#define uint8_t u8
-void vertical_flip(uint32_t w, uint32_t h, uint32_t* p)
-{
-    int Top = 0;
-    int Bottom = (h - 1) * w;
-    
-    while(Top < Bottom)
-    {
-        for(uint32_t Column = 0; 
-            Column < w; 
-            ++Column)
-        {
-            uint32_t Temp = p[Top + Column];
-            p[Top + Column] = p[Bottom + Column];
-            p[Bottom + Column] = Temp;
-        }
-        
-        Top += w;
-        Bottom -= w;
-    }
-}
-
-
-void saturate_image(int w, int h, uint32_t *p, float saturation)
-{
-    uint32_t *Pixel = p;
-    
-    for(int Y = 0;
-        Y < w;
-        ++Y)
-    {
-        for(int X = 0;
-            X < w;
-            ++X)
-        {
-            uint8_t A = (*Pixel >> 24);
-            uint8_t R = (*Pixel >> 16);
-            uint8_t G = (*Pixel >> 8);
-            uint8_t B = (*Pixel >> 06);
-            
-            float Average = (1.0f / 3.0f) * (R + G + B);
-            float DeltaR = R - Average;
-            float DeltaG = G - Average;
-            float DeltaB = B - Average;
-            
-            R = R + saturation*DeltaR;
-            G = G + saturation*DeltaG;
-            B = B + saturation*DeltaB;
-            
-            *Pixel = (((uint32_t)(A << 24)) |
-                      ((uint32_t)(R << 16)) |
-                      ((uint32_t)(G << 8)) |
-                      ((uint32_t)(B << 0))); 
-            
-            ++Pixel;
-        }
-    }
-}
-
 
 global HDC FontDeviceContext;
 internal loaded_glyph
@@ -675,8 +486,6 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
         
     }
     
-    saturate_image(Result.Bitmap.Width, Result.Bitmap.Height, Result.Bitmap.Memory, -1.0f);
-    
     return Result;
 }
 
@@ -763,24 +572,6 @@ Win32LoadAppCode(platform_api *Platform, win32_state *Win32State, FILETIME NewDL
     }
 }
 #endif
-
-
-inline f32
-Win32GetSecondsElapsed(win32_state *Win32State, LARGE_INTEGER Start, LARGE_INTEGER End)
-{
-    f32 Result = ((f32)(End.QuadPart - Start.QuadPart) /
-                  (f32)Win32State->PerfCountFrequency);
-    return Result;
-}
-
-
-inline LARGE_INTEGER
-Win32GetWallClock()
-{    
-    LARGE_INTEGER Result;
-    Win32QueryPerformanceCounter(&Result);
-    return Result;
-}
 
 void __stdcall 
 WinMainCRTStartup()
@@ -1091,7 +882,7 @@ WinMainCRTStartup()
 #endif
                 
                 LARGE_INTEGER ThisCounter = Win32GetWallClock();                
-                f32 MeasuredSecondsPerFrame = Win32GetSecondsElapsed(Win32State, LastCounter, ThisCounter);
+                f32 MeasuredSecondsPerFrame = Win32GetSecondsElapsed(LastCounter, ThisCounter, Win32State->PerfCountFrequency);
                 f32 ExactTargetFramesPerUpdate = MeasuredSecondsPerFrame*(f32)MonitorRefreshHz;
                 u32 NewExpectedFramesPerUpdate = RoundF32ToU32(ExactTargetFramesPerUpdate);
                 ExpectedFramesPerUpdate = NewExpectedFramesPerUpdate;
