@@ -217,7 +217,7 @@ Win32ConsoleOut(memory_arena *Arena, char *Format, ...)
 }
 
 internal void
-EatWhitespaceAndComments(c_tokenizer *Tokenizer)
+CTokenizerEatWhitespaceAndComments(c_tokenizer *Tokenizer)
 {
     for(;;)
     {
@@ -260,7 +260,7 @@ EatWhitespaceAndComments(c_tokenizer *Tokenizer)
 internal c_token
 GetNextCToken(c_tokenizer *Tokenizer)
 {
-    EatWhitespaceAndComments(Tokenizer);
+    CTokenizerEatWhitespaceAndComments(Tokenizer);
     
     c_token Result;
     ZeroStruct(Result);
