@@ -1,100 +1,56 @@
-internal HMODULE 
-FindModuleBase(void *Ptr)
+
+internal b32
+Win32DirectoryExists(char *Path)
 {
-    HMODULE Result = 0;
+    b32 Result;
     
-    ULONG_PTR Address = (ULONG_PTR)Ptr;
-    Address &= ~0xFFFF;
-    u32 *Module = (u32 *)Address;
-    while(Module[0] != 0x00905A4D) // NOTE(kstandbridge): MZ Header
-    {
-        Module -= 0x4000; // NOTE(kstandbridge): 0x10000/4
-    }
+    u32 Attributes = Win32GetFileAttributesA(Path);
+    Result = ((Attributes != INVALID_FILE_ATTRIBUTES) &&
+              (Attributes & FILE_ATTRIBUTE_DIRECTORY));
     
-    Result = (HMODULE)Module;
-    return Result;
+    return Result;    
 }
 
-#define RELATIVE_PTR(Base, Offset) ( ((u8 *)Base) + Offset )
-internal void *
-FindGetProcessAddress(HMODULE Module)
+internal b32
+Win32FileExists(char *Path)
 {
-    void *Result = 0;
+    b32 Result;
     
-    IMAGE_DOS_HEADER *ImageDosHeader = (IMAGE_DOS_HEADER *)Module;
-    IMAGE_NT_HEADERS64 *ImageNtHeaders = (IMAGE_NT_HEADERS64 *)RELATIVE_PTR(ImageDosHeader, ImageDosHeader->e_lfanew);
-    IMAGE_EXPORT_DIRECTORY *ImageExportDirectory = (IMAGE_EXPORT_DIRECTORY *)RELATIVE_PTR(ImageDosHeader, 
-                                                                                          ImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
-    u32 *Names = (u32 *)RELATIVE_PTR(ImageDosHeader, ImageExportDirectory->AddressOfNames);
-    for(u32 Index = 0;
-        Index < ImageExportDirectory->NumberOfNames;
-        ++Index)
-    {
-        u32 *Name32 = (u32 *)RELATIVE_PTR(ImageDosHeader, Names[Index]);
-        u16 *Name16 = (u16 *)Name32;
-        u8 *Name8 = (u8 *)Name32;
-        if((Name32[0]!=0x50746547) || // GetP
-           (Name32[1]!=0x41636f72) || // rocA
-           (Name32[2]!=0x65726464) || // ddre
-           (Name16[6]!=0x7373) ||     // ss
-           (Name8[14]!=0x00))         // '\0'
-        {
-            continue;
-        }
-        u16 *Ordinals = (u16 *)RELATIVE_PTR(ImageDosHeader, ImageExportDirectory->AddressOfNameOrdinals);
-        u32 *Functions = (u32 *)RELATIVE_PTR(ImageDosHeader, ImageExportDirectory->AddressOfFunctions);
-        Result = RELATIVE_PTR(ImageDosHeader, Functions[Ordinals[Index]]);
-        break;
-    }
+    u32 Attributes = Win32GetFileAttributesA(Path);
+    
+    Result = ((Attributes != INVALID_FILE_ATTRIBUTES) && 
+              !(Attributes & FILE_ATTRIBUTE_DIRECTORY));
     
     return Result;
 }
 
-global HMODULE Kernel32;
-global HMODULE User32;
-global HMODULE Gdi32;
-global HMODULE Winmm;
-global HMODULE Opengl32;
-
-internal void *
-Win32GetProcAddressA(HMODULE Module, char *ProcName)
+internal b32
+Win32ConsoleOut_(string Text)
 {
-    typedef void *get_proc_address(HMODULE Module, char *ProcName);
+    u32 Result = 0;
     
-    void *Result = 0;
+    HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);
+    Assert(OutputHandle != INVALID_HANDLE_VALUE);
     
-    Assert(Kernel32);
-    
-    local_persist get_proc_address *Func = 0;
-    if(!Func)
-    {
-        Func = (get_proc_address *)FindGetProcessAddress(Kernel32);
-    }
-    Assert(Func);
-    Result = Func(Module, ProcName);
+    Win32WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&Result, 0);
+    Assert(Result == Text.Size);
     
     return Result;
 }
 
-// NOTE(kstandbridge): CRT stuff
 
-int _fltused = 0x9875;
-
-#pragma function(memset)
-void *memset(void *DestInit, int Source, size_t Size)
+internal b32
+Win32ConsoleOut(memory_arena *Arena, char *Format, ...)
 {
-    unsigned char *Dest = (unsigned char *)DestInit;
-    while(Size--) *Dest++ = (unsigned char)Source;
+    format_string_state StringState = BeginFormatString(Arena);
     
-    return(DestInit);
-}
-
-#pragma function(memcpy)
-void *memcpy(void *DestInit, void const *SourceInit, size_t Size)
-{
-    unsigned char *Source = (unsigned char *)SourceInit;
-    unsigned char *Dest = (unsigned char *)DestInit;
-    while(Size--) *Dest++ = *Source++;
+    va_list ArgList;
+    va_start(ArgList, Format);
+    AppendFormatString_(&StringState, Format, ArgList);
+    va_end(ArgList);
     
-    return(DestInit);
+    string Text = EndFormatString(&StringState);
+    
+    b32 Result = Win32ConsoleOut_(Text);
+    return Result;
 }

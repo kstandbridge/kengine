@@ -15,6 +15,7 @@ introspect(win32, Kernel32) typedef BOOL free_library(HMODULE hLibModule);
 introspect(win32, Kernel32) typedef LPSTR get_command_line_a();
 introspect(win32, Kernel32) typedef DWORD get_current_thread_id();
 introspect(win32, Kernel32) typedef BOOL get_file_attributes_ex_a(LPCSTR lpFileName, GET_FILEEX_INFO_LEVELS fInfoLevelId, LPVOID lpFileInformation);
+introspect(win32, Kernel32) typedef DWORD get_file_attributes_a(LPCSTR lpFileName);
 introspect(win32, Kernel32) typedef HANDLE WINAPI get_std_handle(DWORD nStdHandle);
 introspect(win32, Kernel32) typedef HMODULE load_library_a(LPCSTR lpLibFileName);
 introspect(win32, Kernel32) typedef BOOL get_file_size_ex(HANDLE hFile, PLARGE_INTEGER lpFileSize);

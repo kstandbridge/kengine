@@ -1,5 +1,5 @@
 #include "win32_kengine_preprocessor.h"
-#include "win32_kengine_shared.c"
+#include "win32_kengine_kernel.c"
 
 internal HANDLE
 Win32CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)

@@ -1,4 +1,6 @@
 #include "win32_kengine.h"
+#include "win32_kengine_kernel.c"
+#include "win32_kengine_generated.c"
 #include "win32_kengine_shared.c"
 
 #if KENGINE_INTERNAL
@@ -17,7 +19,6 @@ global b32 OpenGLSupportsSRGBFramebuffer;
 global GLuint OpenGLDefaultInternalTextureFormat;
 global b32 HardwareRendering = false;
 
-#include "win32_kengine_generated.c"
 #if KENGINE_INTERNAL
 #include "kengine_sort.c"
 #else
