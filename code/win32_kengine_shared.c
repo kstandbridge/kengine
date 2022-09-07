@@ -295,6 +295,568 @@ Win32DownloadToFile(string Url, string Path)
     return Result;
 }
 
+internal s32
+Win32SocketSendData(SOCKET Socket, void *Input, s32 InputLength)
+{
+    s32 Length;
+    s32 Sum;
+    u8 *Ptr = (u8 *)Input;
+    
+    for(Sum = 0; 
+        Sum < InputLength;
+        Sum += Length)
+    {
+        Length = Win32Send(Socket, (char *)&Ptr[Sum], InputLength - Sum, 0);
+        if(Length <= 0)
+        {
+            return -1;
+        }
+    }
+    
+    return Sum;
+}
+
+internal s32
+Win32TlsEncrypt(SOCKET Socket, u8 *Input, u32 InputLength, CtxtHandle *SSPICtxtHandle)
+{
+    SECURITY_STATUS Result;
+    SecPkgContext_StreamSizes StreamSizes;
+    
+    Result = Win32SecurityFunctionTable->QueryContextAttributesA(SSPICtxtHandle, SECPKG_ATTR_STREAM_SIZES, &StreamSizes);
+    if(SEC_E_OK == Result)
+    {
+        
+        char WriteBuffer[2048];
+        
+        // TODO(kstandbridge): Really try to figure out why this worked
+        // NOTE(kstandbridge): Put the message in the right place in the buffer
+        //memcpy_s(WriteBuffer + StreamSizes.cbHeader, sizeof(WriteBuffer) - StreamSizes.cbHeader - StreamSizes.cbTrailer, Input, InputLength);
+        Copy(InputLength, Input, WriteBuffer + StreamSizes.cbHeader);
+        
+        SecBuffer Buffers[4];
+        // NOTE(kstandbridge): Stream header
+        Buffers[0].pvBuffer = WriteBuffer;
+        Buffers[0].cbBuffer = StreamSizes.cbHeader;
+        Buffers[0].BufferType = SECBUFFER_STREAM_HEADER;
+        
+        // NOTE(kstandbridge): Stream data
+        Buffers[1].pvBuffer = WriteBuffer + StreamSizes.cbHeader;
+        Buffers[1].cbBuffer = InputLength;
+        Buffers[1].BufferType = SECBUFFER_DATA;
+        
+        // NOTE(kstandbridge): Stream trailer
+        Buffers[2].pvBuffer = WriteBuffer + StreamSizes.cbHeader + InputLength;
+        Buffers[2].cbBuffer = StreamSizes.cbTrailer;
+        Buffers[2].BufferType = SECBUFFER_STREAM_TRAILER;
+        
+        // NOTE(kstandbridge): Emtpy buffer
+        Buffers[3].pvBuffer = 0;
+        Buffers[3].cbBuffer = 0;
+        Buffers[3].BufferType = SECBUFFER_EMPTY;
+        
+        SecBufferDesc BufferDesc;
+        BufferDesc.ulVersion = SECBUFFER_VERSION;
+        BufferDesc.cBuffers = 4;
+        BufferDesc.pBuffers = Buffers;
+        
+        // NOTE(kstandbridge): Encrypt
+        Result = Win32SecurityFunctionTable->EncryptMessage(SSPICtxtHandle, 0, &BufferDesc, 0);
+        
+        if(SEC_E_OK == Result)
+        {
+            s32 NewLength = Buffers[0].cbBuffer + Buffers[1].cbBuffer + Buffers[2].cbBuffer;
+            Win32SocketSendData(Socket, WriteBuffer, NewLength);
+        }
+    }
+    
+    return Result;
+}
+
+// TODO(kstandbridge): Move this?
+#define TLS_MAX_BUFSIZ      32768
+
+internal SECURITY_STATUS 
+Win32SslClientHandshakeloop(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle)
+{
+    SECURITY_STATUS Result = SEC_I_CONTINUE_NEEDED;
+    
+    DWORD FlagsIn = 
+        ISC_REQ_REPLAY_DETECT|
+        ISC_REQ_CONFIDENTIALITY|
+        ISC_RET_EXTENDED_ERROR|
+        ISC_REQ_ALLOCATE_MEMORY|
+        ISC_REQ_MANUAL_CRED_VALIDATION;
+    
+    char Buffer[TLS_MAX_BUFSIZ];
+    DWORD BufferMaxLength = TLS_MAX_BUFSIZ;
+    DWORD BufferLength = 0;
+    s32 BytesRecieved;
+    
+    SecBuffer ExtraData;
+    ZeroStruct(ExtraData);
+    
+    while((Result == SEC_I_CONTINUE_NEEDED) ||
+          (Result == SEC_E_INCOMPLETE_MESSAGE) ||
+          (Result == SEC_I_INCOMPLETE_CREDENTIALS))
+    {
+        if(Result == SEC_E_INCOMPLETE_MESSAGE)
+        {
+            // NOTE(kstandbridge): Recieve data from server
+            BytesRecieved = Win32Recv(Socket, &Buffer[BufferLength], BufferMaxLength - BufferLength, 0);
+            
+            if(SOCKET_ERROR == BytesRecieved)
+            {
+                Result = SEC_E_INTERNAL_ERROR;
+                Assert(!"Socket error");
+                break;
+            }
+            else if(BytesRecieved == 0)
+            {
+                Result = SEC_E_INTERNAL_ERROR;
+                Assert(!"Server disconnected");
+                break;
+            }
+            
+            BufferLength += BytesRecieved;
+        }
+        
+        // NOTE(kstandbridge): Input data
+        SecBuffer InputBuffers[2];
+        InputBuffers[0].pvBuffer   = Buffer;
+        InputBuffers[0].cbBuffer   = BufferLength;
+        InputBuffers[0].BufferType = SECBUFFER_TOKEN;
+        
+        // NOTE(kstandbridge): Empty buffer
+        InputBuffers[1].pvBuffer   = 0;
+        InputBuffers[1].cbBuffer   = 0;
+        InputBuffers[1].BufferType = SECBUFFER_VERSION;
+        
+        SecBufferDesc InputBufferDesc;
+        InputBufferDesc.cBuffers      = 2;
+        InputBufferDesc.pBuffers      = InputBuffers;
+        InputBufferDesc.ulVersion     = SECBUFFER_VERSION;
+        
+        // NOTE(kstandbridge): Output from schannel
+        SecBuffer OutputBuffers[1];
+        OutputBuffers[0].pvBuffer   = 0;
+        OutputBuffers[0].cbBuffer   = 0;
+        OutputBuffers[0].BufferType = SECBUFFER_VERSION;
+        
+        SecBufferDesc OutputBufferDesc;
+        OutputBufferDesc.cBuffers     = 1;
+        OutputBufferDesc.pBuffers     = OutputBuffers;
+        OutputBufferDesc.ulVersion    = SECBUFFER_VERSION;
+        
+        DWORD FlagsOut;
+        Result = 
+            Win32SecurityFunctionTable->InitializeSecurityContextA(SSPICredHandle, SSPICtxtHandle, 0, FlagsIn, 0,
+                                                                   SECURITY_NATIVE_DREP, &InputBufferDesc, 0, 0,
+                                                                   &OutputBufferDesc, &FlagsOut, 0);
+        
+        // NOTE(kstandbridge): What have we got so far?
+        if((Result == SEC_E_OK) ||
+           (Result == SEC_I_CONTINUE_NEEDED) ||
+           (FAILED(Result) && (FlagsOut & ISC_RET_EXTENDED_ERROR)))
+        {
+            // NOTE(kstandbridge): Response from server
+            if((OutputBuffers[0].cbBuffer != 0) &&
+               (OutputBuffers[0].pvBuffer))
+            {
+                Win32SocketSendData(Socket, OutputBuffers[0].pvBuffer, OutputBuffers[0].cbBuffer);
+                Win32SecurityFunctionTable->FreeContextBuffer(OutputBuffers[0].pvBuffer);
+                OutputBuffers[0].pvBuffer = 0;
+            }
+        }
+        
+        // NOTE(kstandbridge): Incomplete message, continue reading
+        if(Result == SEC_E_INCOMPLETE_MESSAGE)
+        {
+            continue;
+        }
+        
+        // NOTE(kstandbridge): Completed handsake
+        if(Result == SEC_E_OK)
+        {
+            // NOTE(kstandbridge): The extra buffer could contain encrypted application protocol later stuff, we will decript it later with DecryptMessage
+            if(InputBuffers[1].BufferType == SECBUFFER_EXTRA)
+            {
+                // TODO(kstandbridge): I've yet to hit this case, but we have data to deal with
+                __debugbreak();
+                
+                ExtraData.pvBuffer = PushSize(Arena, InputBuffers[1].cbBuffer);
+                
+                memmove(ExtraData.pvBuffer,
+                        &Buffer[(BufferLength - InputBuffers[1].cbBuffer)],
+                        InputBuffers[1].cbBuffer);
+                ExtraData.cbBuffer = InputBuffers[1].cbBuffer;
+                ExtraData.BufferType = SECBUFFER_TOKEN;
+            }
+            else
+            {
+                // NOTE(kstandbridge): No extra data
+                ExtraData.pvBuffer = 0;
+                ExtraData.cbBuffer = 0;
+                ExtraData.BufferType = SECBUFFER_EMPTY;
+            }
+            
+            break;
+        }
+        
+        // NOTE(kstandbridge): Some other error
+        if(FAILED(Socket))
+        {
+            __debugbreak();
+            Assert(!"Socket error");
+            break;
+        }
+        
+        if(InputBuffers[1].BufferType == SECBUFFER_EXTRA)
+        {
+            memmove(Buffer,
+                    Buffer + (BufferLength - InputBuffers[1].cbBuffer),
+                    InputBuffers[1].cbBuffer);
+            
+            BufferLength = InputBuffers[1].cbBuffer;
+        }
+        else
+        {
+            BufferLength = 0;
+        }
+        
+    }
+    
+    if(FAILED(Socket))
+    {
+        // TODO(kstandbridge):  m_SecurityFunc.DeleteSecurityContext(phContext);
+    }
+    
+    return Result;
+}
+
+internal b32
+Win32TlsDecrypt(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle, char *OutBuffer, u32 OutBufferLength)
+{
+    b32 Result = false;
+    
+    char Buffer[TLS_MAX_BUFSIZ];
+    ZeroSize(TLS_MAX_BUFSIZ, Buffer);
+    DWORD BufferMaxLength = TLS_MAX_BUFSIZ;
+    DWORD BufferLength = 0;
+    s32 BytesRecieved;
+    
+    SECURITY_STATUS SecurityStatus = 0;
+    
+    // NOTE(kstandbridge): Read from server until we have decripted data or disconnect/session ends
+    b32 Continue = true;
+    s32 At = 0;
+    do
+    {
+        // NOTE(kstandbridge): Is this the first read or last read was incomplete
+        if(BufferLength == 0 || SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
+        {
+            //BytesRecieved = Win32Recv(Socket, &Buffer[BufferLength], BufferMaxLength - BufferLength, 0);
+            BytesRecieved = Win32Recv(Socket, Buffer + At++, 1, 0);
+            
+            if(BytesRecieved < 0)
+            {
+                Assert(!"Socket error");
+                break;
+            }
+            
+            if(BytesRecieved == 0)
+            {
+                // NOTE(kstandbridge): Server disconnected
+                if(BufferLength)
+                {
+                    Assert(!"Disconnected while reciving data");
+                    break;
+                }
+                // NOTE(kstandbridge): Session ended, we read all the data
+                break;
+            }
+            
+            BufferLength += BytesRecieved;
+        }
+        
+        // NOTE(kstandbridge): Try decript data
+        SecBuffer DecryptBuffers[4];
+        DecryptBuffers[0].pvBuffer = Buffer;
+        DecryptBuffers[0].cbBuffer = BufferLength;
+        DecryptBuffers[0].BufferType = SECBUFFER_DATA;
+        
+        DecryptBuffers[1].BufferType = SECBUFFER_EMPTY;
+        DecryptBuffers[2].BufferType = SECBUFFER_EMPTY;
+        DecryptBuffers[3].BufferType = SECBUFFER_EMPTY;
+        
+        SecBufferDesc DecryptBufferDesc;
+        DecryptBufferDesc.ulVersion = SECBUFFER_VERSION;
+        DecryptBufferDesc.cBuffers = 4;
+        DecryptBufferDesc.pBuffers = DecryptBuffers;
+        
+        SecurityStatus = Win32SecurityFunctionTable->DecryptMessage(SSPICtxtHandle, &DecryptBufferDesc, 0, 0);
+        
+        if(SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
+        {
+            continue;
+        }
+        
+        if(SecurityStatus == SEC_I_CONTEXT_EXPIRED)
+        {
+            Assert(!"Context expired");
+            break;
+        }
+        
+        if((SecurityStatus != SEC_E_OK) &&
+           (SecurityStatus != SEC_I_RENEGOTIATE) &&
+           (SecurityStatus != SEC_I_CONTEXT_EXPIRED))
+        {
+            Assert(!"Decryption error");
+            break;
+        }
+        
+        SecBuffer *pDataBuffer = 0;
+        SecBuffer *pExtraBuffer = 0;
+        for(u32 Index = 0;
+            Index < 4;
+            ++Index)
+        {
+            if((pDataBuffer == 0) &&
+               DecryptBuffers[Index].BufferType == SECBUFFER_DATA)
+            {
+                pDataBuffer = DecryptBuffers + Index;
+            }
+            
+            if((pExtraBuffer == 0) &&
+               DecryptBuffers[Index].BufferType == SECBUFFER_EXTRA)
+            {
+                pExtraBuffer = DecryptBuffers + Index;
+            }
+        }
+        
+        if(pDataBuffer)
+        {
+            Copy(pDataBuffer->cbBuffer, pDataBuffer->pvBuffer, OutBuffer);
+            if((OutBuffer[At - 1]) == '\r' &&
+               (OutBuffer[At]) == '\n')
+            {
+                OutBuffer[At - 1] = '\0';
+                Continue = false;
+            }
+        }
+        
+        if(pExtraBuffer)
+        {
+            MoveMemory(Buffer, pExtraBuffer->pvBuffer, pExtraBuffer->cbBuffer);
+            BufferLength = pExtraBuffer->cbBuffer;
+            continue;
+        }
+        else
+        {
+            BufferLength = 0;
+            Continue = false;
+        }
+        
+        if(SecurityStatus == SEC_I_RENEGOTIATE)
+        {
+            SecurityStatus = Win32SslClientHandshakeloop(Arena, Socket, SSPICredHandle, SSPICtxtHandle);
+            
+            if(SecurityStatus != SEC_E_OK)
+            {
+                Assert(!"Failed to renegotiate");
+                break;
+            }
+            
+            if(pExtraBuffer)
+            {
+                MoveMemory(Buffer, pExtraBuffer->pvBuffer, pExtraBuffer->cbBuffer);
+                BufferLength = pExtraBuffer->cbBuffer;
+            }
+        }
+        
+    } while(Continue);
+    
+    Result = (SecurityStatus == SEC_E_OK);
+    
+    return Result;
+}
+
+internal b32
+Win32HttpClientSendData(http_client *Client, void *Input, s32 InputLength)
+{
+    b32 Result = false;
+    
+    if(Client->IsSsl)
+    {
+        Result = (SEC_E_OK == Win32TlsEncrypt(Client->Socket, Input, InputLength, Client->Context));
+    }
+    else
+    {
+        Result = (Win32SocketSendData(Client->Socket, Input, InputLength) >= 0);
+    }
+    
+    return true;
+}
+
+internal u32
+Win32SslSocketConnect(memory_arena *Arena, string Hostname, void **Creds, void **Context)
+{
+    SOCKET Result = 0;
+    
+    char CHostname[MAX_PATH];
+    StringToCString(Hostname, MAX_PATH, CHostname);
+    
+    struct addrinfo Hints;
+    ZeroStruct(Hints);
+    Hints.ai_family = AF_INET; // NOTE(kstandbridge): IPv4
+    Hints.ai_socktype = SOCK_STREAM; // NOTE(kstandbridge): TCP
+    Hints.ai_protocol = IPPROTO_TCP;
+    
+    struct addrinfo *AddressInfos;
+    
+    if(Win32GetAddrInfo(CHostname, "443", &Hints, &AddressInfos) == 0)
+    {
+        for(struct addrinfo *AddressInfo = AddressInfos;
+            AddressInfo != 0;
+            AddressInfo = AddressInfo->ai_next)
+        {
+            if(AddressInfo->ai_family == AF_INET) // NOTE(kstandbridge): IPv4
+            {
+                Result = Win32Socket(AddressInfo->ai_family, AddressInfo->ai_socktype, AddressInfo->ai_protocol);
+                if(Result != INVALID_SOCKET)
+                {
+                    // NOTE(kstandbridge): Ensure we can reuse same port later
+                    s32 On = 1;
+                    Win32SetSockOpt(Result, SOL_SOCKET, SO_REUSEADDR, (char *)&On, sizeof(On));
+                    
+                    // NOTE(kstandbridge): Initialize new TLS session
+                    ALG_ID Algs[2] = {0};
+                    Algs[0]                            = CALG_RSA_KEYX;
+                    SCHANNEL_CRED SChannelCred = {0};
+                    SChannelCred.dwVersion             = SCHANNEL_CRED_VERSION;
+                    //SChannelCred.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT;
+                    SChannelCred.cSupportedAlgs        = 1;
+                    //SChannelCred.palgSupportedAlgs     = Algs;
+                    SChannelCred.dwFlags              |= SCH_CRED_NO_DEFAULT_CREDS;
+                    SChannelCred.dwFlags              |= SCH_CRED_MANUAL_CRED_VALIDATION;
+                    CredHandle *SSPICredHandle = PushStruct(Arena, CredHandle);;
+                    SECURITY_STATUS SecurityStatus = 
+                        Win32SecurityFunctionTable->AcquireCredentialsHandleA(0,UNISP_NAME_A, SECPKG_CRED_OUTBOUND,
+                                                                              0, &SChannelCred, 0, 0, SSPICredHandle, 0);
+                    
+                    if(SecurityStatus == SEC_E_OK)
+                    {
+                        if(SOCKET_ERROR != Win32Connect(Result, AddressInfo->ai_addr, (s32)AddressInfo->ai_addrlen))
+                        {
+                            DWORD FlagsIn = 
+                                ISC_REQ_REPLAY_DETECT|
+                                ISC_REQ_CONFIDENTIALITY|
+                                ISC_RET_EXTENDED_ERROR|
+                                ISC_REQ_ALLOCATE_MEMORY|
+                                ISC_REQ_MANUAL_CRED_VALIDATION;
+                            
+                            SecBuffer Buffers[1];
+                            Buffers[0].pvBuffer = 0;
+                            Buffers[0].cbBuffer = 0;
+                            Buffers[0].BufferType = SECBUFFER_TOKEN;
+                            
+                            SecBufferDesc BufferDesc;
+                            BufferDesc.cBuffers = 1;
+                            BufferDesc.pBuffers = Buffers;
+                            BufferDesc.ulVersion = SECBUFFER_VERSION;
+                            
+                            CtxtHandle *SSPICtxtHandle = PushStruct(Arena, CtxtHandle);
+                            DWORD FlagsOut;
+                            SecurityStatus = 
+                                Win32SecurityFunctionTable->InitializeSecurityContextA(SSPICredHandle, 0, 0, FlagsIn, 0,
+                                                                                       SECURITY_NATIVE_DREP, 0, 0,
+                                                                                       SSPICtxtHandle, &BufferDesc, &FlagsOut, 0);
+                            
+                            if(SEC_I_CONTINUE_NEEDED == SecurityStatus)
+                            {
+                                if(Buffers[0].cbBuffer != 0)
+                                {
+                                    Win32SocketSendData(Result, Buffers[0].pvBuffer, Buffers[0].cbBuffer);
+                                    
+                                    SecurityStatus = Win32SecurityFunctionTable->FreeContextBuffer(Buffers[0].pvBuffer);
+                                    
+                                    // TODO(kstandbridge): Why no delete?
+                                    //Win32SecurityFunctionTable->DeleteSecurityContext(&SSPICredHandle);
+                                    
+                                    Buffers[0].pvBuffer = 0;
+                                }
+                                
+                                if(SEC_E_OK == SecurityStatus)
+                                {
+                                    SecurityStatus = Win32SslClientHandshakeloop(Arena, Result, SSPICredHandle, SSPICtxtHandle);
+                                    
+                                    PCCERT_CONTEXT RemoteCertContext;
+                                    SecurityStatus = Win32SecurityFunctionTable->QueryContextAttributes(SSPICtxtHandle,
+                                                                                                        SECPKG_ATTR_REMOTE_CERT_CONTEXT,
+                                                                                                        (PVOID)&RemoteCertContext);
+                                    
+                                    *Creds = (void *)SSPICredHandle;
+                                    *Context = (void *)SSPICtxtHandle;
+                                    
+                                    if(SecurityStatus == SEC_E_OK)
+                                    {
+                                        // TODO(kstandbridge): Win32SslVerifyCertificate
+                                        //SecurityStatus = Win32SslVerifyCertificate();
+                                        if(SecurityStatus != SEC_E_OK)
+                                        {
+                                            // TODO(kstandbridge): CertFreeCertificateContext
+                                            //CertFreeCertificateContext(RemoteCertContext);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Assert(!"QueryContextAttributes error?");
+                                    }
+                                }
+                                else
+                                {
+                                    Assert(!"Handshake failed sending data");
+                                }
+                            }
+                            else
+                            {
+                                Assert(!"Handshake failed initalizing security context");
+                            }
+                            
+                        }
+                        else
+                        {
+                            s32 ErrorCode = Win32WSAGetLastError();
+                            Assert(!"Connection error");
+                        }
+                    }
+                    else
+                    {
+                        s32 ErrorCode = Win32WSAGetLastError();
+                        Assert(!"Acquire credentials handle failed");
+                    }
+                }
+                else
+                {
+                    s32 ErrorCode = Win32WSAGetLastError();
+                    Assert(!"Could not create socket");
+                }
+                
+                break;
+            }
+        }
+    }
+    else
+    {
+        s32 ErrorCode = Win32WSAGetLastError();
+        Assert(!"Hostname look up failed");
+    }
+    
+    // TODO(kstandbridge): Can I FreeAddress here or does it break the socket?
+    Win32FreeAddrInfo(AddressInfos);
+    
+    return Result;
+}
+
 internal u32
 Win32SocketConnect(string Hostname)
 {
@@ -345,28 +907,6 @@ Win32SocketClose(SOCKET Socket)
     // TODO(kstandbridge): I would maybe need to free the address here?
     Win32CloseSocket(Socket);
 }
-
-internal s32
-Win32SocketSendData(SOCKET Socket, void *Input, s32 InputLength)
-{
-    s32 Length;
-    s32 Sum;
-    u8 *Ptr = (u8 *)Input;
-    
-    for(Sum = 0; 
-        Sum < InputLength;
-        Sum += Length)
-    {
-        Length = Win32Send(Socket, (char *)&Ptr[Sum], InputLength - Sum, 0);
-        if(Length <= 0)
-        {
-            return -1;
-        }
-    }
-    
-    return Sum;
-}
-
 
 internal string
 Win32SendHttpRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
@@ -432,62 +972,6 @@ Win32SendHttpRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
             
             Win32CloseSocket(Socket);
             Win32FreeAddrInfo(AddressInfo);
-        }
-    }
-    
-    return Result;
-}
-
-internal s32
-Win32TlsEncrypt(SOCKET Socket, u8 *Input, u32 InputLength, CtxtHandle *SSPICtxtHandle)
-{
-    SECURITY_STATUS Result;
-    SecPkgContext_StreamSizes StreamSizes;
-    
-    Result = Win32SecurityFunctionTable->QueryContextAttributesA(SSPICtxtHandle, SECPKG_ATTR_STREAM_SIZES, &StreamSizes);
-    if(SEC_E_OK == Result)
-    {
-        
-        char WriteBuffer[2048];
-        
-        // TODO(kstandbridge): Really try to figure out why this worked
-        // NOTE(kstandbridge): Put the message in the right place in the buffer
-        //memcpy_s(WriteBuffer + StreamSizes.cbHeader, sizeof(WriteBuffer) - StreamSizes.cbHeader - StreamSizes.cbTrailer, Input, InputLength);
-        Copy(InputLength, Input, WriteBuffer + StreamSizes.cbHeader);
-        
-        SecBuffer Buffers[4];
-        // NOTE(kstandbridge): Stream header
-        Buffers[0].pvBuffer = WriteBuffer;
-        Buffers[0].cbBuffer = StreamSizes.cbHeader;
-        Buffers[0].BufferType = SECBUFFER_STREAM_HEADER;
-        
-        // NOTE(kstandbridge): Stream data
-        Buffers[1].pvBuffer = WriteBuffer + StreamSizes.cbHeader;
-        Buffers[1].cbBuffer = InputLength;
-        Buffers[1].BufferType = SECBUFFER_DATA;
-        
-        // NOTE(kstandbridge): Stream trailer
-        Buffers[2].pvBuffer = WriteBuffer + StreamSizes.cbHeader + InputLength;
-        Buffers[2].cbBuffer = StreamSizes.cbTrailer;
-        Buffers[2].BufferType = SECBUFFER_STREAM_TRAILER;
-        
-        // NOTE(kstandbridge): Emtpy buffer
-        Buffers[3].pvBuffer = 0;
-        Buffers[3].cbBuffer = 0;
-        Buffers[3].BufferType = SECBUFFER_EMPTY;
-        
-        SecBufferDesc BufferDesc;
-        BufferDesc.ulVersion = SECBUFFER_VERSION;
-        BufferDesc.cBuffers = 4;
-        BufferDesc.pBuffers = Buffers;
-        
-        // NOTE(kstandbridge): Encrypt
-        Result = Win32SecurityFunctionTable->EncryptMessage(SSPICtxtHandle, 0, &BufferDesc, 0);
-        
-        if(SEC_E_OK == Result)
-        {
-            s32 NewLength = Buffers[0].cbBuffer + Buffers[1].cbBuffer + Buffers[2].cbBuffer;
-            Win32SocketSendData(Socket, WriteBuffer, NewLength);
         }
     }
     
