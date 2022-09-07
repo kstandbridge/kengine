@@ -579,8 +579,6 @@ WinMainCRTStartup()
     Kernel32 = FindModuleBase(_ReturnAddress());
     Assert(Kernel32);
     
-    Win32LoadLibraries();
-    
     HINSTANCE Instance = Win32GetModuleHandleA(0);
     
     WNDCLASSEXA WindowClass;

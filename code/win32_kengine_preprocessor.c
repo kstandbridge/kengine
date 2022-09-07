@@ -832,6 +832,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     ToUpperCamelCase(&FunctionName);
     if(StringsAreEqual(String("lowerCamelCase"), Parameter))
     {
+        MethodName.Data[0] = ToLowercase(FunctionName.Data[0]);
         FunctionName.Data[0] = ToLowercase(FunctionName.Data[0]);
     }
     
