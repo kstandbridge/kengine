@@ -29,6 +29,14 @@ RunStringsAreEqualTests(memory_arena *Arena)
 }
 
 inline void
+RunStringBeginsWithTests(memory_arena *Arena)
+{
+    string HayStack = String("Content-Length: 256");
+    ASSERT(StringBeginsWith(HayStack, String("Content-Length")));
+    ASSERT(!StringBeginsWith(HayStack, String("256")));
+}
+
+inline void
 RunFormatStringSignedDecimalIntegerTests(memory_arena *Arena)
 {
     {
@@ -628,6 +636,7 @@ internal b32
 RunAllTests(memory_arena *Arena)
 {
     RunStringsAreEqualTests(Arena);
+    RunStringBeginsWithTests(Arena);
     RunFormatStringSignedDecimalIntegerTests(Arena);
     RunFormatStringUnsignedDecimalIntegerTests(Arena);
     RunFormatStringDecimalFloatingPoint(Arena);

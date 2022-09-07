@@ -295,6 +295,79 @@ Win32DownloadToFile(string Url, string Path)
     return Result;
 }
 
+internal u32
+Win32SocketConnect(string Hostname)
+{
+    SOCKET Result = 0;
+    
+    char CHostname[MAX_PATH];
+    StringToCString(Hostname, MAX_PATH, CHostname);
+    
+    struct addrinfo *AddressInfo;
+    struct addrinfo Hints;
+    ZeroStruct(Hints);
+    Hints.ai_family = AF_INET; // NOTE(kstandbridge): IPv4
+    Hints.ai_socktype = SOCK_STREAM; // NOTE(kstandbridge): TCP
+    Hints.ai_protocol = IPPROTO_TCP;
+    
+    if(Win32GetAddrInfo(CHostname, "http", &Hints, &AddressInfo) == 0)
+    {
+        Result = Win32Socket(AddressInfo->ai_family, AddressInfo->ai_socktype, AddressInfo->ai_protocol);
+        if(Result != INVALID_SOCKET)
+        {
+            if(SOCKET_ERROR == Win32Connect(Result, AddressInfo->ai_addr, (s32)AddressInfo->ai_addrlen))
+            {
+                s32 ErrorCode = Win32WSAGetLastError();
+                Assert(!"Connection error");
+            }
+        }
+        else
+        {
+            s32 ErrorCode = Win32WSAGetLastError();
+            Assert(!"Could not create socket");
+        }
+    }
+    else
+    {
+        s32 ErrorCode = Win32WSAGetLastError();
+        Assert(!"Hostname look up failed");
+    }
+    
+    // TODO(kstandbridge): Can I FreeAddress here or does it break the socket?
+    Win32FreeAddrInfo(AddressInfo);
+    
+    return Result;
+}
+
+internal void
+Win32SocketClose(SOCKET Socket)
+{
+    // TODO(kstandbridge): I would maybe need to free the address here?
+    Win32CloseSocket(Socket);
+}
+
+internal s32
+Win32SocketSendData(SOCKET Socket, void *Input, s32 InputLength)
+{
+    s32 Length;
+    s32 Sum;
+    u8 *Ptr = (u8 *)Input;
+    
+    for(Sum = 0; 
+        Sum < InputLength;
+        Sum += Length)
+    {
+        Length = Win32Send(Socket, (char *)&Ptr[Sum], InputLength - Sum, 0);
+        if(Length <= 0)
+        {
+            return -1;
+        }
+    }
+    
+    return Sum;
+}
+
+
 internal string
 Win32SendHttpRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
 {
@@ -311,6 +384,7 @@ Win32SendHttpRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
     
     if(Win32GetAddrInfo(Url, "http", &Hints, &AddressInfo) != 0)
     {
+        
         Result = FormatString(Arena, "Hostname look up failed: %d", Win32WSAGetLastError());
     }
     else
@@ -362,27 +436,6 @@ Win32SendHttpRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
     }
     
     return Result;
-}
-
-internal s32
-Win32SocketSendData(SOCKET Socket, void *Input, s32 InputLength)
-{
-    s32 Length;
-    s32 Sum;
-    u8 *Ptr = (u8 *)Input;
-    
-    for(Sum = 0; 
-        Sum < InputLength;
-        Sum += Length)
-    {
-        Length = Win32Send(Socket, (char *)&Ptr[Sum], InputLength - Sum, 0);
-        if(Length <= 0)
-        {
-            return -1;
-        }
-    }
-    
-    return Sum;
 }
 
 internal s32

@@ -219,7 +219,6 @@ StringsAreEqual(string A, string B)
     return Result;
 }
 
-
 #define String(Str) String_(sizeof(Str) - 1, (u8 *)Str)
 inline string
 String_(umm Length, u8 *Data)
@@ -228,6 +227,14 @@ String_(umm Length, u8 *Data)
     
     Result.Size = Length;
     Result.Data = Data;
+    
+    return Result;
+}
+
+inline b32
+StringBeginsWith(string HayStack, string Needle)
+{
+    b32 Result = StringsAreEqual(String_(Needle.Size, HayStack.Data), Needle);
     
     return Result;
 }
