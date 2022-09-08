@@ -7,8 +7,7 @@ BeginHttpClient(memory_arena *Arena, string Hostname, b32 IsSsl)
     ZeroStruct(Result);
     
     Result.Hostname = Hostname;
-    Result.IsSsl = IsSsl;
-    Result.Socket = (IsSsl) ? Win32SslSocketConnect(Arena, Hostname, &Result.Creds, &Result.Context) : Win32SocketConnect(Hostname);
+    Result.Socket = Win32SslSocketConnect(Arena, Hostname, &Result.Creds, &Result.Context);
     
     return Result;
 }
@@ -150,99 +149,64 @@ GetHttpResponse(http_client *Client, memory_arena *Arena, string Request)
 }
 
 internal http_response
-GetSslHttpResponse(http_client *Client, memory_arena *Arena, string Request)
+GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *TempArena, string Request)
 {
     http_response Result;
     ZeroStruct(Result);
     
     if(Win32HttpClientSendData(Client, Request.Data, Request.Size))
     {
-        char Buffer[20480];
-        u32 BufferSize = sizeof(Buffer);
         
-        // TODO(kstandbridge): So when using Tls/ssl we recieve data in chunks that are decrypted and should be able to just read the entire site at once
-        // without we need to know in advance the size to read so we are pulling from the headers etc
-        if(Win32TlsDecrypt(Arena, Client->Socket, Client->Creds, Client->Context, Buffer, BufferSize))
-        {
-            int x = 5;
-        }
-        else
-        {
-            int x = 5;
-        }
+        b32 ParsingHeader = true;
         
-#if 0
-        char Buffer[64];
-        u32 BufferSize = sizeof(Buffer);
-        s32 At = 0;
+        format_string_state BodyStringState = BeginFormatString(PermArena);
+        
         for(;;)
         {
-            s32 Recieved = Win32Recv(Client->Socket, Buffer + At, 1, 0);
-            if(Recieved == -1)
+            char *LineStart = 0;
+            string Response = BeginPushString(TempArena);
+            umm ResponseSize = Win32TlsDecrypt(TempArena, Client->Socket, Client->Creds, Client->Context, Response.Data, TempArena->Size - TempArena->Used);
+            EndPushString(&Response, TempArena, ResponseSize);
+            
+            if(ResponseSize == 0)
             {
-                // TODO(kstandbridge): Socket error
-                Result.Code = HttpResponseCode_SocketError;
                 break;
             }
-            else if(Recieved == 0)
+            
+            if(ParsingHeader)
             {
-                // TODO(kstandbridge): Server closed socket
-                Result.Code = HttpResponseCode_SocketError;
-                break;
-            }
-            else
-            {
-                if((Buffer[At - 1] == '\r') &&
-                   (Buffer[At] == '\n'))
+                LineStart = (char *)Response.Data;
+                char *LineEnd = (char *)Response.Data;
+                u32 Index = 0;
+                while(Index < ResponseSize)
                 {
-                    if((Buffer[0] == '\r') &&
-                       (Buffer[1] == '\n'))
+                    if((*(LineEnd - 1) == '\r') &&
+                       (*LineEnd  == '\n'))
                     {
-                        // NOTE(kstandbridge): Header is finished.
-                        u32 LengthRemaining = Result.ContentLength;
-                        format_string_state StringState = BeginFormatString(Arena);
-                        while(LengthRemaining > 0)
+                        string Line = String_(LineEnd - LineStart - 1, (u8 *)LineStart);
+                        if(StringBeginsWith(Line, String("\r\n")))
                         {
-                            u32 LengthToGet = (LengthRemaining > BufferSize) ? BufferSize : LengthRemaining;
-                            Recieved = Win32Recv(Client->Socket, Buffer, LengthToGet, 0);
-                            if(Recieved == -1)
-                            {
-                                // TODO(kstandbridge): Socket error
-                                Result.Code = HttpResponseCode_SocketError;
-                                break;
-                            }
-                            else if(Recieved == 0)
-                            {
-                                // TODO(kstandbridge): Server closed socket
-                                Result.Code = HttpResponseCode_SocketError;
-                                break;
-                            }
-                            else
-                            {
-                                Buffer[Recieved] = '\0';
-                                AppendStringFormat(&StringState, "%s", Buffer);
-                                LengthRemaining-= Recieved;
-                            }
+                            ParsingHeader = false;
+                            Response.Size -= LineEnd - (char *)Response.Data;
+                            Response.Data = (u8 *)LineEnd + 1;
+                            break;
                         }
-                        Result.Content = EndFormatString(&StringState);
-                        break;
-                    }
-                    else
-                    {
-                        Buffer[At - 1] = '\0';
-                        // NOTE(kstandbridge): We recieved a line
-                        if(StringBeginsWith(String_(At, (u8 *)Buffer), String("HTTP/")))
+                        else if(StringBeginsWith(Line, String("HTTP/")))
                         {
                             string ResponseMessage;
                             ZeroStruct(ResponseMessage);
+                            
+                            // TODO(kstandbridge): Parse from string
+#if 0                                
                             ParseFromString(Buffer, "HTTP/%d.%d %d %S",
                                             &Result.Major, &Result.Minor, &Result.Code, &ResponseMessage);
+#endif
                             
-                            Result.Message = PushString_(Arena, ResponseMessage.Size, ResponseMessage.Data);
+                            Result.Message = PushString_(PermArena, ResponseMessage.Size, ResponseMessage.Data);
                         }
-                        else if(StringBeginsWith(String_(At, (u8 *)Buffer), String("Content-Type")))
+                        else if(StringBeginsWith(Line, String("Content-Type")))
                         {
-                            string ContentType = String_(At - 15, (u8 *)(Buffer + 14));
+                            string ContentType = String_(LineEnd - LineStart - 15, (u8 *)LineStart + 14);
                             if(StringsAreEqual(ContentType, String("text/html")))
                             {
                                 Result.ContentType = HttpResponseContent_HTML;
@@ -252,26 +216,31 @@ GetSslHttpResponse(http_client *Client, memory_arena *Arena, string Request)
                                 InvalidCodePath;
                             }
                         }
-                        else if(StringBeginsWith(String_(At, (u8 *)Buffer), String("Content-Length")))
+                        else if(StringBeginsWith(Line, String("Content-Length")))
                         {
-                            Result.ContentLength = U32FromString(Buffer + 16);
+                            Result.ContentLength = U32FromString(LineStart + 16);
                         }
                         else
                         {
                             // TODO(kstandbridge): Process this line
                             int x = 5;
                         }
+                        LineStart = ++LineEnd;
                     }
-                    At = 0;
-                }
-                else
-                {
-                    ++At;
+                    ++LineEnd;
+                    ++Index;
                 }
             }
+            
+            AppendStringFormat(&BodyStringState, "%S", Response);
+            if(StringContains(String("</HTML>"), Response) ||
+               StringContains(String("</html>"), Response))
+            {
+                break;
+            }
         }
-#endif
         
+        Result.Content = EndFormatString(&BodyStringState);
     }
     else
     {
@@ -282,13 +251,13 @@ GetSslHttpResponse(http_client *Client, memory_arena *Arena, string Request)
 }
 
 inline http_response
-EndHttpRequest(http_request *Request, memory_arena *Arena)
+EndHttpRequest(http_request *Request, memory_arena *PermArena, memory_arena *TempArena)
 {
     http_client *Client = Request->Client;
     
     Request->Raw = GenerateHttpMessage_(Request);
     
-    http_response Result = Client->IsSsl ? GetSslHttpResponse(Client, Arena, Request->Raw) : GetHttpResponse(Client, Arena, Request->Raw);
+    http_response Result = GetSslHttpResponse(Client, PermArena, TempArena, Request->Raw);
     
     
     return Result;

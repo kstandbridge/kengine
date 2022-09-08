@@ -135,6 +135,31 @@ EndTemporaryMemory(temporary_memory TempMem)
     --Arena->TempCount;
 }
 
+inline string
+BeginPushString(memory_arena *Arena)
+{
+    string Result;
+    
+    umm AlignmentOffset = GetAlignmentOffset(Arena, 4);
+    Result.Data = Arena->Base + Arena->Used + AlignmentOffset;
+    Result.Size = 1;
+    
+    ++Arena->TempCount;
+    
+    return Result;
+}
+
+inline void
+EndPushString(string *Text, memory_arena *Arena, umm Size)
+{
+    Assert((Arena->Used + Size) <= Arena->Size);
+    
+    Text->Size = Size;
+    Arena->Used += Size;
+    
+    --Arena->TempCount;
+}
+
 inline void
 CheckArena(memory_arena *Arena)
 {

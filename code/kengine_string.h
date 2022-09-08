@@ -232,9 +232,28 @@ String_(umm Length, u8 *Data)
 }
 
 inline b32
-StringBeginsWith(string HayStack, string Needle)
+StringBeginsWith(string Needle, string HayStack)
 {
     b32 Result = StringsAreEqual(String_(Needle.Size, HayStack.Data), Needle);
+    
+    return Result;
+}
+
+inline b32
+StringContains(string Needle, string HayStack)
+{
+    b32 Result = false;
+    
+    while(HayStack.Size > Needle.Size)
+    {
+        if(StringBeginsWith(Needle, HayStack))
+        {
+            Result = true;
+            break;
+        }
+        --HayStack.Size;
+        ++HayStack.Data;
+    }
     
     return Result;
 }

@@ -4,7 +4,6 @@ typedef struct http_client
 {
     string Hostname;
     
-    b32 IsSsl;
     u32 Socket;
     void *Creds;
     void *Context;

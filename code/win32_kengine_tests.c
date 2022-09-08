@@ -32,8 +32,15 @@ inline void
 RunStringBeginsWithTests(memory_arena *Arena)
 {
     string HayStack = String("Content-Length: 256");
-    ASSERT(StringBeginsWith(HayStack, String("Content-Length")));
-    ASSERT(!StringBeginsWith(HayStack, String("256")));
+    ASSERT(StringBeginsWith(String("Content-Length"), HayStack));
+    ASSERT(!StringBeginsWith(String("256"), HayStack));
+}
+
+inline void
+RunStringContainsTests(memory_arena *Arena)
+{
+    ASSERT(StringContains(String("foo"), String("Before foo after")));
+    ASSERT(!StringContains(String("foo"), String("Before bar after")));
 }
 
 inline void
@@ -637,6 +644,7 @@ RunAllTests(memory_arena *Arena)
 {
     RunStringsAreEqualTests(Arena);
     RunStringBeginsWithTests(Arena);
+    RunStringContainsTests(Arena);
     RunFormatStringSignedDecimalIntegerTests(Arena);
     RunFormatStringUnsignedDecimalIntegerTests(Arena);
     RunFormatStringDecimalFloatingPoint(Arena);

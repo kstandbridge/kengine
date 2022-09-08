@@ -534,9 +534,9 @@ Win32SslClientHandshakeloop(memory_arena *Arena, SOCKET Socket, CredHandle *SSPI
 }
 
 internal b32
-Win32TlsDecrypt(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle, char *OutBuffer, u32 OutBufferLength)
+Win32TlsDecrypt(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle, u8 *OutBuffer, umm OutBufferLength)
 {
-    b32 Result = false;
+    umm Result = 0;
     
     char Buffer[TLS_MAX_BUFSIZ];
     ZeroSize(TLS_MAX_BUFSIZ, Buffer);
@@ -548,15 +548,12 @@ Win32TlsDecrypt(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, 
     
     // NOTE(kstandbridge): Read from server until we have decripted data or disconnect/session ends
     b32 Continue = true;
-    s32 At = 0;
     do
     {
         // NOTE(kstandbridge): Is this the first read or last read was incomplete
         if(BufferLength == 0 || SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
         {
-            //BytesRecieved = Win32Recv(Socket, &Buffer[BufferLength], BufferMaxLength - BufferLength, 0);
-            BytesRecieved = Win32Recv(Socket, Buffer + At++, 1, 0);
-            
+            BytesRecieved = Win32Recv(Socket, &Buffer[BufferLength], BufferMaxLength - BufferLength, 0);
             if(BytesRecieved < 0)
             {
                 Assert(!"Socket error");
@@ -635,13 +632,17 @@ Win32TlsDecrypt(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, 
         
         if(pDataBuffer)
         {
-            Copy(pDataBuffer->cbBuffer, pDataBuffer->pvBuffer, OutBuffer);
-            if((OutBuffer[At - 1]) == '\r' &&
-               (OutBuffer[At]) == '\n')
+            if((Result + pDataBuffer->cbBuffer) < OutBufferLength)
             {
-                OutBuffer[At - 1] = '\0';
-                Continue = false;
+                Copy(pDataBuffer->cbBuffer, pDataBuffer->pvBuffer, OutBuffer + Result);
+                Result += pDataBuffer->cbBuffer;
             }
+            else
+            {
+                Assert(!"Ran out of buffer space");
+            }
+            
+            
         }
         
         if(pExtraBuffer)
@@ -675,8 +676,6 @@ Win32TlsDecrypt(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, 
         
     } while(Continue);
     
-    Result = (SecurityStatus == SEC_E_OK);
-    
     return Result;
 }
 
@@ -685,14 +684,7 @@ Win32HttpClientSendData(http_client *Client, void *Input, s32 InputLength)
 {
     b32 Result = false;
     
-    if(Client->IsSsl)
-    {
-        Result = (SEC_E_OK == Win32TlsEncrypt(Client->Socket, Input, InputLength, Client->Context));
-    }
-    else
-    {
-        Result = (Win32SocketSendData(Client->Socket, Input, InputLength) >= 0);
-    }
+    Result = (SEC_E_OK == Win32TlsEncrypt(Client->Socket, Input, InputLength, Client->Context));
     
     return true;
 }
