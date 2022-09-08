@@ -87,6 +87,10 @@ GetHex(char Char)
     {
         Result = 0xA + (Char - 'A');
     }
+    else if((Char >= 'a') && (Char <= 'f'))
+    {
+        Result = 0xA + (Char - 'a');
+    }
     
     return Result;
 }
@@ -148,6 +152,23 @@ ToUppercase(char Char)
     }
     
     return(Result);
+}
+
+inline void
+StringDeleteCharactersAt(string *Text, umm At, umm Count)
+{
+    for(u32 Current = 0;
+        Current < Count;
+        ++Current)
+    {
+        for(u32 Index = At;
+            Index < Text->Size;
+            ++Index)
+        {
+            Text->Data[Index] = Text->Data[Index + 1];
+        }
+        --Text->Size;
+    }
 }
 
 inline void

@@ -48,10 +48,15 @@ GetNextHttpToken(http_tokenizer *Tokenizer)
     Result.Text = String_(1, (u8 *)Tokenizer->At);
     char C = Tokenizer->At[0];
     ++Tokenizer->At;
+    if(C == '>')
+    {
+        C = Tokenizer->At[0];
+        ++Tokenizer->At;
+    }
     switch(C)
     {
         case '\0': {Result.Type = HttpToken_EndOfStream; } break;
-        case '=': { Result.Type = HttpToken_Equals; } break;
+        case '=':  {Result.Type = HttpToken_Equals; } break;
         case '<': 
         {
             if(Tokenizer->At[0] == '/')

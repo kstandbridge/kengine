@@ -316,21 +316,18 @@ Win32SocketSendData(SOCKET Socket, void *Input, s32 InputLength)
     return Sum;
 }
 
-internal s32
-Win32TlsEncrypt(SOCKET Socket, u8 *Input, u32 InputLength, CtxtHandle *SSPICtxtHandle)
+internal b32
+Win32SendEncryptedMessage(SOCKET Socket, u8 *Input, u32 InputLength, CtxtHandle *SSPICtxtHandle)
 {
-    SECURITY_STATUS Result;
+    b32 Result = false;;
     SecPkgContext_StreamSizes StreamSizes;
     
-    Result = Win32SecurityFunctionTable->QueryContextAttributesA(SSPICtxtHandle, SECPKG_ATTR_STREAM_SIZES, &StreamSizes);
-    if(SEC_E_OK == Result)
+    SECURITY_STATUS SecurityStatus = Win32SecurityFunctionTable->QueryContextAttributes(SSPICtxtHandle, SECPKG_ATTR_STREAM_SIZES, &StreamSizes);
+    if(SEC_E_OK == SecurityStatus)
     {
-        
         char WriteBuffer[2048];
         
-        // TODO(kstandbridge): Really try to figure out why this worked
         // NOTE(kstandbridge): Put the message in the right place in the buffer
-        //memcpy_s(WriteBuffer + StreamSizes.cbHeader, sizeof(WriteBuffer) - StreamSizes.cbHeader - StreamSizes.cbTrailer, Input, InputLength);
         Copy(InputLength, Input, WriteBuffer + StreamSizes.cbHeader);
         
         SecBuffer Buffers[4];
@@ -360,12 +357,13 @@ Win32TlsEncrypt(SOCKET Socket, u8 *Input, u32 InputLength, CtxtHandle *SSPICtxtH
         BufferDesc.pBuffers = Buffers;
         
         // NOTE(kstandbridge): Encrypt
-        Result = Win32SecurityFunctionTable->EncryptMessage(SSPICtxtHandle, 0, &BufferDesc, 0);
+        SecurityStatus = Win32SecurityFunctionTable->EncryptMessage(SSPICtxtHandle, 0, &BufferDesc, 0);
         
-        if(SEC_E_OK == Result)
+        if(SEC_E_OK == SecurityStatus)
         {
             s32 NewLength = Buffers[0].cbBuffer + Buffers[1].cbBuffer + Buffers[2].cbBuffer;
-            Win32SocketSendData(Socket, WriteBuffer, NewLength);
+            s32 BytesSent = Win32SocketSendData(Socket, WriteBuffer, NewLength);
+            Result = (BytesSent > 0);
         }
     }
     
@@ -449,9 +447,9 @@ Win32SslClientHandshakeloop(memory_arena *Arena, SOCKET Socket, CredHandle *SSPI
         
         DWORD FlagsOut;
         Result = 
-            Win32SecurityFunctionTable->InitializeSecurityContextA(SSPICredHandle, SSPICtxtHandle, 0, FlagsIn, 0,
-                                                                   SECURITY_NATIVE_DREP, &InputBufferDesc, 0, 0,
-                                                                   &OutputBufferDesc, &FlagsOut, 0);
+            Win32SecurityFunctionTable->InitializeSecurityContext(SSPICredHandle, SSPICtxtHandle, 0, FlagsIn, 0,
+                                                                  SECURITY_NATIVE_DREP, &InputBufferDesc, 0, 0,
+                                                                  &OutputBufferDesc, &FlagsOut, 0);
         
         // NOTE(kstandbridge): What have we got so far?
         if((Result == SEC_E_OK) ||
@@ -534,168 +532,174 @@ Win32SslClientHandshakeloop(memory_arena *Arena, SOCKET Socket, CredHandle *SSPI
 }
 
 internal b32
-Win32TlsDecrypt(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle, u8 *OutBuffer, umm OutBufferLength)
+Win32RecieveDecryptedMessage(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle, u8 *OutBuffer, umm OutBufferLength)
 {
     umm Result = 0;
+    SecPkgContext_StreamSizes StreamSizes;
+    SECURITY_STATUS SecurityStatus = Win32SecurityFunctionTable->QueryContextAttributes(SSPICtxtHandle, SECPKG_ATTR_STREAM_SIZES, &StreamSizes);
     
-    char Buffer[TLS_MAX_BUFSIZ];
-    ZeroSize(TLS_MAX_BUFSIZ, Buffer);
-    DWORD BufferMaxLength = TLS_MAX_BUFSIZ;
-    DWORD BufferLength = 0;
-    s32 BytesRecieved;
+    SecBuffer DecryptBuffers[4];
+    SecBufferDesc DecryptBufferDesc;
     
-    SECURITY_STATUS SecurityStatus = 0;
-    
-    // NOTE(kstandbridge): Read from server until we have decripted data or disconnect/session ends
-    b32 Continue = true;
-    do
-    {
-        // NOTE(kstandbridge): Is this the first read or last read was incomplete
-        if(BufferLength == 0 || SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
+    if(SEC_E_OK == SecurityStatus)
+    {    
+        
+        DWORD BufferMaxLength = StreamSizes.cbHeader + StreamSizes.cbMaximumMessage + StreamSizes.cbTrailer;
+        
+        Assert(BufferMaxLength < TLS_MAX_BUFSIZ);
+        char Buffer[TLS_MAX_BUFSIZ];
+        ZeroSize(TLS_MAX_BUFSIZ, Buffer);
+        DWORD BufferLength = 0;
+        s32 BytesRecieved;
+        
+        SecurityStatus = 0;
+        
+        // NOTE(kstandbridge): Read from server until we have decripted data or disconnect/session ends
+        b32 Continue = true;
+        do
         {
-            BytesRecieved = Win32Recv(Socket, &Buffer[BufferLength], BufferMaxLength - BufferLength, 0);
-            if(BytesRecieved < 0)
+            // NOTE(kstandbridge): Is this the first read or last read was incomplete
+            if(BufferLength == 0 || SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
             {
-                Assert(!"Socket error");
-                break;
-            }
-            
-            if(BytesRecieved == 0)
-            {
-                // NOTE(kstandbridge): Server disconnected
-                if(BufferLength)
+#if 0
+                BytesRecieved = Win32Recv(Socket, Buffer + BufferLength, BufferMaxLength - BufferLength, 0);
+#else
+                BytesRecieved = Win32Recv(Socket, Buffer + BufferLength, 1, 0);
+#endif
+                if(BytesRecieved < 0)
                 {
-                    Assert(!"Disconnected while reciving data");
+                    Assert(!"Socket error");
                     break;
                 }
-                // NOTE(kstandbridge): Session ended, we read all the data
+                else if(BytesRecieved == 0)
+                {
+                    // NOTE(kstandbridge): Server disconnected
+                    if(BufferLength)
+                    {
+                        Assert(!"Disconnected while reciving data");
+                        break;
+                    }
+                    // NOTE(kstandbridge): Session ended, we read all the data
+                    break;
+                } 
+                else 
+                {
+                    BufferLength += BytesRecieved;
+                }
+            }
+            
+            // NOTE(kstandbridge): Try decript data
+            DecryptBuffers[0].pvBuffer = Buffer;
+            DecryptBuffers[0].cbBuffer = BufferLength;
+            DecryptBuffers[0].BufferType = SECBUFFER_DATA;
+            
+            DecryptBuffers[1].BufferType = SECBUFFER_EMPTY;
+            DecryptBuffers[2].BufferType = SECBUFFER_EMPTY;
+            DecryptBuffers[3].BufferType = SECBUFFER_EMPTY;
+            
+            DecryptBufferDesc.ulVersion = SECBUFFER_VERSION;
+            DecryptBufferDesc.cBuffers = 4;
+            DecryptBufferDesc.pBuffers = DecryptBuffers;
+            
+            SecurityStatus = Win32SecurityFunctionTable->DecryptMessage(SSPICtxtHandle, &DecryptBufferDesc, 0, 0);
+            
+            if(SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
+            {
+                continue;
+            }
+            
+            if(SecurityStatus == SEC_I_CONTEXT_EXPIRED)
+            {
+                Assert(!"Context expired");
                 break;
             }
             
-            BufferLength += BytesRecieved;
-        }
-        
-        // NOTE(kstandbridge): Try decript data
-        SecBuffer DecryptBuffers[4];
-        DecryptBuffers[0].pvBuffer = Buffer;
-        DecryptBuffers[0].cbBuffer = BufferLength;
-        DecryptBuffers[0].BufferType = SECBUFFER_DATA;
-        
-        DecryptBuffers[1].BufferType = SECBUFFER_EMPTY;
-        DecryptBuffers[2].BufferType = SECBUFFER_EMPTY;
-        DecryptBuffers[3].BufferType = SECBUFFER_EMPTY;
-        
-        SecBufferDesc DecryptBufferDesc;
-        DecryptBufferDesc.ulVersion = SECBUFFER_VERSION;
-        DecryptBufferDesc.cBuffers = 4;
-        DecryptBufferDesc.pBuffers = DecryptBuffers;
-        
-        SecurityStatus = Win32SecurityFunctionTable->DecryptMessage(SSPICtxtHandle, &DecryptBufferDesc, 0, 0);
-        
-        if(SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
-        {
-            continue;
-        }
-        
-        if(SecurityStatus == SEC_I_CONTEXT_EXPIRED)
-        {
-            Assert(!"Context expired");
-            break;
-        }
-        
-        if((SecurityStatus != SEC_E_OK) &&
-           (SecurityStatus != SEC_I_RENEGOTIATE) &&
-           (SecurityStatus != SEC_I_CONTEXT_EXPIRED))
-        {
-            Assert(!"Decryption error");
-            break;
-        }
-        
-        SecBuffer *pDataBuffer = 0;
-        SecBuffer *pExtraBuffer = 0;
-        for(u32 Index = 0;
-            Index < 4;
-            ++Index)
-        {
-            if((pDataBuffer == 0) &&
-               DecryptBuffers[Index].BufferType == SECBUFFER_DATA)
+            if((SecurityStatus != SEC_E_OK) &&
+               (SecurityStatus != SEC_I_RENEGOTIATE) &&
+               (SecurityStatus != SEC_I_CONTEXT_EXPIRED))
             {
-                pDataBuffer = DecryptBuffers + Index;
+                Assert(!"Decryption error");
+                break;
             }
             
-            if((pExtraBuffer == 0) &&
-               DecryptBuffers[Index].BufferType == SECBUFFER_EXTRA)
+            SecBuffer *pDataBuffer = 0;
+            SecBuffer *pExtraBuffer = 0;
+            for(u32 Index = 0;
+                Index < 4;
+                ++Index)
             {
-                pExtraBuffer = DecryptBuffers + Index;
+                if((pDataBuffer == 0) &&
+                   DecryptBuffers[Index].BufferType == SECBUFFER_DATA)
+                {
+                    pDataBuffer = DecryptBuffers + Index;
+                }
+                
+                if((pExtraBuffer == 0) &&
+                   DecryptBuffers[Index].BufferType == SECBUFFER_EXTRA)
+                {
+                    pExtraBuffer = DecryptBuffers + Index;
+                }
             }
-        }
-        
-        if(pDataBuffer)
-        {
-            if((Result + pDataBuffer->cbBuffer) < OutBufferLength)
+            
+            if(pDataBuffer)
             {
+                if((Result + pDataBuffer->cbBuffer) > BufferMaxLength)
+                {
+                    Assert(!"Buffer not big enough?");
+                }
                 Copy(pDataBuffer->cbBuffer, pDataBuffer->pvBuffer, OutBuffer + Result);
                 Result += pDataBuffer->cbBuffer;
-            }
-            else
-            {
-                Assert(!"Ran out of buffer space");
-            }
-            
-            
-        }
-        
-        if(pExtraBuffer)
-        {
-            MoveMemory(Buffer, pExtraBuffer->pvBuffer, pExtraBuffer->cbBuffer);
-            BufferLength = pExtraBuffer->cbBuffer;
-            continue;
-        }
-        else
-        {
-            BufferLength = 0;
-            Continue = false;
-        }
-        
-        if(SecurityStatus == SEC_I_RENEGOTIATE)
-        {
-            SecurityStatus = Win32SslClientHandshakeloop(Arena, Socket, SSPICredHandle, SSPICtxtHandle);
-            
-            if(SecurityStatus != SEC_E_OK)
-            {
-                Assert(!"Failed to renegotiate");
-                break;
+                
+                
+                
             }
             
             if(pExtraBuffer)
             {
                 MoveMemory(Buffer, pExtraBuffer->pvBuffer, pExtraBuffer->cbBuffer);
                 BufferLength = pExtraBuffer->cbBuffer;
+                continue;
             }
-        }
-        
-    } while(Continue);
+            else
+            {
+                BufferLength = 0;
+                Continue = false;
+            }
+            
+            if(SecurityStatus == SEC_I_RENEGOTIATE)
+            {
+                Assert(!"Can't use this arena as we're writing a string to it");
+                SecurityStatus = Win32SslClientHandshakeloop(Arena, Socket, SSPICredHandle, SSPICtxtHandle);
+                
+                if(SecurityStatus != SEC_E_OK)
+                {
+                    Assert(!"Failed to renegotiate");
+                    break;
+                }
+                
+                if(pExtraBuffer)
+                {
+                    MoveMemory(Buffer, pExtraBuffer->pvBuffer, pExtraBuffer->cbBuffer);
+                    BufferLength = pExtraBuffer->cbBuffer;
+                }
+            }
+            
+        } while(Continue);
+    }
     
     return Result;
 }
 
-internal b32
-Win32HttpClientSendData(http_client *Client, void *Input, s32 InputLength)
-{
-    b32 Result = false;
-    
-    Result = (SEC_E_OK == Win32TlsEncrypt(Client->Socket, Input, InputLength, Client->Context));
-    
-    return true;
-}
-
 internal u32
-Win32SslSocketConnect(memory_arena *Arena, string Hostname, void **Creds, void **Context)
+Win32SslSocketConnect(memory_arena *Arena, string Hostname, string Port, void **Creds, void **Context)
 {
     SOCKET Result = 0;
     
     char CHostname[MAX_PATH];
     StringToCString(Hostname, MAX_PATH, CHostname);
+    
+    char CPort[MAX_PATH];
+    StringToCString(Port, MAX_PATH, CPort);
     
     struct addrinfo Hints;
     ZeroStruct(Hints);
@@ -705,7 +709,7 @@ Win32SslSocketConnect(memory_arena *Arena, string Hostname, void **Creds, void *
     
     struct addrinfo *AddressInfos;
     
-    if(Win32GetAddrInfo(CHostname, "443", &Hints, &AddressInfos) == 0)
+    if(Win32GetAddrInfo(CHostname, CPort, &Hints, &AddressInfos) == 0)
     {
         for(struct addrinfo *AddressInfo = AddressInfos;
             AddressInfo != 0;
@@ -850,12 +854,14 @@ Win32SslSocketConnect(memory_arena *Arena, string Hostname, void **Creds, void *
 }
 
 internal u32
-Win32SocketConnect(string Hostname)
+Win32SocketConnect(string Hostname, string Port)
 {
     SOCKET Result = 0;
     
     char CHostname[MAX_PATH];
     StringToCString(Hostname, MAX_PATH, CHostname);
+    char CPort[MAX_PATH];
+    StringToCString(Port, MAX_PATH, CPort);
     
     struct addrinfo *AddressInfo;
     struct addrinfo Hints;
@@ -864,7 +870,7 @@ Win32SocketConnect(string Hostname)
     Hints.ai_socktype = SOCK_STREAM; // NOTE(kstandbridge): TCP
     Hints.ai_protocol = IPPROTO_TCP;
     
-    if(Win32GetAddrInfo(CHostname, "http", &Hints, &AddressInfo) == 0)
+    if(Win32GetAddrInfo(CHostname, CPort, &Hints, &AddressInfo) == 0)
     {
         Result = Win32Socket(AddressInfo->ai_family, AddressInfo->ai_socktype, AddressInfo->ai_protocol);
         if(Result != INVALID_SOCKET)
@@ -898,536 +904,6 @@ Win32SocketClose(SOCKET Socket)
 {
     // TODO(kstandbridge): I would maybe need to free the address here?
     Win32CloseSocket(Socket);
-}
-
-internal string
-Win32SendHttpRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
-{
-    // TODO(kstandbridge): This shouldn't be transient, we can keep the socket and make multiple requests
-    
-    string Result;
-    
-    struct addrinfo *AddressInfo;
-    struct addrinfo Hints;
-    ZeroStruct(Hints);
-    Hints.ai_family = AF_INET; // NOTE(kstandbridge): IPv4
-    Hints.ai_socktype = SOCK_STREAM; // NOTE(kstandbridge): TCP
-    Hints.ai_protocol = IPPROTO_TCP;
-    
-    if(Win32GetAddrInfo(Url, "http", &Hints, &AddressInfo) != 0)
-    {
-        
-        Result = FormatString(Arena, "Hostname look up failed: %d", Win32WSAGetLastError());
-    }
-    else
-    {
-        SOCKET Socket = Win32Socket(AddressInfo->ai_family, AddressInfo->ai_socktype, AddressInfo->ai_protocol);
-        if(INVALID_SOCKET == Socket)
-        {
-            Result = FormatString(Arena, "Could not create socket: %d", Win32WSAGetLastError());
-        }
-        else
-        {
-            if(SOCKET_ERROR == Win32Connect(Socket, AddressInfo->ai_addr, (s32)AddressInfo->ai_addrlen))
-            {
-                Result = FormatString(Arena, "Connect error: %d", Win32WSAGetLastError());
-            }
-            else
-            {
-                DWORD TimeoutMs =  3000;
-                if(SOCKET_ERROR == Win32SetSockOpt(Socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&TimeoutMs, sizeof(TimeoutMs)))
-                {
-                    Result = FormatString(Arena, "Error setting socket timeout: %d", Win32WSAGetLastError());
-                }
-                else
-                {
-                    if(Win32Send(Socket, Request, Length, 0) < 0)
-                    {
-                        Result = FormatString(Arena, "Send failed!");
-                    }
-                    else
-                    {
-                        s32 RecieveSize;
-                        char ServerReply[512];
-                        
-                        format_string_state StringState = BeginFormatString(Arena);
-                        
-                        while((RecieveSize = Win32Recv(Socket, ServerReply, sizeof(ServerReply) - 1, 0)) > 0)
-                        {
-                            ServerReply[RecieveSize] = '\0';
-                            AppendStringFormat(&StringState, "%s", ServerReply);
-                        }
-                        Result = EndFormatString(&StringState);
-                    }
-                }
-            }
-            
-            Win32CloseSocket(Socket);
-            Win32FreeAddrInfo(AddressInfo);
-        }
-    }
-    
-    return Result;
-}
-
-
-internal string
-Win32SendHttpsRequest(memory_arena *Arena, char *Url, char *Request, s32 Length)
-{
-    string Result = {0};
-    
-    char *Port = "443";
-    
-    struct addrinfo Hints;
-    ZeroStruct(Hints);
-    
-#if 1
-    s32 Family = AF_INET; // NOTE(kstandbridge): IPv4
-#else
-    s32 Family = AF_INET6; // NOTE(kstandbridge): IPv6
-#endif
-    
-    Hints.ai_family   = Family;
-    Hints.ai_socktype = SOCK_STREAM;
-    Hints.ai_protocol = IPPROTO_TCP;
-    
-    // NOTE(kstandbridge): Resolve network address for host
-    struct addrinfo *AddressInfos;
-    if(Win32GetAddrInfo(Url, Port, &Hints, &AddressInfos))
-    {
-        Result = PushString(Arena, "Hostname look up failed");
-    }
-    else
-    {
-        
-        // NOTE(kstandbridge): Traverse list of network addresses
-        SOCKET Socket;
-        
-        for(struct addrinfo *AddressInfo = AddressInfos;
-            AddressInfo != 0;
-            AddressInfo = AddressInfo->ai_next)
-        {
-            if(AddressInfo->ai_family == Family)
-            {                
-                // NOTE(kstandbridge): Create a socket for event signalling
-                Socket = Win32Socket(AddressInfo->ai_family, SOCK_STREAM, IPPROTO_TCP);
-                if(SOCKET_ERROR != Socket)
-                {
-                    // NOTE(kstandbridge): Ensure we can reuse same port later
-                    s32 On = 1;
-                    Win32SetSockOpt(Socket, SOL_SOCKET, SO_REUSEADDR, (char *)&On, sizeof(On));
-                }
-                
-                // NOTE(kstandbridge): Initialize new TLS session
-                ALG_ID Algs[2] = {0};
-                Algs[0]                            = CALG_RSA_KEYX;
-                SCHANNEL_CRED SChannelCred = {0};
-                SChannelCred.dwVersion             = SCHANNEL_CRED_VERSION;
-                //SChannelCred.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT;
-                SChannelCred.cSupportedAlgs        = 1;
-                //SChannelCred.palgSupportedAlgs     = Algs;
-                SChannelCred.dwFlags              |= SCH_CRED_NO_DEFAULT_CREDS;
-                SChannelCred.dwFlags              |= SCH_CRED_MANUAL_CRED_VALIDATION;
-                CredHandle SSPICredHandle;
-                SECURITY_STATUS SecurityStatus = 
-                    Win32SecurityFunctionTable->AcquireCredentialsHandleA(0,UNISP_NAME_A, SECPKG_CRED_OUTBOUND,
-                                                                          0, &SChannelCred, 0, 0, &SSPICredHandle, 0);
-                
-                // NOTE(kstandbridge): Open connection to remote host
-                if(SOCKET_ERROR == Win32Connect(Socket, AddressInfo->ai_addr, (s32)AddressInfo->ai_addrlen))
-                {
-                    Result = FormatString(Arena, "Connect error: %d", Win32WSAGetLastError());
-                }
-                else
-                {
-                    
-                    // NOTE(kstandbridge): Send initial hello
-                    DWORD FlagsIn = 
-                        ISC_REQ_REPLAY_DETECT|
-                        ISC_REQ_CONFIDENTIALITY|
-                        ISC_RET_EXTENDED_ERROR|
-                        ISC_REQ_ALLOCATE_MEMORY|
-                        ISC_REQ_MANUAL_CRED_VALIDATION;
-                    
-                    SecBuffer Buffers[1];
-                    Buffers[0].pvBuffer = 0;
-                    Buffers[0].cbBuffer = 0;
-                    Buffers[0].BufferType = SECBUFFER_TOKEN;
-                    
-                    SecBufferDesc BufferDesc;
-                    BufferDesc.cBuffers = 1;
-                    BufferDesc.pBuffers = Buffers;
-                    BufferDesc.ulVersion = SECBUFFER_VERSION;
-                    
-                    CtxtHandle SSPICtxtHandle;
-                    DWORD FlagsOut;
-                    SecurityStatus = 
-                        Win32SecurityFunctionTable->InitializeSecurityContextA(&SSPICredHandle, 0, 0, FlagsIn, 0,
-                                                                               SECURITY_NATIVE_DREP, 0, 0,
-                                                                               &SSPICtxtHandle, &BufferDesc, &FlagsOut, 0);
-                    
-                    if(SEC_I_CONTINUE_NEEDED != SecurityStatus)
-                    {
-                        Result = PushString(Arena, "Handshake failed initalizing security context");
-                    }
-                    
-                    Assert(SEC_I_CONTINUE_NEEDED == SecurityStatus);
-                    
-                    //else if(SEC_I_CONTINUE_NEEDED == SecurityStatus)
-                    {
-                        
-                        // NOTE(kstandbridge): Send data
-                        if(Buffers[0].cbBuffer != 0)
-                        {
-                            Win32SocketSendData(Socket, Buffers[0].pvBuffer, Buffers[0].cbBuffer);
-                            
-                            SecurityStatus = Win32SecurityFunctionTable->FreeContextBuffer(Buffers[0].pvBuffer);
-                            
-                            Buffers[0].pvBuffer = 0;
-                        }
-                        
-                        if(SEC_E_OK != SecurityStatus)
-                        {
-                            Result = PushString(Arena, "Handshake failed sending data");
-                        }
-                        else
-                        {
-                            SecurityStatus = SEC_I_CONTINUE_NEEDED;
-                            
-#define TLS_MAX_BUFSIZ      32768
-                            char Buffer[TLS_MAX_BUFSIZ];
-                            DWORD BufferMaxLength = TLS_MAX_BUFSIZ;
-                            DWORD BufferLength = 0;
-                            s32 BytesRecieved;
-                            
-                            SecBuffer ExtraData;
-                            ZeroStruct(ExtraData);
-                            
-                            while((SecurityStatus == SEC_I_CONTINUE_NEEDED) ||
-                                  (SecurityStatus == SEC_E_INCOMPLETE_MESSAGE) ||
-                                  (SecurityStatus == SEC_I_INCOMPLETE_CREDENTIALS))
-                            {
-                                if(SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
-                                {
-                                    // NOTE(kstandbridge): Recieve data from server
-                                    BytesRecieved = Win32Recv(Socket, &Buffer[BufferLength], BufferMaxLength - BufferLength, 0);
-                                    
-                                    if(SOCKET_ERROR == BytesRecieved)
-                                    {
-                                        SecurityStatus = SEC_E_INTERNAL_ERROR;
-                                        Result = PushString(Arena, "Socket error");
-                                        break;
-                                    }
-                                    else if(BytesRecieved == 0)
-                                    {
-                                        SecurityStatus = SEC_E_INTERNAL_ERROR;
-                                        Result = PushString(Arena, "Server disconnected");
-                                        break;
-                                    }
-                                    
-                                    BufferLength += BytesRecieved;
-                                }
-                                
-                                // NOTE(kstandbridge): Input data
-                                SecBuffer InputBuffers[2];
-                                InputBuffers[0].pvBuffer   = Buffer;
-                                InputBuffers[0].cbBuffer   = BufferLength;
-                                InputBuffers[0].BufferType = SECBUFFER_TOKEN;
-                                
-                                // NOTE(kstandbridge): Empty buffer
-                                InputBuffers[1].pvBuffer   = 0;
-                                InputBuffers[1].cbBuffer   = 0;
-                                InputBuffers[1].BufferType = SECBUFFER_VERSION;
-                                
-                                SecBufferDesc InputBufferDesc;
-                                InputBufferDesc.cBuffers      = 2;
-                                InputBufferDesc.pBuffers      = InputBuffers;
-                                InputBufferDesc.ulVersion     = SECBUFFER_VERSION;
-                                
-                                // NOTE(kstandbridge): Output from schannel
-                                SecBuffer OutputBuffers[1];
-                                OutputBuffers[0].pvBuffer   = 0;
-                                OutputBuffers[0].cbBuffer   = 0;
-                                OutputBuffers[0].BufferType = SECBUFFER_VERSION;
-                                
-                                SecBufferDesc OutputBufferDesc;
-                                OutputBufferDesc.cBuffers     = 1;
-                                OutputBufferDesc.pBuffers     = OutputBuffers;
-                                OutputBufferDesc.ulVersion    = SECBUFFER_VERSION;
-                                
-                                SecurityStatus = 
-                                    Win32SecurityFunctionTable->InitializeSecurityContextA(&SSPICredHandle, &SSPICtxtHandle, 0, FlagsIn, 0,
-                                                                                           SECURITY_NATIVE_DREP, &InputBufferDesc, 0, 0,
-                                                                                           &OutputBufferDesc, &FlagsOut, 0);
-                                
-                                // NOTE(kstandbridge): What have we got so far?
-                                if((SecurityStatus == SEC_E_OK) ||
-                                   (SecurityStatus == SEC_I_CONTINUE_NEEDED) ||
-                                   (FAILED(SecurityStatus) && (FlagsOut & ISC_RET_EXTENDED_ERROR)))
-                                {
-                                    // NOTE(kstandbridge): Response from server
-                                    if((OutputBuffers[0].cbBuffer != 0) &&
-                                       (OutputBuffers[0].pvBuffer))
-                                    {
-                                        Win32SocketSendData(Socket, OutputBuffers[0].pvBuffer, OutputBuffers[0].cbBuffer);
-                                        Win32SecurityFunctionTable->FreeContextBuffer(OutputBuffers[0].pvBuffer);
-                                        OutputBuffers[0].pvBuffer = 0;
-                                    }
-                                }
-                                
-                                // NOTE(kstandbridge): Incomplete message, continue reading
-                                if(SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
-                                {
-                                    continue;
-                                }
-                                
-                                // NOTE(kstandbridge): Completed handsake
-                                if(SecurityStatus == SEC_E_OK)
-                                {
-                                    // NOTE(kstandbridge): The extra buffer could contain encrypted application protocol later stuff, we will decript it later with DecryptMessage
-                                    if(InputBuffers[1].BufferType == SECBUFFER_EXTRA)
-                                    {
-                                        // TODO(kstandbridge): I've yet to hit this case, but we have data to deal with
-                                        __debugbreak();
-                                        
-                                        ExtraData.pvBuffer = PushSize(Arena, InputBuffers[1].cbBuffer);
-                                        
-                                        memmove(ExtraData.pvBuffer,
-                                                &Buffer[(BufferLength - InputBuffers[1].cbBuffer)],
-                                                InputBuffers[1].cbBuffer);
-                                        ExtraData.cbBuffer = InputBuffers[1].cbBuffer;
-                                        ExtraData.BufferType = SECBUFFER_TOKEN;
-                                    }
-                                    else
-                                    {
-                                        // NOTE(kstandbridge): No extra data
-                                        ExtraData.pvBuffer = 0;
-                                        ExtraData.cbBuffer = 0;
-                                        ExtraData.BufferType = SECBUFFER_EMPTY;
-                                    }
-                                    
-                                    break;
-                                }
-                                
-                                // NOTE(kstandbridge): Some other error
-                                if(FAILED(Socket))
-                                {
-                                    __debugbreak();
-                                    Result = PushString(Arena, "Socket error");
-                                    break;
-                                }
-                                
-                                if(InputBuffers[1].BufferType == SECBUFFER_EXTRA)
-                                {
-                                    memmove(Buffer,
-                                            Buffer + (BufferLength - InputBuffers[1].cbBuffer),
-                                            InputBuffers[1].cbBuffer);
-                                    
-                                    BufferLength = InputBuffers[1].cbBuffer;
-                                }
-                                else
-                                {
-                                    BufferLength = 0;
-                                }
-                                
-                            }
-                            
-                            if(SEC_E_OK != SecurityStatus)
-                            {
-                                __debugbreak();
-                                Result = PushString(Arena, "Socket error");
-                            }
-                            else
-                            {
-                                SecurityStatus = Win32TlsEncrypt(Socket, (u8 *)Request, Length, &SSPICtxtHandle);
-                                if(SEC_E_OK == SecurityStatus)
-                                {
-                                    
-                                    // TODO(kstandbridge): Move to TlsDecrypt
-                                    {
-#if 0                                        
-                                        s32 BytesRecieved;
-                                        char Buffer[TLS_MAX_BUFSIZ];
-                                        DWORD BufferMaxLength = TLS_MAX_BUFSIZ;
-                                        DWORD BufferLength = 0;
-#else
-                                        ZeroSize(TLS_MAX_BUFSIZ, Buffer);
-                                        BufferMaxLength = TLS_MAX_BUFSIZ;
-                                        BufferLength = 0;
-#endif
-                                        
-                                        SecurityStatus = 0;
-                                        
-                                        wchar_t *At = 0;
-                                        format_string_state StringState = BeginFormatString(Arena);
-                                        
-                                        
-                                        // NOTE(kstandbridge): Read from server until we have decripted data or disconnect/session ends
-                                        for(;;)
-                                        {
-                                            // NOTE(kstandbridge): Is this the first read or last read was incomplete
-                                            if(BufferLength == 0 || SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
-                                            {
-                                                BytesRecieved = Win32Recv(Socket, &Buffer[BufferLength], BufferMaxLength - BufferLength, 0);
-                                                
-                                                if(BytesRecieved < 0)
-                                                {
-                                                    Result = PushString(Arena, "Socket error");
-                                                    break;
-                                                }
-                                                
-                                                if(BytesRecieved == 0)
-                                                {
-                                                    // NOTE(kstandbridge): Server disconnected
-                                                    if(BufferLength)
-                                                    {
-                                                        Result = PushString(Arena, "Disconnected while reciving data");
-                                                        break;
-                                                    }
-                                                    // NOTE(kstandbridge): Session ended, we read all the data
-                                                    break;
-                                                }
-                                                
-                                                BufferLength += BytesRecieved;
-                                            }
-                                            
-                                            // NOTE(kstandbridge): Try decript data
-                                            SecBuffer DecryptBuffers[4];
-                                            DecryptBuffers[0].pvBuffer = Buffer;
-                                            DecryptBuffers[0].cbBuffer = BufferLength;
-                                            DecryptBuffers[0].BufferType = SECBUFFER_DATA;
-                                            
-                                            DecryptBuffers[1].BufferType = SECBUFFER_EMPTY;
-                                            DecryptBuffers[2].BufferType = SECBUFFER_EMPTY;
-                                            DecryptBuffers[3].BufferType = SECBUFFER_EMPTY;
-                                            
-                                            SecBufferDesc DecryptBufferDesc;
-                                            DecryptBufferDesc.ulVersion = SECBUFFER_VERSION;
-                                            DecryptBufferDesc.cBuffers = 4;
-                                            DecryptBufferDesc.pBuffers = DecryptBuffers;
-                                            
-                                            SecurityStatus = Win32SecurityFunctionTable->DecryptMessage(&SSPICtxtHandle, &DecryptBufferDesc, 0, 0);
-                                            
-                                            if(SecurityStatus == SEC_E_INCOMPLETE_MESSAGE)
-                                            {
-                                                continue;
-                                            }
-                                            
-                                            if(SecurityStatus == SEC_I_CONTEXT_EXPIRED)
-                                            {
-                                                Result = PushString(Arena, "Context expired");
-                                                break;
-                                            }
-                                            
-                                            if((SecurityStatus != SEC_E_OK) &&
-                                               (SecurityStatus != SEC_I_RENEGOTIATE) &&
-                                               (SecurityStatus != SEC_I_CONTEXT_EXPIRED))
-                                            {
-                                                Result = PushString(Arena, "Decryption error");
-                                                break;
-                                            }
-                                            
-                                            SecBuffer *pDataBuffer = 0;
-                                            SecBuffer *pExtraBuffer = 0;
-                                            for(u32 Index = 0;
-                                                Index < 4;
-                                                ++Index)
-                                            {
-                                                if((pDataBuffer == 0) &&
-                                                   DecryptBuffers[Index].BufferType == SECBUFFER_DATA)
-                                                {
-                                                    pDataBuffer = DecryptBuffers + Index;
-                                                }
-                                                
-                                                if((pExtraBuffer == 0) &&
-                                                   DecryptBuffers[Index].BufferType == SECBUFFER_EXTRA)
-                                                {
-                                                    pExtraBuffer = DecryptBuffers + Index;
-                                                }
-                                            }
-                                            
-                                            if(pDataBuffer)
-                                            {
-                                                __debugbreak();
-                                                char *EndPointer = (char *)pDataBuffer->pvBuffer + pDataBuffer->cbBuffer;
-                                                EndPointer[0] = '\0';
-                                                AppendStringFormat(&StringState, "%s", (char *)pDataBuffer->pvBuffer);
-                                            }
-                                            
-                                            if(pExtraBuffer)
-                                            {
-                                                MoveMemory(Buffer, pExtraBuffer->pvBuffer, pExtraBuffer->cbBuffer);
-                                                BufferLength = pExtraBuffer->cbBuffer;
-                                                continue;
-                                            }
-                                            else
-                                            {
-                                                __debugbreak();
-                                                // NOTE(kstandbridge): This means we're done?
-                                            }
-                                            
-                                            if(SecurityStatus == SEC_I_RENEGOTIATE)
-                                            {
-                                                __debugbreak();
-                                                // TODO(kstandbridge): We need to connect again!
-                                            }
-                                            
-#if 0                                            
-                                            char *EndPointer = (char *)DecryptBuffers[1].pvBuffer + DecryptBuffers[1].cbBuffer;
-                                            EndPointer[0] = '\0';
-                                            AppendStringFormat(&StringState, "%s", (char *)DecryptBuffers[1].pvBuffer);
-                                            break;
-#endif
-                                        }
-                                        
-                                        Result = EndFormatString(&StringState);
-                                    }
-                                    
-                                }
-                                else
-                                {
-                                    Result = PushString(Arena, "Failed to send encrypted data");
-                                }
-                                
-                            }
-                        }
-                    }
-                    
-                    
-                    Win32Shutdown(Socket, SD_BOTH);
-                    Win32CloseSocket(Socket);
-                    Win32SecurityFunctionTable->DeleteSecurityContext(&SSPICtxtHandle);
-                    
-                }
-                
-                break;
-                
-            }
-        }
-        
-        Win32FreeAddrInfo(AddressInfos);
-        
-        
-    }
-    
-#if 0    
-    DebugLog(L"Data sent!");
-    char ServerReply[512];
-    wchar_t *At = 0;
-    Result = BeginPushString(Arena, &At);
-    DebugLog(L"Begin Recv");
-    while(1)
-    {
-        s32 RecieveSize = BIO_read(Bio, ServerReply, sizeof(ServerReply));
-        DebugLog(L"Recieved %d data!", RecieveSize);
-        ServerReply[RecieveSize] = '\0';
-        ContinuePushString(Arena, &Result, ServerReply, &At);
-        if (RecieveSize <= 0) break; /* 0 is end-of-stream, < 0 is an error */
-    }
-    EndPushString(Arena, &Result);
-#endif
-    
-    return Result;
 }
 
 internal u64

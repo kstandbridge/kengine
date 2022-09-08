@@ -97,7 +97,7 @@ void *memset(void *DestInit, int Source, size_t Size)
 }
 
 #pragma function(memcpy)
-void *memcpy(void *DestInit, void const *SourceInit, size_t Size)
+void *memcpy(void *DestInit, void *SourceInit, size_t Size)
 {
     unsigned char *Source = (unsigned char *)SourceInit;
     unsigned char *Dest = (unsigned char *)DestInit;
@@ -107,9 +107,11 @@ void *memcpy(void *DestInit, void const *SourceInit, size_t Size)
 }
 
 #pragma function(memmove)
-void *memmove(void *Dest, const void *Source, size_t Size)
+void *memmove(void *Dest, void *Source, size_t Size)
 {
     // TODO(kstandbridge): surely a memmove would just be a memcpy and a memset
     // do some testing with the CRT, which happens to source? 
-    return memcpy(Dest, Source, Size);
+    void *Result = memcpy(Dest, Source, Size);
+    memset(Source ,0, Size);
+    return Result;
 }

@@ -45,6 +45,13 @@ typedef enum http_response_content_type
     HttpResponseContent_HTML,
 } http_response_content_type;
 
+typedef enum http_transfer_encoding_type
+{
+    HttpTransferEncoding_Unknown,
+    
+    HttpTransferEncoding_Chunked,
+} http_transfer_encoding_type;
+
 typedef struct http_response
 {
     u8 Major;
@@ -53,6 +60,8 @@ typedef struct http_response
     // TODO(kstandbridge): Make this u16?
     http_response_code_type Code;
     string Message;
+    
+    http_transfer_encoding_type TransferEncoding;
     
     http_response_content_type ContentType;
     u32 ContentLength;

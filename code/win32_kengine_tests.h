@@ -10,7 +10,6 @@
 #include "kengine_debug_generated.h"
 #include "win32_kengine_types.h"
 #include "kengine_string.h"
-#include "kengine_http.h"
 
 
 #define WIN32_KENGINE_TESTS_H
