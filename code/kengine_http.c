@@ -26,8 +26,8 @@ BeginHttpRequest(http_client *Client, http_method_type Method, string Endpoint, 
     
     Result.Client = Client;
     Result.Method = Method;
-    Result.Endpoint;
-    Result.Accept;
+    Result.Endpoint = Endpoint;
+    Result.Accept = Accept;
     
     return Result;
 }
@@ -42,7 +42,8 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
     {
         b32 ParsingHeader = true;
         
-        format_string_state BodyStringState = BeginFormatString(PermArena);
+        format_string_state BodyStringState;
+        ZeroStruct(BodyStringState);
         
         u32 ChunkRemaing = 0;
         b32 Parsing = true;
@@ -54,20 +55,6 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
             string Response = BeginPushString(TempMem.Arena);
             umm ResponseSize = Win32RecieveDecryptedMessage(TempMem.Arena, Client->Socket, Client->Creds, Client->Context, Response.Data, TempMem.Arena->Size - TempMem.Arena->Used);
             EndPushString(&Response, TempMem.Arena, ResponseSize);
-            
-            // TODO(kstandbridge): Don't forget to remove this spammage
-            {            
-                for(umm Index = 0;
-                    Index < Response.Size;
-                    ++Index)
-                {
-                    if(Response.Data[Index] == '\0')
-                    {
-                        // NOTE(kstandbridge): If it didn't trigger here it should not trigger later
-                        __debugbreak();
-                    }
-                }
-            }
             
             if(ResponseSize == 0)
             {
@@ -90,6 +77,7 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                             ParsingHeader = false;
                             Response.Size -= (LineEnd - (char *)Response.Data) + 1;
                             Response.Data = (u8 *)LineEnd + 1;
+                            BodyStringState = BeginFormatString(PermArena);
                             break;
                         }
                         else if(StringBeginsWith(String("HTTP/"), Line))
@@ -142,31 +130,18 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                 }
             }
             
-            // TODO(kstandbridge): Don't forget to remove this spammage
-            {            
-                for(umm Index = 0;
-                    Index < Response.Size;
-                    ++Index)
-                {
-                    if(Response.Data[Index] == '\0')
-                    {
-                        // NOTE(kstandbridge): unless triggered above, no null terminators should exist in this string 
-                        __debugbreak();
-                    }
-                }
-            }
-            
             if(Result.TransferEncoding == HttpTransferEncoding_Chunked)
             {            
                 if(ChunkRemaing > 0)
                 {
+                    Assert(Response.Size > ChunkRemaing);
+                    
                     string Chunk = String_(ChunkRemaing, Response.Data);
                     
                     AppendStringFormat(&BodyStringState, "%S", Chunk);
                     // NOTE(kstandbridge): \r\n
                     Response.Data += ChunkRemaing + 2; 
                     Response.Size -= ChunkRemaing - 2;
-                    
                     ChunkRemaing = 0;
                 }
                 
@@ -188,7 +163,8 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                     }
                     if(HexLength > 4)
                     {
-                        __debugbreak();
+                        Parsing = false;
+                        break;
                     }
                     u32 Current = 3;
                     for(u32 Index = 0;
@@ -264,12 +240,27 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
     return Result;
 }
 
+inline string
+GenerateHttpMessage_(http_request *Request, memory_arena *Arena)
+{
+    // TODO(kstandbridge): Actually generate the raw message
+    format_string_state StringState = BeginFormatString(Arena);
+    AppendStringFormat(&StringState, "%S %S HTTP/1.1\r\n", HttpMethodToString(Request->Method), Request->Endpoint);
+    AppendStringFormat(&StringState, "Host: %S\r\n", Request->Client->Hostname);
+    AppendStringFormat(&StringState, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n");
+    AppendStringFormat(&StringState, "Accept: %S\r\n\r\n", HttpAcceptToString(Request->Accept));
+    
+    string Result = EndFormatString(&StringState);
+    
+    return Result;
+}
+
 inline http_response
 EndHttpRequest(http_request *Request, memory_arena *PermArena, memory_arena *TempArena)
 {
     http_client *Client = Request->Client;
     
-    Request->Raw = GenerateHttpMessage_(Request);
+    Request->Raw = GenerateHttpMessage_(Request, TempArena);
     
     http_response Result = GetSslHttpResponse(Client, PermArena, TempArena, Request->Raw);
     
