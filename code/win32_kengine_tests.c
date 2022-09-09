@@ -580,12 +580,12 @@ RunParseFromStringTests(memory_arena *Arena)
     {
         s32 First = 0;
         s32 Second = 0;
-        ParseFromString("42-24", "%d-%d", &First, &Second);
+        ParseFromString(String("42-24"), "%d-%d", &First, &Second);
         ASSERT(First == 42);
         ASSERT(Second == 24);
     }
     {
-        char *Input = "27-Nov-2020 17:52  2.13 MB";
+        string Input = String("27-Nov-2020 17:52  2.13 MB");
         char *Format = "%d-%S-%d %d:%d";
         s32 Day = 0;
         string Month;

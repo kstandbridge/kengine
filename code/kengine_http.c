@@ -44,12 +44,30 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
         
         format_string_state BodyStringState = BeginFormatString(PermArena);
         
-        for(;;)
+        u32 ChunkRemaing = 0;
+        b32 Parsing = true;
+        while(Parsing)
         {
+            temporary_memory TempMem = BeginTemporaryMemory(TempArena);
+            
             char *LineStart = 0;
-            string Response = BeginPushString(TempArena);
-            umm ResponseSize = Win32RecieveDecryptedMessage(TempArena, Client->Socket, Client->Creds, Client->Context, Response.Data, TempArena->Size - TempArena->Used);
-            EndPushString(&Response, TempArena, ResponseSize);
+            string Response = BeginPushString(TempMem.Arena);
+            umm ResponseSize = Win32RecieveDecryptedMessage(TempMem.Arena, Client->Socket, Client->Creds, Client->Context, Response.Data, TempMem.Arena->Size - TempMem.Arena->Used);
+            EndPushString(&Response, TempMem.Arena, ResponseSize);
+            
+            // TODO(kstandbridge): Don't forget to remove this spammage
+            {            
+                for(umm Index = 0;
+                    Index < Response.Size;
+                    ++Index)
+                {
+                    if(Response.Data[Index] == '\0')
+                    {
+                        // NOTE(kstandbridge): If it didn't trigger here it should not trigger later
+                        __debugbreak();
+                    }
+                }
+            }
             
             if(ResponseSize == 0)
             {
@@ -70,7 +88,7 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                         if(StringBeginsWith(String("\r\n"), Line))
                         {
                             ParsingHeader = false;
-                            Response.Size -= LineEnd - (char *)Response.Data;
+                            Response.Size -= (LineEnd - (char *)Response.Data) + 1;
                             Response.Data = (u8 *)LineEnd + 1;
                             break;
                         }
@@ -79,11 +97,8 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                             string ResponseMessage;
                             ZeroStruct(ResponseMessage);
                             
-                            // TODO(kstandbridge): Parse from string
-#if 0                                
-                            ParseFromString(Buffer, "HTTP/%d.%d %d %S",
+                            ParseFromString(Line, "HTTP/%d.%d %d %S",
                                             &Result.Major, &Result.Minor, &Result.Code, &ResponseMessage);
-#endif
                             
                             Result.Message = PushString_(PermArena, ResponseMessage.Size, ResponseMessage.Data);
                         }
@@ -127,112 +142,119 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                 }
             }
             
-            AppendStringFormat(&BodyStringState, "%S", Response);
-            if(StringContains(String("</HTML>"), Response) ||
-               StringContains(String("</html>"), Response))
-            {
-                break;
-            }
-        }
-        
-        Result.Content = EndFormatString(&BodyStringState);
-        
-        if(Result.TransferEncoding == HttpTransferEncoding_Chunked)
-        {
-            string Content = Result.Content;
-            
-            // NOTE(kstandbridge): I will never understand why HTML randomly has null terminators within it
+            // TODO(kstandbridge): Don't forget to remove this spammage
             {            
                 for(umm Index = 0;
-                    Index < Content.Size;
+                    Index < Response.Size;
                     ++Index)
                 {
-                    if(Content.Data[Index] == '\0')
+                    if(Response.Data[Index] == '\0')
                     {
-                        StringDeleteCharactersAt(&Content, Index, 1);
+                        // NOTE(kstandbridge): unless triggered above, no null terminators should exist in this string 
+                        __debugbreak();
                     }
                 }
             }
             
-            u32 ChunkSize = ((GetHex(Content.Data[0]) << 12) |
-                             (GetHex(Content.Data[1]) << 8) |
-                             (GetHex(Content.Data[2]) << 4) |
-                             (GetHex(Content.Data[3]) << 0));
-            StringDeleteCharactersAt(&Content, 0, 6);
-            
-            u32 At = 0;
-            while(ChunkSize)
+            if(Result.TransferEncoding == HttpTransferEncoding_Chunked)
+            {            
+                if(ChunkRemaing > 0)
+                {
+                    string Chunk = String_(ChunkRemaing, Response.Data);
+                    
+                    AppendStringFormat(&BodyStringState, "%S", Chunk);
+                    // NOTE(kstandbridge): \r\n
+                    Response.Data += ChunkRemaing + 2; 
+                    Response.Size -= ChunkRemaing - 2;
+                    
+                    ChunkRemaing = 0;
+                }
+                
+                while(Response.Size > 6)
+                {
+                    char Hex[4];
+                    Hex[0] = '0';
+                    Hex[1] = '0';
+                    Hex[2] = '0';
+                    Hex[3] = '0';
+                    
+                    u32 HexLength = 0;
+                    char *Parse = (char *)Response.Data;
+                    while((Parse[0] != '\r') &&
+                          (Parse[1] != '\n'))
+                    {
+                        ++HexLength;
+                        ++Parse;
+                    }
+                    if(HexLength > 4)
+                    {
+                        __debugbreak();
+                    }
+                    u32 Current = 3;
+                    for(u32 Index = 0;
+                        Index < HexLength;
+                        ++Index)
+                    {
+                        --Parse;
+                        Hex[Current--] = *Parse;
+                    }
+                    
+                    u32 ChunkSize = ((GetHex(Hex[0]) << 12) |
+                                     (GetHex(Hex[1]) << 8) |
+                                     (GetHex(Hex[2]) << 4) |
+                                     (GetHex(Hex[3]) << 0));
+                    
+                    Response.Data += HexLength + 2;
+                    Response.Size -= HexLength - 2;
+                    
+                    if(ChunkSize > Response.Size)
+                    {
+                        // NOTE(kstandbridge): Ditch null terminators
+                        while(Response.Data[Response.Size] == '\0')
+                        {
+                            --Response.Size;
+                        }
+                        
+                        ChunkRemaing = ChunkSize - Response.Size;
+                        ChunkSize -= ChunkRemaing; 
+                        ++ChunkSize; // NOTE(kstandbridge): I don't know why
+                        --ChunkRemaing; // NOTE(kstandbridge): I don't know why
+                    }
+                    
+                    string Chunk = String_(ChunkSize, Response.Data);
+                    AppendStringFormat(&BodyStringState, "%S", Chunk);
+                    
+                    if(StringContains(String("</HTML>"), Chunk) ||
+                       StringContains(String("</html>"), Chunk))
+                    {
+                        Parsing = false;
+                        break;
+                    }
+                    
+                    
+                    // NOTE(kstandbridge): additional 2 for \r\n
+                    Response.Data += ChunkSize + 2;
+                    Response.Size -= ChunkSize - 2;
+                }
+                
+            }
+            else
             {
-                At += ChunkSize;
-                while((Content.Data[At + 0] != '\r') &&
-                      (Content.Data[At + 1] != '\n'))
-                {
-                    ++At;
-                }
-                StringDeleteCharactersAt(&Content, At, 2);
+                AppendStringFormat(&BodyStringState, "%S", Response);
                 
-                char Hex[4];
-                Hex[0] = '0';
-                Hex[1] = '0';
-                Hex[2] = '0';
-                Hex[3] = '0';
-                
-                u32 HexLength = 0;
-                char *Parse = (char *)Content.Data + At;
-                while((Parse[0] != '\r') &&
-                      (Parse[1] != '\n'))
+                if(StringContains(String("</HTML>"), Response) ||
+                   StringContains(String("</html>"), Response))
                 {
-                    ++HexLength;
-                    ++Parse;
-                }
-                if(HexLength > 4)
-                {
-                    HexLength = 4;
-                }
-                u32 Current = 3;
-                for(u32 Index = 0;
-                    Index < HexLength;
-                    ++Index)
-                {
-                    --Parse;
-                    Hex[Current--] = *Parse;
+                    Parsing = false;
+                    break;
                 }
                 
-                ChunkSize = ((GetHex(Hex[0]) << 12) |
-                             (GetHex(Hex[1]) << 8) |
-                             (GetHex(Hex[2]) << 4) |
-                             (GetHex(Hex[3]) << 0));
-                
-                
-                StringDeleteCharactersAt(&Content, At, HexLength);
-                Assert(Content.Data[At + 0] == '\r');
-                Assert(Content.Data[At + 1] == '\n');
-                StringDeleteCharactersAt(&Content, At, 2);
             }
             
-            Result.Content = Content;
-            Result.ContentLength = Result.Content.Size;
-            
-            
-#if 1 
-            for(umm Index = 0;
-                Index < Content.Size;
-                ++Index)
-            {
-                if(Content.Data[Index] == '\0')
-                {
-                    __debugbreak();
-                }
-                
-                char C[2];
-                C[0] = Content.Data[Index];
-                C[1] = '\0';
-                
-                Win32OutputDebugStringA(C);
-            }
-#endif
-            
+            EndTemporaryMemory(TempMem);
         }
+        
+        Result.Content = EndFormatString(&BodyStringState);
     }
     else
     {

@@ -265,7 +265,7 @@ StringContains(string Needle, string HayStack)
 {
     b32 Result = false;
     
-    while(HayStack.Size > Needle.Size)
+    while(HayStack.Size >= Needle.Size)
     {
         if(StringBeginsWith(Needle, HayStack))
         {
@@ -738,10 +738,11 @@ StringToCString(string Text, u32 BufferSize, char *Buffer)
 }
 
 internal void
-ParseFromString_(char *Text, char *Format, va_list ArgList)
+ParseFromString_(string Text, char *Format, va_list ArgList)
 {
-    char *Source = Text;
+    char *Source = (char *)Text.Data;
     char *At = Format;
+    u32 Index = 0;
     while(At[0])
     {
         if(*At == '%')
@@ -752,7 +753,11 @@ ParseFromString_(char *Text, char *Format, va_list ArgList)
                 case 'd':
                 {
                     s32 *Value = va_arg(ArgList, s32 *);
+                    char *PosBefore = Source;
                     *Value = U32FromString_(&Source);
+                    char *PosAfter = Source;
+                    Index+= PosAfter - PosBefore;
+                    
                 } break;
                 
                 case 'S':
@@ -761,9 +766,12 @@ ParseFromString_(char *Text, char *Format, va_list ArgList)
                     SubStr->Data = (u8 *)Source;
                     ++At;
                     char End = *At;
-                    while(*Source != End)
+                    // TODO(kstandbridge): This check only works when the str is at end, make a more robust solution
+                    while((End != *Source) &&
+                          (Index < Text.Size))
                     {
                         ++Source;
+                        ++Index;
                     }
                     SubStr->Size = Source - (char *)SubStr->Data;
                     --At;
@@ -776,13 +784,14 @@ ParseFromString_(char *Text, char *Format, va_list ArgList)
         else
         {
             ++Source;
+            ++Index;
         }
         ++At;
     }
 }
 
 internal void
-ParseFromString(char *Text, char *Format, ...)
+ParseFromString(string Text, char *Format, ...)
 {
     va_list ArgList;
     

@@ -132,6 +132,9 @@ EndTemporaryMemory(temporary_memory TempMem)
     Assert(Arena->Used >= TempMem.Used);
     Arena->Used = TempMem.Used;
     Assert(Arena->TempCount > 0);
+    
+    ZeroSize(TempMem.Used, Arena->Base + Arena->Used);
+    
     --Arena->TempCount;
 }
 

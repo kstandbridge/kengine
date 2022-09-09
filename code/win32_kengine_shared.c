@@ -648,6 +648,7 @@ Win32RecieveDecryptedMessage(memory_arena *Arena, SOCKET Socket, CredHandle *SSP
                     Assert(!"Buffer not big enough?");
                 }
                 Copy(pDataBuffer->cbBuffer, pDataBuffer->pvBuffer, OutBuffer + Result);
+                
                 Result += pDataBuffer->cbBuffer;
                 
                 
@@ -657,6 +658,7 @@ Win32RecieveDecryptedMessage(memory_arena *Arena, SOCKET Socket, CredHandle *SSP
             if(pExtraBuffer)
             {
                 MoveMemory(Buffer, pExtraBuffer->pvBuffer, pExtraBuffer->cbBuffer);
+                
                 BufferLength = pExtraBuffer->cbBuffer;
                 continue;
             }
