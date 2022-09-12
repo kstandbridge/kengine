@@ -932,3 +932,162 @@ Win32GetTimestamp(s16 Year, s16 Month, s16 Day, s16 Hour, s16 Minute, s16 Second
     
     return Result;
 }
+
+internal b32
+Win32KillProcessByName(string FileName)
+{
+    b32 Result = false;
+    
+    HANDLE Snapshot = Win32CreateToolhelp32Snapshot(TH32CS_SNAPALL, 0);
+    PROCESSENTRY32 Entry;
+    ZeroStruct(Entry);
+    Entry.dwSize = sizeof(PROCESSENTRY32);
+    b32 ProcessFound = Win32Process32First(Snapshot, &Entry);
+    while(ProcessFound)
+    {
+        if(StringsAreEqual(CStringToString(Entry.szExeFile),
+                           FileName))
+        {
+            HANDLE Process = Win32OpenProcess(PROCESS_TERMINATE, false, Entry.th32ProcessID);
+            if(Process != 0)
+            {
+                Win32TerminateProcess(Process, 0);
+                Win32CloseHandle(Process);
+                break;
+            }
+            else
+            {
+                Assert(!"Lack PROCESS_TERMINATE access to Firebird.exe");
+            }
+        }
+        ProcessFound = Win32Process32Next(Snapshot, &Entry);
+    }
+    Win32CloseHandle(Snapshot);
+    
+    return Result;
+}
+
+// TODO(kstandbridge): Pipe outpack to callback?
+internal void
+Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory)
+{
+    char CPath[MAX_PATH];
+    StringToCString(Path, MAX_PATH, CPath);
+    
+    char CArgs[MAX_PATH];
+    StringToCString(Args, MAX_PATH, CArgs);
+    
+    char CWorkingDirectory[MAX_PATH];
+    StringToCString(WorkingDirectory, MAX_PATH, CWorkingDirectory);
+    
+    SECURITY_ATTRIBUTES SecurityAttributes;
+    SecurityAttributes.nLength = sizeof(SECURITY_ATTRIBUTES);
+    SecurityAttributes.lpSecurityDescriptor = 0;
+    SecurityAttributes.bInheritHandle = true;
+    
+    HANDLE InPipeRead;
+    HANDLE InPipeWrite;
+    if(Win32CreatePipe(&InPipeRead, &InPipeWrite, &SecurityAttributes, 0))
+    {
+        HANDLE OutPipeRead;
+        HANDLE OutPipeWrite;
+        if(Win32CreatePipe(&OutPipeRead, &OutPipeWrite, &SecurityAttributes, 0))
+        {
+            STARTUPINFOA StartupInfo;
+            ZeroStruct(StartupInfo);
+            StartupInfo.cb = sizeof(STARTUPINFOA);
+            StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+            StartupInfo.hStdError = OutPipeWrite;
+            StartupInfo.hStdOutput = OutPipeWrite;
+            StartupInfo.hStdInput = InPipeRead;
+            
+            PROCESS_INFORMATION ProcessInformation;
+            ZeroStruct(ProcessInformation);
+            if(Win32CreateProcessA(CPath, CArgs, &SecurityAttributes, 0, true, DETACHED_PROCESS, 
+                                   0, CWorkingDirectory, &StartupInfo, &ProcessInformation))
+            {
+#define BUFFER_SIZE 1024
+                Win32CloseHandle(OutPipeWrite);
+                Win32CloseHandle(InPipeRead);
+                
+                char ReadingBuffer[BUFFER_SIZE];
+                DWORD ReadIndex = 0;
+                b32 IsReading = Win32ReadFile(OutPipeRead, ReadingBuffer, BUFFER_SIZE, &ReadIndex, 0);
+                while(IsReading)
+                {
+                    ReadingBuffer[ReadIndex] = '\0';
+                    u32 OutputIndex = 0;
+                    char OutputBuffer[BUFFER_SIZE];
+                    for(u32 Index = 0;
+                        Index < ReadIndex;
+                        ++Index)
+                    {
+                        if(ReadingBuffer[Index] == '\0')
+                        {
+                            OutputBuffer[OutputIndex] = '\0';
+                            break;
+                        }
+                        if(ReadingBuffer[Index] == '\r')
+                        {
+                            continue;
+                        }
+                        if(ReadingBuffer[Index] == '\n')
+                        {
+                            OutputBuffer[OutputIndex] = '\0';
+                            if(OutputIndex > 0)
+                            {
+                                // TODO(kstandbridge): Pass string to callback?
+                                Win32OutputDebugStringA(OutputBuffer);
+                                Win32OutputDebugStringA("\n");
+                            }
+                            OutputIndex = 0;
+                        }
+                        else
+                        {
+                            OutputBuffer[OutputIndex++] = ReadingBuffer[Index];
+                        }
+                    }
+                    IsReading = Win32ReadFile(OutPipeRead, ReadingBuffer, BUFFER_SIZE, &ReadIndex, 0);
+                }
+            }
+            else
+            {
+                // TODO(kstandbridge): Return the exit code?
+                DWORD ErrorCode = Win32GetLastError();
+                Assert(!"Failed to create process");
+            }
+            
+            Win32CloseHandle(OutPipeRead);
+            
+            DWORD ExitCode = 0;
+            Win32GetExitCodeProcess(ProcessInformation.hProcess, &ExitCode);
+        }
+        else
+        {
+            DWORD ErrorCode = Win32GetLastError();
+            Assert(!"Failed to create out pipe");
+        }
+        
+        Win32CloseHandle(InPipeWrite);
+    }
+    else
+    {
+        DWORD ErrorCode = Win32GetLastError();
+        Assert(!"Failed to create in pipe");
+    }
+}
+
+internal void
+Win32ExecuteProcess(string Path, string Args, string WorkingDirectory)
+{
+    char CPath[MAX_PATH];
+    StringToCString(Path, MAX_PATH, CPath);
+    
+    char CArgs[MAX_PATH];
+    StringToCString(Args, MAX_PATH, CArgs);
+    
+    char CWorkingDirectory[MAX_PATH];
+    StringToCString(WorkingDirectory, MAX_PATH, CWorkingDirectory);
+    
+    Win32ShellExecuteA(0, "open", CPath, CArgs, CWorkingDirectory, 0);
+}
