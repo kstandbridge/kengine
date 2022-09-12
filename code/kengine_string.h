@@ -240,7 +240,6 @@ StringsAreEqual(string A, string B)
     return Result;
 }
 
-// TODO(kstandbridge): CStringToString
 #define String(Str) String_(sizeof(Str) - 1, (u8 *)Str)
 inline string
 String_(umm Length, u8 *Data)
@@ -250,6 +249,14 @@ String_(umm Length, u8 *Data)
     Result.Size = Length;
     Result.Data = Data;
     
+    return Result;
+}
+
+inline string
+CStringToString(char *NullTerminatedString)
+{
+    string Result = String_(GetNullTerminiatedStringLength(NullTerminatedString),
+                            (u8 *)NullTerminatedString);
     return Result;
 }
 

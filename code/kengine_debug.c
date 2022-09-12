@@ -119,7 +119,7 @@ DebugParseName(char *GUID)
     ZeroStruct(Result);
     //Result.GUID = PushString_(Arena, GetNullTerminiatedStringLength(GUID), (u8 *)GUID);
     // TODO(kstandbridge): This cannot work with dll hotloading, since the memory could no longer exist
-    Result.GUID = String_(GetNullTerminiatedStringLength(GUID), (u8 *)GUID);
+    Result.GUID = CStringToString(GUID);
     
     u32 PipeCount = 0;
     u8 *Scan = Result.GUID.Data;
@@ -166,7 +166,7 @@ GetElementFromGUID(debug_state *DebugState, u32 Index, char *GUID)
         Chain;
         Chain = Chain->NextInHash)
     {
-        if(StringsAreEqual(Chain->ParsedName.GUID, String_(GetNullTerminiatedStringLength(GUID), (u8 *)GUID)))
+        if(StringsAreEqual(Chain->ParsedName.GUID, CStringToString(GUID)))
         {
             Result = Chain;
             break;

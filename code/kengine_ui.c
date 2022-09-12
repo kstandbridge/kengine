@@ -2,7 +2,7 @@ inline ui_value *
 GetUIValue(ui_state *UIState, char *GUIDInit)
 {
     memory_arena *Arena = UIState->PermArena;
-    string GUID = String_(GetNullTerminiatedStringLength(GUIDInit), (u8 *)GUIDInit);
+    string GUID = CStringToString(GUIDInit);
     u32 HashValue = StringToHashValue(GUID);
     u32 Index = HashValue % ArrayCount(UIState->ValueHash);
     
