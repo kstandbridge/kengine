@@ -48,6 +48,8 @@ introspect(win32, Kernel32) typedef DWORD get_environment_variable_a(LPCTSTR lpN
 introspect(win32, Kernel32) typedef DWORD expand_environment_strings_a(LPCSTR lpSrc, LPSTR lpDst, DWORD nSize);
 introspect(win32, Kernel32) typedef BOOL system_time_to_file_time(const SYSTEMTIME *lpSystemTime, LPFILETIME lpFileTime);
 introspect(win32, Kernel32) typedef void output_debug_string_a(LPCSTR lpOutputString);
+introspect(win32, Kernel32) typedef HANDLE find_first_file_a(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData);
+introspect(win32, Kernel32) typedef BOOL find_next_file_a(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData);
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);
