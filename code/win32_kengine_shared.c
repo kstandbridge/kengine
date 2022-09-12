@@ -933,8 +933,14 @@ Win32GetTimestamp(s16 Year, s16 Month, s16 Day, s16 Hour, s16 Minute, s16 Second
     return Result;
 }
 
+typedef enum iterate_processes_by_name_op
+{
+    IterateProcessesByName_None,
+    IterateProcessesByName_Terminate
+} iterate_processes_by_name_op;
+
 internal b32
-Win32KillProcessByName(string FileName)
+Win32IterateProcessesByName_(string FileName, iterate_processes_by_name_op Op)
 {
     b32 Result = false;
     
@@ -951,8 +957,16 @@ Win32KillProcessByName(string FileName)
             HANDLE Process = Win32OpenProcess(PROCESS_TERMINATE, false, Entry.th32ProcessID);
             if(Process != 0)
             {
-                Win32TerminateProcess(Process, 0);
-                Win32CloseHandle(Process);
+                Result = true;
+                if(Op == IterateProcessesByName_Terminate)
+                {                    
+                    Win32TerminateProcess(Process, 0);
+                    Win32CloseHandle(Process);
+                }
+                else
+                {
+                    Assert(Op == IterateProcessesByName_None);
+                }
                 break;
             }
             else
@@ -964,6 +978,20 @@ Win32KillProcessByName(string FileName)
     }
     Win32CloseHandle(Snapshot);
     
+    return Result;
+}
+
+internal b32
+Win32KillProcessByName(string FileName)
+{
+    b32 Result = Win32IterateProcessesByName_(FileName, IterateProcessesByName_Terminate);
+    return Result;
+}
+
+internal b32
+Win32CheckForProcessByName(string FileName)
+{
+    b32 Result = Win32IterateProcessesByName_(FileName, IterateProcessesByName_None);
     return Result;
 }
 
