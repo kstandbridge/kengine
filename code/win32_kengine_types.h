@@ -11,6 +11,7 @@
 #include <Wininet.h>
 #include <sspi.h>
 #include <Schnlsp.h>
+#include <tlhelp32.h>
 
 
 
@@ -50,6 +51,18 @@ introspect(win32, Kernel32) typedef BOOL system_time_to_file_time(const SYSTEMTI
 introspect(win32, Kernel32) typedef void output_debug_string_a(LPCSTR lpOutputString);
 introspect(win32, Kernel32) typedef HANDLE find_first_file_a(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData);
 introspect(win32, Kernel32) typedef BOOL find_next_file_a(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData);
+introspect(win32, Kernel32) typedef BOOL create_process_a(LPCSTR lpApplicationName, LPSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes,
+                                                          LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles, DWORD dwCreationFlags,
+                                                          LPVOID lpEnvironment, LPCSTR lpCurrentDirectory, LPSTARTUPINFOA lpStartupInfo,
+                                                          LPPROCESS_INFORMATION lpProcessInformation);
+introspect(win32, Kernel32) typedef BOOL create_pipe(PHANDLE hReadPipe, PHANDLE hWritePipe, LPSECURITY_ATTRIBUTES lpPipeAttributes, DWORD nSize);
+introspect(win32, Kernel32) typedef BOOL get_exit_code_process(HANDLE hProcess, LPDWORD lpExitCode);
+introspect(win32, Kernel32) typedef DWORD get_last_error();
+introspect(win32, Kernel32) typedef HANDLE create_toolhelp32_snapshot(DWORD dwFlags, DWORD th32ProcessID);
+introspect(win32, Kernel32) typedef BOOL process32_first(HANDLE hSnapshot, LPPROCESSENTRY32 lppe);
+introspect(win32, Kernel32) typedef BOOL process32_next(HANDLE hSnapshot, LPPROCESSENTRY32 lppe);
+introspect(win32, Kernel32) typedef HANDLE open_process(DWORD dwDesiredAccess, BOOL  bInheritHandle, DWORD dwProcessId);
+introspect(win32, Kernel32) typedef BOOL terminate_process(HANDLE hProcess, UINT   uExitCode);
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);
@@ -122,6 +135,8 @@ introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_end();
 introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_scissor(GLint x, GLint y, GLsizei width, GLsizei height);
 
 introspect(win32, Shell32) typedef int s_h_create_directory_ex_a(HWND hwnd, LPCSTR pszPath, SECURITY_ATTRIBUTES *psa);
+introspect(win32, Shell32) typedef HINSTANCE shell_execute_a(HWND hwnd, LPCSTR lpOperation, LPCSTR lpFile, 
+                                                             LPCSTR lpParameters, LPCSTR lpDirectory, INT nShowCmd);
 
 introspect(win32, Urlmon) typedef HRESULT u_r_l_download_to_file_a(LPUNKNOWN pCaller, LPCTSTR szURL, LPCTSTR szFileName, DWORD dwReserved,LPBINDSTATUSCALLBACK lpfnCB);
 
