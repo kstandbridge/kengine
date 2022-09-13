@@ -33,13 +33,22 @@ BeginHttpRequest(http_client *Client, http_method_type Method, http_accept_type 
 }
 
 internal http_response
-GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *TempArena, string Request)
+GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *TempArena, string Request, string DownloadPath)
 {
     http_response Result;
     ZeroStruct(Result);
     
     if(Win32SendEncryptedMessage(Client->Socket, Request.Data, Request.Size, Client->Context))
     {
+        b32 DownloadResponse = (DownloadPath.Data != 0);
+        HANDLE FileHandle = 0;
+        if(DownloadResponse)
+        {
+            char CDownloadPath[MAX_PATH];
+            StringToCString(DownloadPath, MAX_PATH, CDownloadPath);
+            FileHandle = Win32CreateFileA(CDownloadPath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+        }
+        
         b32 ParsingHeader = true;
         u32 HeaderSize = 0;
         u32 ContentRemaining = U32Max;
@@ -106,7 +115,7 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                             }
                             else if(StringsAreEqual(ContentType, String("application/zip")))
                             {
-                                Result.ContentType = HttpResponseContent_ApplicaitonZip;
+                                Result.ContentType = HttpResponseContent_ApplicatonZip;
                             }
                             else
                             {
@@ -233,18 +242,32 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
             }
             else
             {
-                AppendStringFormat(&BodyStringState, "%S", Response);
-                
-                if(StringContains(String("</HTML>"), Response) ||
-                   StringContains(String("</html>"), Response))
+                if(DownloadResponse)
                 {
-                    Parsing = false;
-                    break;
+                    DWORD BytesWritten = 0;
+                    Win32WriteFile(FileHandle, Response.Data, (DWORD)Response.Size, &BytesWritten, 0);
+                    Assert(Response.Size == BytesWritten);
+                }
+                else
+                {                    
+                    AppendStringFormat(&BodyStringState, "%S", Response);
+                    
+                    if(StringContains(String("</HTML>"), Response) ||
+                       StringContains(String("</html>"), Response))
+                    {
+                        Parsing = false;
+                        break;
+                    }
                 }
                 
             }
             
             EndTemporaryMemory(TempMem);
+        }
+        
+        if(DownloadResponse)
+        {
+            Win32CloseHandle(FileHandle);
         }
         
         Result.Content = EndFormatString(&BodyStringState);
@@ -279,7 +302,7 @@ EndHttpRequest(http_request *Request, memory_arena *PermArena, memory_arena *Tem
     
     Request->Raw = GenerateHttpMessage_(Request, TempArena);
     
-    http_response Result = GetSslHttpResponse(Client, PermArena, TempArena, Request->Raw);
+    http_response Result = GetSslHttpResponse(Client, PermArena, TempArena, Request->Raw, Request->DownloadPath);
     
     
     return Result;

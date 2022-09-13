@@ -66,8 +66,15 @@ typedef struct http_request
     http_accept_type Accept;
     
     string Raw;
+    string DownloadPath;
     
 } http_request;
+
+inline void
+HttpRequestDownloadResponseToFile(http_request *Request, string DownloadPath)
+{
+    Request->DownloadPath = DownloadPath;
+}
 
 typedef enum http_response_code_type
 {
@@ -81,7 +88,7 @@ typedef enum http_response_content_type
     HttpResponseContent_Unknown,
     
     HttpResponseContent_TextHTML,
-    HttpResponseContent_ApplicaitonZip,
+    HttpResponseContent_ApplicatonZip,
 } http_response_content_type;
 
 typedef enum http_transfer_encoding_type
