@@ -7,7 +7,9 @@ BeginHttpClient(memory_arena *Arena, string Hostname, string Port)
     ZeroStruct(Result);
     
     Result.Hostname = Hostname;
-    Result.Socket = Win32SslSocketConnect(Arena, Hostname, Port, &Result.Creds, &Result.Context);
+    Result.SSPICredHandle = PushStruct(Arena, CredHandle);
+    Result.SSPICtxtHandle = PushStruct(Arena, CtxtHandle);
+    Result.Socket = Win32SslSocketConnect(Hostname, Port, Result.SSPICredHandle, Result.SSPICtxtHandle);
     
     return Result;
 }
@@ -38,7 +40,7 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
     http_response Result;
     ZeroStruct(Result);
     
-    if(Win32SendEncryptedMessage(Client->Socket, Request.Data, Request.Size, Client->Context))
+    if(Win32SendEncryptedMessage(Client->Socket, Request.Data, Request.Size, Client->SSPICtxtHandle))
     {
         b32 DownloadResponse = (DownloadPath.Data != 0);
         HANDLE FileHandle = 0;
@@ -67,7 +69,7 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
             temporary_memory TempMem = BeginTemporaryMemory(TempArena);
             char *LineStart = 0;
             string Response = BeginPushString(TempMem.Arena);
-            umm ResponseSize = Win32RecieveDecryptedMessage(TempMem.Arena, Client->Socket, Client->Creds, Client->Context, Response.Data, TempMem.Arena->Size - TempMem.Arena->Used);
+            umm ResponseSize = Win32RecieveDecryptedMessage(Client->Socket, Client->SSPICredHandle, Client->SSPICtxtHandle, Response.Data, TempMem.Arena->Size - TempMem.Arena->Used);
             EndPushString(&Response, TempMem.Arena, ResponseSize);
             
             if(ResponseSize == 0)

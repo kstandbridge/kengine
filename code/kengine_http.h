@@ -5,9 +5,8 @@ typedef struct http_client
     string Hostname;
     
     u32 Socket;
-    void *Creds;
-    void *Context;
-    
+    CredHandle *SSPICredHandle;
+    CtxtHandle *SSPICtxtHandle;
 } http_client;
 
 typedef enum http_method_type

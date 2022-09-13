@@ -374,7 +374,7 @@ Win32SendEncryptedMessage(SOCKET Socket, u8 *Input, u32 InputLength, CtxtHandle 
 #define TLS_MAX_BUFSIZ      32768
 
 internal SECURITY_STATUS 
-Win32SslClientHandshakeloop(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle)
+Win32SslClientHandshakeloop(SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle)
 {
     SECURITY_STATUS Result = SEC_I_CONTINUE_NEEDED;
     
@@ -481,7 +481,8 @@ Win32SslClientHandshakeloop(memory_arena *Arena, SOCKET Socket, CredHandle *SSPI
                 // TODO(kstandbridge): I've yet to hit this case, but we have data to deal with
                 __debugbreak();
                 
-                ExtraData.pvBuffer = PushSize(Arena, InputBuffers[1].cbBuffer);
+                char ExtraBuffer[TLS_MAX_BUFSIZ];
+                ExtraData.pvBuffer = ExtraBuffer;
                 
                 memmove(ExtraData.pvBuffer,
                         &Buffer[(BufferLength - InputBuffers[1].cbBuffer)],
@@ -532,7 +533,7 @@ Win32SslClientHandshakeloop(memory_arena *Arena, SOCKET Socket, CredHandle *SSPI
 }
 
 internal b32
-Win32RecieveDecryptedMessage(memory_arena *Arena, SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle, u8 *OutBuffer, umm OutBufferLength)
+Win32RecieveDecryptedMessage(SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle, u8 *OutBuffer, umm OutBufferLength)
 {
     umm Result = 0;
     SecPkgContext_StreamSizes StreamSizes;
@@ -670,8 +671,7 @@ Win32RecieveDecryptedMessage(memory_arena *Arena, SOCKET Socket, CredHandle *SSP
             
             if(SecurityStatus == SEC_I_RENEGOTIATE)
             {
-                Assert(!"Can't use this arena as we're writing a string to it");
-                SecurityStatus = Win32SslClientHandshakeloop(Arena, Socket, SSPICredHandle, SSPICtxtHandle);
+                SecurityStatus = Win32SslClientHandshakeloop(Socket, SSPICredHandle, SSPICtxtHandle);
                 
                 if(SecurityStatus != SEC_E_OK)
                 {
@@ -693,7 +693,7 @@ Win32RecieveDecryptedMessage(memory_arena *Arena, SOCKET Socket, CredHandle *SSP
 }
 
 internal u32
-Win32SslSocketConnect(memory_arena *Arena, string Hostname, string Port, void **Creds, void **Context)
+Win32SslSocketConnect(string Hostname, string Port, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle)
 {
     SOCKET Result = 0;
     
@@ -736,7 +736,7 @@ Win32SslSocketConnect(memory_arena *Arena, string Hostname, string Port, void **
                     //SChannelCred.palgSupportedAlgs     = Algs;
                     SChannelCred.dwFlags              |= SCH_CRED_NO_DEFAULT_CREDS;
                     SChannelCred.dwFlags              |= SCH_CRED_MANUAL_CRED_VALIDATION;
-                    CredHandle *SSPICredHandle = PushStruct(Arena, CredHandle);;
+                    
                     SECURITY_STATUS SecurityStatus = 
                         Win32SecurityFunctionTable->AcquireCredentialsHandleA(0,UNISP_NAME_A, SECPKG_CRED_OUTBOUND,
                                                                               0, &SChannelCred, 0, 0, SSPICredHandle, 0);
@@ -762,7 +762,6 @@ Win32SslSocketConnect(memory_arena *Arena, string Hostname, string Port, void **
                             BufferDesc.pBuffers = Buffers;
                             BufferDesc.ulVersion = SECBUFFER_VERSION;
                             
-                            CtxtHandle *SSPICtxtHandle = PushStruct(Arena, CtxtHandle);
                             DWORD FlagsOut;
                             SecurityStatus = 
                                 Win32SecurityFunctionTable->InitializeSecurityContextA(SSPICredHandle, 0, 0, FlagsIn, 0,
@@ -785,15 +784,12 @@ Win32SslSocketConnect(memory_arena *Arena, string Hostname, string Port, void **
                                 
                                 if(SEC_E_OK == SecurityStatus)
                                 {
-                                    SecurityStatus = Win32SslClientHandshakeloop(Arena, Result, SSPICredHandle, SSPICtxtHandle);
+                                    SecurityStatus = Win32SslClientHandshakeloop(Result, SSPICredHandle, SSPICtxtHandle);
                                     
                                     PCCERT_CONTEXT RemoteCertContext;
                                     SecurityStatus = Win32SecurityFunctionTable->QueryContextAttributes(SSPICtxtHandle,
                                                                                                         SECPKG_ATTR_REMOTE_CERT_CONTEXT,
                                                                                                         (PVOID)&RemoteCertContext);
-                                    
-                                    *Creds = (void *)SSPICredHandle;
-                                    *Context = (void *)SSPICtxtHandle;
                                     
                                     if(SecurityStatus == SEC_E_OK)
                                     {
