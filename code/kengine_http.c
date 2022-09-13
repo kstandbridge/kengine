@@ -19,7 +19,7 @@ EndHttpClient(http_client *Client)
 }
 
 inline http_request
-BeginHttpRequest(http_client *Client, http_method_type Method, string Endpoint, http_accept_type Accept)
+BeginHttpRequest(http_client *Client, http_method_type Method, http_accept_type Accept, string Endpoint)
 {
     http_request Result;
     ZeroStruct(Result);
@@ -41,7 +41,8 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
     if(Win32SendEncryptedMessage(Client->Socket, Request.Data, Request.Size, Client->Context))
     {
         b32 ParsingHeader = true;
-        
+        u32 HeaderSize = 0;
+        u32 ContentRemaining = U32Max;
         format_string_state BodyStringState;
         ZeroStruct(BodyStringState);
         
@@ -49,8 +50,12 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
         b32 Parsing = true;
         while(Parsing)
         {
-            temporary_memory TempMem = BeginTemporaryMemory(TempArena);
+            if(ContentRemaining == 0)
+            {
+                break;
+            }
             
+            temporary_memory TempMem = BeginTemporaryMemory(TempArena);
             char *LineStart = 0;
             string Response = BeginPushString(TempMem.Arena);
             umm ResponseSize = Win32RecieveDecryptedMessage(TempMem.Arena, Client->Socket, Client->Creds, Client->Context, Response.Data, TempMem.Arena->Size - TempMem.Arena->Used);
@@ -72,8 +77,10 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                        (*LineEnd  == '\n'))
                     {
                         string Line = String_(LineEnd - LineStart - 1, (u8 *)LineStart);
+                        HeaderSize += LineEnd - LineStart;
                         if(StringBeginsWith(String("\r\n"), Line))
                         {
+                            HeaderSize += 2;
                             ParsingHeader = false;
                             Response.Size -= (LineEnd - (char *)Response.Data) + 1;
                             Response.Data = (u8 *)LineEnd + 1;
@@ -95,7 +102,11 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                             string ContentType = String_(LineEnd - LineStart - 15, (u8 *)LineStart + 14);
                             if(StringsAreEqual(ContentType, String("text/html")))
                             {
-                                Result.ContentType = HttpResponseContent_HTML;
+                                Result.ContentType = HttpResponseContent_TextHTML;
+                            }
+                            else if(StringsAreEqual(ContentType, String("application/zip")))
+                            {
+                                Result.ContentType = HttpResponseContent_ApplicaitonZip;
                             }
                             else
                             {
@@ -104,7 +115,8 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                         }
                         else if(StringBeginsWith(String("Content-Length"), Line))
                         {
-                            Result.ContentLength = U32FromString(LineStart + 16);
+                            ContentRemaining = U32FromString(LineStart + 16);
+                            Result.ContentLength = ContentRemaining;
                         }
                         else if(StringBeginsWith(String("Transfer-Encoding"), Line))
                         {
@@ -128,6 +140,11 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                     ++LineEnd;
                     ++Index;
                 }
+            }
+            
+            if(!ParsingHeader)
+            {
+                ContentRemaining -= Response.Size;
             }
             
             if(Result.TransferEncoding == HttpTransferEncoding_Chunked)

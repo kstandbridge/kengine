@@ -63,6 +63,9 @@ introspect(win32, Kernel32) typedef BOOL process32_first(HANDLE hSnapshot, LPPRO
 introspect(win32, Kernel32) typedef BOOL process32_next(HANDLE hSnapshot, LPPROCESSENTRY32 lppe);
 introspect(win32, Kernel32) typedef HANDLE open_process(DWORD dwDesiredAccess, BOOL  bInheritHandle, DWORD dwProcessId);
 introspect(win32, Kernel32) typedef BOOL terminate_process(HANDLE hProcess, UINT   uExitCode);
+introspect(win32, Kernel32) typedef int multi_byte_to_wide_char(UINT CodePage, DWORD dwFlags, LPCCH lpMultiByteStr, int cbMultiByte, 
+                                                                LPWSTR lpWideCharStr, int cchWideChar);
+introspect(win32, Kernel32) typedef BOOL delete_file_a(LPCSTR lpFileName);
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);
@@ -102,7 +105,11 @@ introspect(win32, User32) typedef BOOL screen_to_client(HWND hWnd, LPPOINT lpPoi
 introspect(win32, User32) typedef BOOL get_client_rect(HWND hWnd, LPRECT lpRect);
 introspect(win32, User32) typedef BOOL destroy_window(HWND hWnd);
 
-introspect(win32, Winmm, lowerCamelCase) typedef void time_begin_period(UINT uPeriod);
+introspect(win32, Ole32) typedef HRESULT co_initialize(LPVOID pvReserved);
+introspect(win32, Ole32) typedef HRESULT co_create_instance(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID *ppv);
+introspect(win32, Ole32) typedef void co_uninitialize();
+
+introspect(win32, OleAut32) typedef void variant_init(VARIANTARG *pvarg);
 
 introspect(win32, Opengl32, lowerCamelCase) typedef HGLRC wgl_create_context(HDC unnamedParam1);
 introspect(win32, Opengl32, lowerCamelCase) typedef BOOL wgl_make_current(HDC unnamedParam1, HGLRC unnamedParam2);
@@ -134,6 +141,8 @@ introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_load_matrixf(
 introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_end();
 introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_scissor(GLint x, GLint y, GLsizei width, GLsizei height);
 
+introspect(win32, Secur32) typedef PSecurityFunctionTableA init_security_interface_a();
+
 introspect(win32, Shell32) typedef int s_h_create_directory_ex_a(HWND hwnd, LPCSTR pszPath, SECURITY_ATTRIBUTES *psa);
 introspect(win32, Shell32) typedef HINSTANCE shell_execute_a(HWND hwnd, LPCSTR lpOperation, LPCSTR lpFile, 
                                                              LPCSTR lpParameters, LPCSTR lpDirectory, INT nShowCmd);
@@ -154,7 +163,8 @@ introspect(win32, Ws2_32, lowercase) typedef int WSAAPI wsa_shutdown(SOCKET s, i
 introspect(win32, Ws2_32) typedef int w_s_a_startup(WORD wVersionRequired, LPWSADATA lpWSAData);
 introspect(win32, Ws2_32) typedef int w_s_a_cleanup();
 
-introspect(win32, Secur32) typedef PSecurityFunctionTableA init_security_interface_a();
+introspect(win32, Winmm, lowerCamelCase) typedef void time_begin_period(UINT uPeriod);
+
 
 #define WIN32_KENGINE_TYPES_H
 #endif //WIN32_KENGINE_TYPES_H

@@ -57,6 +57,8 @@ global HMODULE Opengl32;
 global HMODULE Secur32;
 global HMODULE Shell32;
 global HMODULE User32;
+global HMODULE Ole32;
+global HMODULE OleAut32;
 global HMODULE Urlmon;
 global HMODULE Winmm;
 global HMODULE Ws2_32;

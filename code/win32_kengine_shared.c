@@ -1119,3 +1119,69 @@ Win32ExecuteProcess(string Path, string Args, string WorkingDirectory)
     
     Win32ShellExecuteA(0, "open", CPath, CArgs, CWorkingDirectory, 0);
 }
+
+internal void
+Win32UnzipToFolder(string SourceZip, string DestFolder)
+{
+    if(!Win32DirectoryExists(DestFolder))
+    {
+        Win32CreateDirectory(DestFolder);
+    }
+    
+    wchar_t CSourceZip[MAX_PATH];
+    Win32MultiByteToWideChar(CP_UTF8, 0, (char *)SourceZip.Data, SourceZip.Size, CSourceZip, MAX_PATH);
+    
+    wchar_t CDestFolder[MAX_PATH];
+    Win32MultiByteToWideChar(CP_UTF8, 0, (char *)DestFolder.Data, DestFolder.Size, CDestFolder, MAX_PATH);
+    
+    CSourceZip[SourceZip.Size] = '\0';
+    CSourceZip[SourceZip.Size + 1] = '\0';
+    
+    CDestFolder[DestFolder.Size] = '\0';
+    CDestFolder[DestFolder.Size + 1] = '\0';
+    
+    HRESULT HResult;
+    IShellDispatch *ShellDispatch;
+    Folder *ToFolder = 0;
+    VARIANT OutputDirectory, SourceFile, ProgressDialog;
+    
+    Win32CoInitialize(0);
+    
+    HResult = Win32CoCreateInstance(&CLSID_Shell, 0, CLSCTX_INPROC_SERVER, &IID_IShellDispatch, (void **)&ShellDispatch);
+    
+    if (SUCCEEDED(HResult))
+    {
+        Folder *FromFolder = 0;
+        
+        Win32VariantInit(&SourceFile);
+        SourceFile.vt = VT_BSTR;
+        SourceFile.bstrVal = CSourceZip;
+        
+        Win32VariantInit(&OutputDirectory);
+        OutputDirectory.vt = VT_BSTR;
+        OutputDirectory.bstrVal = CDestFolder;
+        ShellDispatch->lpVtbl->NameSpace(ShellDispatch, OutputDirectory, &ToFolder);
+        
+        
+        ShellDispatch->lpVtbl->NameSpace(ShellDispatch, SourceFile, &FromFolder);
+        FolderItems *FolderItems = 0;
+        FromFolder->lpVtbl->Items(FromFolder, &FolderItems);
+        
+        Win32VariantInit(&ProgressDialog);
+        ProgressDialog.vt = VT_I4;
+        ProgressDialog.lVal = FOF_NO_UI;
+        
+        VARIANT ItemsToBeCopied;
+        Win32VariantInit(&ItemsToBeCopied);
+        ItemsToBeCopied.vt = VT_DISPATCH;
+        ItemsToBeCopied.pdispVal = (IDispatch *)FolderItems;
+        
+        HResult = ToFolder->lpVtbl->CopyHere(ToFolder, ItemsToBeCopied, ProgressDialog);
+        
+        Win32Sleep(1000);
+        
+        FromFolder->lpVtbl->Release(FromFolder);
+        ToFolder->lpVtbl->Release(ToFolder);
+    }
+    Win32CoUninitialize();
+}
