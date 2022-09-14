@@ -891,7 +891,6 @@ Win32SocketConnect(string Hostname, string Port)
         Assert(!"Hostname look up failed");
     }
     
-    // TODO(kstandbridge): Can I FreeAddress here or does it break the socket?
     Win32FreeAddrInfo(AddressInfo);
     
     return Result;
@@ -900,7 +899,7 @@ Win32SocketConnect(string Hostname, string Port)
 internal void
 Win32SocketClose(SOCKET Socket)
 {
-    // TODO(kstandbridge): I would maybe need to free the address here?
+    Win32Shutdown(Socket, SD_BOTH);
     Win32CloseSocket(Socket);
 }
 

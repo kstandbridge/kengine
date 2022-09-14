@@ -296,13 +296,13 @@ GenerateHttpMessage_(http_request *Request, memory_arena *Arena)
 }
 
 inline http_response
-EndHttpRequest(http_request *Request, memory_arena *PermArena, memory_arena *TempArena)
+EndHttpRequest(http_request *Request, memory_arena *Arena, memory_arena *TempArena)
 {
     http_client *Client = Request->Client;
     
     Request->Raw = GenerateHttpMessage_(Request, TempArena);
     
-    http_response Result = GetSslHttpResponse(Client, PermArena, TempArena, Request->Raw, Request->DownloadPath);
+    http_response Result = GetSslHttpResponse(Client, Arena, TempArena, Request->Raw, Request->DownloadPath);
     
     
     return Result;
