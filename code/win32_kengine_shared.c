@@ -962,7 +962,6 @@ Win32IterateProcessesByName_(string FileName, iterate_processes_by_name_op Op)
                 {
                     Assert(Op == IterateProcessesByName_None);
                 }
-                break;
             }
             else
             {
