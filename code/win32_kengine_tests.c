@@ -2,6 +2,7 @@
 #include "win32_kengine_kernel.c"
 #include "win32_kengine_generated.c"
 #include "win32_kengine_shared.c"
+#include "kengine_sha512.c"
 
 #include "kengine_random.c"
 
@@ -66,8 +67,9 @@ RunFormatStringSignedDecimalIntegerTests(memory_arena *Arena)
         string B = FormatString(Arena, "before %d after", S32Max);
         ASSERT(StringsAreEqual(A, B));
     }
+    
     {
-        string A = String("before -18446744071562067968 after");
+        string A = String("before -2147483648 after");
         string B = FormatString(Arena, "before %d after", S32Min);
         ASSERT(StringsAreEqual(A, B));
     }
@@ -639,6 +641,57 @@ DEBUGWin32ReadEntireFile(memory_arena *Arena, char *FilePath)
     return Result;
 }
 
+inline void
+RunSha512Tests(memory_arena *Arena)
+{
+    u8 Seed[32];
+    for(u32 Index = 0;
+        Index < sizeof(Seed);
+        ++Index)
+    {
+        Seed[Index] = Index;
+    }
+    
+    u8 Output[32];
+    ZeroSize(sizeof(Output), Output);
+    Sha512(Seed, sizeof(Seed), Output);
+    
+    ASSERT(Output[0] == 0x3d);
+    ASSERT(Output[1] == 0x94);
+    ASSERT(Output[2] == 0xee);
+    ASSERT(Output[3] == 0xa4);
+    ASSERT(Output[4] == 0x9c);
+    ASSERT(Output[5] == 0x58);
+    ASSERT(Output[6] == 0x0a);
+    ASSERT(Output[7] == 0xef);
+    ASSERT(Output[8] == 0x81);
+    ASSERT(Output[9] == 0x69);
+    ASSERT(Output[10] == 0x35);
+    ASSERT(Output[11] == 0x76);
+    ASSERT(Output[12] == 0x2b);
+    ASSERT(Output[13] == 0xe0);
+    ASSERT(Output[14] == 0x49);
+    ASSERT(Output[15] == 0x55);
+    ASSERT(Output[16] == 0x9d);
+    ASSERT(Output[17] == 0x6d);
+    ASSERT(Output[18] == 0x14);
+    ASSERT(Output[19] == 0x40);
+    ASSERT(Output[20] == 0xde);
+    ASSERT(Output[21] == 0xde);
+    ASSERT(Output[22] == 0x12);
+    ASSERT(Output[23] == 0xe6);
+    ASSERT(Output[24] == 0xa1);
+    ASSERT(Output[25] == 0x25);
+    ASSERT(Output[26] == 0xf1);
+    ASSERT(Output[27] == 0x84);
+    ASSERT(Output[28] == 0x1f);
+    ASSERT(Output[29] == 0xff);
+    ASSERT(Output[30] == 0x8e);
+    ASSERT(Output[31] == 0x6f);
+    
+    
+}
+
 internal b32
 RunAllTests(memory_arena *Arena)
 {
@@ -671,6 +724,8 @@ RunAllTests(memory_arena *Arena)
     RunRadixSortTests(Arena);
     
     RunParseFromStringTests(Arena);
+    
+    RunSha512Tests(Arena);
     
     b32 Result = (FailedTests == 0);
     return Result;
