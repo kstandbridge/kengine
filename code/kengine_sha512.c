@@ -95,7 +95,7 @@ global u64 GlobalKArray[80] = {
 
 
 inline sha512_state
-Sha512StateInit()
+Sha512Create()
 {
     sha512_state Result;
     
@@ -304,7 +304,7 @@ Sha512Final(sha512_state *State, u8 *Output)
 internal b32 
 Sha512(u8 *Message, u64 Length, u8 *Output)
 {
-    sha512_state State = Sha512StateInit();
+    sha512_state State = Sha512Create();
     
     b32 Result = Sha512Update(&State, Message, Length);
     if(Result)

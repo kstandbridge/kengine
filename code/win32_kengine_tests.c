@@ -3,7 +3,7 @@
 #include "win32_kengine_generated.c"
 #include "win32_kengine_shared.c"
 #include "kengine_sha512.c"
-
+#include "kengine_eddsa.c"
 #include "kengine_random.c"
 
 global s32 TotalTests;
@@ -688,7 +688,31 @@ RunSha512Tests(memory_arena *Arena)
     ASSERT(Output[29] == 0xff);
     ASSERT(Output[30] == 0x8e);
     ASSERT(Output[31] == 0x6f);
+}
+
+inline void
+RunEdDSATests(memory_arena *Arena)
+{
+    ed25519_private_key PersistentKey;
+    for(u32 Index = 0;
+        Index < 64;
+        ++Index)
+    {
+        PersistentKey.Data[Index] = Index;
+    }
     
+    ed25519_key_pair KeyPair = Ed25519CreateKeyPair(PersistentKey);
+    
+    string Message = String("some super secret message");
+    ed25519_signature Signature;
+    Ed25519Sign(&Signature, Message, KeyPair);
+    
+    b32 SignVerify = Ed25519Verify(Signature, Message, KeyPair.Public);
+    ASSERT(SignVerify);
+    
+    
+    SignVerify = Ed25519Verify(Signature, String("wrong secret message"), KeyPair.Public);
+    ASSERT(!SignVerify);
     
 }
 
@@ -726,6 +750,8 @@ RunAllTests(memory_arena *Arena)
     RunParseFromStringTests(Arena);
     
     RunSha512Tests(Arena);
+    
+    RunEdDSATests(Arena);
     
     b32 Result = (FailedTests == 0);
     return Result;
