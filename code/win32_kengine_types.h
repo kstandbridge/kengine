@@ -17,7 +17,6 @@
 
 #include <gl/gl.h>
 
-
 introspect(win32, Kernel32) typedef BOOL close_handle(HANDLE hObject);
 introspect(win32, Kernel32) typedef LONG compare_file_time(const FILETIME *lpFileTime1, const FILETIME *lpFileTime2);
 introspect(win32, Kernel32) typedef BOOL copy_file_a(LPCSTR lpExistingFileName, LPCSTR lpNewFileName, BOOL bFailIfExists);
@@ -164,6 +163,12 @@ introspect(win32, Ws2_32) typedef int w_s_a_startup(WORD wVersionRequired, LPWSA
 introspect(win32, Ws2_32) typedef int w_s_a_cleanup();
 
 introspect(win32, Winmm, lowerCamelCase) typedef void time_begin_period(UINT uPeriod);
+
+introspect(win32, Advapi32) typedef BOOL crypt_acquire_context_a(HCRYPTPROV *phProv, LPCSTR szContainer, 
+                                                                 LPCSTR szProvider, DWORD dwProvType, DWORD dwFlags);
+introspect(win32, Advapi32) typedef BOOL crypt_gen_random(HCRYPTPROV hProv, DWORD dwLen, BYTE *pbBuffer);
+introspect(win32, Advapi32) typedef BOOL crypt_release_context(HCRYPTPROV hProv, DWORD dwFlags);
+
 
 
 #define WIN32_KENGINE_TYPES_H

@@ -88,6 +88,7 @@ typedef enum http_response_content_type
     
     HttpResponseContent_TextHTML,
     HttpResponseContent_ApplicatonZip,
+    HttpResponseContent_ApplicatonOctetStream,
 } http_response_content_type;
 
 typedef enum http_transfer_encoding_type

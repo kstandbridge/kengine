@@ -52,6 +52,7 @@ FindGetProcessAddress(HMODULE Module)
 
 global HMODULE Kernel32;
 
+global HMODULE Advapi32;
 global HMODULE Gdi32;
 global HMODULE Opengl32;
 global HMODULE Secur32;

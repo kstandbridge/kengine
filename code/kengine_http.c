@@ -117,6 +117,10 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                             {
                                 Result.ContentType = HttpResponseContent_ApplicatonZip;
                             }
+                            else if(StringsAreEqual(ContentType, String("application/octet-stream")))
+                            {
+                                Result.ContentType = HttpResponseContent_ApplicatonOctetStream;
+                            }
                             else
                             {
                                 InvalidCodePath;
