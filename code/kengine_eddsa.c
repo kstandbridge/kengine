@@ -1,2051 +1,18 @@
+// NOTE(kstandbridge): This is based on http://ed25519.cr.yp.to/
 
-inline u64 
-Ed25519ScalarLoad3(const u8 *A) 
-{
-    u64 Result;
-    
-    Result = (u64) A[0];
-    Result |= ((u64) A[1]) << 8;
-    Result |= ((u64) A[2]) << 16;
-    
-    return Result;
-}
+// Heavily inspired by https://github.com/orlp/ed25519 however the code has been
+// modified extensively and does not represent the work of the origional author
 
-inline u64 
-Ed25519ScalarLoad4(const u8 *A) 
-{
-    u64 Result;
-    
-    Result = (u64) A[0];
-    Result |= ((u64) A[1]) << 8;
-    Result |= ((u64) A[2]) << 16;
-    Result |= ((u64) A[3]) << 24;
-    
-    return Result;
-}
-
-internal void
-Ed25519ScalarSlide(s8 *Out, u8 *In)
-{
-    
-    for(u32 A = 0; A < 256; ++A) 
-    {
-        Out[A] = 1 & (In[A >> 3] >> (A & 7));
-    }
-    
-    for(u32 A = 0; A < 256; ++A)
-    {
-        if (Out[A]) 
-        {
-            for(u32 B = 1; B <= 6 && A + B < 256; ++B) 
-            {
-                if(Out[A + B]) 
-                {
-                    if(Out[A] + (Out[A + B] << B) <= 15) 
-                    {
-                        Out[A] += Out[A + B] << B;
-                        Out[A + B] = 0;
-                    } 
-                    else if(Out[A] - (Out[A + B] << B) >= -15) 
-                    {
-                        Out[A] -= Out[A + B] << B;
-                        
-                        for(u32 C = A + B; C < 256; ++C) 
-                        {
-                            if(!Out[C]) 
-                            {
-                                Out[C] = 1;
-                                break;
-                            }
-                            
-                            Out[C] = 0;
-                        }
-                    } 
-                    else 
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-}
-
-internal b32
-Ed25519ConstTimeEqual(u8 *A, u8 *B)
-{
-    u8 C = 0;
-    
-    C = A[0] ^ B[0];
-#define F(i) C |= A[i] ^ B[i]
-    F(1);
-    F(2);
-    F(3);
-    F(4);
-    F(5);
-    F(6);
-    F(7);
-    F(8);
-    F(9);
-    F(10);
-    F(11);
-    F(12);
-    F(13);
-    F(14);
-    F(15);
-    F(16);
-    F(17);
-    F(18);
-    F(19);
-    F(20);
-    F(21);
-    F(22);
-    F(23);
-    F(24);
-    F(25);
-    F(26);
-    F(27);
-    F(28);
-    F(29);
-    F(30);
-    F(31);
-#undef F
-    
-    b32 Result = !C;
-    
-    return Result;
-}
-
-internal void
-Ed25519ScalarReduce(u8 *A)
-{
-    /*
-    Input:
-      s[0]+256*s[1]+...+256^63*s[63] = s
-    
-    Output:
-      s[0]+256*s[1]+...+256^31*s[31] = s mod l
-      where l = 2^252 + 27742317777372353535851937790883648493.
-      Overwrites s in place.
-    */
-    
-    s64 A0 = 2097151 & Ed25519ScalarLoad3(A);
-    s64 A1 = 2097151 & (Ed25519ScalarLoad4(A + 2) >> 5);
-    s64 A2 = 2097151 & (Ed25519ScalarLoad3(A + 5) >> 2);
-    s64 A3 = 2097151 & (Ed25519ScalarLoad4(A + 7) >> 7);
-    s64 A4 = 2097151 & (Ed25519ScalarLoad4(A + 10) >> 4);
-    s64 A5 = 2097151 & (Ed25519ScalarLoad3(A + 13) >> 1);
-    s64 A6 = 2097151 & (Ed25519ScalarLoad4(A + 15) >> 6);
-    s64 A7 = 2097151 & (Ed25519ScalarLoad3(A + 18) >> 3);
-    s64 A8 = 2097151 & Ed25519ScalarLoad3(A + 21);
-    s64 A9 = 2097151 & (Ed25519ScalarLoad4(A + 23) >> 5);
-    s64 A10 = 2097151 & (Ed25519ScalarLoad3(A + 26) >> 2);
-    s64 A11 = 2097151 & (Ed25519ScalarLoad4(A + 28) >> 7);
-    s64 A12 = 2097151 & (Ed25519ScalarLoad4(A + 31) >> 4);
-    s64 A13 = 2097151 & (Ed25519ScalarLoad3(A + 34) >> 1);
-    s64 A14 = 2097151 & (Ed25519ScalarLoad4(A + 36) >> 6);
-    s64 A15 = 2097151 & (Ed25519ScalarLoad3(A + 39) >> 3);
-    s64 A16 = 2097151 & Ed25519ScalarLoad3(A + 42);
-    s64 A17 = 2097151 & (Ed25519ScalarLoad4(A + 44) >> 5);
-    s64 A18 = 2097151 & (Ed25519ScalarLoad3(A + 47) >> 2);
-    s64 A19 = 2097151 & (Ed25519ScalarLoad4(A + 49) >> 7);
-    s64 A20 = 2097151 & (Ed25519ScalarLoad4(A + 52) >> 4);
-    s64 A21 = 2097151 & (Ed25519ScalarLoad3(A + 55) >> 1);
-    s64 A22 = 2097151 & (Ed25519ScalarLoad4(A + 57) >> 6);
-    s64 A23 = (Ed25519ScalarLoad4(A + 60) >> 3);
-    s64 Carry0;
-    s64 Carry1;
-    s64 Carry2;
-    s64 Carry3;
-    s64 Carry4;
-    s64 Carry5;
-    s64 Carry6;
-    s64 Carry7;
-    s64 Carry8;
-    s64 Carry9;
-    s64 Carry10;
-    s64 Carry11;
-    s64 Carry12;
-    s64 Carry13;
-    s64 Carry14;
-    s64 Carry15;
-    s64 Carry16;
-    
-    A11 += A23 * 666643;
-    A12 += A23 * 470296;
-    A13 += A23 * 654183;
-    A14 -= A23 * 997805;
-    A15 += A23 * 136657;
-    A16 -= A23 * 683901;
-    A23 = 0;
-    A10 += A22 * 666643;
-    A11 += A22 * 470296;
-    A12 += A22 * 654183;
-    A13 -= A22 * 997805;
-    A14 += A22 * 136657;
-    A15 -= A22 * 683901;
-    A22 = 0;
-    A9 += A21 * 666643;
-    A10 += A21 * 470296;
-    A11 += A21 * 654183;
-    A12 -= A21 * 997805;
-    A13 += A21 * 136657;
-    A14 -= A21 * 683901;
-    A21 = 0;
-    A8 += A20 * 666643;
-    A9 += A20 * 470296;
-    A10 += A20 * 654183;
-    A11 -= A20 * 997805;
-    A12 += A20 * 136657;
-    A13 -= A20 * 683901;
-    A20 = 0;
-    A7 += A19 * 666643;
-    A8 += A19 * 470296;
-    A9 += A19 * 654183;
-    A10 -= A19 * 997805;
-    A11 += A19 * 136657;
-    A12 -= A19 * 683901;
-    A19 = 0;
-    A6 += A18 * 666643;
-    A7 += A18 * 470296;
-    A8 += A18 * 654183;
-    A9 -= A18 * 997805;
-    A10 += A18 * 136657;
-    A11 -= A18 * 683901;
-    A18 = 0;
-    Carry6 = (A6 + (1 << 20)) >> 21;
-    A7 += Carry6;
-    A6 -= Carry6 << 21;
-    Carry8 = (A8 + (1 << 20)) >> 21;
-    A9 += Carry8;
-    A8 -= Carry8 << 21;
-    Carry10 = (A10 + (1 << 20)) >> 21;
-    A11 += Carry10;
-    A10 -= Carry10 << 21;
-    Carry12 = (A12 + (1 << 20)) >> 21;
-    A13 += Carry12;
-    A12 -= Carry12 << 21;
-    Carry14 = (A14 + (1 << 20)) >> 21;
-    A15 += Carry14;
-    A14 -= Carry14 << 21;
-    Carry16 = (A16 + (1 << 20)) >> 21;
-    A17 += Carry16;
-    A16 -= Carry16 << 21;
-    Carry7 = (A7 + (1 << 20)) >> 21;
-    A8 += Carry7;
-    A7 -= Carry7 << 21;
-    Carry9 = (A9 + (1 << 20)) >> 21;
-    A10 += Carry9;
-    A9 -= Carry9 << 21;
-    Carry11 = (A11 + (1 << 20)) >> 21;
-    A12 += Carry11;
-    A11 -= Carry11 << 21;
-    Carry13 = (A13 + (1 << 20)) >> 21;
-    A14 += Carry13;
-    A13 -= Carry13 << 21;
-    Carry15 = (A15 + (1 << 20)) >> 21;
-    A16 += Carry15;
-    A15 -= Carry15 << 21;
-    A5 += A17 * 666643;
-    A6 += A17 * 470296;
-    A7 += A17 * 654183;
-    A8 -= A17 * 997805;
-    A9 += A17 * 136657;
-    A10 -= A17 * 683901;
-    A17 = 0;
-    A4 += A16 * 666643;
-    A5 += A16 * 470296;
-    A6 += A16 * 654183;
-    A7 -= A16 * 997805;
-    A8 += A16 * 136657;
-    A9 -= A16 * 683901;
-    A16 = 0;
-    A3 += A15 * 666643;
-    A4 += A15 * 470296;
-    A5 += A15 * 654183;
-    A6 -= A15 * 997805;
-    A7 += A15 * 136657;
-    A8 -= A15 * 683901;
-    A15 = 0;
-    A2 += A14 * 666643;
-    A3 += A14 * 470296;
-    A4 += A14 * 654183;
-    A5 -= A14 * 997805;
-    A6 += A14 * 136657;
-    A7 -= A14 * 683901;
-    A14 = 0;
-    A1 += A13 * 666643;
-    A2 += A13 * 470296;
-    A3 += A13 * 654183;
-    A4 -= A13 * 997805;
-    A5 += A13 * 136657;
-    A6 -= A13 * 683901;
-    A13 = 0;
-    A0 += A12 * 666643;
-    A1 += A12 * 470296;
-    A2 += A12 * 654183;
-    A3 -= A12 * 997805;
-    A4 += A12 * 136657;
-    A5 -= A12 * 683901;
-    A12 = 0;
-    Carry0 = (A0 + (1 << 20)) >> 21;
-    A1 += Carry0;
-    A0 -= Carry0 << 21;
-    Carry2 = (A2 + (1 << 20)) >> 21;
-    A3 += Carry2;
-    A2 -= Carry2 << 21;
-    Carry4 = (A4 + (1 << 20)) >> 21;
-    A5 += Carry4;
-    A4 -= Carry4 << 21;
-    Carry6 = (A6 + (1 << 20)) >> 21;
-    A7 += Carry6;
-    A6 -= Carry6 << 21;
-    Carry8 = (A8 + (1 << 20)) >> 21;
-    A9 += Carry8;
-    A8 -= Carry8 << 21;
-    Carry10 = (A10 + (1 << 20)) >> 21;
-    A11 += Carry10;
-    A10 -= Carry10 << 21;
-    Carry1 = (A1 + (1 << 20)) >> 21;
-    A2 += Carry1;
-    A1 -= Carry1 << 21;
-    Carry3 = (A3 + (1 << 20)) >> 21;
-    A4 += Carry3;
-    A3 -= Carry3 << 21;
-    Carry5 = (A5 + (1 << 20)) >> 21;
-    A6 += Carry5;
-    A5 -= Carry5 << 21;
-    Carry7 = (A7 + (1 << 20)) >> 21;
-    A8 += Carry7;
-    A7 -= Carry7 << 21;
-    Carry9 = (A9 + (1 << 20)) >> 21;
-    A10 += Carry9;
-    A9 -= Carry9 << 21;
-    Carry11 = (A11 + (1 << 20)) >> 21;
-    A12 += Carry11;
-    A11 -= Carry11 << 21;
-    A0 += A12 * 666643;
-    A1 += A12 * 470296;
-    A2 += A12 * 654183;
-    A3 -= A12 * 997805;
-    A4 += A12 * 136657;
-    A5 -= A12 * 683901;
-    A12 = 0;
-    Carry0 = A0 >> 21;
-    A1 += Carry0;
-    A0 -= Carry0 << 21;
-    Carry1 = A1 >> 21;
-    A2 += Carry1;
-    A1 -= Carry1 << 21;
-    Carry2 = A2 >> 21;
-    A3 += Carry2;
-    A2 -= Carry2 << 21;
-    Carry3 = A3 >> 21;
-    A4 += Carry3;
-    A3 -= Carry3 << 21;
-    Carry4 = A4 >> 21;
-    A5 += Carry4;
-    A4 -= Carry4 << 21;
-    Carry5 = A5 >> 21;
-    A6 += Carry5;
-    A5 -= Carry5 << 21;
-    Carry6 = A6 >> 21;
-    A7 += Carry6;
-    A6 -= Carry6 << 21;
-    Carry7 = A7 >> 21;
-    A8 += Carry7;
-    A7 -= Carry7 << 21;
-    Carry8 = A8 >> 21;
-    A9 += Carry8;
-    A8 -= Carry8 << 21;
-    Carry9 = A9 >> 21;
-    A10 += Carry9;
-    A9 -= Carry9 << 21;
-    Carry10 = A10 >> 21;
-    A11 += Carry10;
-    A10 -= Carry10 << 21;
-    Carry11 = A11 >> 21;
-    A12 += Carry11;
-    A11 -= Carry11 << 21;
-    A0 += A12 * 666643;
-    A1 += A12 * 470296;
-    A2 += A12 * 654183;
-    A3 -= A12 * 997805;
-    A4 += A12 * 136657;
-    A5 -= A12 * 683901;
-    A12 = 0;
-    Carry0 = A0 >> 21;
-    A1 += Carry0;
-    A0 -= Carry0 << 21;
-    Carry1 = A1 >> 21;
-    A2 += Carry1;
-    A1 -= Carry1 << 21;
-    Carry2 = A2 >> 21;
-    A3 += Carry2;
-    A2 -= Carry2 << 21;
-    Carry3 = A3 >> 21;
-    A4 += Carry3;
-    A3 -= Carry3 << 21;
-    Carry4 = A4 >> 21;
-    A5 += Carry4;
-    A4 -= Carry4 << 21;
-    Carry5 = A5 >> 21;
-    A6 += Carry5;
-    A5 -= Carry5 << 21;
-    Carry6 = A6 >> 21;
-    A7 += Carry6;
-    A6 -= Carry6 << 21;
-    Carry7 = A7 >> 21;
-    A8 += Carry7;
-    A7 -= Carry7 << 21;
-    Carry8 = A8 >> 21;
-    A9 += Carry8;
-    A8 -= Carry8 << 21;
-    Carry9 = A9 >> 21;
-    A10 += Carry9;
-    A9 -= Carry9 << 21;
-    Carry10 = A10 >> 21;
-    A11 += Carry10;
-    A10 -= Carry10 << 21;
-    
-    A[0] = (u8) (A0 >> 0);
-    A[1] = (u8) (A0 >> 8);
-    A[2] = (u8) ((A0 >> 16) | (A1 << 5));
-    A[3] = (u8) (A1 >> 3);
-    A[4] = (u8) (A1 >> 11);
-    A[5] = (u8) ((A1 >> 19) | (A2 << 2));
-    A[6] = (u8) (A2 >> 6);
-    A[7] = (u8) ((A2 >> 14) | (A3 << 7));
-    A[8] = (u8) (A3 >> 1);
-    A[9] = (u8) (A3 >> 9);
-    A[10] = (u8) ((A3 >> 17) | (A4 << 4));
-    A[11] = (u8) (A4 >> 4);
-    A[12] = (u8) (A4 >> 12);
-    A[13] = (u8) ((A4 >> 20) | (A5 << 1));
-    A[14] = (u8) (A5 >> 7);
-    A[15] = (u8) ((A5 >> 15) | (A6 << 6));
-    A[16] = (u8) (A6 >> 2);
-    A[17] = (u8) (A6 >> 10);
-    A[18] = (u8) ((A6 >> 18) | (A7 << 3));
-    A[19] = (u8) (A7 >> 5);
-    A[20] = (u8) (A7 >> 13);
-    A[21] = (u8) (A8 >> 0);
-    A[22] = (u8) (A8 >> 8);
-    A[23] = (u8) ((A8 >> 16) | (A9 << 5));
-    A[24] = (u8) (A9 >> 3);
-    A[25] = (u8) (A9 >> 11);
-    A[26] = (u8) ((A9 >> 19) | (A10 << 2));
-    A[27] = (u8) (A10 >> 6);
-    A[28] = (u8) ((A10 >> 14) | (A11 << 7));
-    A[29] = (u8) (A11 >> 1);
-    A[30] = (u8) (A11 >> 9);
-    A[31] = (u8) (A11 >> 17);
-}
-
-internal void 
-Ed25519ScalarMultiplyAdd(u8 *Output, u8 *A, u8 *B, u8 *C) 
-{
-    /*
-    Input:
-      A[0]+256*A[1]+...+256^31*A[31] = A
-      B[0]+256*B[1]+...+256^31*B[31] = B
-      C[0]+256*C[1]+...+256^31*C[31] = C
-    
-    Output:
-      Output[0]+256*Output[1]+...+256^31*Output[31] = (AB+C) mod l
-      where l = 2^252 + 27742317777372353535851937790883648493.
-    */
-    s64 A0 = 2097151 & Ed25519ScalarLoad3(A);
-    s64 A1 = 2097151 & (Ed25519ScalarLoad4(A + 2) >> 5);
-    s64 A2 = 2097151 & (Ed25519ScalarLoad3(A + 5) >> 2);
-    s64 A3 = 2097151 & (Ed25519ScalarLoad4(A + 7) >> 7);
-    s64 A4 = 2097151 & (Ed25519ScalarLoad4(A + 10) >> 4);
-    s64 A5 = 2097151 & (Ed25519ScalarLoad3(A + 13) >> 1);
-    s64 A6 = 2097151 & (Ed25519ScalarLoad4(A + 15) >> 6);
-    s64 A7 = 2097151 & (Ed25519ScalarLoad3(A + 18) >> 3);
-    s64 A8 = 2097151 & Ed25519ScalarLoad3(A + 21);
-    s64 A9 = 2097151 & (Ed25519ScalarLoad4(A + 23) >> 5);
-    s64 A10 = 2097151 & (Ed25519ScalarLoad3(A + 26) >> 2);
-    s64 A11 = (Ed25519ScalarLoad4(A + 28) >> 7);
-    s64 B0 = 2097151 & Ed25519ScalarLoad3(B);
-    s64 B1 = 2097151 & (Ed25519ScalarLoad4(B + 2) >> 5);
-    s64 B2 = 2097151 & (Ed25519ScalarLoad3(B + 5) >> 2);
-    s64 B3 = 2097151 & (Ed25519ScalarLoad4(B + 7) >> 7);
-    s64 B4 = 2097151 & (Ed25519ScalarLoad4(B + 10) >> 4);
-    s64 B5 = 2097151 & (Ed25519ScalarLoad3(B + 13) >> 1);
-    s64 B6 = 2097151 & (Ed25519ScalarLoad4(B + 15) >> 6);
-    s64 B7 = 2097151 & (Ed25519ScalarLoad3(B + 18) >> 3);
-    s64 B8 = 2097151 & Ed25519ScalarLoad3(B + 21);
-    s64 B9 = 2097151 & (Ed25519ScalarLoad4(B + 23) >> 5);
-    s64 B10 = 2097151 & (Ed25519ScalarLoad3(B + 26) >> 2);
-    s64 B11 = (Ed25519ScalarLoad4(B + 28) >> 7);
-    s64 C0 = 2097151 & Ed25519ScalarLoad3(C);
-    s64 C1 = 2097151 & (Ed25519ScalarLoad4(C + 2) >> 5);
-    s64 C2 = 2097151 & (Ed25519ScalarLoad3(C + 5) >> 2);
-    s64 C3 = 2097151 & (Ed25519ScalarLoad4(C + 7) >> 7);
-    s64 C4 = 2097151 & (Ed25519ScalarLoad4(C + 10) >> 4);
-    s64 C5 = 2097151 & (Ed25519ScalarLoad3(C + 13) >> 1);
-    s64 C6 = 2097151 & (Ed25519ScalarLoad4(C + 15) >> 6);
-    s64 C7 = 2097151 & (Ed25519ScalarLoad3(C + 18) >> 3);
-    s64 C8 = 2097151 & Ed25519ScalarLoad3(C + 21);
-    s64 C9 = 2097151 & (Ed25519ScalarLoad4(C + 23) >> 5);
-    s64 C10 = 2097151 & (Ed25519ScalarLoad3(C + 26) >> 2);
-    s64 C11 = (Ed25519ScalarLoad4(C + 28) >> 7);
-    s64 Output0;
-    s64 Output1;
-    s64 Output2;
-    s64 Output3;
-    s64 Output4;
-    s64 Output5;
-    s64 Output6;
-    s64 Output7;
-    s64 Output8;
-    s64 Output9;
-    s64 Output10;
-    s64 Output11;
-    s64 Output12;
-    s64 Output13;
-    s64 Output14;
-    s64 Output15;
-    s64 Output16;
-    s64 Output17;
-    s64 Output18;
-    s64 Output19;
-    s64 Output20;
-    s64 Output21;
-    s64 Output22;
-    s64 Output23;
-    s64 Carry0;
-    s64 Carry1;
-    s64 Carry2;
-    s64 Carry3;
-    s64 Carry4;
-    s64 Carry5;
-    s64 Carry6;
-    s64 Carry7;
-    s64 Carry8;
-    s64 Carry9;
-    s64 Carry10;
-    s64 Carry11;
-    s64 Carry12;
-    s64 Carry13;
-    s64 Carry14;
-    s64 Carry15;
-    s64 Carry16;
-    s64 Carry17;
-    s64 Carry18;
-    s64 Carry19;
-    s64 Carry20;
-    s64 Carry21;
-    s64 Carry22;
-    
-    Output0 = C0 + A0 * B0;
-    Output1 = C1 + A0 * B1 + A1 * B0;
-    Output2 = C2 + A0 * B2 + A1 * B1 + A2 * B0;
-    Output3 = C3 + A0 * B3 + A1 * B2 + A2 * B1 + A3 * B0;
-    Output4 = C4 + A0 * B4 + A1 * B3 + A2 * B2 + A3 * B1 + A4 * B0;
-    Output5 = C5 + A0 * B5 + A1 * B4 + A2 * B3 + A3 * B2 + A4 * B1 + A5 * B0;
-    Output6 = C6 + A0 * B6 + A1 * B5 + A2 * B4 + A3 * B3 + A4 * B2 + A5 * B1 + A6 * B0;
-    Output7 = C7 + A0 * B7 + A1 * B6 + A2 * B5 + A3 * B4 + A4 * B3 + A5 * B2 + A6 * B1 + A7 * B0;
-    Output8 = C8 + A0 * B8 + A1 * B7 + A2 * B6 + A3 * B5 + A4 * B4 + A5 * B3 + A6 * B2 + A7 * B1 + A8 * B0;
-    Output9 = C9 + A0 * B9 + A1 * B8 + A2 * B7 + A3 * B6 + A4 * B5 + A5 * B4 + A6 * B3 + A7 * B2 + A8 * B1 + A9 * B0;
-    Output10 = C10 + A0 * B10 + A1 * B9 + A2 * B8 + A3 * B7 + A4 * B6 + A5 * B5 + A6 * B4 + A7 * B3 + A8 * B2 + A9 * B1 + A10 * B0;
-    Output11 = C11 + A0 * B11 + A1 * B10 + A2 * B9 + A3 * B8 + A4 * B7 + A5 * B6 + A6 * B5 + A7 * B4 + A8 * B3 + A9 * B2 + A10 * B1 + A11 * B0;
-    Output12 = A1 * B11 + A2 * B10 + A3 * B9 + A4 * B8 + A5 * B7 + A6 * B6 + A7 * B5 + A8 * B4 + A9 * B3 + A10 * B2 + A11 * B1;
-    Output13 = A2 * B11 + A3 * B10 + A4 * B9 + A5 * B8 + A6 * B7 + A7 * B6 + A8 * B5 + A9 * B4 + A10 * B3 + A11 * B2;
-    Output14 = A3 * B11 + A4 * B10 + A5 * B9 + A6 * B8 + A7 * B7 + A8 * B6 + A9 * B5 + A10 * B4 + A11 * B3;
-    Output15 = A4 * B11 + A5 * B10 + A6 * B9 + A7 * B8 + A8 * B7 + A9 * B6 + A10 * B5 + A11 * B4;
-    Output16 = A5 * B11 + A6 * B10 + A7 * B9 + A8 * B8 + A9 * B7 + A10 * B6 + A11 * B5;
-    Output17 = A6 * B11 + A7 * B10 + A8 * B9 + A9 * B8 + A10 * B7 + A11 * B6;
-    Output18 = A7 * B11 + A8 * B10 + A9 * B9 + A10 * B8 + A11 * B7;
-    Output19 = A8 * B11 + A9 * B10 + A10 * B9 + A11 * B8;
-    Output20 = A9 * B11 + A10 * B10 + A11 * B9;
-    Output21 = A10 * B11 + A11 * B10;
-    Output22 = A11 * B11;
-    Output23 = 0;
-    Carry0 = (Output0 + (1 << 20)) >> 21;
-    Output1 += Carry0;
-    Output0 -= Carry0 << 21;
-    Carry2 = (Output2 + (1 << 20)) >> 21;
-    Output3 += Carry2;
-    Output2 -= Carry2 << 21;
-    Carry4 = (Output4 + (1 << 20)) >> 21;
-    Output5 += Carry4;
-    Output4 -= Carry4 << 21;
-    Carry6 = (Output6 + (1 << 20)) >> 21;
-    Output7 += Carry6;
-    Output6 -= Carry6 << 21;
-    Carry8 = (Output8 + (1 << 20)) >> 21;
-    Output9 += Carry8;
-    Output8 -= Carry8 << 21;
-    Carry10 = (Output10 + (1 << 20)) >> 21;
-    Output11 += Carry10;
-    Output10 -= Carry10 << 21;
-    Carry12 = (Output12 + (1 << 20)) >> 21;
-    Output13 += Carry12;
-    Output12 -= Carry12 << 21;
-    Carry14 = (Output14 + (1 << 20)) >> 21;
-    Output15 += Carry14;
-    Output14 -= Carry14 << 21;
-    Carry16 = (Output16 + (1 << 20)) >> 21;
-    Output17 += Carry16;
-    Output16 -= Carry16 << 21;
-    Carry18 = (Output18 + (1 << 20)) >> 21;
-    Output19 += Carry18;
-    Output18 -= Carry18 << 21;
-    Carry20 = (Output20 + (1 << 20)) >> 21;
-    Output21 += Carry20;
-    Output20 -= Carry20 << 21;
-    Carry22 = (Output22 + (1 << 20)) >> 21;
-    Output23 += Carry22;
-    Output22 -= Carry22 << 21;
-    Carry1 = (Output1 + (1 << 20)) >> 21;
-    Output2 += Carry1;
-    Output1 -= Carry1 << 21;
-    Carry3 = (Output3 + (1 << 20)) >> 21;
-    Output4 += Carry3;
-    Output3 -= Carry3 << 21;
-    Carry5 = (Output5 + (1 << 20)) >> 21;
-    Output6 += Carry5;
-    Output5 -= Carry5 << 21;
-    Carry7 = (Output7 + (1 << 20)) >> 21;
-    Output8 += Carry7;
-    Output7 -= Carry7 << 21;
-    Carry9 = (Output9 + (1 << 20)) >> 21;
-    Output10 += Carry9;
-    Output9 -= Carry9 << 21;
-    Carry11 = (Output11 + (1 << 20)) >> 21;
-    Output12 += Carry11;
-    Output11 -= Carry11 << 21;
-    Carry13 = (Output13 + (1 << 20)) >> 21;
-    Output14 += Carry13;
-    Output13 -= Carry13 << 21;
-    Carry15 = (Output15 + (1 << 20)) >> 21;
-    Output16 += Carry15;
-    Output15 -= Carry15 << 21;
-    Carry17 = (Output17 + (1 << 20)) >> 21;
-    Output18 += Carry17;
-    Output17 -= Carry17 << 21;
-    Carry19 = (Output19 + (1 << 20)) >> 21;
-    Output20 += Carry19;
-    Output19 -= Carry19 << 21;
-    Carry21 = (Output21 + (1 << 20)) >> 21;
-    Output22 += Carry21;
-    Output21 -= Carry21 << 21;
-    Output11 += Output23 * 666643;
-    Output12 += Output23 * 470296;
-    Output13 += Output23 * 654183;
-    Output14 -= Output23 * 997805;
-    Output15 += Output23 * 136657;
-    Output16 -= Output23 * 683901;
-    Output23 = 0;
-    Output10 += Output22 * 666643;
-    Output11 += Output22 * 470296;
-    Output12 += Output22 * 654183;
-    Output13 -= Output22 * 997805;
-    Output14 += Output22 * 136657;
-    Output15 -= Output22 * 683901;
-    Output22 = 0;
-    Output9 += Output21 * 666643;
-    Output10 += Output21 * 470296;
-    Output11 += Output21 * 654183;
-    Output12 -= Output21 * 997805;
-    Output13 += Output21 * 136657;
-    Output14 -= Output21 * 683901;
-    Output21 = 0;
-    Output8 += Output20 * 666643;
-    Output9 += Output20 * 470296;
-    Output10 += Output20 * 654183;
-    Output11 -= Output20 * 997805;
-    Output12 += Output20 * 136657;
-    Output13 -= Output20 * 683901;
-    Output20 = 0;
-    Output7 += Output19 * 666643;
-    Output8 += Output19 * 470296;
-    Output9 += Output19 * 654183;
-    Output10 -= Output19 * 997805;
-    Output11 += Output19 * 136657;
-    Output12 -= Output19 * 683901;
-    Output19 = 0;
-    Output6 += Output18 * 666643;
-    Output7 += Output18 * 470296;
-    Output8 += Output18 * 654183;
-    Output9 -= Output18 * 997805;
-    Output10 += Output18 * 136657;
-    Output11 -= Output18 * 683901;
-    Output18 = 0;
-    Carry6 = (Output6 + (1 << 20)) >> 21;
-    Output7 += Carry6;
-    Output6 -= Carry6 << 21;
-    Carry8 = (Output8 + (1 << 20)) >> 21;
-    Output9 += Carry8;
-    Output8 -= Carry8 << 21;
-    Carry10 = (Output10 + (1 << 20)) >> 21;
-    Output11 += Carry10;
-    Output10 -= Carry10 << 21;
-    Carry12 = (Output12 + (1 << 20)) >> 21;
-    Output13 += Carry12;
-    Output12 -= Carry12 << 21;
-    Carry14 = (Output14 + (1 << 20)) >> 21;
-    Output15 += Carry14;
-    Output14 -= Carry14 << 21;
-    Carry16 = (Output16 + (1 << 20)) >> 21;
-    Output17 += Carry16;
-    Output16 -= Carry16 << 21;
-    Carry7 = (Output7 + (1 << 20)) >> 21;
-    Output8 += Carry7;
-    Output7 -= Carry7 << 21;
-    Carry9 = (Output9 + (1 << 20)) >> 21;
-    Output10 += Carry9;
-    Output9 -= Carry9 << 21;
-    Carry11 = (Output11 + (1 << 20)) >> 21;
-    Output12 += Carry11;
-    Output11 -= Carry11 << 21;
-    Carry13 = (Output13 + (1 << 20)) >> 21;
-    Output14 += Carry13;
-    Output13 -= Carry13 << 21;
-    Carry15 = (Output15 + (1 << 20)) >> 21;
-    Output16 += Carry15;
-    Output15 -= Carry15 << 21;
-    Output5 += Output17 * 666643;
-    Output6 += Output17 * 470296;
-    Output7 += Output17 * 654183;
-    Output8 -= Output17 * 997805;
-    Output9 += Output17 * 136657;
-    Output10 -= Output17 * 683901;
-    Output17 = 0;
-    Output4 += Output16 * 666643;
-    Output5 += Output16 * 470296;
-    Output6 += Output16 * 654183;
-    Output7 -= Output16 * 997805;
-    Output8 += Output16 * 136657;
-    Output9 -= Output16 * 683901;
-    Output16 = 0;
-    Output3 += Output15 * 666643;
-    Output4 += Output15 * 470296;
-    Output5 += Output15 * 654183;
-    Output6 -= Output15 * 997805;
-    Output7 += Output15 * 136657;
-    Output8 -= Output15 * 683901;
-    Output15 = 0;
-    Output2 += Output14 * 666643;
-    Output3 += Output14 * 470296;
-    Output4 += Output14 * 654183;
-    Output5 -= Output14 * 997805;
-    Output6 += Output14 * 136657;
-    Output7 -= Output14 * 683901;
-    Output14 = 0;
-    Output1 += Output13 * 666643;
-    Output2 += Output13 * 470296;
-    Output3 += Output13 * 654183;
-    Output4 -= Output13 * 997805;
-    Output5 += Output13 * 136657;
-    Output6 -= Output13 * 683901;
-    Output13 = 0;
-    Output0 += Output12 * 666643;
-    Output1 += Output12 * 470296;
-    Output2 += Output12 * 654183;
-    Output3 -= Output12 * 997805;
-    Output4 += Output12 * 136657;
-    Output5 -= Output12 * 683901;
-    Output12 = 0;
-    Carry0 = (Output0 + (1 << 20)) >> 21;
-    Output1 += Carry0;
-    Output0 -= Carry0 << 21;
-    Carry2 = (Output2 + (1 << 20)) >> 21;
-    Output3 += Carry2;
-    Output2 -= Carry2 << 21;
-    Carry4 = (Output4 + (1 << 20)) >> 21;
-    Output5 += Carry4;
-    Output4 -= Carry4 << 21;
-    Carry6 = (Output6 + (1 << 20)) >> 21;
-    Output7 += Carry6;
-    Output6 -= Carry6 << 21;
-    Carry8 = (Output8 + (1 << 20)) >> 21;
-    Output9 += Carry8;
-    Output8 -= Carry8 << 21;
-    Carry10 = (Output10 + (1 << 20)) >> 21;
-    Output11 += Carry10;
-    Output10 -= Carry10 << 21;
-    Carry1 = (Output1 + (1 << 20)) >> 21;
-    Output2 += Carry1;
-    Output1 -= Carry1 << 21;
-    Carry3 = (Output3 + (1 << 20)) >> 21;
-    Output4 += Carry3;
-    Output3 -= Carry3 << 21;
-    Carry5 = (Output5 + (1 << 20)) >> 21;
-    Output6 += Carry5;
-    Output5 -= Carry5 << 21;
-    Carry7 = (Output7 + (1 << 20)) >> 21;
-    Output8 += Carry7;
-    Output7 -= Carry7 << 21;
-    Carry9 = (Output9 + (1 << 20)) >> 21;
-    Output10 += Carry9;
-    Output9 -= Carry9 << 21;
-    Carry11 = (Output11 + (1 << 20)) >> 21;
-    Output12 += Carry11;
-    Output11 -= Carry11 << 21;
-    Output0 += Output12 * 666643;
-    Output1 += Output12 * 470296;
-    Output2 += Output12 * 654183;
-    Output3 -= Output12 * 997805;
-    Output4 += Output12 * 136657;
-    Output5 -= Output12 * 683901;
-    Output12 = 0;
-    Carry0 = Output0 >> 21;
-    Output1 += Carry0;
-    Output0 -= Carry0 << 21;
-    Carry1 = Output1 >> 21;
-    Output2 += Carry1;
-    Output1 -= Carry1 << 21;
-    Carry2 = Output2 >> 21;
-    Output3 += Carry2;
-    Output2 -= Carry2 << 21;
-    Carry3 = Output3 >> 21;
-    Output4 += Carry3;
-    Output3 -= Carry3 << 21;
-    Carry4 = Output4 >> 21;
-    Output5 += Carry4;
-    Output4 -= Carry4 << 21;
-    Carry5 = Output5 >> 21;
-    Output6 += Carry5;
-    Output5 -= Carry5 << 21;
-    Carry6 = Output6 >> 21;
-    Output7 += Carry6;
-    Output6 -= Carry6 << 21;
-    Carry7 = Output7 >> 21;
-    Output8 += Carry7;
-    Output7 -= Carry7 << 21;
-    Carry8 = Output8 >> 21;
-    Output9 += Carry8;
-    Output8 -= Carry8 << 21;
-    Carry9 = Output9 >> 21;
-    Output10 += Carry9;
-    Output9 -= Carry9 << 21;
-    Carry10 = Output10 >> 21;
-    Output11 += Carry10;
-    Output10 -= Carry10 << 21;
-    Carry11 = Output11 >> 21;
-    Output12 += Carry11;
-    Output11 -= Carry11 << 21;
-    Output0 += Output12 * 666643;
-    Output1 += Output12 * 470296;
-    Output2 += Output12 * 654183;
-    Output3 -= Output12 * 997805;
-    Output4 += Output12 * 136657;
-    Output5 -= Output12 * 683901;
-    Output12 = 0;
-    Carry0 = Output0 >> 21;
-    Output1 += Carry0;
-    Output0 -= Carry0 << 21;
-    Carry1 = Output1 >> 21;
-    Output2 += Carry1;
-    Output1 -= Carry1 << 21;
-    Carry2 = Output2 >> 21;
-    Output3 += Carry2;
-    Output2 -= Carry2 << 21;
-    Carry3 = Output3 >> 21;
-    Output4 += Carry3;
-    Output3 -= Carry3 << 21;
-    Carry4 = Output4 >> 21;
-    Output5 += Carry4;
-    Output4 -= Carry4 << 21;
-    Carry5 = Output5 >> 21;
-    Output6 += Carry5;
-    Output5 -= Carry5 << 21;
-    Carry6 = Output6 >> 21;
-    Output7 += Carry6;
-    Output6 -= Carry6 << 21;
-    Carry7 = Output7 >> 21;
-    Output8 += Carry7;
-    Output7 -= Carry7 << 21;
-    Carry8 = Output8 >> 21;
-    Output9 += Carry8;
-    Output8 -= Carry8 << 21;
-    Carry9 = Output9 >> 21;
-    Output10 += Carry9;
-    Output9 -= Carry9 << 21;
-    Carry10 = Output10 >> 21;
-    Output11 += Carry10;
-    Output10 -= Carry10 << 21;
-    
-    Output[0] = (u8) (Output0 >> 0);
-    Output[1] = (u8) (Output0 >> 8);
-    Output[2] = (u8) ((Output0 >> 16) | (Output1 << 5));
-    Output[3] = (u8) (Output1 >> 3);
-    Output[4] = (u8) (Output1 >> 11);
-    Output[5] = (u8) ((Output1 >> 19) | (Output2 << 2));
-    Output[6] = (u8) (Output2 >> 6);
-    Output[7] = (u8) ((Output2 >> 14) | (Output3 << 7));
-    Output[8] = (u8) (Output3 >> 1);
-    Output[9] = (u8) (Output3 >> 9);
-    Output[10] = (u8) ((Output3 >> 17) | (Output4 << 4));
-    Output[11] = (u8) (Output4 >> 4);
-    Output[12] = (u8) (Output4 >> 12);
-    Output[13] = (u8) ((Output4 >> 20) | (Output5 << 1));
-    Output[14] = (u8) (Output5 >> 7);
-    Output[15] = (u8) ((Output5 >> 15) | (Output6 << 6));
-    Output[16] = (u8) (Output6 >> 2);
-    Output[17] = (u8) (Output6 >> 10);
-    Output[18] = (u8) ((Output6 >> 18) | (Output7 << 3));
-    Output[19] = (u8) (Output7 >> 5);
-    Output[20] = (u8) (Output7 >> 13);
-    Output[21] = (u8) (Output8 >> 0);
-    Output[22] = (u8) (Output8 >> 8);
-    Output[23] = (u8) ((Output8 >> 16) | (Output9 << 5));
-    Output[24] = (u8) (Output9 >> 3);
-    Output[25] = (u8) (Output9 >> 11);
-    Output[26] = (u8) ((Output9 >> 19) | (Output10 << 2));
-    Output[27] = (u8) (Output10 >> 6);
-    Output[28] = (u8) ((Output10 >> 14) | (Output11 << 7));
-    Output[29] = (u8) (Output11 >> 1);
-    Output[30] = (u8) (Output11 >> 9);
-    Output[31] = (u8) (Output11 >> 17);
-}
-
-
-
-
-typedef struct ed25519_private_key
-{
-    u8 Data[64];
-} ed25519_private_key;
-
-typedef struct ed25519_signature
-{
-    u8 Data[64];
-} ed25519_signature;
-
-typedef struct ed25519_public_key
-{
-    u8 Data[32];
-} ed25519_public_key;
+typedef u8 ed25519_private_key[64];
+typedef u8 ed25519_public_key[32];
+typedef u8 ed25519_signature[64];
+typedef s32 ed25519_field_element[10];
 
 typedef struct ed25519_key_pair
 {
     ed25519_public_key Public;
     ed25519_private_key Private;
 } ed25519_key_pair;
-
-typedef s32 ed25519_field_element[10];
-
-inline void
-Ed25519FieldElementSet0(ed25519_field_element FieldElement)
-{
-    FieldElement[0] = 0;
-    FieldElement[1] = 0;
-    FieldElement[2] = 0;
-    FieldElement[3] = 0;
-    FieldElement[4] = 0;
-    FieldElement[5] = 0;
-    FieldElement[6] = 0;
-    FieldElement[7] = 0;
-    FieldElement[8] = 0;
-    FieldElement[9] = 0;
-}
-
-inline void
-Ed25519FieldElementSet1(ed25519_field_element FieldElement)
-{
-    FieldElement[0] = 1;
-    FieldElement[1] = 0;
-    FieldElement[2] = 0;
-    FieldElement[3] = 0;
-    FieldElement[4] = 0;
-    FieldElement[5] = 0;
-    FieldElement[6] = 0;
-    FieldElement[7] = 0;
-    FieldElement[8] = 0;
-    FieldElement[9] = 0;
-}
-
-internal void
-Ed25519FieldElementAdd(ed25519_field_element A, ed25519_field_element B, ed25519_field_element C)
-{
-    /*
-        h = f + g
-        Can overlap h with f or g.
-    
-        Preconditions:
-           |f| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
-           |g| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
-    
-        Postconditions:
-           |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
-    */
-    
-    s32 B0 = B[0];
-    s32 B1 = B[1];
-    s32 B2 = B[2];
-    s32 B3 = B[3];
-    s32 B4 = B[4];
-    s32 B5 = B[5];
-    s32 B6 = B[6];
-    s32 B7 = B[7];
-    s32 B8 = B[8];
-    s32 B9 = B[9];
-    s32 C0 = C[0];
-    s32 C1 = C[1];
-    s32 C2 = C[2];
-    s32 C3 = C[3];
-    s32 C4 = C[4];
-    s32 C5 = C[5];
-    s32 C6 = C[6];
-    s32 C7 = C[7];
-    s32 C8 = C[8];
-    s32 C9 = C[9];
-    s32 A0 = B0 + C0;
-    s32 A1 = B1 + C1;
-    s32 A2 = B2 + C2;
-    s32 A3 = B3 + C3;
-    s32 A4 = B4 + C4;
-    s32 A5 = B5 + C5;
-    s32 A6 = B6 + C6;
-    s32 A7 = B7 + C7;
-    s32 A8 = B8 + C8;
-    s32 A9 = B9 + C9;
-    
-    A[0] = A0;
-    A[1] = A1;
-    A[2] = A2;
-    A[3] = A3;
-    A[4] = A4;
-    A[5] = A5;
-    A[6] = A6;
-    A[7] = A7;
-    A[8] = A8;
-    A[9] = A9;
-}
-
-internal void
-Ed25519FieldElementSubtract(ed25519_field_element A, ed25519_field_element B, ed25519_field_element C)
-{
-    /*
-    h = f - g
-    Can overlap h with f or g.
-    
-    Preconditions:
-       |f| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
-       |g| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
-    
-    Postconditions:
-       |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
-    */
-    
-    s32 B0 = B[0];
-    s32 B1 = B[1];
-    s32 B2 = B[2];
-    s32 B3 = B[3];
-    s32 B4 = B[4];
-    s32 B5 = B[5];
-    s32 B6 = B[6];
-    s32 B7 = B[7];
-    s32 B8 = B[8];
-    s32 B9 = B[9];
-    s32 C0 = C[0];
-    s32 C1 = C[1];
-    s32 C2 = C[2];
-    s32 C3 = C[3];
-    s32 C4 = C[4];
-    s32 C5 = C[5];
-    s32 C6 = C[6];
-    s32 C7 = C[7];
-    s32 C8 = C[8];
-    s32 C9 = C[9];
-    s32 A0 = B0 - C0;
-    s32 A1 = B1 - C1;
-    s32 A2 = B2 - C2;
-    s32 A3 = B3 - C3;
-    s32 A4 = B4 - C4;
-    s32 A5 = B5 - C5;
-    s32 A6 = B6 - C6;
-    s32 A7 = B7 - C7;
-    s32 A8 = B8 - C8;
-    s32 A9 = B9 - C9;
-    
-    A[0] = A0;
-    A[1] = A1;
-    A[2] = A2;
-    A[3] = A3;
-    A[4] = A4;
-    A[5] = A5;
-    A[6] = A6;
-    A[7] = A7;
-    A[8] = A8;
-    A[9] = A9;
-}
-
-internal void
-Ed25519FieldElementMultiply(ed25519_field_element A, ed25519_field_element B, ed25519_field_element C)
-{
-    /*
-        h = f * g
-        Can overlap h with f or g.
-    
-        Preconditions:
-           |f| bounded by 1.65*2^26,1.65*2^25,1.65*2^26,1.65*2^25,etc.
-           |g| bounded by 1.65*2^26,1.65*2^25,1.65*2^26,1.65*2^25,etc.
-    
-        Postconditions:
-           |h| bounded by 1.01*2^25,1.01*2^24,1.01*2^25,1.01*2^24,etc.
-        */
-    
-    /*
-    Notes on implementation strategy:
-    
-    Using schoolbook multiplication.
-    Karatsuba would save a little in some cost models.
-    
-    Most multiplications by 2 and 19 are 32-bit precomputations;
-    cheaper than 64-bit postcomputations.
-    
-    There is one remaining multiplication by 19 in the carry chain;
-    one *19 precomputation can be merged into this,
-    but the resulting data flow is considerably less clean.
-    
-    There are 12 carries below.
-    10 of them are 2-way parallelizable and vectorizable.
-    Can get away with 11 carries, but then data flow is much deeper.
-    
-    With tighter constraints on inputs can squeeze carries into int32.
-    */
-    
-    s32 B0 = B[0];
-    s32 B1 = B[1];
-    s32 B2 = B[2];
-    s32 B3 = B[3];
-    s32 B4 = B[4];
-    s32 B5 = B[5];
-    s32 B6 = B[6];
-    s32 B7 = B[7];
-    s32 B8 = B[8];
-    s32 B9 = B[9];
-    s32 C0 = C[0];
-    s32 C1 = C[1];
-    s32 C2 = C[2];
-    s32 C3 = C[3];
-    s32 C4 = C[4];
-    s32 C5 = C[5];
-    s32 C6 = C[6];
-    s32 C7 = C[7];
-    s32 C8 = C[8];
-    s32 C9 = C[9];
-    s32 C1_19 = 19 * C1; /* 1.959375*2^29 */
-    s32 C2_19 = 19 * C2; /* 1.959375*2^30; still ok */
-    s32 C3_19 = 19 * C3;
-    s32 C4_19 = 19 * C4;
-    s32 C5_19 = 19 * C5;
-    s32 C6_19 = 19 * C6;
-    s32 C7_19 = 19 * C7;
-    s32 C8_19 = 19 * C8;
-    s32 C9_19 = 19 * C9;
-    s32 B1_2 = 2 * B1;
-    s32 B3_2 = 2 * B3;
-    s32 B5_2 = 2 * B5;
-    s32 B7_2 = 2 * B7;
-    s32 B9_2 = 2 * B9;
-    s64 B0C0    = B0   * (s64) C0;
-    s64 B0C1    = B0   * (s64) C1;
-    s64 B0C2    = B0   * (s64) C2;
-    s64 B0C3    = B0   * (s64) C3;
-    s64 B0C4    = B0   * (s64) C4;
-    s64 B0C5    = B0   * (s64) C5;
-    s64 B0C6    = B0   * (s64) C6;
-    s64 B0C7    = B0   * (s64) C7;
-    s64 B0C8    = B0   * (s64) C8;
-    s64 B0C9    = B0   * (s64) C9;
-    s64 B1C0    = B1   * (s64) C0;
-    s64 B1C1_2  = B1_2 * (s64) C1;
-    s64 B1C2    = B1   * (s64) C2;
-    s64 B1C3_2  = B1_2 * (s64) C3;
-    s64 B1C4    = B1   * (s64) C4;
-    s64 B1C5_2  = B1_2 * (s64) C5;
-    s64 B1C6    = B1   * (s64) C6;
-    s64 B1C7_2  = B1_2 * (s64) C7;
-    s64 B1C8    = B1   * (s64) C8;
-    s64 B1C9_38 = B1_2 * (s64) C9_19;
-    s64 B2C0    = B2   * (s64) C0;
-    s64 B2C1    = B2   * (s64) C1;
-    s64 B2C2    = B2   * (s64) C2;
-    s64 B2C3    = B2   * (s64) C3;
-    s64 B2C4    = B2   * (s64) C4;
-    s64 B2C5    = B2   * (s64) C5;
-    s64 B2C6    = B2   * (s64) C6;
-    s64 B2C7    = B2   * (s64) C7;
-    s64 B2C8_19 = B2   * (s64) C8_19;
-    s64 B2C9_19 = B2   * (s64) C9_19;
-    s64 B3C0    = B3   * (s64) C0;
-    s64 B3C1_2  = B3_2 * (s64) C1;
-    s64 B3C2    = B3   * (s64) C2;
-    s64 B3C3_2  = B3_2 * (s64) C3;
-    s64 B3C4    = B3   * (s64) C4;
-    s64 B3C5_2  = B3_2 * (s64) C5;
-    s64 B3C6    = B3   * (s64) C6;
-    s64 B3C7_38 = B3_2 * (s64) C7_19;
-    s64 B3C8_19 = B3   * (s64) C8_19;
-    s64 B3C9_38 = B3_2 * (s64) C9_19;
-    s64 B4C0    = B4   * (s64) C0;
-    s64 B4C1    = B4   * (s64) C1;
-    s64 B4C2    = B4   * (s64) C2;
-    s64 B4C3    = B4   * (s64) C3;
-    s64 B4C4    = B4   * (s64) C4;
-    s64 B4C5    = B4   * (s64) C5;
-    s64 B4C6_19 = B4   * (s64) C6_19;
-    s64 B4C7_19 = B4   * (s64) C7_19;
-    s64 B4C8_19 = B4   * (s64) C8_19;
-    s64 B4C9_19 = B4   * (s64) C9_19;
-    s64 B5C0    = B5   * (s64) C0;
-    s64 B5C1_2  = B5_2 * (s64) C1;
-    s64 B5C2    = B5   * (s64) C2;
-    s64 B5C3_2  = B5_2 * (s64) C3;
-    s64 B5C4    = B5   * (s64) C4;
-    s64 B5C5_38 = B5_2 * (s64) C5_19;
-    s64 B5C6_19 = B5   * (s64) C6_19;
-    s64 B5C7_38 = B5_2 * (s64) C7_19;
-    s64 B5C8_19 = B5   * (s64) C8_19;
-    s64 B5C9_38 = B5_2 * (s64) C9_19;
-    s64 B6C0    = B6   * (s64) C0;
-    s64 B6C1    = B6   * (s64) C1;
-    s64 B6C2    = B6   * (s64) C2;
-    s64 B6C3    = B6   * (s64) C3;
-    s64 B6C4_19 = B6   * (s64) C4_19;
-    s64 B6C5_19 = B6   * (s64) C5_19;
-    s64 B6C6_19 = B6   * (s64) C6_19;
-    s64 B6C7_19 = B6   * (s64) C7_19;
-    s64 B6C8_19 = B6   * (s64) C8_19;
-    s64 B6C9_19 = B6   * (s64) C9_19;
-    s64 B7C0    = B7   * (s64) C0;
-    s64 B7C1_2  = B7_2 * (s64) C1;
-    s64 B7C2    = B7   * (s64) C2;
-    s64 B7C3_38 = B7_2 * (s64) C3_19;
-    s64 B7C4_19 = B7   * (s64) C4_19;
-    s64 B7C5_38 = B7_2 * (s64) C5_19;
-    s64 B7C6_19 = B7   * (s64) C6_19;
-    s64 B7C7_38 = B7_2 * (s64) C7_19;
-    s64 B7C8_19 = B7   * (s64) C8_19;
-    s64 B7C9_38 = B7_2 * (s64) C9_19;
-    s64 B8C0    = B8   * (s64) C0;
-    s64 B8C1    = B8   * (s64) C1;
-    s64 B8C2_19 = B8   * (s64) C2_19;
-    s64 B8C3_19 = B8   * (s64) C3_19;
-    s64 B8C4_19 = B8   * (s64) C4_19;
-    s64 B8C5_19 = B8   * (s64) C5_19;
-    s64 B8C6_19 = B8   * (s64) C6_19;
-    s64 B8C7_19 = B8   * (s64) C7_19;
-    s64 B8C8_19 = B8   * (s64) C8_19;
-    s64 B8C9_19 = B8   * (s64) C9_19;
-    s64 B9C0    = B9   * (s64) C0;
-    s64 B9C1_38 = B9_2 * (s64) C1_19;
-    s64 B9C2_19 = B9   * (s64) C2_19;
-    s64 B9C3_38 = B9_2 * (s64) C3_19;
-    s64 B9C4_19 = B9   * (s64) C4_19;
-    s64 B9C5_38 = B9_2 * (s64) C5_19;
-    s64 B9C6_19 = B9   * (s64) C6_19;
-    s64 B9C7_38 = B9_2 * (s64) C7_19;
-    s64 B9C8_19 = B9   * (s64) C8_19;
-    s64 B9C9_38 = B9_2 * (s64) C9_19;
-    s64 A0 = B0C0 + B1C9_38 + B2C8_19 + B3C7_38 + B4C6_19 + B5C5_38 + B6C4_19 + B7C3_38 + B8C2_19 + B9C1_38;
-    s64 A1 = B0C1 + B1C0   + B2C9_19 + B3C8_19 + B4C7_19 + B5C6_19 + B6C5_19 + B7C4_19 + B8C3_19 + B9C2_19;
-    s64 A2 = B0C2 + B1C1_2 + B2C0   + B3C9_38 + B4C8_19 + B5C7_38 + B6C6_19 + B7C5_38 + B8C4_19 + B9C3_38;
-    s64 A3 = B0C3 + B1C2   + B2C1   + B3C0   + B4C9_19 + B5C8_19 + B6C7_19 + B7C6_19 + B8C5_19 + B9C4_19;
-    s64 A4 = B0C4 + B1C3_2 + B2C2   + B3C1_2 + B4C0   + B5C9_38 + B6C8_19 + B7C7_38 + B8C6_19 + B9C5_38;
-    s64 A5 = B0C5 + B1C4   + B2C3   + B3C2   + B4C1   + B5C0   + B6C9_19 + B7C8_19 + B8C7_19 + B9C6_19;
-    s64 A6 = B0C6 + B1C5_2 + B2C4   + B3C3_2 + B4C2   + B5C1_2 + B6C0   + B7C9_38 + B8C8_19 + B9C7_38;
-    s64 A7 = B0C7 + B1C6   + B2C5   + B3C4   + B4C3   + B5C2   + B6C1   + B7C0   + B8C9_19 + B9C8_19;
-    s64 A8 = B0C8 + B1C7_2 + B2C6   + B3C5_2 + B4C4   + B5C3_2 + B6C2   + B7C1_2 + B8C0   + B9C9_38;
-    s64 A9 = B0C9 + B1C8   + B2C7   + B3C6   + B4C5   + B5C4   + B6C3   + B7C2   + B8C1   + B9C0   ;
-    s64 Carry0;
-    s64 Carry1;
-    s64 Carry2;
-    s64 Carry3;
-    s64 Carry4;
-    s64 Carry5;
-    s64 Carry6;
-    s64 Carry7;
-    s64 Carry8;
-    s64 Carry9;
-    
-    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
-    A1 += Carry0;
-    A0 -= Carry0 << 26;
-    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
-    A5 += Carry4;
-    A4 -= Carry4 << 26;
-    
-    Carry1 = (A1 + (s64) (1 << 24)) >> 25;
-    A2 += Carry1;
-    A1 -= Carry1 << 25;
-    Carry5 = (A5 + (s64) (1 << 24)) >> 25;
-    A6 += Carry5;
-    A5 -= Carry5 << 25;
-    
-    Carry2 = (A2 + (s64) (1 << 25)) >> 26;
-    A3 += Carry2;
-    A2 -= Carry2 << 26;
-    Carry6 = (A6 + (s64) (1 << 25)) >> 26;
-    A7 += Carry6;
-    A6 -= Carry6 << 26;
-    
-    Carry3 = (A3 + (s64) (1 << 24)) >> 25;
-    A4 += Carry3;
-    A3 -= Carry3 << 25;
-    Carry7 = (A7 + (s64) (1 << 24)) >> 25;
-    A8 += Carry7;
-    A7 -= Carry7 << 25;
-    
-    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
-    A5 += Carry4;
-    A4 -= Carry4 << 26;
-    Carry8 = (A8 + (s64) (1 << 25)) >> 26;
-    A9 += Carry8;
-    A8 -= Carry8 << 26;
-    
-    Carry9 = (A9 + (s64) (1 << 24)) >> 25;
-    A0 += Carry9 * 19;
-    A9 -= Carry9 << 25;
-    
-    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
-    A1 += Carry0;
-    A0 -= Carry0 << 26;
-    
-    A[0] = (s32) A0;
-    A[1] = (s32) A1;
-    A[2] = (s32) A2;
-    A[3] = (s32) A3;
-    A[4] = (s32) A4;
-    A[5] = (s32) A5;
-    A[6] = (s32) A6;
-    A[7] = (s32) A7;
-    A[8] = (s32) A8;
-    A[9] = (s32) A9;
-}
-
-internal void
-Ed25519FieldElementSquared2(ed25519_field_element A, ed25519_field_element B)
-{
-    /*
-    A = 2 * B * B
-    Can overlap A with B.
-    
-    Preconditions:
-       |B| bounded by 1.65*2^26,1.65*2^25,1.65*2^26,1.65*2^25,etc.
-    
-    Postconditions:
-       |A| bounded by 1.01*2^25,1.01*2^24,1.01*2^25,1.01*2^24,etc.
-    */
-    s32 B0 = B[0];
-    s32 B1 = B[1];
-    s32 B2 = B[2];
-    s32 B3 = B[3];
-    s32 B4 = B[4];
-    s32 B5 = B[5];
-    s32 B6 = B[6];
-    s32 B7 = B[7];
-    s32 B8 = B[8];
-    s32 B9 = B[9];
-    s32 B0_2 = 2 * B0;
-    s32 B1_2 = 2 * B1;
-    s32 B2_2 = 2 * B2;
-    s32 B3_2 = 2 * B3;
-    s32 B4_2 = 2 * B4;
-    s32 B5_2 = 2 * B5;
-    s32 B6_2 = 2 * B6;
-    s32 B7_2 = 2 * B7;
-    s32 B5_38 = 38 * B5; /* 1.959375*2^30 */
-    s32 B6_19 = 19 * B6; /* 1.959375*2^30 */
-    s32 B7_38 = 38 * B7; /* 1.959375*2^30 */
-    s32 B8_19 = 19 * B8; /* 1.959375*2^30 */
-    s32 B9_38 = 38 * B9; /* 1.959375*2^30 */
-    s64 B0B0    = B0   * (s64) B0;
-    s64 B0B1_2  = B0_2 * (s64) B1;
-    s64 B0B2_2  = B0_2 * (s64) B2;
-    s64 B0B3_2  = B0_2 * (s64) B3;
-    s64 B0B4_2  = B0_2 * (s64) B4;
-    s64 B0B5_2  = B0_2 * (s64) B5;
-    s64 B0B6_2  = B0_2 * (s64) B6;
-    s64 B0B7_2  = B0_2 * (s64) B7;
-    s64 B0B8_2  = B0_2 * (s64) B8;
-    s64 B0B9_2  = B0_2 * (s64) B9;
-    s64 B1B1_2  = B1_2 * (s64) B1;
-    s64 B1B2_2  = B1_2 * (s64) B2;
-    s64 B1B3_4  = B1_2 * (s64) B3_2;
-    s64 B1B4_2  = B1_2 * (s64) B4;
-    s64 B1B5_4  = B1_2 * (s64) B5_2;
-    s64 B1B6_2  = B1_2 * (s64) B6;
-    s64 B1B7_4  = B1_2 * (s64) B7_2;
-    s64 B1B8_2  = B1_2 * (s64) B8;
-    s64 B1B9_76 = B1_2 * (s64) B9_38;
-    s64 B2B2    = B2   * (s64) B2;
-    s64 B2B3_2  = B2_2 * (s64) B3;
-    s64 B2B4_2  = B2_2 * (s64) B4;
-    s64 B2B5_2  = B2_2 * (s64) B5;
-    s64 B2B6_2  = B2_2 * (s64) B6;
-    s64 B2B7_2  = B2_2 * (s64) B7;
-    s64 B2B8_38 = B2_2 * (s64) B8_19;
-    s64 B2B9_38 = B2   * (s64) B9_38;
-    s64 B3B3_2  = B3_2 * (s64) B3;
-    s64 B3B4_2  = B3_2 * (s64) B4;
-    s64 B3B5_4  = B3_2 * (s64) B5_2;
-    s64 B3B6_2  = B3_2 * (s64) B6;
-    s64 B3B7_76 = B3_2 * (s64) B7_38;
-    s64 B3B8_38 = B3_2 * (s64) B8_19;
-    s64 B3B9_76 = B3_2 * (s64) B9_38;
-    s64 B4B4    = B4   * (s64) B4;
-    s64 B4B5_2  = B4_2 * (s64) B5;
-    s64 B4B6_38 = B4_2 * (s64) B6_19;
-    s64 B4B7_38 = B4   * (s64) B7_38;
-    s64 B4B8_38 = B4_2 * (s64) B8_19;
-    s64 B4B9_38 = B4   * (s64) B9_38;
-    s64 B5B5_38 = B5   * (s64) B5_38;
-    s64 B5B6_38 = B5_2 * (s64) B6_19;
-    s64 B5B7_76 = B5_2 * (s64) B7_38;
-    s64 B5B8_38 = B5_2 * (s64) B8_19;
-    s64 B5B9_76 = B5_2 * (s64) B9_38;
-    s64 B6B6_19 = B6   * (s64) B6_19;
-    s64 B6B7_38 = B6   * (s64) B7_38;
-    s64 B6B8_38 = B6_2 * (s64) B8_19;
-    s64 B6B9_38 = B6   * (s64) B9_38;
-    s64 B7B7_38 = B7   * (s64) B7_38;
-    s64 B7B8_38 = B7_2 * (s64) B8_19;
-    s64 B7B9_76 = B7_2 * (s64) B9_38;
-    s64 B8B8_19 = B8   * (s64) B8_19;
-    s64 B8B9_38 = B8   * (s64) B9_38;
-    s64 B9B9_38 = B9   * (s64) B9_38;
-    s64 A0 = B0B0  + B1B9_76 + B2B8_38 + B3B7_76 + B4B6_38 + B5B5_38;
-    s64 A1 = B0B1_2 + B2B9_38 + B3B8_38 + B4B7_38 + B5B6_38;
-    s64 A2 = B0B2_2 + B1B1_2 + B3B9_76 + B4B8_38 + B5B7_76 + B6B6_19;
-    s64 A3 = B0B3_2 + B1B2_2 + B4B9_38 + B5B8_38 + B6B7_38;
-    s64 A4 = B0B4_2 + B1B3_4 + B2B2   + B5B9_76 + B6B8_38 + B7B7_38;
-    s64 A5 = B0B5_2 + B1B4_2 + B2B3_2 + B6B9_38 + B7B8_38;
-    s64 A6 = B0B6_2 + B1B5_4 + B2B4_2 + B3B3_2 + B7B9_76 + B8B8_19;
-    s64 A7 = B0B7_2 + B1B6_2 + B2B5_2 + B3B4_2 + B8B9_38;
-    s64 A8 = B0B8_2 + B1B7_4 + B2B6_2 + B3B5_4 + B4B4   + B9B9_38;
-    s64 A9 = B0B9_2 + B1B8_2 + B2B7_2 + B3B6_2 + B4B5_2;
-    s64 Carry0;
-    s64 Carry1;
-    s64 Carry2;
-    s64 Carry3;
-    s64 Carry4;
-    s64 Carry5;
-    s64 Carry6;
-    s64 Carry7;
-    s64 Carry8;
-    s64 Carry9;
-    A0 += A0;
-    A1 += A1;
-    A2 += A2;
-    A3 += A3;
-    A4 += A4;
-    A5 += A5;
-    A6 += A6;
-    A7 += A7;
-    A8 += A8;
-    A9 += A9;
-    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
-    A1 += Carry0;
-    A0 -= Carry0 << 26;
-    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
-    A5 += Carry4;
-    A4 -= Carry4 << 26;
-    Carry1 = (A1 + (s64) (1 << 24)) >> 25;
-    A2 += Carry1;
-    A1 -= Carry1 << 25;
-    Carry5 = (A5 + (s64) (1 << 24)) >> 25;
-    A6 += Carry5;
-    A5 -= Carry5 << 25;
-    Carry2 = (A2 + (s64) (1 << 25)) >> 26;
-    A3 += Carry2;
-    A2 -= Carry2 << 26;
-    Carry6 = (A6 + (s64) (1 << 25)) >> 26;
-    A7 += Carry6;
-    A6 -= Carry6 << 26;
-    Carry3 = (A3 + (s64) (1 << 24)) >> 25;
-    A4 += Carry3;
-    A3 -= Carry3 << 25;
-    Carry7 = (A7 + (s64) (1 << 24)) >> 25;
-    A8 += Carry7;
-    A7 -= Carry7 << 25;
-    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
-    A5 += Carry4;
-    A4 -= Carry4 << 26;
-    Carry8 = (A8 + (s64) (1 << 25)) >> 26;
-    A9 += Carry8;
-    A8 -= Carry8 << 26;
-    Carry9 = (A9 + (s64) (1 << 24)) >> 25;
-    A0 += Carry9 * 19;
-    A9 -= Carry9 << 25;
-    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
-    A1 += Carry0;
-    A0 -= Carry0 << 26;
-    A[0] = (s32) A0;
-    A[1] = (s32) A1;
-    A[2] = (s32) A2;
-    A[3] = (s32) A3;
-    A[4] = (s32) A4;
-    A[5] = (s32) A5;
-    A[6] = (s32) A6;
-    A[7] = (s32) A7;
-    A[8] = (s32) A8;
-    A[9] = (s32) A9;
-}
-
-internal void
-Ed25519FieldElementSquared(ed25519_field_element A, ed25519_field_element B)
-{
-    /*
-     A = B * B
-    Can overlap A with B.
-    
-    Preconditions:
-       |A| bounded by 1.65*2^26,1.65*2^25,1.65*2^26,1.65*2^25,etc.
-    
-    Postconditions:
-       |B| bounded by 1.01*2^25,1.01*2^24,1.01*2^25,1.01*2^24,etc.
-    */
-    
-    s32 B0 = B[0];
-    s32 B1 = B[1];
-    s32 B2 = B[2];
-    s32 B3 = B[3];
-    s32 B4 = B[4];
-    s32 B5 = B[5];
-    s32 B6 = B[6];
-    s32 B7 = B[7];
-    s32 B8 = B[8];
-    s32 B9 = B[9];
-    s32 B0_2 = 2 * B0;
-    s32 B1_2 = 2 * B1;
-    s32 B2_2 = 2 * B2;
-    s32 B3_2 = 2 * B3;
-    s32 B4_2 = 2 * B4;
-    s32 B5_2 = 2 * B5;
-    s32 B6_2 = 2 * B6;
-    s32 B7_2 = 2 * B7;
-    s32 B5_38 = 38 * B5; /* 1.959375*2^30 */
-    s32 B6_19 = 19 * B6; /* 1.959375*2^30 */
-    s32 B7_38 = 38 * B7; /* 1.959375*2^30 */
-    s32 B8_19 = 19 * B8; /* 1.959375*2^30 */
-    s32 B9_38 = 38 * B9; /* 1.959375*2^30 */
-    s64 B0B0    = B0   * (s64) B0;
-    s64 B0B1_2  = B0_2 * (s64) B1;
-    s64 B0B2_2  = B0_2 * (s64) B2;
-    s64 B0B3_2  = B0_2 * (s64) B3;
-    s64 B0B4_2  = B0_2 * (s64) B4;
-    s64 B0B5_2  = B0_2 * (s64) B5;
-    s64 B0B6_2  = B0_2 * (s64) B6;
-    s64 B0B7_2  = B0_2 * (s64) B7;
-    s64 B0B8_2  = B0_2 * (s64) B8;
-    s64 B0B9_2  = B0_2 * (s64) B9;
-    s64 B1B1_2  = B1_2 * (s64) B1;
-    s64 B1B2_2  = B1_2 * (s64) B2;
-    s64 B1B3_4  = B1_2 * (s64) B3_2;
-    s64 B1B4_2  = B1_2 * (s64) B4;
-    s64 B1B5_4  = B1_2 * (s64) B5_2;
-    s64 B1B6_2  = B1_2 * (s64) B6;
-    s64 B1B7_4  = B1_2 * (s64) B7_2;
-    s64 B1B8_2  = B1_2 * (s64) B8;
-    s64 B1B9_76 = B1_2 * (s64) B9_38;
-    s64 B2B2    = B2   * (s64) B2;
-    s64 B2B3_2  = B2_2 * (s64) B3;
-    s64 B2B4_2  = B2_2 * (s64) B4;
-    s64 B2B5_2  = B2_2 * (s64) B5;
-    s64 B2B6_2  = B2_2 * (s64) B6;
-    s64 B2B7_2  = B2_2 * (s64) B7;
-    s64 B2B8_38 = B2_2 * (s64) B8_19;
-    s64 B2B9_38 = B2   * (s64) B9_38;
-    s64 B3B3_2  = B3_2 * (s64) B3;
-    s64 B3B4_2  = B3_2 * (s64) B4;
-    s64 B3B5_4  = B3_2 * (s64) B5_2;
-    s64 B3B6_2  = B3_2 * (s64) B6;
-    s64 B3B7_76 = B3_2 * (s64) B7_38;
-    s64 B3B8_38 = B3_2 * (s64) B8_19;
-    s64 B3B9_76 = B3_2 * (s64) B9_38;
-    s64 B4B4    = B4   * (s64) B4;
-    s64 B4B5_2  = B4_2 * (s64) B5;
-    s64 B4B6_38 = B4_2 * (s64) B6_19;
-    s64 B4B7_38 = B4   * (s64) B7_38;
-    s64 B4B8_38 = B4_2 * (s64) B8_19;
-    s64 B4B9_38 = B4   * (s64) B9_38;
-    s64 B5B5_38 = B5   * (s64) B5_38;
-    s64 B5B6_38 = B5_2 * (s64) B6_19;
-    s64 B5B7_76 = B5_2 * (s64) B7_38;
-    s64 B5B8_38 = B5_2 * (s64) B8_19;
-    s64 B5B9_76 = B5_2 * (s64) B9_38;
-    s64 B6B6_19 = B6   * (s64) B6_19;
-    s64 B6B7_38 = B6   * (s64) B7_38;
-    s64 B6B8_38 = B6_2 * (s64) B8_19;
-    s64 B6B9_38 = B6   * (s64) B9_38;
-    s64 B7B7_38 = B7   * (s64) B7_38;
-    s64 B7B8_38 = B7_2 * (s64) B8_19;
-    s64 B7B9_76 = B7_2 * (s64) B9_38;
-    s64 B8B8_19 = B8   * (s64) B8_19;
-    s64 B8B9_38 = B8   * (s64) B9_38;
-    s64 B9B9_38 = B9   * (s64) B9_38;
-    s64 A0 = B0B0  + B1B9_76 + B2B8_38 + B3B7_76 + B4B6_38 + B5B5_38;
-    s64 A1 = B0B1_2 + B2B9_38 + B3B8_38 + B4B7_38 + B5B6_38;
-    s64 A2 = B0B2_2 + B1B1_2 + B3B9_76 + B4B8_38 + B5B7_76 + B6B6_19;
-    s64 A3 = B0B3_2 + B1B2_2 + B4B9_38 + B5B8_38 + B6B7_38;
-    s64 A4 = B0B4_2 + B1B3_4 + B2B2   + B5B9_76 + B6B8_38 + B7B7_38;
-    s64 A5 = B0B5_2 + B1B4_2 + B2B3_2 + B6B9_38 + B7B8_38;
-    s64 A6 = B0B6_2 + B1B5_4 + B2B4_2 + B3B3_2 + B7B9_76 + B8B8_19;
-    s64 A7 = B0B7_2 + B1B6_2 + B2B5_2 + B3B4_2 + B8B9_38;
-    s64 A8 = B0B8_2 + B1B7_4 + B2B6_2 + B3B5_4 + B4B4   + B9B9_38;
-    s64 A9 = B0B9_2 + B1B8_2 + B2B7_2 + B3B6_2 + B4B5_2;
-    s64 Carry0;
-    s64 Carry1;
-    s64 Carry2;
-    s64 Carry3;
-    s64 Carry4;
-    s64 Carry5;
-    s64 Carry6;
-    s64 Carry7;
-    s64 Carry8;
-    s64 Carry9;
-    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
-    A1 += Carry0;
-    A0 -= Carry0 << 26;
-    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
-    A5 += Carry4;
-    A4 -= Carry4 << 26;
-    Carry1 = (A1 + (s64) (1 << 24)) >> 25;
-    A2 += Carry1;
-    A1 -= Carry1 << 25;
-    Carry5 = (A5 + (s64) (1 << 24)) >> 25;
-    A6 += Carry5;
-    A5 -= Carry5 << 25;
-    Carry2 = (A2 + (s64) (1 << 25)) >> 26;
-    A3 += Carry2;
-    A2 -= Carry2 << 26;
-    Carry6 = (A6 + (s64) (1 << 25)) >> 26;
-    A7 += Carry6;
-    A6 -= Carry6 << 26;
-    Carry3 = (A3 + (s64) (1 << 24)) >> 25;
-    A4 += Carry3;
-    A3 -= Carry3 << 25;
-    Carry7 = (A7 + (s64) (1 << 24)) >> 25;
-    A8 += Carry7;
-    A7 -= Carry7 << 25;
-    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
-    A5 += Carry4;
-    A4 -= Carry4 << 26;
-    Carry8 = (A8 + (s64) (1 << 25)) >> 26;
-    A9 += Carry8;
-    A8 -= Carry8 << 26;
-    Carry9 = (A9 + (s64) (1 << 24)) >> 25;
-    A0 += Carry9 * 19;
-    A9 -= Carry9 << 25;
-    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
-    A1 += Carry0;
-    A0 -= Carry0 << 26;
-    A[0] = (s32) A0;
-    A[1] = (s32) A1;
-    A[2] = (s32) A2;
-    A[3] = (s32) A3;
-    A[4] = (s32) A4;
-    A[5] = (s32) A5;
-    A[6] = (s32) A6;
-    A[7] = (s32) A7;
-    A[8] = (s32) A8;
-    A[9] = (s32) A9;
-}
-
-internal void
-Ed25519FieldElementMove(ed25519_field_element A, ed25519_field_element B, u32 X)
-{
-    s32 A0 = A[0];
-    s32 A1 = A[1];
-    s32 A2 = A[2];
-    s32 A3 = A[3];
-    s32 A4 = A[4];
-    s32 A5 = A[5];
-    s32 A6 = A[6];
-    s32 A7 = A[7];
-    s32 A8 = A[8];
-    s32 A9 = A[9];
-    s32 B0 = B[0];
-    s32 B1 = B[1];
-    s32 B2 = B[2];
-    s32 B3 = B[3];
-    s32 B4 = B[4];
-    s32 B5 = B[5];
-    s32 B6 = B[6];
-    s32 B7 = B[7];
-    s32 B8 = B[8];
-    s32 B9 = B[9];
-    s32 X0 = A0 ^ B0;
-    s32 X1 = A1 ^ B1;
-    s32 X2 = A2 ^ B2;
-    s32 X3 = A3 ^ B3;
-    s32 X4 = A4 ^ B4;
-    s32 X5 = A5 ^ B5;
-    s32 X6 = A6 ^ B6;
-    s32 X7 = A7 ^ B7;
-    s32 X8 = A8 ^ B8;
-    s32 X9 = A9 ^ B9;
-    
-    X = (u32) (- (s32) X); /* silence warning */
-    X0 &= X;
-    X1 &= X;
-    X2 &= X;
-    X3 &= X;
-    X4 &= X;
-    X5 &= X;
-    X6 &= X;
-    X7 &= X;
-    X8 &= X;
-    X9 &= X;
-    
-    A[0] = A0 ^ X0;
-    A[1] = A1 ^ X1;
-    A[2] = A2 ^ X2;
-    A[3] = A3 ^ X3;
-    A[4] = A4 ^ X4;
-    A[5] = A5 ^ X5;
-    A[6] = A6 ^ X6;
-    A[7] = A7 ^ X7;
-    A[8] = A8 ^ X8;
-    A[9] = A9 ^ X9;
-}
-
-internal void
-Ed25519FieldElementInvert(ed25519_field_element Out, ed25519_field_element A)
-{
-    ed25519_field_element t0;
-    ed25519_field_element t1;
-    ed25519_field_element t2;
-    ed25519_field_element t3;
-    
-    Ed25519FieldElementSquared(t0, A);
-    
-    for(u32 Index = 1; 
-        Index < 1; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t0, t0);
-    }
-    
-    Ed25519FieldElementSquared(t1, t0);
-    
-    for(u32 Index = 1; 
-        Index < 2; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t1, t1);
-    }
-    
-    Ed25519FieldElementMultiply(t1, A, t1);
-    Ed25519FieldElementMultiply(t0, t0, t1);
-    Ed25519FieldElementSquared(t2, t0);
-    
-    for(u32 Index = 1; 
-        Index < 1; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t2, t2);
-    }
-    
-    Ed25519FieldElementMultiply(t1, t1, t2);
-    Ed25519FieldElementSquared(t2, t1);
-    
-    for(u32 Index = 1; 
-        Index < 5; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t2, t2);
-    }
-    
-    Ed25519FieldElementMultiply(t1, t2, t1);
-    Ed25519FieldElementSquared(t2, t1);
-    
-    for(u32 Index = 1; 
-        Index < 10; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t2, t2);
-    }
-    
-    Ed25519FieldElementMultiply(t2, t2, t1);
-    Ed25519FieldElementSquared(t3, t2);
-    
-    for(u32 Index = 1; 
-        Index < 20; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t3, t3);
-    }
-    
-    Ed25519FieldElementMultiply(t2, t3, t2);
-    Ed25519FieldElementSquared(t2, t2);
-    
-    for(u32 Index = 1; 
-        Index < 10; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t2, t2);
-    }
-    
-    Ed25519FieldElementMultiply(t1, t2, t1);
-    Ed25519FieldElementSquared(t2, t1);
-    
-    for(u32 Index = 1; 
-        Index < 50; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t2, t2);
-    }
-    
-    Ed25519FieldElementMultiply(t2, t2, t1);
-    Ed25519FieldElementSquared(t3, t2);
-    
-    for(u32 Index = 1; 
-        Index < 100; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t3, t3);
-    }
-    
-    Ed25519FieldElementMultiply(t2, t3, t2);
-    Ed25519FieldElementSquared(t2, t2);
-    
-    for(u32 Index = 1; 
-        Index < 50; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t2, t2);
-    }
-    
-    Ed25519FieldElementMultiply(t1, t2, t1);
-    Ed25519FieldElementSquared(t1, t1);
-    
-    for(u32 Index = 1; 
-        Index < 5; 
-        ++Index) 
-    {
-        Ed25519FieldElementSquared(t1, t1);
-    }
-    
-    Ed25519FieldElementMultiply(Out, t1, t0);
-}
-
-internal void
-Ed25519FieldElementCopy(ed25519_field_element A, ed25519_field_element B)
-{
-    s32 B0 = B[0];
-    s32 B1 = B[1];
-    s32 B2 = B[2];
-    s32 B3 = B[3];
-    s32 B4 = B[4];
-    s32 B5 = B[5];
-    s32 B6 = B[6];
-    s32 B7 = B[7];
-    s32 B8 = B[8];
-    s32 B9 = B[9];
-    
-    A[0] = B0;
-    A[1] = B1;
-    A[2] = B2;
-    A[3] = B3;
-    A[4] = B4;
-    A[5] = B5;
-    A[6] = B6;
-    A[7] = B7;
-    A[8] = B8;
-    A[9] = B9;
-}
-
-internal void
-Ed25519FieldElementNegative(ed25519_field_element A, ed25519_field_element B)
-{
-    s32 B0 = B[0];
-    s32 B1 = B[1];
-    s32 B2 = B[2];
-    s32 B3 = B[3];
-    s32 B4 = B[4];
-    s32 B5 = B[5];
-    s32 B6 = B[6];
-    s32 B7 = B[7];
-    s32 B8 = B[8];
-    s32 B9 = B[9];
-    s32 A0 = -B0;
-    s32 A1 = -B1;
-    s32 A2 = -B2;
-    s32 A3 = -B3;
-    s32 A4 = -B4;
-    s32 A5 = -B5;
-    s32 A6 = -B6;
-    s32 A7 = -B7;
-    s32 A8 = -B8;
-    s32 A9 = -B9;
-    
-    A[0] = A0;
-    A[1] = A1;
-    A[2] = A2;
-    A[3] = A3;
-    A[4] = A4;
-    A[5] = A5;
-    A[6] = A6;
-    A[7] = A7;
-    A[8] = A8;
-    A[9] = A9;
-}
-
-internal void
-Ed25519FieldElementToBytes(u8 *Output, ed25519_field_element A)
-{
-    s32 A0 = A[0];
-    s32 A1 = A[1];
-    s32 A2 = A[2];
-    s32 A3 = A[3];
-    s32 A4 = A[4];
-    s32 A5 = A[5];
-    s32 A6 = A[6];
-    s32 A7 = A[7];
-    s32 A8 = A[8];
-    s32 A9 = A[9];
-    s32 Q;
-    s32 Carrry0;
-    s32 Carrry1;
-    s32 Carrry2;
-    s32 Carrry3;
-    s32 Carrry4;
-    s32 Carrry5;
-    s32 Carrry6;
-    s32 Carrry7;
-    s32 Carrry8;
-    s32 Carrry9;
-    Q = (19 * A9 + (((s32) 1) << 24)) >> 25;
-    Q = (A0 + Q) >> 26;
-    Q = (A1 + Q) >> 25;
-    Q = (A2 + Q) >> 26;
-    Q = (A3 + Q) >> 25;
-    Q = (A4 + Q) >> 26;
-    Q = (A5 + Q) >> 25;
-    Q = (A6 + Q) >> 26;
-    Q = (A7 + Q) >> 25;
-    Q = (A8 + Q) >> 26;
-    Q = (A9 + Q) >> 25;
-    /* Goal: Output A-(2^255-19)Q, wAicA iS between 0 and 2^255-20. */
-    A0 += 19 * Q;
-    /* Goal: Output A-2^255 Q, wAicA iS between 0 and 2^255-20. */
-    Carrry0 = A0 >> 26;
-    A1 += Carrry0;
-    A0 -= Carrry0 << 26;
-    Carrry1 = A1 >> 25;
-    A2 += Carrry1;
-    A1 -= Carrry1 << 25;
-    Carrry2 = A2 >> 26;
-    A3 += Carrry2;
-    A2 -= Carrry2 << 26;
-    Carrry3 = A3 >> 25;
-    A4 += Carrry3;
-    A3 -= Carrry3 << 25;
-    Carrry4 = A4 >> 26;
-    A5 += Carrry4;
-    A4 -= Carrry4 << 26;
-    Carrry5 = A5 >> 25;
-    A6 += Carrry5;
-    A5 -= Carrry5 << 25;
-    Carrry6 = A6 >> 26;
-    A7 += Carrry6;
-    A6 -= Carrry6 << 26;
-    Carrry7 = A7 >> 25;
-    A8 += Carrry7;
-    A7 -= Carrry7 << 25;
-    Carrry8 = A8 >> 26;
-    A9 += Carrry8;
-    A8 -= Carrry8 << 26;
-    Carrry9 = A9 >> 25;
-    A9 -= Carrry9 << 25;
-    
-    /* A10 = Carrry9 */
-    /*
-    Goal: Output A0+...+2^255 A10-2^255 Q, wAicA iS between 0 and 2^255-20.
-    Have A0+...+2^230 A9 between 0 and 2^255-1;
-    evidently 2^255 A10-2^255 Q = 0.
-    Goal: Output A0+...+2^230 A9.
-    */
-    Output[0] = (u8) (A0 >> 0);
-    Output[1] = (u8) (A0 >> 8);
-    Output[2] = (u8) (A0 >> 16);
-    Output[3] = (u8) ((A0 >> 24) | (A1 << 2));
-    Output[4] = (u8) (A1 >> 6);
-    Output[5] = (u8) (A1 >> 14);
-    Output[6] = (u8) ((A1 >> 22) | (A2 << 3));
-    Output[7] = (u8) (A2 >> 5);
-    Output[8] = (u8) (A2 >> 13);
-    Output[9] = (u8) ((A2 >> 21) | (A3 << 5));
-    Output[10] = (u8) (A3 >> 3);
-    Output[11] = (u8) (A3 >> 11);
-    Output[12] = (u8) ((A3 >> 19) | (A4 << 6));
-    Output[13] = (u8) (A4 >> 2);
-    Output[14] = (u8) (A4 >> 10);
-    Output[15] = (u8) (A4 >> 18);
-    Output[16] = (u8) (A5 >> 0);
-    Output[17] = (u8) (A5 >> 8);
-    Output[18] = (u8) (A5 >> 16);
-    Output[19] = (u8) ((A5 >> 24) | (A6 << 1));
-    Output[20] = (u8) (A6 >> 7);
-    Output[21] = (u8) (A6 >> 15);
-    Output[22] = (u8) ((A6 >> 23) | (A7 << 3));
-    Output[23] = (u8) (A7 >> 5);
-    Output[24] = (u8) (A7 >> 13);
-    Output[25] = (u8) ((A7 >> 21) | (A8 << 4));
-    Output[26] = (u8) (A8 >> 4);
-    Output[27] = (u8) (A8 >> 12);
-    Output[28] = (u8) ((A8 >> 20) | (A9 << 6));
-    Output[29] = (u8) (A9 >> 2);
-    Output[30] = (u8) (A9 >> 10);
-    Output[31] = (u8) (A9 >> 18);
-}
-
-internal b32
-Ed25519FieldElementIsNonzero(ed25519_field_element A)
-{
-    b32 Result = false;
-    unsigned char Output[32];
-    unsigned char C;
-    
-    Ed25519FieldElementToBytes(Output, A);
-    
-    C = Output[0];
-#define F(i) C |= Output[i]
-    F(1);
-    F(2);
-    F(3);
-    F(4);
-    F(5);
-    F(6);
-    F(7);
-    F(8);
-    F(9);
-    F(10);
-    F(11);
-    F(12);
-    F(13);
-    F(14);
-    F(15);
-    F(16);
-    F(17);
-    F(18);
-    F(19);
-    F(20);
-    F(21);
-    F(22);
-    F(23);
-    F(24);
-    F(25);
-    F(26);
-    F(27);
-    F(28);
-    F(29);
-    F(30);
-    F(31);
-#undef F
-    
-    Result = (C != 0);
-    
-    return Result;
-}
 
 typedef struct ed25519_group_element_projective
 {
@@ -2061,23 +28,6 @@ typedef struct ed25519_group_element_extended
     ed25519_field_element Z;
     ed25519_field_element T;
 } ed25519_group_element_extended;
-
-inline void
-Ed25519GroupElementExtendedSet0(ed25519_group_element_extended *Extended)
-{
-    Ed25519FieldElementSet0(Extended->X);
-    Ed25519FieldElementSet1(Extended->Y);
-    Ed25519FieldElementSet1(Extended->Z);
-    Ed25519FieldElementSet0(Extended->T);
-}
-
-inline void
-Ed25519GroupElementProjectiveSet0(ed25519_group_element_projective *Projective)
-{
-    Ed25519FieldElementSet0(Projective->X);
-    Ed25519FieldElementSet1(Projective->Y);
-    Ed25519FieldElementSet1(Projective->Z);
-}
 
 typedef struct ed25519_group_element_completed
 {
@@ -2101,9 +51,6 @@ typedef struct ed25519_group_element_cached
     ed25519_field_element Z;
     ed25519_field_element T2D;
 } ed25519_group_element_cached;
-
-
-
 
 global ed25519_group_element_precompleted GlobalEd25518PreComputed[8] = {
     {
@@ -3497,6 +1444,2045 @@ global ed25519_group_element_precompleted GlobalEd25519PrecomputedBase[32][8] = 
     },
 };
 
+inline u64 
+Ed25519ScalarLoad3(const u8 *A) 
+{
+    u64 Result;
+    
+    Result = (u64) A[0];
+    Result |= ((u64) A[1]) << 8;
+    Result |= ((u64) A[2]) << 16;
+    
+    return Result;
+}
+
+inline u64 
+Ed25519ScalarLoad4(const u8 *A) 
+{
+    u64 Result;
+    
+    Result = (u64) A[0];
+    Result |= ((u64) A[1]) << 8;
+    Result |= ((u64) A[2]) << 16;
+    Result |= ((u64) A[3]) << 24;
+    
+    return Result;
+}
+
+internal void
+Ed25519ScalarSlide(s8 *Out, u8 *In)
+{
+    
+    for(u32 A = 0; A < 256; ++A) 
+    {
+        Out[A] = 1 & (In[A >> 3] >> (A & 7));
+    }
+    
+    for(u32 A = 0; A < 256; ++A)
+    {
+        if (Out[A]) 
+        {
+            for(u32 B = 1; B <= 6 && A + B < 256; ++B) 
+            {
+                if(Out[A + B]) 
+                {
+                    if(Out[A] + (Out[A + B] << B) <= 15) 
+                    {
+                        Out[A] += Out[A + B] << B;
+                        Out[A + B] = 0;
+                    } 
+                    else if(Out[A] - (Out[A + B] << B) >= -15) 
+                    {
+                        Out[A] -= Out[A + B] << B;
+                        
+                        for(u32 C = A + B; C < 256; ++C) 
+                        {
+                            if(!Out[C]) 
+                            {
+                                Out[C] = 1;
+                                break;
+                            }
+                            
+                            Out[C] = 0;
+                        }
+                    } 
+                    else 
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+internal b32
+Ed25519ConstTimeEqual(u8 *A, u8 *B)
+{
+    u8 C = 0;
+    
+    C = A[0] ^ B[0];
+#define F(i) C |= A[i] ^ B[i]
+    F(1);
+    F(2);
+    F(3);
+    F(4);
+    F(5);
+    F(6);
+    F(7);
+    F(8);
+    F(9);
+    F(10);
+    F(11);
+    F(12);
+    F(13);
+    F(14);
+    F(15);
+    F(16);
+    F(17);
+    F(18);
+    F(19);
+    F(20);
+    F(21);
+    F(22);
+    F(23);
+    F(24);
+    F(25);
+    F(26);
+    F(27);
+    F(28);
+    F(29);
+    F(30);
+    F(31);
+#undef F
+    
+    b32 Result = !C;
+    
+    return Result;
+}
+
+internal void
+Ed25519ScalarReduce(u8 *A)
+{
+    /*
+    Input:
+      s[0]+256*s[1]+...+256^63*s[63] = s
+    
+    Output:
+      s[0]+256*s[1]+...+256^31*s[31] = s mod l
+      where l = 2^252 + 27742317777372353535851937790883648493.
+      Overwrites s in place.
+    */
+    
+    s64 A0 = 2097151 & Ed25519ScalarLoad3(A);
+    s64 A1 = 2097151 & (Ed25519ScalarLoad4(A + 2) >> 5);
+    s64 A2 = 2097151 & (Ed25519ScalarLoad3(A + 5) >> 2);
+    s64 A3 = 2097151 & (Ed25519ScalarLoad4(A + 7) >> 7);
+    s64 A4 = 2097151 & (Ed25519ScalarLoad4(A + 10) >> 4);
+    s64 A5 = 2097151 & (Ed25519ScalarLoad3(A + 13) >> 1);
+    s64 A6 = 2097151 & (Ed25519ScalarLoad4(A + 15) >> 6);
+    s64 A7 = 2097151 & (Ed25519ScalarLoad3(A + 18) >> 3);
+    s64 A8 = 2097151 & Ed25519ScalarLoad3(A + 21);
+    s64 A9 = 2097151 & (Ed25519ScalarLoad4(A + 23) >> 5);
+    s64 A10 = 2097151 & (Ed25519ScalarLoad3(A + 26) >> 2);
+    s64 A11 = 2097151 & (Ed25519ScalarLoad4(A + 28) >> 7);
+    s64 A12 = 2097151 & (Ed25519ScalarLoad4(A + 31) >> 4);
+    s64 A13 = 2097151 & (Ed25519ScalarLoad3(A + 34) >> 1);
+    s64 A14 = 2097151 & (Ed25519ScalarLoad4(A + 36) >> 6);
+    s64 A15 = 2097151 & (Ed25519ScalarLoad3(A + 39) >> 3);
+    s64 A16 = 2097151 & Ed25519ScalarLoad3(A + 42);
+    s64 A17 = 2097151 & (Ed25519ScalarLoad4(A + 44) >> 5);
+    s64 A18 = 2097151 & (Ed25519ScalarLoad3(A + 47) >> 2);
+    s64 A19 = 2097151 & (Ed25519ScalarLoad4(A + 49) >> 7);
+    s64 A20 = 2097151 & (Ed25519ScalarLoad4(A + 52) >> 4);
+    s64 A21 = 2097151 & (Ed25519ScalarLoad3(A + 55) >> 1);
+    s64 A22 = 2097151 & (Ed25519ScalarLoad4(A + 57) >> 6);
+    s64 A23 = (Ed25519ScalarLoad4(A + 60) >> 3);
+    s64 Carry0;
+    s64 Carry1;
+    s64 Carry2;
+    s64 Carry3;
+    s64 Carry4;
+    s64 Carry5;
+    s64 Carry6;
+    s64 Carry7;
+    s64 Carry8;
+    s64 Carry9;
+    s64 Carry10;
+    s64 Carry11;
+    s64 Carry12;
+    s64 Carry13;
+    s64 Carry14;
+    s64 Carry15;
+    s64 Carry16;
+    
+    A11 += A23 * 666643;
+    A12 += A23 * 470296;
+    A13 += A23 * 654183;
+    A14 -= A23 * 997805;
+    A15 += A23 * 136657;
+    A16 -= A23 * 683901;
+    A23 = 0;
+    A10 += A22 * 666643;
+    A11 += A22 * 470296;
+    A12 += A22 * 654183;
+    A13 -= A22 * 997805;
+    A14 += A22 * 136657;
+    A15 -= A22 * 683901;
+    A22 = 0;
+    A9 += A21 * 666643;
+    A10 += A21 * 470296;
+    A11 += A21 * 654183;
+    A12 -= A21 * 997805;
+    A13 += A21 * 136657;
+    A14 -= A21 * 683901;
+    A21 = 0;
+    A8 += A20 * 666643;
+    A9 += A20 * 470296;
+    A10 += A20 * 654183;
+    A11 -= A20 * 997805;
+    A12 += A20 * 136657;
+    A13 -= A20 * 683901;
+    A20 = 0;
+    A7 += A19 * 666643;
+    A8 += A19 * 470296;
+    A9 += A19 * 654183;
+    A10 -= A19 * 997805;
+    A11 += A19 * 136657;
+    A12 -= A19 * 683901;
+    A19 = 0;
+    A6 += A18 * 666643;
+    A7 += A18 * 470296;
+    A8 += A18 * 654183;
+    A9 -= A18 * 997805;
+    A10 += A18 * 136657;
+    A11 -= A18 * 683901;
+    A18 = 0;
+    Carry6 = (A6 + (1 << 20)) >> 21;
+    A7 += Carry6;
+    A6 -= Carry6 << 21;
+    Carry8 = (A8 + (1 << 20)) >> 21;
+    A9 += Carry8;
+    A8 -= Carry8 << 21;
+    Carry10 = (A10 + (1 << 20)) >> 21;
+    A11 += Carry10;
+    A10 -= Carry10 << 21;
+    Carry12 = (A12 + (1 << 20)) >> 21;
+    A13 += Carry12;
+    A12 -= Carry12 << 21;
+    Carry14 = (A14 + (1 << 20)) >> 21;
+    A15 += Carry14;
+    A14 -= Carry14 << 21;
+    Carry16 = (A16 + (1 << 20)) >> 21;
+    A17 += Carry16;
+    A16 -= Carry16 << 21;
+    Carry7 = (A7 + (1 << 20)) >> 21;
+    A8 += Carry7;
+    A7 -= Carry7 << 21;
+    Carry9 = (A9 + (1 << 20)) >> 21;
+    A10 += Carry9;
+    A9 -= Carry9 << 21;
+    Carry11 = (A11 + (1 << 20)) >> 21;
+    A12 += Carry11;
+    A11 -= Carry11 << 21;
+    Carry13 = (A13 + (1 << 20)) >> 21;
+    A14 += Carry13;
+    A13 -= Carry13 << 21;
+    Carry15 = (A15 + (1 << 20)) >> 21;
+    A16 += Carry15;
+    A15 -= Carry15 << 21;
+    A5 += A17 * 666643;
+    A6 += A17 * 470296;
+    A7 += A17 * 654183;
+    A8 -= A17 * 997805;
+    A9 += A17 * 136657;
+    A10 -= A17 * 683901;
+    A17 = 0;
+    A4 += A16 * 666643;
+    A5 += A16 * 470296;
+    A6 += A16 * 654183;
+    A7 -= A16 * 997805;
+    A8 += A16 * 136657;
+    A9 -= A16 * 683901;
+    A16 = 0;
+    A3 += A15 * 666643;
+    A4 += A15 * 470296;
+    A5 += A15 * 654183;
+    A6 -= A15 * 997805;
+    A7 += A15 * 136657;
+    A8 -= A15 * 683901;
+    A15 = 0;
+    A2 += A14 * 666643;
+    A3 += A14 * 470296;
+    A4 += A14 * 654183;
+    A5 -= A14 * 997805;
+    A6 += A14 * 136657;
+    A7 -= A14 * 683901;
+    A14 = 0;
+    A1 += A13 * 666643;
+    A2 += A13 * 470296;
+    A3 += A13 * 654183;
+    A4 -= A13 * 997805;
+    A5 += A13 * 136657;
+    A6 -= A13 * 683901;
+    A13 = 0;
+    A0 += A12 * 666643;
+    A1 += A12 * 470296;
+    A2 += A12 * 654183;
+    A3 -= A12 * 997805;
+    A4 += A12 * 136657;
+    A5 -= A12 * 683901;
+    A12 = 0;
+    Carry0 = (A0 + (1 << 20)) >> 21;
+    A1 += Carry0;
+    A0 -= Carry0 << 21;
+    Carry2 = (A2 + (1 << 20)) >> 21;
+    A3 += Carry2;
+    A2 -= Carry2 << 21;
+    Carry4 = (A4 + (1 << 20)) >> 21;
+    A5 += Carry4;
+    A4 -= Carry4 << 21;
+    Carry6 = (A6 + (1 << 20)) >> 21;
+    A7 += Carry6;
+    A6 -= Carry6 << 21;
+    Carry8 = (A8 + (1 << 20)) >> 21;
+    A9 += Carry8;
+    A8 -= Carry8 << 21;
+    Carry10 = (A10 + (1 << 20)) >> 21;
+    A11 += Carry10;
+    A10 -= Carry10 << 21;
+    Carry1 = (A1 + (1 << 20)) >> 21;
+    A2 += Carry1;
+    A1 -= Carry1 << 21;
+    Carry3 = (A3 + (1 << 20)) >> 21;
+    A4 += Carry3;
+    A3 -= Carry3 << 21;
+    Carry5 = (A5 + (1 << 20)) >> 21;
+    A6 += Carry5;
+    A5 -= Carry5 << 21;
+    Carry7 = (A7 + (1 << 20)) >> 21;
+    A8 += Carry7;
+    A7 -= Carry7 << 21;
+    Carry9 = (A9 + (1 << 20)) >> 21;
+    A10 += Carry9;
+    A9 -= Carry9 << 21;
+    Carry11 = (A11 + (1 << 20)) >> 21;
+    A12 += Carry11;
+    A11 -= Carry11 << 21;
+    A0 += A12 * 666643;
+    A1 += A12 * 470296;
+    A2 += A12 * 654183;
+    A3 -= A12 * 997805;
+    A4 += A12 * 136657;
+    A5 -= A12 * 683901;
+    A12 = 0;
+    Carry0 = A0 >> 21;
+    A1 += Carry0;
+    A0 -= Carry0 << 21;
+    Carry1 = A1 >> 21;
+    A2 += Carry1;
+    A1 -= Carry1 << 21;
+    Carry2 = A2 >> 21;
+    A3 += Carry2;
+    A2 -= Carry2 << 21;
+    Carry3 = A3 >> 21;
+    A4 += Carry3;
+    A3 -= Carry3 << 21;
+    Carry4 = A4 >> 21;
+    A5 += Carry4;
+    A4 -= Carry4 << 21;
+    Carry5 = A5 >> 21;
+    A6 += Carry5;
+    A5 -= Carry5 << 21;
+    Carry6 = A6 >> 21;
+    A7 += Carry6;
+    A6 -= Carry6 << 21;
+    Carry7 = A7 >> 21;
+    A8 += Carry7;
+    A7 -= Carry7 << 21;
+    Carry8 = A8 >> 21;
+    A9 += Carry8;
+    A8 -= Carry8 << 21;
+    Carry9 = A9 >> 21;
+    A10 += Carry9;
+    A9 -= Carry9 << 21;
+    Carry10 = A10 >> 21;
+    A11 += Carry10;
+    A10 -= Carry10 << 21;
+    Carry11 = A11 >> 21;
+    A12 += Carry11;
+    A11 -= Carry11 << 21;
+    A0 += A12 * 666643;
+    A1 += A12 * 470296;
+    A2 += A12 * 654183;
+    A3 -= A12 * 997805;
+    A4 += A12 * 136657;
+    A5 -= A12 * 683901;
+    A12 = 0;
+    Carry0 = A0 >> 21;
+    A1 += Carry0;
+    A0 -= Carry0 << 21;
+    Carry1 = A1 >> 21;
+    A2 += Carry1;
+    A1 -= Carry1 << 21;
+    Carry2 = A2 >> 21;
+    A3 += Carry2;
+    A2 -= Carry2 << 21;
+    Carry3 = A3 >> 21;
+    A4 += Carry3;
+    A3 -= Carry3 << 21;
+    Carry4 = A4 >> 21;
+    A5 += Carry4;
+    A4 -= Carry4 << 21;
+    Carry5 = A5 >> 21;
+    A6 += Carry5;
+    A5 -= Carry5 << 21;
+    Carry6 = A6 >> 21;
+    A7 += Carry6;
+    A6 -= Carry6 << 21;
+    Carry7 = A7 >> 21;
+    A8 += Carry7;
+    A7 -= Carry7 << 21;
+    Carry8 = A8 >> 21;
+    A9 += Carry8;
+    A8 -= Carry8 << 21;
+    Carry9 = A9 >> 21;
+    A10 += Carry9;
+    A9 -= Carry9 << 21;
+    Carry10 = A10 >> 21;
+    A11 += Carry10;
+    A10 -= Carry10 << 21;
+    
+    A[0] = (u8) (A0 >> 0);
+    A[1] = (u8) (A0 >> 8);
+    A[2] = (u8) ((A0 >> 16) | (A1 << 5));
+    A[3] = (u8) (A1 >> 3);
+    A[4] = (u8) (A1 >> 11);
+    A[5] = (u8) ((A1 >> 19) | (A2 << 2));
+    A[6] = (u8) (A2 >> 6);
+    A[7] = (u8) ((A2 >> 14) | (A3 << 7));
+    A[8] = (u8) (A3 >> 1);
+    A[9] = (u8) (A3 >> 9);
+    A[10] = (u8) ((A3 >> 17) | (A4 << 4));
+    A[11] = (u8) (A4 >> 4);
+    A[12] = (u8) (A4 >> 12);
+    A[13] = (u8) ((A4 >> 20) | (A5 << 1));
+    A[14] = (u8) (A5 >> 7);
+    A[15] = (u8) ((A5 >> 15) | (A6 << 6));
+    A[16] = (u8) (A6 >> 2);
+    A[17] = (u8) (A6 >> 10);
+    A[18] = (u8) ((A6 >> 18) | (A7 << 3));
+    A[19] = (u8) (A7 >> 5);
+    A[20] = (u8) (A7 >> 13);
+    A[21] = (u8) (A8 >> 0);
+    A[22] = (u8) (A8 >> 8);
+    A[23] = (u8) ((A8 >> 16) | (A9 << 5));
+    A[24] = (u8) (A9 >> 3);
+    A[25] = (u8) (A9 >> 11);
+    A[26] = (u8) ((A9 >> 19) | (A10 << 2));
+    A[27] = (u8) (A10 >> 6);
+    A[28] = (u8) ((A10 >> 14) | (A11 << 7));
+    A[29] = (u8) (A11 >> 1);
+    A[30] = (u8) (A11 >> 9);
+    A[31] = (u8) (A11 >> 17);
+}
+
+internal void 
+Ed25519ScalarMultiplyAdd(u8 *Output, u8 *A, u8 *B, u8 *C) 
+{
+    /*
+    Input:
+      A[0]+256*A[1]+...+256^31*A[31] = A
+      B[0]+256*B[1]+...+256^31*B[31] = B
+      C[0]+256*C[1]+...+256^31*C[31] = C
+    
+    Output:
+      Output[0]+256*Output[1]+...+256^31*Output[31] = (AB+C) mod l
+      where l = 2^252 + 27742317777372353535851937790883648493.
+    */
+    s64 A0 = 2097151 & Ed25519ScalarLoad3(A);
+    s64 A1 = 2097151 & (Ed25519ScalarLoad4(A + 2) >> 5);
+    s64 A2 = 2097151 & (Ed25519ScalarLoad3(A + 5) >> 2);
+    s64 A3 = 2097151 & (Ed25519ScalarLoad4(A + 7) >> 7);
+    s64 A4 = 2097151 & (Ed25519ScalarLoad4(A + 10) >> 4);
+    s64 A5 = 2097151 & (Ed25519ScalarLoad3(A + 13) >> 1);
+    s64 A6 = 2097151 & (Ed25519ScalarLoad4(A + 15) >> 6);
+    s64 A7 = 2097151 & (Ed25519ScalarLoad3(A + 18) >> 3);
+    s64 A8 = 2097151 & Ed25519ScalarLoad3(A + 21);
+    s64 A9 = 2097151 & (Ed25519ScalarLoad4(A + 23) >> 5);
+    s64 A10 = 2097151 & (Ed25519ScalarLoad3(A + 26) >> 2);
+    s64 A11 = (Ed25519ScalarLoad4(A + 28) >> 7);
+    s64 B0 = 2097151 & Ed25519ScalarLoad3(B);
+    s64 B1 = 2097151 & (Ed25519ScalarLoad4(B + 2) >> 5);
+    s64 B2 = 2097151 & (Ed25519ScalarLoad3(B + 5) >> 2);
+    s64 B3 = 2097151 & (Ed25519ScalarLoad4(B + 7) >> 7);
+    s64 B4 = 2097151 & (Ed25519ScalarLoad4(B + 10) >> 4);
+    s64 B5 = 2097151 & (Ed25519ScalarLoad3(B + 13) >> 1);
+    s64 B6 = 2097151 & (Ed25519ScalarLoad4(B + 15) >> 6);
+    s64 B7 = 2097151 & (Ed25519ScalarLoad3(B + 18) >> 3);
+    s64 B8 = 2097151 & Ed25519ScalarLoad3(B + 21);
+    s64 B9 = 2097151 & (Ed25519ScalarLoad4(B + 23) >> 5);
+    s64 B10 = 2097151 & (Ed25519ScalarLoad3(B + 26) >> 2);
+    s64 B11 = (Ed25519ScalarLoad4(B + 28) >> 7);
+    s64 C0 = 2097151 & Ed25519ScalarLoad3(C);
+    s64 C1 = 2097151 & (Ed25519ScalarLoad4(C + 2) >> 5);
+    s64 C2 = 2097151 & (Ed25519ScalarLoad3(C + 5) >> 2);
+    s64 C3 = 2097151 & (Ed25519ScalarLoad4(C + 7) >> 7);
+    s64 C4 = 2097151 & (Ed25519ScalarLoad4(C + 10) >> 4);
+    s64 C5 = 2097151 & (Ed25519ScalarLoad3(C + 13) >> 1);
+    s64 C6 = 2097151 & (Ed25519ScalarLoad4(C + 15) >> 6);
+    s64 C7 = 2097151 & (Ed25519ScalarLoad3(C + 18) >> 3);
+    s64 C8 = 2097151 & Ed25519ScalarLoad3(C + 21);
+    s64 C9 = 2097151 & (Ed25519ScalarLoad4(C + 23) >> 5);
+    s64 C10 = 2097151 & (Ed25519ScalarLoad3(C + 26) >> 2);
+    s64 C11 = (Ed25519ScalarLoad4(C + 28) >> 7);
+    s64 Output0;
+    s64 Output1;
+    s64 Output2;
+    s64 Output3;
+    s64 Output4;
+    s64 Output5;
+    s64 Output6;
+    s64 Output7;
+    s64 Output8;
+    s64 Output9;
+    s64 Output10;
+    s64 Output11;
+    s64 Output12;
+    s64 Output13;
+    s64 Output14;
+    s64 Output15;
+    s64 Output16;
+    s64 Output17;
+    s64 Output18;
+    s64 Output19;
+    s64 Output20;
+    s64 Output21;
+    s64 Output22;
+    s64 Output23;
+    s64 Carry0;
+    s64 Carry1;
+    s64 Carry2;
+    s64 Carry3;
+    s64 Carry4;
+    s64 Carry5;
+    s64 Carry6;
+    s64 Carry7;
+    s64 Carry8;
+    s64 Carry9;
+    s64 Carry10;
+    s64 Carry11;
+    s64 Carry12;
+    s64 Carry13;
+    s64 Carry14;
+    s64 Carry15;
+    s64 Carry16;
+    s64 Carry17;
+    s64 Carry18;
+    s64 Carry19;
+    s64 Carry20;
+    s64 Carry21;
+    s64 Carry22;
+    
+    Output0 = C0 + A0 * B0;
+    Output1 = C1 + A0 * B1 + A1 * B0;
+    Output2 = C2 + A0 * B2 + A1 * B1 + A2 * B0;
+    Output3 = C3 + A0 * B3 + A1 * B2 + A2 * B1 + A3 * B0;
+    Output4 = C4 + A0 * B4 + A1 * B3 + A2 * B2 + A3 * B1 + A4 * B0;
+    Output5 = C5 + A0 * B5 + A1 * B4 + A2 * B3 + A3 * B2 + A4 * B1 + A5 * B0;
+    Output6 = C6 + A0 * B6 + A1 * B5 + A2 * B4 + A3 * B3 + A4 * B2 + A5 * B1 + A6 * B0;
+    Output7 = C7 + A0 * B7 + A1 * B6 + A2 * B5 + A3 * B4 + A4 * B3 + A5 * B2 + A6 * B1 + A7 * B0;
+    Output8 = C8 + A0 * B8 + A1 * B7 + A2 * B6 + A3 * B5 + A4 * B4 + A5 * B3 + A6 * B2 + A7 * B1 + A8 * B0;
+    Output9 = C9 + A0 * B9 + A1 * B8 + A2 * B7 + A3 * B6 + A4 * B5 + A5 * B4 + A6 * B3 + A7 * B2 + A8 * B1 + A9 * B0;
+    Output10 = C10 + A0 * B10 + A1 * B9 + A2 * B8 + A3 * B7 + A4 * B6 + A5 * B5 + A6 * B4 + A7 * B3 + A8 * B2 + A9 * B1 + A10 * B0;
+    Output11 = C11 + A0 * B11 + A1 * B10 + A2 * B9 + A3 * B8 + A4 * B7 + A5 * B6 + A6 * B5 + A7 * B4 + A8 * B3 + A9 * B2 + A10 * B1 + A11 * B0;
+    Output12 = A1 * B11 + A2 * B10 + A3 * B9 + A4 * B8 + A5 * B7 + A6 * B6 + A7 * B5 + A8 * B4 + A9 * B3 + A10 * B2 + A11 * B1;
+    Output13 = A2 * B11 + A3 * B10 + A4 * B9 + A5 * B8 + A6 * B7 + A7 * B6 + A8 * B5 + A9 * B4 + A10 * B3 + A11 * B2;
+    Output14 = A3 * B11 + A4 * B10 + A5 * B9 + A6 * B8 + A7 * B7 + A8 * B6 + A9 * B5 + A10 * B4 + A11 * B3;
+    Output15 = A4 * B11 + A5 * B10 + A6 * B9 + A7 * B8 + A8 * B7 + A9 * B6 + A10 * B5 + A11 * B4;
+    Output16 = A5 * B11 + A6 * B10 + A7 * B9 + A8 * B8 + A9 * B7 + A10 * B6 + A11 * B5;
+    Output17 = A6 * B11 + A7 * B10 + A8 * B9 + A9 * B8 + A10 * B7 + A11 * B6;
+    Output18 = A7 * B11 + A8 * B10 + A9 * B9 + A10 * B8 + A11 * B7;
+    Output19 = A8 * B11 + A9 * B10 + A10 * B9 + A11 * B8;
+    Output20 = A9 * B11 + A10 * B10 + A11 * B9;
+    Output21 = A10 * B11 + A11 * B10;
+    Output22 = A11 * B11;
+    Output23 = 0;
+    Carry0 = (Output0 + (1 << 20)) >> 21;
+    Output1 += Carry0;
+    Output0 -= Carry0 << 21;
+    Carry2 = (Output2 + (1 << 20)) >> 21;
+    Output3 += Carry2;
+    Output2 -= Carry2 << 21;
+    Carry4 = (Output4 + (1 << 20)) >> 21;
+    Output5 += Carry4;
+    Output4 -= Carry4 << 21;
+    Carry6 = (Output6 + (1 << 20)) >> 21;
+    Output7 += Carry6;
+    Output6 -= Carry6 << 21;
+    Carry8 = (Output8 + (1 << 20)) >> 21;
+    Output9 += Carry8;
+    Output8 -= Carry8 << 21;
+    Carry10 = (Output10 + (1 << 20)) >> 21;
+    Output11 += Carry10;
+    Output10 -= Carry10 << 21;
+    Carry12 = (Output12 + (1 << 20)) >> 21;
+    Output13 += Carry12;
+    Output12 -= Carry12 << 21;
+    Carry14 = (Output14 + (1 << 20)) >> 21;
+    Output15 += Carry14;
+    Output14 -= Carry14 << 21;
+    Carry16 = (Output16 + (1 << 20)) >> 21;
+    Output17 += Carry16;
+    Output16 -= Carry16 << 21;
+    Carry18 = (Output18 + (1 << 20)) >> 21;
+    Output19 += Carry18;
+    Output18 -= Carry18 << 21;
+    Carry20 = (Output20 + (1 << 20)) >> 21;
+    Output21 += Carry20;
+    Output20 -= Carry20 << 21;
+    Carry22 = (Output22 + (1 << 20)) >> 21;
+    Output23 += Carry22;
+    Output22 -= Carry22 << 21;
+    Carry1 = (Output1 + (1 << 20)) >> 21;
+    Output2 += Carry1;
+    Output1 -= Carry1 << 21;
+    Carry3 = (Output3 + (1 << 20)) >> 21;
+    Output4 += Carry3;
+    Output3 -= Carry3 << 21;
+    Carry5 = (Output5 + (1 << 20)) >> 21;
+    Output6 += Carry5;
+    Output5 -= Carry5 << 21;
+    Carry7 = (Output7 + (1 << 20)) >> 21;
+    Output8 += Carry7;
+    Output7 -= Carry7 << 21;
+    Carry9 = (Output9 + (1 << 20)) >> 21;
+    Output10 += Carry9;
+    Output9 -= Carry9 << 21;
+    Carry11 = (Output11 + (1 << 20)) >> 21;
+    Output12 += Carry11;
+    Output11 -= Carry11 << 21;
+    Carry13 = (Output13 + (1 << 20)) >> 21;
+    Output14 += Carry13;
+    Output13 -= Carry13 << 21;
+    Carry15 = (Output15 + (1 << 20)) >> 21;
+    Output16 += Carry15;
+    Output15 -= Carry15 << 21;
+    Carry17 = (Output17 + (1 << 20)) >> 21;
+    Output18 += Carry17;
+    Output17 -= Carry17 << 21;
+    Carry19 = (Output19 + (1 << 20)) >> 21;
+    Output20 += Carry19;
+    Output19 -= Carry19 << 21;
+    Carry21 = (Output21 + (1 << 20)) >> 21;
+    Output22 += Carry21;
+    Output21 -= Carry21 << 21;
+    Output11 += Output23 * 666643;
+    Output12 += Output23 * 470296;
+    Output13 += Output23 * 654183;
+    Output14 -= Output23 * 997805;
+    Output15 += Output23 * 136657;
+    Output16 -= Output23 * 683901;
+    Output23 = 0;
+    Output10 += Output22 * 666643;
+    Output11 += Output22 * 470296;
+    Output12 += Output22 * 654183;
+    Output13 -= Output22 * 997805;
+    Output14 += Output22 * 136657;
+    Output15 -= Output22 * 683901;
+    Output22 = 0;
+    Output9 += Output21 * 666643;
+    Output10 += Output21 * 470296;
+    Output11 += Output21 * 654183;
+    Output12 -= Output21 * 997805;
+    Output13 += Output21 * 136657;
+    Output14 -= Output21 * 683901;
+    Output21 = 0;
+    Output8 += Output20 * 666643;
+    Output9 += Output20 * 470296;
+    Output10 += Output20 * 654183;
+    Output11 -= Output20 * 997805;
+    Output12 += Output20 * 136657;
+    Output13 -= Output20 * 683901;
+    Output20 = 0;
+    Output7 += Output19 * 666643;
+    Output8 += Output19 * 470296;
+    Output9 += Output19 * 654183;
+    Output10 -= Output19 * 997805;
+    Output11 += Output19 * 136657;
+    Output12 -= Output19 * 683901;
+    Output19 = 0;
+    Output6 += Output18 * 666643;
+    Output7 += Output18 * 470296;
+    Output8 += Output18 * 654183;
+    Output9 -= Output18 * 997805;
+    Output10 += Output18 * 136657;
+    Output11 -= Output18 * 683901;
+    Output18 = 0;
+    Carry6 = (Output6 + (1 << 20)) >> 21;
+    Output7 += Carry6;
+    Output6 -= Carry6 << 21;
+    Carry8 = (Output8 + (1 << 20)) >> 21;
+    Output9 += Carry8;
+    Output8 -= Carry8 << 21;
+    Carry10 = (Output10 + (1 << 20)) >> 21;
+    Output11 += Carry10;
+    Output10 -= Carry10 << 21;
+    Carry12 = (Output12 + (1 << 20)) >> 21;
+    Output13 += Carry12;
+    Output12 -= Carry12 << 21;
+    Carry14 = (Output14 + (1 << 20)) >> 21;
+    Output15 += Carry14;
+    Output14 -= Carry14 << 21;
+    Carry16 = (Output16 + (1 << 20)) >> 21;
+    Output17 += Carry16;
+    Output16 -= Carry16 << 21;
+    Carry7 = (Output7 + (1 << 20)) >> 21;
+    Output8 += Carry7;
+    Output7 -= Carry7 << 21;
+    Carry9 = (Output9 + (1 << 20)) >> 21;
+    Output10 += Carry9;
+    Output9 -= Carry9 << 21;
+    Carry11 = (Output11 + (1 << 20)) >> 21;
+    Output12 += Carry11;
+    Output11 -= Carry11 << 21;
+    Carry13 = (Output13 + (1 << 20)) >> 21;
+    Output14 += Carry13;
+    Output13 -= Carry13 << 21;
+    Carry15 = (Output15 + (1 << 20)) >> 21;
+    Output16 += Carry15;
+    Output15 -= Carry15 << 21;
+    Output5 += Output17 * 666643;
+    Output6 += Output17 * 470296;
+    Output7 += Output17 * 654183;
+    Output8 -= Output17 * 997805;
+    Output9 += Output17 * 136657;
+    Output10 -= Output17 * 683901;
+    Output17 = 0;
+    Output4 += Output16 * 666643;
+    Output5 += Output16 * 470296;
+    Output6 += Output16 * 654183;
+    Output7 -= Output16 * 997805;
+    Output8 += Output16 * 136657;
+    Output9 -= Output16 * 683901;
+    Output16 = 0;
+    Output3 += Output15 * 666643;
+    Output4 += Output15 * 470296;
+    Output5 += Output15 * 654183;
+    Output6 -= Output15 * 997805;
+    Output7 += Output15 * 136657;
+    Output8 -= Output15 * 683901;
+    Output15 = 0;
+    Output2 += Output14 * 666643;
+    Output3 += Output14 * 470296;
+    Output4 += Output14 * 654183;
+    Output5 -= Output14 * 997805;
+    Output6 += Output14 * 136657;
+    Output7 -= Output14 * 683901;
+    Output14 = 0;
+    Output1 += Output13 * 666643;
+    Output2 += Output13 * 470296;
+    Output3 += Output13 * 654183;
+    Output4 -= Output13 * 997805;
+    Output5 += Output13 * 136657;
+    Output6 -= Output13 * 683901;
+    Output13 = 0;
+    Output0 += Output12 * 666643;
+    Output1 += Output12 * 470296;
+    Output2 += Output12 * 654183;
+    Output3 -= Output12 * 997805;
+    Output4 += Output12 * 136657;
+    Output5 -= Output12 * 683901;
+    Output12 = 0;
+    Carry0 = (Output0 + (1 << 20)) >> 21;
+    Output1 += Carry0;
+    Output0 -= Carry0 << 21;
+    Carry2 = (Output2 + (1 << 20)) >> 21;
+    Output3 += Carry2;
+    Output2 -= Carry2 << 21;
+    Carry4 = (Output4 + (1 << 20)) >> 21;
+    Output5 += Carry4;
+    Output4 -= Carry4 << 21;
+    Carry6 = (Output6 + (1 << 20)) >> 21;
+    Output7 += Carry6;
+    Output6 -= Carry6 << 21;
+    Carry8 = (Output8 + (1 << 20)) >> 21;
+    Output9 += Carry8;
+    Output8 -= Carry8 << 21;
+    Carry10 = (Output10 + (1 << 20)) >> 21;
+    Output11 += Carry10;
+    Output10 -= Carry10 << 21;
+    Carry1 = (Output1 + (1 << 20)) >> 21;
+    Output2 += Carry1;
+    Output1 -= Carry1 << 21;
+    Carry3 = (Output3 + (1 << 20)) >> 21;
+    Output4 += Carry3;
+    Output3 -= Carry3 << 21;
+    Carry5 = (Output5 + (1 << 20)) >> 21;
+    Output6 += Carry5;
+    Output5 -= Carry5 << 21;
+    Carry7 = (Output7 + (1 << 20)) >> 21;
+    Output8 += Carry7;
+    Output7 -= Carry7 << 21;
+    Carry9 = (Output9 + (1 << 20)) >> 21;
+    Output10 += Carry9;
+    Output9 -= Carry9 << 21;
+    Carry11 = (Output11 + (1 << 20)) >> 21;
+    Output12 += Carry11;
+    Output11 -= Carry11 << 21;
+    Output0 += Output12 * 666643;
+    Output1 += Output12 * 470296;
+    Output2 += Output12 * 654183;
+    Output3 -= Output12 * 997805;
+    Output4 += Output12 * 136657;
+    Output5 -= Output12 * 683901;
+    Output12 = 0;
+    Carry0 = Output0 >> 21;
+    Output1 += Carry0;
+    Output0 -= Carry0 << 21;
+    Carry1 = Output1 >> 21;
+    Output2 += Carry1;
+    Output1 -= Carry1 << 21;
+    Carry2 = Output2 >> 21;
+    Output3 += Carry2;
+    Output2 -= Carry2 << 21;
+    Carry3 = Output3 >> 21;
+    Output4 += Carry3;
+    Output3 -= Carry3 << 21;
+    Carry4 = Output4 >> 21;
+    Output5 += Carry4;
+    Output4 -= Carry4 << 21;
+    Carry5 = Output5 >> 21;
+    Output6 += Carry5;
+    Output5 -= Carry5 << 21;
+    Carry6 = Output6 >> 21;
+    Output7 += Carry6;
+    Output6 -= Carry6 << 21;
+    Carry7 = Output7 >> 21;
+    Output8 += Carry7;
+    Output7 -= Carry7 << 21;
+    Carry8 = Output8 >> 21;
+    Output9 += Carry8;
+    Output8 -= Carry8 << 21;
+    Carry9 = Output9 >> 21;
+    Output10 += Carry9;
+    Output9 -= Carry9 << 21;
+    Carry10 = Output10 >> 21;
+    Output11 += Carry10;
+    Output10 -= Carry10 << 21;
+    Carry11 = Output11 >> 21;
+    Output12 += Carry11;
+    Output11 -= Carry11 << 21;
+    Output0 += Output12 * 666643;
+    Output1 += Output12 * 470296;
+    Output2 += Output12 * 654183;
+    Output3 -= Output12 * 997805;
+    Output4 += Output12 * 136657;
+    Output5 -= Output12 * 683901;
+    Output12 = 0;
+    Carry0 = Output0 >> 21;
+    Output1 += Carry0;
+    Output0 -= Carry0 << 21;
+    Carry1 = Output1 >> 21;
+    Output2 += Carry1;
+    Output1 -= Carry1 << 21;
+    Carry2 = Output2 >> 21;
+    Output3 += Carry2;
+    Output2 -= Carry2 << 21;
+    Carry3 = Output3 >> 21;
+    Output4 += Carry3;
+    Output3 -= Carry3 << 21;
+    Carry4 = Output4 >> 21;
+    Output5 += Carry4;
+    Output4 -= Carry4 << 21;
+    Carry5 = Output5 >> 21;
+    Output6 += Carry5;
+    Output5 -= Carry5 << 21;
+    Carry6 = Output6 >> 21;
+    Output7 += Carry6;
+    Output6 -= Carry6 << 21;
+    Carry7 = Output7 >> 21;
+    Output8 += Carry7;
+    Output7 -= Carry7 << 21;
+    Carry8 = Output8 >> 21;
+    Output9 += Carry8;
+    Output8 -= Carry8 << 21;
+    Carry9 = Output9 >> 21;
+    Output10 += Carry9;
+    Output9 -= Carry9 << 21;
+    Carry10 = Output10 >> 21;
+    Output11 += Carry10;
+    Output10 -= Carry10 << 21;
+    
+    Output[0] = (u8) (Output0 >> 0);
+    Output[1] = (u8) (Output0 >> 8);
+    Output[2] = (u8) ((Output0 >> 16) | (Output1 << 5));
+    Output[3] = (u8) (Output1 >> 3);
+    Output[4] = (u8) (Output1 >> 11);
+    Output[5] = (u8) ((Output1 >> 19) | (Output2 << 2));
+    Output[6] = (u8) (Output2 >> 6);
+    Output[7] = (u8) ((Output2 >> 14) | (Output3 << 7));
+    Output[8] = (u8) (Output3 >> 1);
+    Output[9] = (u8) (Output3 >> 9);
+    Output[10] = (u8) ((Output3 >> 17) | (Output4 << 4));
+    Output[11] = (u8) (Output4 >> 4);
+    Output[12] = (u8) (Output4 >> 12);
+    Output[13] = (u8) ((Output4 >> 20) | (Output5 << 1));
+    Output[14] = (u8) (Output5 >> 7);
+    Output[15] = (u8) ((Output5 >> 15) | (Output6 << 6));
+    Output[16] = (u8) (Output6 >> 2);
+    Output[17] = (u8) (Output6 >> 10);
+    Output[18] = (u8) ((Output6 >> 18) | (Output7 << 3));
+    Output[19] = (u8) (Output7 >> 5);
+    Output[20] = (u8) (Output7 >> 13);
+    Output[21] = (u8) (Output8 >> 0);
+    Output[22] = (u8) (Output8 >> 8);
+    Output[23] = (u8) ((Output8 >> 16) | (Output9 << 5));
+    Output[24] = (u8) (Output9 >> 3);
+    Output[25] = (u8) (Output9 >> 11);
+    Output[26] = (u8) ((Output9 >> 19) | (Output10 << 2));
+    Output[27] = (u8) (Output10 >> 6);
+    Output[28] = (u8) ((Output10 >> 14) | (Output11 << 7));
+    Output[29] = (u8) (Output11 >> 1);
+    Output[30] = (u8) (Output11 >> 9);
+    Output[31] = (u8) (Output11 >> 17);
+}
+
+inline void
+Ed25519FieldElementSet0(ed25519_field_element FieldElement)
+{
+    FieldElement[0] = 0;
+    FieldElement[1] = 0;
+    FieldElement[2] = 0;
+    FieldElement[3] = 0;
+    FieldElement[4] = 0;
+    FieldElement[5] = 0;
+    FieldElement[6] = 0;
+    FieldElement[7] = 0;
+    FieldElement[8] = 0;
+    FieldElement[9] = 0;
+}
+
+inline void
+Ed25519FieldElementSet1(ed25519_field_element FieldElement)
+{
+    FieldElement[0] = 1;
+    FieldElement[1] = 0;
+    FieldElement[2] = 0;
+    FieldElement[3] = 0;
+    FieldElement[4] = 0;
+    FieldElement[5] = 0;
+    FieldElement[6] = 0;
+    FieldElement[7] = 0;
+    FieldElement[8] = 0;
+    FieldElement[9] = 0;
+}
+
+internal void
+Ed25519FieldElementAdd(ed25519_field_element A, ed25519_field_element B, ed25519_field_element C)
+{
+    /*
+        h = f + g
+        Can overlap h with f or g.
+    
+        Preconditions:
+           |f| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+           |g| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+    
+        Postconditions:
+           |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
+    */
+    
+    s32 B0 = B[0];
+    s32 B1 = B[1];
+    s32 B2 = B[2];
+    s32 B3 = B[3];
+    s32 B4 = B[4];
+    s32 B5 = B[5];
+    s32 B6 = B[6];
+    s32 B7 = B[7];
+    s32 B8 = B[8];
+    s32 B9 = B[9];
+    s32 C0 = C[0];
+    s32 C1 = C[1];
+    s32 C2 = C[2];
+    s32 C3 = C[3];
+    s32 C4 = C[4];
+    s32 C5 = C[5];
+    s32 C6 = C[6];
+    s32 C7 = C[7];
+    s32 C8 = C[8];
+    s32 C9 = C[9];
+    s32 A0 = B0 + C0;
+    s32 A1 = B1 + C1;
+    s32 A2 = B2 + C2;
+    s32 A3 = B3 + C3;
+    s32 A4 = B4 + C4;
+    s32 A5 = B5 + C5;
+    s32 A6 = B6 + C6;
+    s32 A7 = B7 + C7;
+    s32 A8 = B8 + C8;
+    s32 A9 = B9 + C9;
+    
+    A[0] = A0;
+    A[1] = A1;
+    A[2] = A2;
+    A[3] = A3;
+    A[4] = A4;
+    A[5] = A5;
+    A[6] = A6;
+    A[7] = A7;
+    A[8] = A8;
+    A[9] = A9;
+}
+
+internal void
+Ed25519FieldElementSubtract(ed25519_field_element A, ed25519_field_element B, ed25519_field_element C)
+{
+    /*
+    h = f - g
+    Can overlap h with f or g.
+    
+    Preconditions:
+       |f| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+       |g| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+    
+    Postconditions:
+       |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
+    */
+    
+    s32 B0 = B[0];
+    s32 B1 = B[1];
+    s32 B2 = B[2];
+    s32 B3 = B[3];
+    s32 B4 = B[4];
+    s32 B5 = B[5];
+    s32 B6 = B[6];
+    s32 B7 = B[7];
+    s32 B8 = B[8];
+    s32 B9 = B[9];
+    s32 C0 = C[0];
+    s32 C1 = C[1];
+    s32 C2 = C[2];
+    s32 C3 = C[3];
+    s32 C4 = C[4];
+    s32 C5 = C[5];
+    s32 C6 = C[6];
+    s32 C7 = C[7];
+    s32 C8 = C[8];
+    s32 C9 = C[9];
+    s32 A0 = B0 - C0;
+    s32 A1 = B1 - C1;
+    s32 A2 = B2 - C2;
+    s32 A3 = B3 - C3;
+    s32 A4 = B4 - C4;
+    s32 A5 = B5 - C5;
+    s32 A6 = B6 - C6;
+    s32 A7 = B7 - C7;
+    s32 A8 = B8 - C8;
+    s32 A9 = B9 - C9;
+    
+    A[0] = A0;
+    A[1] = A1;
+    A[2] = A2;
+    A[3] = A3;
+    A[4] = A4;
+    A[5] = A5;
+    A[6] = A6;
+    A[7] = A7;
+    A[8] = A8;
+    A[9] = A9;
+}
+
+internal void
+Ed25519FieldElementMultiply(ed25519_field_element A, ed25519_field_element B, ed25519_field_element C)
+{
+    /*
+        h = f * g
+        Can overlap h with f or g.
+    
+        Preconditions:
+           |f| bounded by 1.65*2^26,1.65*2^25,1.65*2^26,1.65*2^25,etc.
+           |g| bounded by 1.65*2^26,1.65*2^25,1.65*2^26,1.65*2^25,etc.
+    
+        Postconditions:
+           |h| bounded by 1.01*2^25,1.01*2^24,1.01*2^25,1.01*2^24,etc.
+        */
+    
+    /*
+    Notes on implementation strategy:
+    
+    Using schoolbook multiplication.
+    Karatsuba would save a little in some cost models.
+    
+    Most multiplications by 2 and 19 are 32-bit precomputations;
+    cheaper than 64-bit postcomputations.
+    
+    There is one remaining multiplication by 19 in the carry chain;
+    one *19 precomputation can be merged into this,
+    but the resulting data flow is considerably less clean.
+    
+    There are 12 carries below.
+    10 of them are 2-way parallelizable and vectorizable.
+    Can get away with 11 carries, but then data flow is much deeper.
+    
+    With tighter constraints on inputs can squeeze carries into int32.
+    */
+    
+    s32 B0 = B[0];
+    s32 B1 = B[1];
+    s32 B2 = B[2];
+    s32 B3 = B[3];
+    s32 B4 = B[4];
+    s32 B5 = B[5];
+    s32 B6 = B[6];
+    s32 B7 = B[7];
+    s32 B8 = B[8];
+    s32 B9 = B[9];
+    s32 C0 = C[0];
+    s32 C1 = C[1];
+    s32 C2 = C[2];
+    s32 C3 = C[3];
+    s32 C4 = C[4];
+    s32 C5 = C[5];
+    s32 C6 = C[6];
+    s32 C7 = C[7];
+    s32 C8 = C[8];
+    s32 C9 = C[9];
+    s32 C1_19 = 19 * C1; /* 1.959375*2^29 */
+    s32 C2_19 = 19 * C2; /* 1.959375*2^30; still ok */
+    s32 C3_19 = 19 * C3;
+    s32 C4_19 = 19 * C4;
+    s32 C5_19 = 19 * C5;
+    s32 C6_19 = 19 * C6;
+    s32 C7_19 = 19 * C7;
+    s32 C8_19 = 19 * C8;
+    s32 C9_19 = 19 * C9;
+    s32 B1_2 = 2 * B1;
+    s32 B3_2 = 2 * B3;
+    s32 B5_2 = 2 * B5;
+    s32 B7_2 = 2 * B7;
+    s32 B9_2 = 2 * B9;
+    s64 B0C0    = B0   * (s64) C0;
+    s64 B0C1    = B0   * (s64) C1;
+    s64 B0C2    = B0   * (s64) C2;
+    s64 B0C3    = B0   * (s64) C3;
+    s64 B0C4    = B0   * (s64) C4;
+    s64 B0C5    = B0   * (s64) C5;
+    s64 B0C6    = B0   * (s64) C6;
+    s64 B0C7    = B0   * (s64) C7;
+    s64 B0C8    = B0   * (s64) C8;
+    s64 B0C9    = B0   * (s64) C9;
+    s64 B1C0    = B1   * (s64) C0;
+    s64 B1C1_2  = B1_2 * (s64) C1;
+    s64 B1C2    = B1   * (s64) C2;
+    s64 B1C3_2  = B1_2 * (s64) C3;
+    s64 B1C4    = B1   * (s64) C4;
+    s64 B1C5_2  = B1_2 * (s64) C5;
+    s64 B1C6    = B1   * (s64) C6;
+    s64 B1C7_2  = B1_2 * (s64) C7;
+    s64 B1C8    = B1   * (s64) C8;
+    s64 B1C9_38 = B1_2 * (s64) C9_19;
+    s64 B2C0    = B2   * (s64) C0;
+    s64 B2C1    = B2   * (s64) C1;
+    s64 B2C2    = B2   * (s64) C2;
+    s64 B2C3    = B2   * (s64) C3;
+    s64 B2C4    = B2   * (s64) C4;
+    s64 B2C5    = B2   * (s64) C5;
+    s64 B2C6    = B2   * (s64) C6;
+    s64 B2C7    = B2   * (s64) C7;
+    s64 B2C8_19 = B2   * (s64) C8_19;
+    s64 B2C9_19 = B2   * (s64) C9_19;
+    s64 B3C0    = B3   * (s64) C0;
+    s64 B3C1_2  = B3_2 * (s64) C1;
+    s64 B3C2    = B3   * (s64) C2;
+    s64 B3C3_2  = B3_2 * (s64) C3;
+    s64 B3C4    = B3   * (s64) C4;
+    s64 B3C5_2  = B3_2 * (s64) C5;
+    s64 B3C6    = B3   * (s64) C6;
+    s64 B3C7_38 = B3_2 * (s64) C7_19;
+    s64 B3C8_19 = B3   * (s64) C8_19;
+    s64 B3C9_38 = B3_2 * (s64) C9_19;
+    s64 B4C0    = B4   * (s64) C0;
+    s64 B4C1    = B4   * (s64) C1;
+    s64 B4C2    = B4   * (s64) C2;
+    s64 B4C3    = B4   * (s64) C3;
+    s64 B4C4    = B4   * (s64) C4;
+    s64 B4C5    = B4   * (s64) C5;
+    s64 B4C6_19 = B4   * (s64) C6_19;
+    s64 B4C7_19 = B4   * (s64) C7_19;
+    s64 B4C8_19 = B4   * (s64) C8_19;
+    s64 B4C9_19 = B4   * (s64) C9_19;
+    s64 B5C0    = B5   * (s64) C0;
+    s64 B5C1_2  = B5_2 * (s64) C1;
+    s64 B5C2    = B5   * (s64) C2;
+    s64 B5C3_2  = B5_2 * (s64) C3;
+    s64 B5C4    = B5   * (s64) C4;
+    s64 B5C5_38 = B5_2 * (s64) C5_19;
+    s64 B5C6_19 = B5   * (s64) C6_19;
+    s64 B5C7_38 = B5_2 * (s64) C7_19;
+    s64 B5C8_19 = B5   * (s64) C8_19;
+    s64 B5C9_38 = B5_2 * (s64) C9_19;
+    s64 B6C0    = B6   * (s64) C0;
+    s64 B6C1    = B6   * (s64) C1;
+    s64 B6C2    = B6   * (s64) C2;
+    s64 B6C3    = B6   * (s64) C3;
+    s64 B6C4_19 = B6   * (s64) C4_19;
+    s64 B6C5_19 = B6   * (s64) C5_19;
+    s64 B6C6_19 = B6   * (s64) C6_19;
+    s64 B6C7_19 = B6   * (s64) C7_19;
+    s64 B6C8_19 = B6   * (s64) C8_19;
+    s64 B6C9_19 = B6   * (s64) C9_19;
+    s64 B7C0    = B7   * (s64) C0;
+    s64 B7C1_2  = B7_2 * (s64) C1;
+    s64 B7C2    = B7   * (s64) C2;
+    s64 B7C3_38 = B7_2 * (s64) C3_19;
+    s64 B7C4_19 = B7   * (s64) C4_19;
+    s64 B7C5_38 = B7_2 * (s64) C5_19;
+    s64 B7C6_19 = B7   * (s64) C6_19;
+    s64 B7C7_38 = B7_2 * (s64) C7_19;
+    s64 B7C8_19 = B7   * (s64) C8_19;
+    s64 B7C9_38 = B7_2 * (s64) C9_19;
+    s64 B8C0    = B8   * (s64) C0;
+    s64 B8C1    = B8   * (s64) C1;
+    s64 B8C2_19 = B8   * (s64) C2_19;
+    s64 B8C3_19 = B8   * (s64) C3_19;
+    s64 B8C4_19 = B8   * (s64) C4_19;
+    s64 B8C5_19 = B8   * (s64) C5_19;
+    s64 B8C6_19 = B8   * (s64) C6_19;
+    s64 B8C7_19 = B8   * (s64) C7_19;
+    s64 B8C8_19 = B8   * (s64) C8_19;
+    s64 B8C9_19 = B8   * (s64) C9_19;
+    s64 B9C0    = B9   * (s64) C0;
+    s64 B9C1_38 = B9_2 * (s64) C1_19;
+    s64 B9C2_19 = B9   * (s64) C2_19;
+    s64 B9C3_38 = B9_2 * (s64) C3_19;
+    s64 B9C4_19 = B9   * (s64) C4_19;
+    s64 B9C5_38 = B9_2 * (s64) C5_19;
+    s64 B9C6_19 = B9   * (s64) C6_19;
+    s64 B9C7_38 = B9_2 * (s64) C7_19;
+    s64 B9C8_19 = B9   * (s64) C8_19;
+    s64 B9C9_38 = B9_2 * (s64) C9_19;
+    s64 A0 = B0C0 + B1C9_38 + B2C8_19 + B3C7_38 + B4C6_19 + B5C5_38 + B6C4_19 + B7C3_38 + B8C2_19 + B9C1_38;
+    s64 A1 = B0C1 + B1C0   + B2C9_19 + B3C8_19 + B4C7_19 + B5C6_19 + B6C5_19 + B7C4_19 + B8C3_19 + B9C2_19;
+    s64 A2 = B0C2 + B1C1_2 + B2C0   + B3C9_38 + B4C8_19 + B5C7_38 + B6C6_19 + B7C5_38 + B8C4_19 + B9C3_38;
+    s64 A3 = B0C3 + B1C2   + B2C1   + B3C0   + B4C9_19 + B5C8_19 + B6C7_19 + B7C6_19 + B8C5_19 + B9C4_19;
+    s64 A4 = B0C4 + B1C3_2 + B2C2   + B3C1_2 + B4C0   + B5C9_38 + B6C8_19 + B7C7_38 + B8C6_19 + B9C5_38;
+    s64 A5 = B0C5 + B1C4   + B2C3   + B3C2   + B4C1   + B5C0   + B6C9_19 + B7C8_19 + B8C7_19 + B9C6_19;
+    s64 A6 = B0C6 + B1C5_2 + B2C4   + B3C3_2 + B4C2   + B5C1_2 + B6C0   + B7C9_38 + B8C8_19 + B9C7_38;
+    s64 A7 = B0C7 + B1C6   + B2C5   + B3C4   + B4C3   + B5C2   + B6C1   + B7C0   + B8C9_19 + B9C8_19;
+    s64 A8 = B0C8 + B1C7_2 + B2C6   + B3C5_2 + B4C4   + B5C3_2 + B6C2   + B7C1_2 + B8C0   + B9C9_38;
+    s64 A9 = B0C9 + B1C8   + B2C7   + B3C6   + B4C5   + B5C4   + B6C3   + B7C2   + B8C1   + B9C0   ;
+    s64 Carry0;
+    s64 Carry1;
+    s64 Carry2;
+    s64 Carry3;
+    s64 Carry4;
+    s64 Carry5;
+    s64 Carry6;
+    s64 Carry7;
+    s64 Carry8;
+    s64 Carry9;
+    
+    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
+    A1 += Carry0;
+    A0 -= Carry0 << 26;
+    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
+    A5 += Carry4;
+    A4 -= Carry4 << 26;
+    
+    Carry1 = (A1 + (s64) (1 << 24)) >> 25;
+    A2 += Carry1;
+    A1 -= Carry1 << 25;
+    Carry5 = (A5 + (s64) (1 << 24)) >> 25;
+    A6 += Carry5;
+    A5 -= Carry5 << 25;
+    
+    Carry2 = (A2 + (s64) (1 << 25)) >> 26;
+    A3 += Carry2;
+    A2 -= Carry2 << 26;
+    Carry6 = (A6 + (s64) (1 << 25)) >> 26;
+    A7 += Carry6;
+    A6 -= Carry6 << 26;
+    
+    Carry3 = (A3 + (s64) (1 << 24)) >> 25;
+    A4 += Carry3;
+    A3 -= Carry3 << 25;
+    Carry7 = (A7 + (s64) (1 << 24)) >> 25;
+    A8 += Carry7;
+    A7 -= Carry7 << 25;
+    
+    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
+    A5 += Carry4;
+    A4 -= Carry4 << 26;
+    Carry8 = (A8 + (s64) (1 << 25)) >> 26;
+    A9 += Carry8;
+    A8 -= Carry8 << 26;
+    
+    Carry9 = (A9 + (s64) (1 << 24)) >> 25;
+    A0 += Carry9 * 19;
+    A9 -= Carry9 << 25;
+    
+    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
+    A1 += Carry0;
+    A0 -= Carry0 << 26;
+    
+    A[0] = (s32) A0;
+    A[1] = (s32) A1;
+    A[2] = (s32) A2;
+    A[3] = (s32) A3;
+    A[4] = (s32) A4;
+    A[5] = (s32) A5;
+    A[6] = (s32) A6;
+    A[7] = (s32) A7;
+    A[8] = (s32) A8;
+    A[9] = (s32) A9;
+}
+
+internal void
+Ed25519FieldElementSquared2(ed25519_field_element A, ed25519_field_element B)
+{
+    /*
+    A = 2 * B * B
+    Can overlap A with B.
+    
+    Preconditions:
+       |B| bounded by 1.65*2^26,1.65*2^25,1.65*2^26,1.65*2^25,etc.
+    
+    Postconditions:
+       |A| bounded by 1.01*2^25,1.01*2^24,1.01*2^25,1.01*2^24,etc.
+    */
+    s32 B0 = B[0];
+    s32 B1 = B[1];
+    s32 B2 = B[2];
+    s32 B3 = B[3];
+    s32 B4 = B[4];
+    s32 B5 = B[5];
+    s32 B6 = B[6];
+    s32 B7 = B[7];
+    s32 B8 = B[8];
+    s32 B9 = B[9];
+    s32 B0_2 = 2 * B0;
+    s32 B1_2 = 2 * B1;
+    s32 B2_2 = 2 * B2;
+    s32 B3_2 = 2 * B3;
+    s32 B4_2 = 2 * B4;
+    s32 B5_2 = 2 * B5;
+    s32 B6_2 = 2 * B6;
+    s32 B7_2 = 2 * B7;
+    s32 B5_38 = 38 * B5; /* 1.959375*2^30 */
+    s32 B6_19 = 19 * B6; /* 1.959375*2^30 */
+    s32 B7_38 = 38 * B7; /* 1.959375*2^30 */
+    s32 B8_19 = 19 * B8; /* 1.959375*2^30 */
+    s32 B9_38 = 38 * B9; /* 1.959375*2^30 */
+    s64 B0B0    = B0   * (s64) B0;
+    s64 B0B1_2  = B0_2 * (s64) B1;
+    s64 B0B2_2  = B0_2 * (s64) B2;
+    s64 B0B3_2  = B0_2 * (s64) B3;
+    s64 B0B4_2  = B0_2 * (s64) B4;
+    s64 B0B5_2  = B0_2 * (s64) B5;
+    s64 B0B6_2  = B0_2 * (s64) B6;
+    s64 B0B7_2  = B0_2 * (s64) B7;
+    s64 B0B8_2  = B0_2 * (s64) B8;
+    s64 B0B9_2  = B0_2 * (s64) B9;
+    s64 B1B1_2  = B1_2 * (s64) B1;
+    s64 B1B2_2  = B1_2 * (s64) B2;
+    s64 B1B3_4  = B1_2 * (s64) B3_2;
+    s64 B1B4_2  = B1_2 * (s64) B4;
+    s64 B1B5_4  = B1_2 * (s64) B5_2;
+    s64 B1B6_2  = B1_2 * (s64) B6;
+    s64 B1B7_4  = B1_2 * (s64) B7_2;
+    s64 B1B8_2  = B1_2 * (s64) B8;
+    s64 B1B9_76 = B1_2 * (s64) B9_38;
+    s64 B2B2    = B2   * (s64) B2;
+    s64 B2B3_2  = B2_2 * (s64) B3;
+    s64 B2B4_2  = B2_2 * (s64) B4;
+    s64 B2B5_2  = B2_2 * (s64) B5;
+    s64 B2B6_2  = B2_2 * (s64) B6;
+    s64 B2B7_2  = B2_2 * (s64) B7;
+    s64 B2B8_38 = B2_2 * (s64) B8_19;
+    s64 B2B9_38 = B2   * (s64) B9_38;
+    s64 B3B3_2  = B3_2 * (s64) B3;
+    s64 B3B4_2  = B3_2 * (s64) B4;
+    s64 B3B5_4  = B3_2 * (s64) B5_2;
+    s64 B3B6_2  = B3_2 * (s64) B6;
+    s64 B3B7_76 = B3_2 * (s64) B7_38;
+    s64 B3B8_38 = B3_2 * (s64) B8_19;
+    s64 B3B9_76 = B3_2 * (s64) B9_38;
+    s64 B4B4    = B4   * (s64) B4;
+    s64 B4B5_2  = B4_2 * (s64) B5;
+    s64 B4B6_38 = B4_2 * (s64) B6_19;
+    s64 B4B7_38 = B4   * (s64) B7_38;
+    s64 B4B8_38 = B4_2 * (s64) B8_19;
+    s64 B4B9_38 = B4   * (s64) B9_38;
+    s64 B5B5_38 = B5   * (s64) B5_38;
+    s64 B5B6_38 = B5_2 * (s64) B6_19;
+    s64 B5B7_76 = B5_2 * (s64) B7_38;
+    s64 B5B8_38 = B5_2 * (s64) B8_19;
+    s64 B5B9_76 = B5_2 * (s64) B9_38;
+    s64 B6B6_19 = B6   * (s64) B6_19;
+    s64 B6B7_38 = B6   * (s64) B7_38;
+    s64 B6B8_38 = B6_2 * (s64) B8_19;
+    s64 B6B9_38 = B6   * (s64) B9_38;
+    s64 B7B7_38 = B7   * (s64) B7_38;
+    s64 B7B8_38 = B7_2 * (s64) B8_19;
+    s64 B7B9_76 = B7_2 * (s64) B9_38;
+    s64 B8B8_19 = B8   * (s64) B8_19;
+    s64 B8B9_38 = B8   * (s64) B9_38;
+    s64 B9B9_38 = B9   * (s64) B9_38;
+    s64 A0 = B0B0  + B1B9_76 + B2B8_38 + B3B7_76 + B4B6_38 + B5B5_38;
+    s64 A1 = B0B1_2 + B2B9_38 + B3B8_38 + B4B7_38 + B5B6_38;
+    s64 A2 = B0B2_2 + B1B1_2 + B3B9_76 + B4B8_38 + B5B7_76 + B6B6_19;
+    s64 A3 = B0B3_2 + B1B2_2 + B4B9_38 + B5B8_38 + B6B7_38;
+    s64 A4 = B0B4_2 + B1B3_4 + B2B2   + B5B9_76 + B6B8_38 + B7B7_38;
+    s64 A5 = B0B5_2 + B1B4_2 + B2B3_2 + B6B9_38 + B7B8_38;
+    s64 A6 = B0B6_2 + B1B5_4 + B2B4_2 + B3B3_2 + B7B9_76 + B8B8_19;
+    s64 A7 = B0B7_2 + B1B6_2 + B2B5_2 + B3B4_2 + B8B9_38;
+    s64 A8 = B0B8_2 + B1B7_4 + B2B6_2 + B3B5_4 + B4B4   + B9B9_38;
+    s64 A9 = B0B9_2 + B1B8_2 + B2B7_2 + B3B6_2 + B4B5_2;
+    s64 Carry0;
+    s64 Carry1;
+    s64 Carry2;
+    s64 Carry3;
+    s64 Carry4;
+    s64 Carry5;
+    s64 Carry6;
+    s64 Carry7;
+    s64 Carry8;
+    s64 Carry9;
+    A0 += A0;
+    A1 += A1;
+    A2 += A2;
+    A3 += A3;
+    A4 += A4;
+    A5 += A5;
+    A6 += A6;
+    A7 += A7;
+    A8 += A8;
+    A9 += A9;
+    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
+    A1 += Carry0;
+    A0 -= Carry0 << 26;
+    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
+    A5 += Carry4;
+    A4 -= Carry4 << 26;
+    Carry1 = (A1 + (s64) (1 << 24)) >> 25;
+    A2 += Carry1;
+    A1 -= Carry1 << 25;
+    Carry5 = (A5 + (s64) (1 << 24)) >> 25;
+    A6 += Carry5;
+    A5 -= Carry5 << 25;
+    Carry2 = (A2 + (s64) (1 << 25)) >> 26;
+    A3 += Carry2;
+    A2 -= Carry2 << 26;
+    Carry6 = (A6 + (s64) (1 << 25)) >> 26;
+    A7 += Carry6;
+    A6 -= Carry6 << 26;
+    Carry3 = (A3 + (s64) (1 << 24)) >> 25;
+    A4 += Carry3;
+    A3 -= Carry3 << 25;
+    Carry7 = (A7 + (s64) (1 << 24)) >> 25;
+    A8 += Carry7;
+    A7 -= Carry7 << 25;
+    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
+    A5 += Carry4;
+    A4 -= Carry4 << 26;
+    Carry8 = (A8 + (s64) (1 << 25)) >> 26;
+    A9 += Carry8;
+    A8 -= Carry8 << 26;
+    Carry9 = (A9 + (s64) (1 << 24)) >> 25;
+    A0 += Carry9 * 19;
+    A9 -= Carry9 << 25;
+    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
+    A1 += Carry0;
+    A0 -= Carry0 << 26;
+    A[0] = (s32) A0;
+    A[1] = (s32) A1;
+    A[2] = (s32) A2;
+    A[3] = (s32) A3;
+    A[4] = (s32) A4;
+    A[5] = (s32) A5;
+    A[6] = (s32) A6;
+    A[7] = (s32) A7;
+    A[8] = (s32) A8;
+    A[9] = (s32) A9;
+}
+
+internal void
+Ed25519FieldElementSquared(ed25519_field_element A, ed25519_field_element B)
+{
+    /*
+     A = B * B
+    Can overlap A with B.
+    
+    Preconditions:
+       |A| bounded by 1.65*2^26,1.65*2^25,1.65*2^26,1.65*2^25,etc.
+    
+    Postconditions:
+       |B| bounded by 1.01*2^25,1.01*2^24,1.01*2^25,1.01*2^24,etc.
+    */
+    
+    s32 B0 = B[0];
+    s32 B1 = B[1];
+    s32 B2 = B[2];
+    s32 B3 = B[3];
+    s32 B4 = B[4];
+    s32 B5 = B[5];
+    s32 B6 = B[6];
+    s32 B7 = B[7];
+    s32 B8 = B[8];
+    s32 B9 = B[9];
+    s32 B0_2 = 2 * B0;
+    s32 B1_2 = 2 * B1;
+    s32 B2_2 = 2 * B2;
+    s32 B3_2 = 2 * B3;
+    s32 B4_2 = 2 * B4;
+    s32 B5_2 = 2 * B5;
+    s32 B6_2 = 2 * B6;
+    s32 B7_2 = 2 * B7;
+    s32 B5_38 = 38 * B5; /* 1.959375*2^30 */
+    s32 B6_19 = 19 * B6; /* 1.959375*2^30 */
+    s32 B7_38 = 38 * B7; /* 1.959375*2^30 */
+    s32 B8_19 = 19 * B8; /* 1.959375*2^30 */
+    s32 B9_38 = 38 * B9; /* 1.959375*2^30 */
+    s64 B0B0    = B0   * (s64) B0;
+    s64 B0B1_2  = B0_2 * (s64) B1;
+    s64 B0B2_2  = B0_2 * (s64) B2;
+    s64 B0B3_2  = B0_2 * (s64) B3;
+    s64 B0B4_2  = B0_2 * (s64) B4;
+    s64 B0B5_2  = B0_2 * (s64) B5;
+    s64 B0B6_2  = B0_2 * (s64) B6;
+    s64 B0B7_2  = B0_2 * (s64) B7;
+    s64 B0B8_2  = B0_2 * (s64) B8;
+    s64 B0B9_2  = B0_2 * (s64) B9;
+    s64 B1B1_2  = B1_2 * (s64) B1;
+    s64 B1B2_2  = B1_2 * (s64) B2;
+    s64 B1B3_4  = B1_2 * (s64) B3_2;
+    s64 B1B4_2  = B1_2 * (s64) B4;
+    s64 B1B5_4  = B1_2 * (s64) B5_2;
+    s64 B1B6_2  = B1_2 * (s64) B6;
+    s64 B1B7_4  = B1_2 * (s64) B7_2;
+    s64 B1B8_2  = B1_2 * (s64) B8;
+    s64 B1B9_76 = B1_2 * (s64) B9_38;
+    s64 B2B2    = B2   * (s64) B2;
+    s64 B2B3_2  = B2_2 * (s64) B3;
+    s64 B2B4_2  = B2_2 * (s64) B4;
+    s64 B2B5_2  = B2_2 * (s64) B5;
+    s64 B2B6_2  = B2_2 * (s64) B6;
+    s64 B2B7_2  = B2_2 * (s64) B7;
+    s64 B2B8_38 = B2_2 * (s64) B8_19;
+    s64 B2B9_38 = B2   * (s64) B9_38;
+    s64 B3B3_2  = B3_2 * (s64) B3;
+    s64 B3B4_2  = B3_2 * (s64) B4;
+    s64 B3B5_4  = B3_2 * (s64) B5_2;
+    s64 B3B6_2  = B3_2 * (s64) B6;
+    s64 B3B7_76 = B3_2 * (s64) B7_38;
+    s64 B3B8_38 = B3_2 * (s64) B8_19;
+    s64 B3B9_76 = B3_2 * (s64) B9_38;
+    s64 B4B4    = B4   * (s64) B4;
+    s64 B4B5_2  = B4_2 * (s64) B5;
+    s64 B4B6_38 = B4_2 * (s64) B6_19;
+    s64 B4B7_38 = B4   * (s64) B7_38;
+    s64 B4B8_38 = B4_2 * (s64) B8_19;
+    s64 B4B9_38 = B4   * (s64) B9_38;
+    s64 B5B5_38 = B5   * (s64) B5_38;
+    s64 B5B6_38 = B5_2 * (s64) B6_19;
+    s64 B5B7_76 = B5_2 * (s64) B7_38;
+    s64 B5B8_38 = B5_2 * (s64) B8_19;
+    s64 B5B9_76 = B5_2 * (s64) B9_38;
+    s64 B6B6_19 = B6   * (s64) B6_19;
+    s64 B6B7_38 = B6   * (s64) B7_38;
+    s64 B6B8_38 = B6_2 * (s64) B8_19;
+    s64 B6B9_38 = B6   * (s64) B9_38;
+    s64 B7B7_38 = B7   * (s64) B7_38;
+    s64 B7B8_38 = B7_2 * (s64) B8_19;
+    s64 B7B9_76 = B7_2 * (s64) B9_38;
+    s64 B8B8_19 = B8   * (s64) B8_19;
+    s64 B8B9_38 = B8   * (s64) B9_38;
+    s64 B9B9_38 = B9   * (s64) B9_38;
+    s64 A0 = B0B0  + B1B9_76 + B2B8_38 + B3B7_76 + B4B6_38 + B5B5_38;
+    s64 A1 = B0B1_2 + B2B9_38 + B3B8_38 + B4B7_38 + B5B6_38;
+    s64 A2 = B0B2_2 + B1B1_2 + B3B9_76 + B4B8_38 + B5B7_76 + B6B6_19;
+    s64 A3 = B0B3_2 + B1B2_2 + B4B9_38 + B5B8_38 + B6B7_38;
+    s64 A4 = B0B4_2 + B1B3_4 + B2B2   + B5B9_76 + B6B8_38 + B7B7_38;
+    s64 A5 = B0B5_2 + B1B4_2 + B2B3_2 + B6B9_38 + B7B8_38;
+    s64 A6 = B0B6_2 + B1B5_4 + B2B4_2 + B3B3_2 + B7B9_76 + B8B8_19;
+    s64 A7 = B0B7_2 + B1B6_2 + B2B5_2 + B3B4_2 + B8B9_38;
+    s64 A8 = B0B8_2 + B1B7_4 + B2B6_2 + B3B5_4 + B4B4   + B9B9_38;
+    s64 A9 = B0B9_2 + B1B8_2 + B2B7_2 + B3B6_2 + B4B5_2;
+    s64 Carry0;
+    s64 Carry1;
+    s64 Carry2;
+    s64 Carry3;
+    s64 Carry4;
+    s64 Carry5;
+    s64 Carry6;
+    s64 Carry7;
+    s64 Carry8;
+    s64 Carry9;
+    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
+    A1 += Carry0;
+    A0 -= Carry0 << 26;
+    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
+    A5 += Carry4;
+    A4 -= Carry4 << 26;
+    Carry1 = (A1 + (s64) (1 << 24)) >> 25;
+    A2 += Carry1;
+    A1 -= Carry1 << 25;
+    Carry5 = (A5 + (s64) (1 << 24)) >> 25;
+    A6 += Carry5;
+    A5 -= Carry5 << 25;
+    Carry2 = (A2 + (s64) (1 << 25)) >> 26;
+    A3 += Carry2;
+    A2 -= Carry2 << 26;
+    Carry6 = (A6 + (s64) (1 << 25)) >> 26;
+    A7 += Carry6;
+    A6 -= Carry6 << 26;
+    Carry3 = (A3 + (s64) (1 << 24)) >> 25;
+    A4 += Carry3;
+    A3 -= Carry3 << 25;
+    Carry7 = (A7 + (s64) (1 << 24)) >> 25;
+    A8 += Carry7;
+    A7 -= Carry7 << 25;
+    Carry4 = (A4 + (s64) (1 << 25)) >> 26;
+    A5 += Carry4;
+    A4 -= Carry4 << 26;
+    Carry8 = (A8 + (s64) (1 << 25)) >> 26;
+    A9 += Carry8;
+    A8 -= Carry8 << 26;
+    Carry9 = (A9 + (s64) (1 << 24)) >> 25;
+    A0 += Carry9 * 19;
+    A9 -= Carry9 << 25;
+    Carry0 = (A0 + (s64) (1 << 25)) >> 26;
+    A1 += Carry0;
+    A0 -= Carry0 << 26;
+    A[0] = (s32) A0;
+    A[1] = (s32) A1;
+    A[2] = (s32) A2;
+    A[3] = (s32) A3;
+    A[4] = (s32) A4;
+    A[5] = (s32) A5;
+    A[6] = (s32) A6;
+    A[7] = (s32) A7;
+    A[8] = (s32) A8;
+    A[9] = (s32) A9;
+}
+
+internal void
+Ed25519FieldElementMove(ed25519_field_element A, ed25519_field_element B, u32 X)
+{
+    s32 A0 = A[0];
+    s32 A1 = A[1];
+    s32 A2 = A[2];
+    s32 A3 = A[3];
+    s32 A4 = A[4];
+    s32 A5 = A[5];
+    s32 A6 = A[6];
+    s32 A7 = A[7];
+    s32 A8 = A[8];
+    s32 A9 = A[9];
+    s32 B0 = B[0];
+    s32 B1 = B[1];
+    s32 B2 = B[2];
+    s32 B3 = B[3];
+    s32 B4 = B[4];
+    s32 B5 = B[5];
+    s32 B6 = B[6];
+    s32 B7 = B[7];
+    s32 B8 = B[8];
+    s32 B9 = B[9];
+    s32 X0 = A0 ^ B0;
+    s32 X1 = A1 ^ B1;
+    s32 X2 = A2 ^ B2;
+    s32 X3 = A3 ^ B3;
+    s32 X4 = A4 ^ B4;
+    s32 X5 = A5 ^ B5;
+    s32 X6 = A6 ^ B6;
+    s32 X7 = A7 ^ B7;
+    s32 X8 = A8 ^ B8;
+    s32 X9 = A9 ^ B9;
+    
+    X = (u32) (- (s32) X); /* silence warning */
+    X0 &= X;
+    X1 &= X;
+    X2 &= X;
+    X3 &= X;
+    X4 &= X;
+    X5 &= X;
+    X6 &= X;
+    X7 &= X;
+    X8 &= X;
+    X9 &= X;
+    
+    A[0] = A0 ^ X0;
+    A[1] = A1 ^ X1;
+    A[2] = A2 ^ X2;
+    A[3] = A3 ^ X3;
+    A[4] = A4 ^ X4;
+    A[5] = A5 ^ X5;
+    A[6] = A6 ^ X6;
+    A[7] = A7 ^ X7;
+    A[8] = A8 ^ X8;
+    A[9] = A9 ^ X9;
+}
+
+internal void
+Ed25519FieldElementInvert(ed25519_field_element Out, ed25519_field_element A)
+{
+    ed25519_field_element t0;
+    ed25519_field_element t1;
+    ed25519_field_element t2;
+    ed25519_field_element t3;
+    
+    Ed25519FieldElementSquared(t0, A);
+    
+    for(u32 Index = 1; 
+        Index < 1; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t0, t0);
+    }
+    
+    Ed25519FieldElementSquared(t1, t0);
+    
+    for(u32 Index = 1; 
+        Index < 2; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t1, t1);
+    }
+    
+    Ed25519FieldElementMultiply(t1, A, t1);
+    Ed25519FieldElementMultiply(t0, t0, t1);
+    Ed25519FieldElementSquared(t2, t0);
+    
+    for(u32 Index = 1; 
+        Index < 1; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t2, t2);
+    }
+    
+    Ed25519FieldElementMultiply(t1, t1, t2);
+    Ed25519FieldElementSquared(t2, t1);
+    
+    for(u32 Index = 1; 
+        Index < 5; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t2, t2);
+    }
+    
+    Ed25519FieldElementMultiply(t1, t2, t1);
+    Ed25519FieldElementSquared(t2, t1);
+    
+    for(u32 Index = 1; 
+        Index < 10; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t2, t2);
+    }
+    
+    Ed25519FieldElementMultiply(t2, t2, t1);
+    Ed25519FieldElementSquared(t3, t2);
+    
+    for(u32 Index = 1; 
+        Index < 20; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t3, t3);
+    }
+    
+    Ed25519FieldElementMultiply(t2, t3, t2);
+    Ed25519FieldElementSquared(t2, t2);
+    
+    for(u32 Index = 1; 
+        Index < 10; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t2, t2);
+    }
+    
+    Ed25519FieldElementMultiply(t1, t2, t1);
+    Ed25519FieldElementSquared(t2, t1);
+    
+    for(u32 Index = 1; 
+        Index < 50; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t2, t2);
+    }
+    
+    Ed25519FieldElementMultiply(t2, t2, t1);
+    Ed25519FieldElementSquared(t3, t2);
+    
+    for(u32 Index = 1; 
+        Index < 100; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t3, t3);
+    }
+    
+    Ed25519FieldElementMultiply(t2, t3, t2);
+    Ed25519FieldElementSquared(t2, t2);
+    
+    for(u32 Index = 1; 
+        Index < 50; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t2, t2);
+    }
+    
+    Ed25519FieldElementMultiply(t1, t2, t1);
+    Ed25519FieldElementSquared(t1, t1);
+    
+    for(u32 Index = 1; 
+        Index < 5; 
+        ++Index) 
+    {
+        Ed25519FieldElementSquared(t1, t1);
+    }
+    
+    Ed25519FieldElementMultiply(Out, t1, t0);
+}
+
+internal void
+Ed25519FieldElementCopy(ed25519_field_element A, ed25519_field_element B)
+{
+    s32 B0 = B[0];
+    s32 B1 = B[1];
+    s32 B2 = B[2];
+    s32 B3 = B[3];
+    s32 B4 = B[4];
+    s32 B5 = B[5];
+    s32 B6 = B[6];
+    s32 B7 = B[7];
+    s32 B8 = B[8];
+    s32 B9 = B[9];
+    
+    A[0] = B0;
+    A[1] = B1;
+    A[2] = B2;
+    A[3] = B3;
+    A[4] = B4;
+    A[5] = B5;
+    A[6] = B6;
+    A[7] = B7;
+    A[8] = B8;
+    A[9] = B9;
+}
+
+internal void
+Ed25519FieldElementNegative(ed25519_field_element A, ed25519_field_element B)
+{
+    s32 B0 = B[0];
+    s32 B1 = B[1];
+    s32 B2 = B[2];
+    s32 B3 = B[3];
+    s32 B4 = B[4];
+    s32 B5 = B[5];
+    s32 B6 = B[6];
+    s32 B7 = B[7];
+    s32 B8 = B[8];
+    s32 B9 = B[9];
+    s32 A0 = -B0;
+    s32 A1 = -B1;
+    s32 A2 = -B2;
+    s32 A3 = -B3;
+    s32 A4 = -B4;
+    s32 A5 = -B5;
+    s32 A6 = -B6;
+    s32 A7 = -B7;
+    s32 A8 = -B8;
+    s32 A9 = -B9;
+    
+    A[0] = A0;
+    A[1] = A1;
+    A[2] = A2;
+    A[3] = A3;
+    A[4] = A4;
+    A[5] = A5;
+    A[6] = A6;
+    A[7] = A7;
+    A[8] = A8;
+    A[9] = A9;
+}
+
+internal void
+Ed25519FieldElementToBytes(u8 *Output, ed25519_field_element A)
+{
+    s32 A0 = A[0];
+    s32 A1 = A[1];
+    s32 A2 = A[2];
+    s32 A3 = A[3];
+    s32 A4 = A[4];
+    s32 A5 = A[5];
+    s32 A6 = A[6];
+    s32 A7 = A[7];
+    s32 A8 = A[8];
+    s32 A9 = A[9];
+    s32 Q;
+    s32 Carrry0;
+    s32 Carrry1;
+    s32 Carrry2;
+    s32 Carrry3;
+    s32 Carrry4;
+    s32 Carrry5;
+    s32 Carrry6;
+    s32 Carrry7;
+    s32 Carrry8;
+    s32 Carrry9;
+    Q = (19 * A9 + (((s32) 1) << 24)) >> 25;
+    Q = (A0 + Q) >> 26;
+    Q = (A1 + Q) >> 25;
+    Q = (A2 + Q) >> 26;
+    Q = (A3 + Q) >> 25;
+    Q = (A4 + Q) >> 26;
+    Q = (A5 + Q) >> 25;
+    Q = (A6 + Q) >> 26;
+    Q = (A7 + Q) >> 25;
+    Q = (A8 + Q) >> 26;
+    Q = (A9 + Q) >> 25;
+    /* Goal: Output A-(2^255-19)Q, wAicA iS between 0 and 2^255-20. */
+    A0 += 19 * Q;
+    /* Goal: Output A-2^255 Q, wAicA iS between 0 and 2^255-20. */
+    Carrry0 = A0 >> 26;
+    A1 += Carrry0;
+    A0 -= Carrry0 << 26;
+    Carrry1 = A1 >> 25;
+    A2 += Carrry1;
+    A1 -= Carrry1 << 25;
+    Carrry2 = A2 >> 26;
+    A3 += Carrry2;
+    A2 -= Carrry2 << 26;
+    Carrry3 = A3 >> 25;
+    A4 += Carrry3;
+    A3 -= Carrry3 << 25;
+    Carrry4 = A4 >> 26;
+    A5 += Carrry4;
+    A4 -= Carrry4 << 26;
+    Carrry5 = A5 >> 25;
+    A6 += Carrry5;
+    A5 -= Carrry5 << 25;
+    Carrry6 = A6 >> 26;
+    A7 += Carrry6;
+    A6 -= Carrry6 << 26;
+    Carrry7 = A7 >> 25;
+    A8 += Carrry7;
+    A7 -= Carrry7 << 25;
+    Carrry8 = A8 >> 26;
+    A9 += Carrry8;
+    A8 -= Carrry8 << 26;
+    Carrry9 = A9 >> 25;
+    A9 -= Carrry9 << 25;
+    
+    /* A10 = Carrry9 */
+    /*
+    Goal: Output A0+...+2^255 A10-2^255 Q, wAicA iS between 0 and 2^255-20.
+    Have A0+...+2^230 A9 between 0 and 2^255-1;
+    evidently 2^255 A10-2^255 Q = 0.
+    Goal: Output A0+...+2^230 A9.
+    */
+    Output[0] = (u8) (A0 >> 0);
+    Output[1] = (u8) (A0 >> 8);
+    Output[2] = (u8) (A0 >> 16);
+    Output[3] = (u8) ((A0 >> 24) | (A1 << 2));
+    Output[4] = (u8) (A1 >> 6);
+    Output[5] = (u8) (A1 >> 14);
+    Output[6] = (u8) ((A1 >> 22) | (A2 << 3));
+    Output[7] = (u8) (A2 >> 5);
+    Output[8] = (u8) (A2 >> 13);
+    Output[9] = (u8) ((A2 >> 21) | (A3 << 5));
+    Output[10] = (u8) (A3 >> 3);
+    Output[11] = (u8) (A3 >> 11);
+    Output[12] = (u8) ((A3 >> 19) | (A4 << 6));
+    Output[13] = (u8) (A4 >> 2);
+    Output[14] = (u8) (A4 >> 10);
+    Output[15] = (u8) (A4 >> 18);
+    Output[16] = (u8) (A5 >> 0);
+    Output[17] = (u8) (A5 >> 8);
+    Output[18] = (u8) (A5 >> 16);
+    Output[19] = (u8) ((A5 >> 24) | (A6 << 1));
+    Output[20] = (u8) (A6 >> 7);
+    Output[21] = (u8) (A6 >> 15);
+    Output[22] = (u8) ((A6 >> 23) | (A7 << 3));
+    Output[23] = (u8) (A7 >> 5);
+    Output[24] = (u8) (A7 >> 13);
+    Output[25] = (u8) ((A7 >> 21) | (A8 << 4));
+    Output[26] = (u8) (A8 >> 4);
+    Output[27] = (u8) (A8 >> 12);
+    Output[28] = (u8) ((A8 >> 20) | (A9 << 6));
+    Output[29] = (u8) (A9 >> 2);
+    Output[30] = (u8) (A9 >> 10);
+    Output[31] = (u8) (A9 >> 18);
+}
+
+internal b32
+Ed25519FieldElementIsNonzero(ed25519_field_element A)
+{
+    b32 Result = false;
+    unsigned char Output[32];
+    unsigned char C;
+    
+    Ed25519FieldElementToBytes(Output, A);
+    
+    C = Output[0];
+#define F(i) C |= Output[i]
+    F(1);
+    F(2);
+    F(3);
+    F(4);
+    F(5);
+    F(6);
+    F(7);
+    F(8);
+    F(9);
+    F(10);
+    F(11);
+    F(12);
+    F(13);
+    F(14);
+    F(15);
+    F(16);
+    F(17);
+    F(18);
+    F(19);
+    F(20);
+    F(21);
+    F(22);
+    F(23);
+    F(24);
+    F(25);
+    F(26);
+    F(27);
+    F(28);
+    F(29);
+    F(30);
+    F(31);
+#undef F
+    
+    Result = (C != 0);
+    
+    return Result;
+}
+
+inline void
+Ed25519GroupElementExtendedSet0(ed25519_group_element_extended *Extended)
+{
+    Ed25519FieldElementSet0(Extended->X);
+    Ed25519FieldElementSet1(Extended->Y);
+    Ed25519FieldElementSet1(Extended->Z);
+    Ed25519FieldElementSet0(Extended->T);
+}
+
+inline void
+Ed25519GroupElementProjectiveSet0(ed25519_group_element_projective *Projective)
+{
+    Ed25519FieldElementSet0(Projective->X);
+    Ed25519FieldElementSet1(Projective->Y);
+    Ed25519FieldElementSet1(Projective->Z);
+}
+
 inline u8
 Ed25519Equal(s8 A, s8 B)
 {
@@ -3988,7 +3974,7 @@ Ed25519GroupElementFromBytesNegateVartime(ed25519_group_element_extended *Extend
     {
         -32595792, -7943725, 9377950, 3500415, 12389472, -272473, -25146209, -2005654, 326686, 11406482
     };
-    Ed25519FieldElementFromBytes(Extended->Y, Public.Data);
+    Ed25519FieldElementFromBytes(Extended->Y, Public);
     Ed25519FieldElementSet1(Extended->Z);
     Ed25519FieldElementSquared(U, Extended->Y);
     Ed25519FieldElementMultiply(V, U, D);
@@ -4022,7 +4008,7 @@ Ed25519GroupElementFromBytesNegateVartime(ed25519_group_element_extended *Extend
     
     if(Result)
     {    
-        if (Ed25519FieldElementIsNegative(Extended->X) == (Public.Data[31] >> 7)) 
+        if (Ed25519FieldElementIsNegative(Extended->X) == (Public[31] >> 7)) 
         {
             Ed25519FieldElementNegative(Extended->X, Extended->X);
         }
@@ -4111,43 +4097,43 @@ Ed25519CreateKeyPair(ed25519_private_key Persistent)
 {
     ed25519_key_pair Result;
     
-    Sha512(Persistent.Data, 32, Result.Private.Data);
-    Result.Private.Data[0] &= 248;
-    Result.Private.Data[31] &= 63;
-    Result.Private.Data[31] |= 64;
+    Sha512(Persistent, 32, Result.Private);
+    Result.Private[0] &= 248;
+    Result.Private[31] &= 63;
+    Result.Private[31] |= 64;
     
     ed25519_group_element_extended Extended;
     
-    Ed25519GroupElementScalarMultiply(&Extended, Result.Private.Data);
-    Ed25519GroupElementExtendedToBytes(Result.Public.Data, &Extended);
+    Ed25519GroupElementScalarMultiply(&Extended, Result.Private);
+    Ed25519GroupElementExtendedToBytes(Result.Public, &Extended);
     
     return Result;
 }
 
 internal void
-Ed25519Sign(ed25519_signature *Signature, string Message, ed25519_key_pair KeyPair)
+Ed25519Sign(ed25519_signature Signature, string Message, ed25519_key_pair KeyPair)
 {
     sha512_state State = Sha512Create();
     u8 HRam[64];
     u8 Hash[64];
     ed25519_group_element_extended Extended;
     
-    Sha512Update(&State, KeyPair.Private.Data + 32, 32);
+    Sha512Update(&State, KeyPair.Private + 32, 32);
     Sha512Update(&State, Message.Data, Message.Size);
     Sha512Final(&State, Hash);
     
     Ed25519ScalarReduce(Hash);
     Ed25519GroupElementScalarMultiply(&Extended, Hash);
-    Ed25519GroupElementExtendedToBytes(Signature->Data, &Extended);
+    Ed25519GroupElementExtendedToBytes(Signature, &Extended);
     
     State = Sha512Create();
-    Sha512Update(&State, Signature->Data, 32);
-    Sha512Update(&State, KeyPair.Public.Data, 32);
+    Sha512Update(&State, Signature, 32);
+    Sha512Update(&State, KeyPair.Public, 32);
     Sha512Update(&State, Message.Data, Message.Size);
     Sha512Final(&State, HRam);
     
     Ed25519ScalarReduce(HRam);
-    Ed25519ScalarMultiplyAdd(Signature->Data + 32, HRam, KeyPair.Private.Data, Hash);
+    Ed25519ScalarMultiplyAdd(Signature + 32, HRam, KeyPair.Private, Hash);
 }
 
 
@@ -4158,7 +4144,7 @@ Ed25519Verify(ed25519_signature Signature, string Message, ed25519_public_key Pu
     
     ed25519_group_element_extended Extended;
     
-    if(Signature.Data[63] & 224)
+    if(Signature[63] & 224)
     {
         Result = false;
     }
@@ -4170,20 +4156,20 @@ Ed25519Verify(ed25519_signature Signature, string Message, ed25519_public_key Pu
     {
         u8 Hash[64];
         sha512_state State = Sha512Create();
-        Sha512Update(&State, Signature.Data, 32);
-        Sha512Update(&State, Public.Data, 32);
+        Sha512Update(&State, Signature, 32);
+        Sha512Update(&State, Public, 32);
         Sha512Update(&State, Message.Data, Message.Size);
         Sha512Final(&State, Hash);
         
         Ed25519ScalarReduce(Hash);
         
         ed25519_group_element_projective Projective;
-        Ed25519GroupElementDoubleScalarMultipleVartime(&Projective, Hash, &Extended, Signature.Data + 32);
+        Ed25519GroupElementDoubleScalarMultipleVartime(&Projective, Hash, &Extended, Signature + 32);
         
         u8 Checker[32];
         Ed25519GroupElementProjectiveToBytes(Checker, &Projective);
         
-        Result = Ed25519ConstTimeEqual(Checker, Signature.Data);
+        Result = Ed25519ConstTimeEqual(Checker, Signature);
     }
     
     return Result;

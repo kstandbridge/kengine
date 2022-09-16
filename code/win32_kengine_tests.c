@@ -693,19 +693,28 @@ RunSha512Tests(memory_arena *Arena)
 inline void
 RunEdDSATests(memory_arena *Arena)
 {
+    LARGE_INTEGER LastCounter;
+    Win32QueryPerformanceCounter(&LastCounter);
+    random_state RandomState;
+    RandomState.Value = (u32)LastCounter.QuadPart;
+    
     ed25519_private_key PersistentKey;
-    for(u32 Index = 0;
-        Index < 64;
-        ++Index)
-    {
-        PersistentKey.Data[Index] = Index;
+    
+    // NOTE(kstandbridge): Generate a random private key for the test
+    {    
+        for(u32 Index = 0;
+            Index < 64;
+            ++Index)
+        {
+            PersistentKey[Index] = RandomU32(&RandomState) % 128;
+        }
     }
     
     ed25519_key_pair KeyPair = Ed25519CreateKeyPair(PersistentKey);
     
     string Message = String("some super secret message");
     ed25519_signature Signature;
-    Ed25519Sign(&Signature, Message, KeyPair);
+    Ed25519Sign(Signature, Message, KeyPair);
     
     b32 SignVerify = Ed25519Verify(Signature, Message, KeyPair.Public);
     ASSERT(SignVerify);
@@ -713,7 +722,6 @@ RunEdDSATests(memory_arena *Arena)
     
     SignVerify = Ed25519Verify(Signature, String("wrong secret message"), KeyPair.Public);
     ASSERT(!SignVerify);
-    
 }
 
 internal b32
