@@ -1,25 +1,18 @@
-/* LibTomCrypt, modular cryptographic library -- Tom St Denis
+/* c-ed25519-demo - Nikolaos Grammatikos
  *
- * LibTomCrypt is a library that provides various cryptographic
- * algorithms in a highly modular and flexible manner.
+ * c-ed25519-demo is a R&D (demo) project
+ * that code of it can be used for all
+ * purposes, without any express guarantee
+ * it works. :)
  *
- * The library is free for all purposes without any express
- * guarantee it works.
- *
- * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
+ * Nikolaos Grammatikos, nikosgram@oglofus.com
+ * https://nikosgram.oglofus.com
  */
 
 // NOTE(kstandbridge): The follow has been heavily modified, thus does
-// not represent code written by the origional author metioned above
+// not represent code written by the original author mentioned above
 
-typedef struct sha512_state
-{
-    u64 CurrentLength;
-    u64 Length;
-    u64 State[8];
-    u8 Buffer[128];
-    
-} sha512_state; 
+#include "kengine_types.h"
 
 global u64 GlobalKArray[80] = {
     0x428a2f98d728ae22, 0x7137449123ef65cd, 
@@ -64,253 +57,184 @@ global u64 GlobalKArray[80] = {
     0x5fcb6fab3ad6faec, 0x6c44198c4a475817
 };
 
-#define ROR64c(x, y) \
-( ((((x)&(0xFFFFFFFFFFFFFFFF))>>((u64)(y)&(63))) | \
-((x)<<((u64)(64-((y)&(63)))))) & (0xFFFFFFFFFFFFFFFF))
+internal void
+Sha512Compress(u64 *State, u8 *Message) {
+    b32 Result = false;
+    u64 s[8], w[80], t0;
+    b32 i;
 
-#define STORE64H(x, y)                                                                     \
-{ (y)[0] = (u8)(((x)>>56)&255); (y)[1] = (u8)(((x)>>48)&255);     \
-(y)[2] = (u8)(((x)>>40)&255); (y)[3] = (u8)(((x)>>32)&255);     \
-(y)[4] = (u8)(((x)>>24)&255); (y)[5] = (u8)(((x)>>16)&255);     \
-(y)[6] = (u8)(((x)>>8)&255); (y)[7] = (u8)((x)&255); }
+    for (i = 0; i < 8; i++) {
+        s[i] = State[i];
+    }
 
-#define LOAD64H(x, y)                                                      \
-{ x = (((u64)((y)[0] & 255))<<56)|(((u64)((y)[1] & 255))<<48) | \
-(((u64)((y)[2] & 255))<<40)|(((u64)((y)[3] & 255))<<32) | \
-(((u64)((y)[4] & 255))<<24)|(((u64)((y)[5] & 255))<<16) | \
-(((u64)((y)[6] & 255))<<8)|(((u64)((y)[7] & 255))); }
+    for (i = 0; i < 16; i++) {
+        const u8 *a = Message + (8 * i);
 
+        w[i] = (((u64) a[0]) << 56) | (((u64) a[1]) << 48) | (((u64) a[2]) << 40) |
+               (((u64) a[3]) << 32) | (((u64) a[4]) << 24) | (((u64) a[5]) << 16) |
+               (((u64) a[6]) << 8) | ((u64) a[7]);
+    }
 
-#define Ch(x,y,z)       (z ^ (x & (y ^ z)))
-#define Maj(x,y,z)      (((x | y) & z) | (x & y)) 
-#define S(x, n)         ROR64c(x, n)
-#define R(x, n)         (((x) &(0xFFFFFFFFFFFFFFFF))>>((u64)n))
-#define Sigma0(x)       (S(x, 28) ^ S(x, 34) ^ S(x, 39))
-#define Sigma1(x)       (S(x, 14) ^ S(x, 18) ^ S(x, 41))
-#define Gamma0(x)       (S(x, 1) ^ S(x, 8) ^ R(x, 7))
-#define Gamma1(x)       (S(x, 19) ^ S(x, 61) ^ R(x, 6))
-#ifndef MIN
-#define MIN(x, y) ( ((x)<(y))?(x):(y) )
-#endif
+    for (i = 16; i < 80; i++) {
+        const u64 a = w[i - 2], b = w[i - 15];
 
+        w[i] = (((a >> 19 | a << 45)) ^ ((a >> 61 | a << 3)) ^ (a >> 6)) + w[i - 7] +
+               (((b >> 1 | b << 63)) ^ ((b >> 8 | b << 56)) ^ (b >> 7)) + w[i - 16];
+    }
 
-inline sha512_state
-Sha512Create()
-{
-    sha512_state Result;
-    
-    Result.CurrentLength = 0;
-    Result.Length = 0;
-    Result.State[0] = 0x6a09e667f3bcc908;
-    Result.State[1] = 0xbb67ae8584caa73b;
-    Result.State[2] = 0x3c6ef372fe94f82b;
-    Result.State[3] = 0xa54ff53a5f1d36f1;
-    Result.State[4] = 0x510e527fade682d1;
-    Result.State[5] = 0x9b05688c2b3e6c1f;
-    Result.State[6] = 0x1f83d9abfb41bd6b;
-    Result.State[7] = 0x5be0cd19137e2179;
-    
-    return Result;
+    for (i = 0; i < 80; i += 8) {
+        t0 = s[7] + (((s[4] >> 14 | s[4] << 50)) ^ ((s[4] >> 18 | s[4] << 46)) ^ ((s[4] >> 41 | s[4] << 23))) +
+             (s[6] ^ (s[4] & (s[5] ^ s[6]))) + GlobalKArray[i] + w[i];
+        s[3] += t0;
+        s[7] = t0 + ((((s[0] >> 28 | s[0] << 36)) ^ ((s[0] >> 34 | s[0] << 30)) ^ ((s[0] >> 39 | s[0] << 25))) +
+                     ((s[0] | s[1]) & s[2] | s[0] & s[1]));
+
+        t0 = s[6] + (((s[3] >> 14 | s[3] << 50)) ^ ((s[3] >> 18 | s[3] << 46)) ^ ((s[3] >> 41 | s[3] << 23))) +
+             (s[5] ^ (s[3] & (s[4] ^ s[5]))) + GlobalKArray[i + 1] + w[i + 1];
+        s[2] += t0;
+        s[6] = t0 + ((((s[7] >> 28 | s[7] << 36)) ^ ((s[7] >> 34 | s[7] << 30)) ^ ((s[7] >> 39 | s[7] << 25))) +
+                     ((s[7] | s[0]) & s[1] | s[7] & s[0]));
+
+        t0 = s[5] + (((s[2] >> 14 | s[2] << 50)) ^ ((s[2] >> 18 | s[2] << 46)) ^ ((s[2] >> 41 | s[2] << 23))) +
+             (s[4] ^ (s[2] & (s[3] ^ s[4]))) + GlobalKArray[i + 2] + w[i + 2];
+        s[1] += t0;
+        s[5] = t0 + ((((s[6] >> 28 | s[6] << 36)) ^ ((s[6] >> 34 | s[6] << 30)) ^ ((s[6] >> 39 | s[6] << 25))) +
+                     ((s[6] | s[7]) & s[0] | s[6] & s[7]));
+
+        t0 = s[4] + (((s[1] >> 14 | s[1] << 50)) ^ ((s[1] >> 18 | s[1] << 46)) ^ ((s[1] >> 41 | s[1] << 23))) +
+             (s[3] ^ (s[1] & (s[2] ^ s[3]))) + GlobalKArray[i + 3] + w[i + 3];
+        s[0] += t0;
+        s[4] = t0 + ((((s[5] >> 28 | s[5] << 36)) ^ ((s[5] >> 34 | s[5] << 30)) ^ ((s[5] >> 39 | s[5] << 25))) +
+                     ((s[5] | s[6]) & s[7] | s[5] & s[6]));
+
+        t0 = s[3] + (((s[0] >> 14 | s[0] << 50)) ^ ((s[0] >> 18 | s[0] << 46)) ^ ((s[0] >> 41 | s[0] << 23))) +
+             (s[2] ^ (s[0] & (s[1] ^ s[2]))) + GlobalKArray[i + 4] + w[i + 4];
+        s[7] += t0;
+        s[3] = t0 + ((((s[4] >> 28 | s[4] << 36)) ^ ((s[4] >> 34 | s[4] << 30)) ^ ((s[4] >> 39 | s[4] << 25))) +
+                     ((s[4] | s[5]) & s[6] | s[4] & s[5]));
+
+        t0 = s[2] + (((s[7] >> 14 | s[7] << 50)) ^ ((s[7] >> 18 | s[7] << 46)) ^ ((s[7] >> 41 | s[7] << 23))) +
+             (s[1] ^ (s[7] & (s[0] ^ s[1]))) + GlobalKArray[i + 5] + w[i + 5];
+        s[6] += t0;
+        s[2] = t0 + ((((s[3] >> 28 | s[3] << 36)) ^ ((s[3] >> 34 | s[3] << 30)) ^ ((s[3] >> 39 | s[3] << 25))) +
+                     ((s[3] | s[4]) & s[5] | s[3] & s[4]));
+
+        t0 = s[1] + (((s[6] >> 14 | s[6] << 50)) ^ ((s[6] >> 18 | s[6] << 46)) ^ ((s[6] >> 41 | s[6] << 23))) +
+             (s[0] ^ (s[6] & (s[7] ^ s[0]))) + GlobalKArray[i + 6] + w[i + 6];
+        s[5] += t0;
+        s[1] = t0 + ((((s[2] >> 28 | s[2] << 36)) ^ ((s[2] >> 34 | s[2] << 30)) ^ ((s[2] >> 39 | s[2] << 25))) +
+                     ((s[2] | s[3]) & s[4] | s[2] & s[3]));
+
+        t0 = s[0] + (((s[5] >> 14 | s[5] << 50)) ^ ((s[5] >> 18 | s[5] << 46)) ^ ((s[5] >> 41 | s[5] << 23))) +
+             (s[7] ^ (s[5] & (s[6] ^ s[7]))) + GlobalKArray[i + 7] + w[i + 7];
+        s[4] += t0;
+        s[0] = t0 + ((((s[1] >> 28 | s[1] << 36)) ^ ((s[1] >> 34 | s[1] << 30)) ^ ((s[1] >> 39 | s[1] << 25))) +
+                     ((s[1] | s[2]) & s[3] | s[1] & s[2]));
+    }
+
+    for (i = 0; i < 8; i++) {
+        State[i] = State[i] + s[i];
+    }
 }
 
 internal b32
-Sha512Compress(sha512_state *Sha512State, u8 *Message)
-{
-    b32 Result = false;
-    
-    u64 S[8];
-    u64 W[80];
-    u64 t0;
-    u64 t1;
-    
-    // Copy State
-    for(u32 Index = 0;
-        Index < 8;
-        ++Index)
-    {
-        S[Index] = Sha512State->State[Index];
+Sha512(u8 *Message, u64 Length, u8 *Output) {
+    if (Message == 0 || Output == 0) {
+        return true;
     }
-    
-    // Copy State 1024 bits into W[0...15]
-    for(u32 Index = 0;
-        Index < 16;
-        ++Index)
-    {
-        LOAD64H(W[Index], Message + (8*Index));
-    }
-    
-    // fill W[16..79]
-    for (u32 Index = 16; 
-         Index < 80; 
-         ++Index) 
-    {
-        W[Index] = Gamma1(W[Index - 2]) + W[Index - 7] + Gamma0(W[Index - 15]) + W[Index - 16];
-    }        
-    
-    // Compress
-#define RANDOM(A, B, C, D, E, F, G, H, I) \
-t0 = H + Sigma1(E) + Ch(E,  F,  G) + GlobalKArray[I] + W[I]; \
-t1 = Sigma0(A) + Maj(A,  B,  C);\
-D += t0; \
-H = t0 + t1;
-    
-    for (u32 Index = 0; 
-         Index < 80; 
-         Index += 8) 
-    {
-        RANDOM(S[0], S[1], S[2], S[3], S[4], S[5], S[6], S[7], Index + 0);
-        RANDOM(S[7], S[0], S[1], S[2], S[3], S[4], S[5], S[6], Index + 1);
-        RANDOM(S[6], S[7], S[0], S[1], S[2], S[3], S[4], S[5], Index + 2);
-        RANDOM(S[5], S[6], S[7], S[0], S[1], S[2], S[3], S[4], Index + 3);
-        RANDOM(S[4], S[5], S[6], S[7], S[0], S[1], S[2], S[3], Index + 4);
-        RANDOM(S[3], S[4], S[5], S[6], S[7], S[0], S[1], S[2], Index + 5);
-        RANDOM(S[2], S[3], S[4], S[5], S[6], S[7], S[0], S[1], Index + 6);
-        RANDOM(S[1], S[2], S[3], S[4], S[5], S[6], S[7], S[0], Index + 7);
-    }
-    
-#undef RANDOM
-    
-    // Feedback
-    for(u32 Index = 0;
-        Index < 8;
-        ++Index)
-    {
-        Sha512State->State[Index] = Sha512State->State[Index] + S[Index];
-    }
-    
-    return Result;
-}
 
-internal b32
-Sha512Update(sha512_state *State, u8 *Message, u64 Length)
-{
-    b32 Result = false;
-    
-    Assert(State);
-    Assert(Message);
-    Assert(State->CurrentLength <= sizeof(State->Buffer));
-    
-    if((State != 0) &&
-       (Message != 0) &&
-       (State->CurrentLength <= sizeof(State->Buffer)))
-    {
-        while(Length > 0)
-        {
-            if((State->CurrentLength == 0) &&
-               (Length >= 128))
-            {
-                Result = Sha512Compress(State, Message);
-                if(Result)
-                {
-                    break;
-                }
-                State->Length += 128 * 8;
-                Message += 128;
-                Length -= 128;
+    u64 length = 0, state[8] = {
+            0x6a09e667f3bcc908,
+            0xbb67ae8584caa73b,
+            0x3c6ef372fe94f82b,
+            0xa54ff53a5f1d36f1,
+            0x510e527fade682d1,
+            0x9b05688c2b3e6c1f,
+            0x1f83d9abfb41bd6b,
+            0x5be0cd19137e2179
+    };
+
+    u64 currentLen = 0, n, i;
+    u8 buf[128];
+
+    b32 result;
+
+    while (Length > 0) {
+        if (currentLen == 0 && Length >= 128) {
+            Sha512Compress(state, Message);
+
+            length += 128 * 8;
+            Message += 128;
+            Length -= 128;
+        } else {
+            u64 y = 128 - currentLen;
+
+            n = Length < y ? Length : y;
+
+            for (i = 0; i < n; i++) {
+                buf[i + currentLen] = Message[i];
             }
-            else
-            {
-                u64 Count = Minimum(Length, (128 - State->CurrentLength));
-                
-                for(u64 Index = 0;
-                    Index < Count;
-                    ++Index)
-                {
-                    State->Buffer[Index + State->CurrentLength] = Message[Index];
-                }
-                
-                State->CurrentLength += Count;
-                Message += Count;
-                Length -= Count;
-                
-                if(State->CurrentLength == 128)
-                {
-                    Result = Sha512Compress(State, Message);
-                    if(Result)
-                    {
-                        break;
-                    }
-                    
-                    State->Length += 8*128;
-                    State->CurrentLength = 0;
-                }
+
+            currentLen += n;
+            Message += n;
+            Length -= n;
+
+            if (currentLen == 128) {
+                Sha512Compress(state, buf);
+
+                length += 8 * 128;
+                currentLen = 0;
             }
         }
-        
-        Result = true;
     }
-    else
-    {
-        Result = false;
-    }
-    
-    return Result;
-}
 
-internal b32
-Sha512Final(sha512_state *State, u8 *Output)
-{
-    b32 Result = false;
-    
-    Assert(State);
-    Assert(Output);
-    Assert(State->CurrentLength <= sizeof(State->Buffer));
-    
-    if((State != 0) &&
-       (Output != 0) &&
-       (State->CurrentLength <= sizeof(State->Buffer)))
-    {
-        // Increase length of the message
-        State->Length += State->CurrentLength * 8;
-        
-        // Append the '1' bit
-        State->Buffer[State->CurrentLength++] = 0x80;
-        
-        // If the length is currently above 1126 bytes we append zeros then 
-        // compress. Then we can fall back to padding zeros and length encoding like normal.
-        if(State->CurrentLength > 112)
-        {
-            while(State->CurrentLength < 128)
-            {
-                State->Buffer[State->CurrentLength++] = 0;
-            }
-            Sha512Compress(State, State->Buffer);
-            State->CurrentLength = 0;
-        }
-        
-        // Pad upto 120 bytes of zeros that from 112 to 120 is the 64 MSB of the length
-        // We assume that you won't has > 2^64 bits of data
-        while(State->CurrentLength < 120)
-        {
-            State->Buffer[State->CurrentLength++] = 0;
-        }
-        
-        // Store length
-        STORE64H(State->Length, State->Buffer + 120);
-        Sha512Compress(State, State->Buffer);
-        
-        // Copy output
-        for(u32 Index = 0;
-            Index < 8;
-            Index++)
-        {
-            STORE64H(State->State[Index], Output + (8 * Index));
-        }
+    if (currentLen >= sizeof(buf)) {
+        return true;
     }
-    
-    return Result;
-}
 
-internal b32 
-Sha512(u8 *Message, u64 Length, u8 *Output)
-{
-    sha512_state State = Sha512Create();
-    
-    b32 Result = Sha512Update(&State, Message, Length);
-    if(Result)
-    {
-        Result = Sha512Final(&State, Output);
+    length += currentLen * 8;
+
+    buf[currentLen++] = (u8) 0x80;
+
+    if (currentLen > 112) {
+        while (currentLen < 128) {
+            buf[currentLen++] = (u8) 0;
+        }
+
+        Sha512Compress(state, buf);
+
+        currentLen = 0;
     }
-    
-    return Result;
+
+    while (currentLen < 120) {
+        buf[currentLen++] = (u8) 0;
+    }
+
+    u8 *a = buf + 120;
+
+    a[0] = (u8) (length >> 56);
+    a[1] = (u8) (length >> 48);
+    a[2] = (u8) (length >> 40);
+    a[3] = (u8) (length >> 32);
+    a[4] = (u8) (length >> 24);
+    a[5] = (u8) (length >> 16);
+    a[6] = (u8) (length >> 8);
+    a[7] = (u8) length;
+
+    Sha512Compress(state, buf);
+
+    for (i = 0; i < 8; i++) {
+        u8 *b = Output + (8 * i);
+
+        b[0] = (u8) (state[i] >> 56);
+        b[1] = (u8) (state[i] >> 48);
+        b[2] = (u8) (state[i] >> 40);
+        b[3] = (u8) (state[i] >> 32);
+        b[4] = (u8) (state[i] >> 24);
+        b[5] = (u8) (state[i] >> 16);
+        b[6] = (u8) (state[i] >> 8);
+        b[7] = (u8) state[i];
+    }
+
+    return 0;
 }
