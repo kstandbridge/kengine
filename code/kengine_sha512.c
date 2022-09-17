@@ -12,8 +12,6 @@
 // NOTE(kstandbridge): The follow has been heavily modified, thus does
 // not represent code written by the original author mentioned above
 
-#include "kengine_types.h"
-
 global u64 GlobalKArray[80] = {
     0x428a2f98d728ae22, 0x7137449123ef65cd, 
     0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc,
