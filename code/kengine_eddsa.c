@@ -4063,27 +4063,40 @@ Ed25519GroupElementDoubleScalarMultipleVartime(ed25519_group_element_projective 
     Ed25519GroupElementExtendedToCached(&Ai[7], &u);
     Ed25519GroupElementProjectiveSet0(r);
     
-    for (i = 255; i >= 0; --i) {
-        if (aslide[i] || bslide[i]) {
+    for(i = 255; 
+        i >= 0; 
+        --i) 
+    {
+        if (aslide[i] || bslide[i]) 
+        {
             break;
         }
     }
     
-    for (; i >= 0; --i) {
+    for(; 
+        i >= 0; 
+        --i) 
+    {
         Ed25519GroupElementProjectiveDouble(&t, r);
         
-        if (aslide[i] > 0) {
+        if(aslide[i] > 0) 
+        {
             Ed25519GroupElementCompletedToExtended(&u, &t);
             Ed25519GroupElementAdd(&t, &u, &Ai[aslide[i] / 2]);
-        } else if (aslide[i] < 0) {
+        } 
+        else if(aslide[i] < 0)
+        {
             Ed25519GroupElementCompletedToExtended(&u, &t);
             Ed25519GroupElementSubtract(&t, &u, &Ai[(-aslide[i]) / 2]);
         }
         
-        if (bslide[i] > 0) {
+        if (bslide[i] > 0) 
+        {
             Ed25519GroupElementCompletedToExtended(&u, &t);
             Ed25519GroupElementMultiplyAdd(&t, &u, &GlobalEd25518PreComputed[bslide[i] / 2]);
-        } else if (bslide[i] < 0) {
+        } 
+        else if (bslide[i] < 0)
+        {
             Ed25519GroupElementCompletedToExtended(&u, &t);
             Ed25519GroupElementMultiplySubtract(&t, &u, &GlobalEd25518PreComputed[(-bslide[i]) / 2]);
         }

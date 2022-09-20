@@ -63,6 +63,7 @@ global HMODULE OleAut32;
 global HMODULE Urlmon;
 global HMODULE Winmm;
 global HMODULE Ws2_32;
+global HMODULE Wininet;
 
 global SecurityFunctionTableA *Win32SecurityFunctionTable;
 
