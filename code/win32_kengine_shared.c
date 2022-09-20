@@ -1180,3 +1180,50 @@ Win32UnzipToFolder(string SourceZip, string DestFolder)
     }
     Win32CoUninitialize();
 }
+
+internal umm
+Win32GetInternetData(HINTERNET WebConnect, u8 *Buffer, umm BufferSize, string Url)
+{
+    char CUrl[2048];
+    StringToCString(Url, sizeof(CUrl), CUrl);
+    umm Result = 0;
+    
+    HINTERNET WebAddress = Win32InternetOpenUrlA(WebConnect, CUrl, 0, 0, 0, 0);
+    
+    if (WebAddress)
+    {
+        DWORD CurrentBytesRead;
+        do
+        {
+            if (Win32InternetReadFile(WebAddress, Buffer + Result, BufferSize, &CurrentBytesRead))
+            {
+                if (CurrentBytesRead == 0)
+                {
+                    break;
+                }
+                Result += CurrentBytesRead;
+            }
+            else
+            {
+                if (Win32GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+                {
+                    Assert(!"Read error");
+                }
+                else
+                {
+                    Assert(!"Insufficient buffer");
+                }
+            }
+        }
+        while (true);
+        
+    }
+    else
+    {
+        Assert(!"Failed to open Url");
+    }
+    
+    Win32InternetCloseHandle(WebAddress);
+    
+    return Result;
+}
