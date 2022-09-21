@@ -287,6 +287,26 @@ StringContains(string Needle, string HayStack)
     return Result;
 }
 
+inline s32
+StringComparison(string A, string B)
+{
+    u32 IndexA = 0;
+    u32 IndexB = 0;
+    while(A.Data[IndexA] == B.Data[IndexB])
+    {
+        if(IndexA == A.Size)
+        {
+            break;
+        }
+        IndexA++;
+        IndexB++;
+    }
+    
+    s32 Result = A.Data[IndexA] - B.Data[IndexB];
+    
+    return Result;
+}
+
 #define PushString(Arena, Str) PushString_(Arena, sizeof(Str) - 1, (u8 *)Str)
 inline string
 PushString_(memory_arena *Arena, umm Length, u8 *Data)

@@ -1182,8 +1182,17 @@ Win32UnzipToFolder(string SourceZip, string DestFolder)
 }
 
 internal umm
-Win32GetInternetData(HINTERNET WebConnect, u8 *Buffer, umm BufferSize, string Url)
+Win32GetInternetData(u8 *Buffer, umm BufferSize, string Url)
 {
+    local_persist HINTERNET WebConnect;
+    if(WebConnect == 0)
+    {
+        WebConnect = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
+        
+        // TODO(kstandbridge): Win32InternetCloseHandle(WebConnect);
+        // But not really, because this will be closed automatically when the application closes
+    }
+    
     char CUrl[2048];
     StringToCString(Url, sizeof(CUrl), CUrl);
     umm Result = 0;
