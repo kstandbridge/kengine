@@ -1236,3 +1236,21 @@ Win32GetInternetData(u8 *Buffer, umm BufferSize, string Url)
     
     return Result;
 }
+
+internal b32
+Win32WriteTextToFile(string Text, string FilePath)
+{
+    char CFilePath[MAX_PATH];
+    StringToCString(FilePath, MAX_PATH, CFilePath);
+    HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    
+    DWORD BytesWritten = 0;
+    Win32WriteFile(FileHandle, Text.Data, (DWORD)Text.Size, &BytesWritten, 0);
+    
+    b32 Result = (Text.Size == BytesWritten);
+    Assert(Result);
+    
+    Win32CloseHandle(FileHandle);
+    
+    return Result;
+}

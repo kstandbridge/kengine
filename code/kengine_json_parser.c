@@ -72,6 +72,7 @@ GetNextJsonToken(json_tokenizer *Tokenizer)
             case ':': { Result.Type = JsonToken_Colon; } break;
             case ',': { Result.Type = JsonToken_Comma; } break;
             
+            
             case '"': 
             { 
                 Result.Type = JsonToken_String; 
