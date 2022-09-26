@@ -257,283 +257,6 @@ RunUpperCamelCaseTests(memory_arena *Arena)
 }
 
 inline void
-RunDoubleLinkedListInitTests(memory_arena *Arena)
-{
-    double_linked_list Sentinel;
-    DoubleLinkedListInit(&Sentinel);
-    
-    ASSERT(Sentinel.Next == &Sentinel);
-    ASSERT(Sentinel.Prev == &Sentinel);
-}
-
-inline void
-RunDoubleLinkedListInsertTests(memory_arena *Arena)
-{
-    double_linked_list Sentinel;
-    DoubleLinkedListInit(&Sentinel);
-    
-    {
-        double_linked_list Element;
-        DoubleLinkedListInsert(&Sentinel, &Element);
-        
-        ASSERT(Sentinel.Next != &Sentinel);
-        ASSERT(Sentinel.Prev != &Sentinel);
-        
-        ASSERT(Sentinel.Next == &Element);
-        ASSERT(Sentinel.Prev == &Element);
-        
-        ASSERT(Sentinel.Next->Next == &Sentinel);
-        ASSERT(Sentinel.Prev->Prev == &Sentinel);
-    }
-    {
-        double_linked_list First;
-        double_linked_list Second;
-        double_linked_list Third;
-        DoubleLinkedListInsert(&Sentinel, &First);
-        DoubleLinkedListInsert(&Sentinel, &Second);
-        DoubleLinkedListInsert(&Sentinel, &Third);
-        
-        ASSERT(Sentinel.Next == &Third);
-        ASSERT(Sentinel.Next->Next == &Second);
-        ASSERT(Sentinel.Next->Next->Next == &First);
-    }
-}
-
-inline void
-RunDoubleLinkedListInsertAtLastTests(memory_arena *Arena)
-{
-    double_linked_list Sentinel;
-    DoubleLinkedListInit(&Sentinel);
-    
-    double_linked_list First;
-    double_linked_list Second;
-    double_linked_list Third;
-    DoubleLinkedListInsertAtLast(&Sentinel, &First);
-    DoubleLinkedListInsertAtLast(&Sentinel, &Second);
-    DoubleLinkedListInsertAtLast(&Sentinel, &Third);
-    
-    ASSERT(Sentinel.Next == &First);
-    ASSERT(Sentinel.Next->Next == &Second);
-    ASSERT(Sentinel.Next->Next->Next == &Third);
-}
-
-
-inline void
-RunDoubleLinkedListRemoveTests(memory_arena *Arena)
-{
-    double_linked_list Sentinel;
-    DoubleLinkedListInit(&Sentinel);
-    
-    double_linked_list First;
-    double_linked_list Second;
-    double_linked_list Third;
-    DoubleLinkedListInsertAtLast(&Sentinel, &First);
-    DoubleLinkedListInsertAtLast(&Sentinel, &Second);
-    DoubleLinkedListInsertAtLast(&Sentinel, &Third);
-    
-    ASSERT(Sentinel.Next == &First);
-    ASSERT(Sentinel.Next->Next == &Second);
-    ASSERT(Sentinel.Next->Next->Next == &Third);
-    
-    DoubleLinkedListRemove(&Second);
-    
-    ASSERT(Sentinel.Next == &First);
-    ASSERT(Sentinel.Next->Next == &Third);
-    ASSERT(Sentinel.Next->Next->Next == &Sentinel);
-}
-
-inline void
-RunDoubleLinkedListGetByIndexTests(memory_arena *Arena)
-{
-    double_linked_list Sentinel;
-    DoubleLinkedListInit(&Sentinel);
-    
-    double_linked_list First;
-    double_linked_list Second;
-    double_linked_list Third;
-    DoubleLinkedListInsertAtLast(&Sentinel, &First);
-    DoubleLinkedListInsertAtLast(&Sentinel, &Second);
-    DoubleLinkedListInsertAtLast(&Sentinel, &Third);
-    
-    double_linked_list *Actual = DoubleLinkedListGetByIndex(&Sentinel, 2);
-    ASSERT(Actual == &Third);
-    Actual = DoubleLinkedListGetByIndex(&Sentinel, 0);
-    ASSERT(Actual == &First);
-    Actual = DoubleLinkedListGetByIndex(&Sentinel, 1);
-    ASSERT(Actual == &Second);
-}
-
-inline void
-RunDoubleLinkedListIsEmptyTests(memory_arena *Arena)
-{
-    double_linked_list Sentinel;
-    DoubleLinkedListInit(&Sentinel);
-    
-    Assert(DoubleLinkedListIsEmpty(&Sentinel));
-    
-    double_linked_list Element;
-    DoubleLinkedListInsert(&Sentinel, &Element);
-    Assert(!DoubleLinkedListIsEmpty(&Sentinel));
-}
-
-inline void
-RunDoubleLinkedListSwapTests(memory_arena *Arena)
-{
-    {
-        double_linked_list Sentinel;
-        DoubleLinkedListInit(&Sentinel);
-        
-        double_linked_list First;
-        double_linked_list Second;
-        double_linked_list Third;
-        DoubleLinkedListInsertAtLast(&Sentinel, &First);
-        DoubleLinkedListInsertAtLast(&Sentinel, &Second);
-        DoubleLinkedListInsertAtLast(&Sentinel, &Third);
-        
-        ASSERT(Sentinel.Next == &First);
-        ASSERT(Sentinel.Next->Next == &Second);
-        ASSERT(Sentinel.Next->Next->Next == &Third);
-        
-        DoubleLinkedListSwap(&First, &Third);
-        
-        ASSERT(Sentinel.Next == &Third);
-        ASSERT(Sentinel.Next->Next == &Second);
-        ASSERT(Sentinel.Next->Next->Next == &First);
-    }
-    {
-        double_linked_list Sentinel;
-        DoubleLinkedListInit(&Sentinel);
-        
-        double_linked_list First;
-        double_linked_list Second;
-        double_linked_list Third;
-        DoubleLinkedListInsertAtLast(&Sentinel, &First);
-        DoubleLinkedListInsertAtLast(&Sentinel, &Second);
-        DoubleLinkedListInsertAtLast(&Sentinel, &Third);
-        
-        ASSERT(Sentinel.Next == &First);
-        ASSERT(Sentinel.Next->Next == &Second);
-        ASSERT(Sentinel.Next->Next->Next == &Third);
-        
-        DoubleLinkedListSwap(&Second, &Third);
-        
-        ASSERT(Sentinel.Next == &First);
-        ASSERT(Sentinel.Next->Next == &Third);
-        ASSERT(Sentinel.Next->Next->Next == &Second);
-        
-        DoubleLinkedListSwap(&First, &Third);
-        
-        ASSERT(Sentinel.Next == &Third);
-        ASSERT(Sentinel.Next->Next == &First);
-        ASSERT(Sentinel.Next->Next->Next == &Second);
-    }
-}
-
-inline void
-RunDoubleLinkedListSplitTests(memory_arena *Arena)
-{
-    double_linked_list Sentinel;
-    DoubleLinkedListInit(&Sentinel);
-    
-    double_linked_list First;
-    First.SortKey = 1;
-    double_linked_list Second;
-    Second.SortKey = 2;
-    double_linked_list Third;
-    Third.SortKey = 3;
-    double_linked_list Fourth;
-    Fourth.SortKey = 4;
-    DoubleLinkedListInsertAtLast(&Sentinel, &First);
-    DoubleLinkedListInsertAtLast(&Sentinel, &Second);
-    DoubleLinkedListInsertAtLast(&Sentinel, &Third);
-    DoubleLinkedListInsertAtLast(&Sentinel, &Fourth);
-    
-    ASSERT(Sentinel.Next == &First);
-    ASSERT(Sentinel.Next->Next == &Second);
-    ASSERT(Sentinel.Next->Next->Next == &Third);
-    ASSERT(Sentinel.Next->Next->Next->Next == &Fourth);
-    
-    
-    double_linked_list *FirstHalf;
-    double_linked_list *SecondHalf;
-    DoubleLinkedListSplit(&Sentinel, &FirstHalf, &SecondHalf);
-    
-    ASSERT(FirstHalf == &First);
-    ASSERT(FirstHalf->Next == &Second);
-    ASSERT(FirstHalf->Next->Next == 0);
-    
-    ASSERT(SecondHalf == &Third);
-    ASSERT(SecondHalf->Next == &Fourth);
-    ASSERT(SecondHalf->Next->Next == 0);
-    
-}
-
-internal b32
-DoubleLinkedListPredicate(double_linked_list *A, double_linked_list *B)
-{
-    b32 Result = A->SortKey > B->SortKey;
-    return Result;
-}
-
-inline void
-RunDoubleLinkedListSortTests(memory_arena *Arena)
-{
-    {
-        double_linked_list Sentinel;
-        Sentinel.SortKey = U32Max;
-        DoubleLinkedListInit(&Sentinel);
-        
-        double_linked_list First;
-        First.SortKey = 10;
-        double_linked_list Second;
-        Second.SortKey = 5;
-        double_linked_list Third;
-        Third.SortKey = 15;
-        DoubleLinkedListInsertAtLast(&Sentinel, &First);
-        DoubleLinkedListInsertAtLast(&Sentinel, &Second);
-        DoubleLinkedListInsertAtLast(&Sentinel, &Third);
-        
-        ASSERT(Sentinel.Next == &First);
-        ASSERT(Sentinel.Next->Next == &Second);
-        ASSERT(Sentinel.Next->Next->Next == &Third);
-        
-        DoubleLinkedListMergeSort(&Sentinel, DoubleLinkedListPredicate);
-        
-        ASSERT(Sentinel.Next == &Third);
-        ASSERT(Sentinel.Next->Next == &First);
-        ASSERT(Sentinel.Next->Next->Next == &Second);
-    }
-}
-
-inline void
-RunFreelistTests(memory_arena *Arena)
-{
-    {
-        double_linked_list_free_list FreeList;
-        DoubleLinkedListFreeListInit(&FreeList, Arena);
-        
-        double_linked_list *First = DoubleLinkedListFreeListAllocate(&FreeList);
-        ASSERT(FreeList.Sentinel.Next == First);
-        double_linked_list *Second = DoubleLinkedListFreeListAllocate(&FreeList);
-        ASSERT(FreeList.Sentinel.Next == Second);
-        ASSERT(FreeList.Sentinel.Next->Next == First);
-        double_linked_list *Third = DoubleLinkedListFreeListAllocate(&FreeList);
-        ASSERT(FreeList.Sentinel.Next == Third);
-        ASSERT(FreeList.Sentinel.Next->Next == Second);
-        ASSERT(FreeList.Sentinel.Next->Next->Next == First);
-        
-        DoubleLinkedListFreeListDeallocate(&FreeList, Second);
-        ASSERT(FreeList.Sentinel.Next == Third);
-        ASSERT(FreeList.Sentinel.Next->Next == First);
-        ASSERT(FreeList.Sentinel.Next->Next->Next == &FreeList.Sentinel);
-        ASSERT(FreeList.FreeSentinel.Next == Second);
-        double_linked_list *Fourth = DoubleLinkedListFreeListAllocate(&FreeList);
-        ASSERT(Fourth == Second);
-        ASSERT(FreeList.FreeSentinel.Next == &FreeList.FreeSentinel);
-    }
-}
-
-inline void
 RunRadixSortTests(memory_arena *Arena)
 {
     LARGE_INTEGER LastCounter;
@@ -725,6 +448,80 @@ RunEdDSATests(memory_arena *Arena)
 }
 
 internal b32
+NodePredicate(node *A, node *B)
+{
+    b32 Result = (A->Value < B->Value);
+    return Result;
+}
+
+inline void
+RunLinkedListMergeSortTests(memory_arena *Arena)
+{
+    node *Head = 0;
+    
+    node *FortyOne = NodePushBack(&Head, Arena);
+    FortyOne->Value = 41;
+    node *Five = NodePushBack(&Head, Arena);
+    Five->Value = 5;
+    node *Seven = NodePushBack(&Head, Arena);
+    Seven->Value = 7;
+    node *TwentyTwo = NodePushBack(&Head, Arena);
+    TwentyTwo->Value = 22;
+    node *TwentyEight = NodePushBack(&Head, Arena);
+    TwentyEight->Value = 28;
+    node *SixtyThree = NodePushBack(&Head, Arena);
+    SixtyThree->Value = 63;
+    node *Four = NodePushBack(&Head, Arena);
+    Four->Value = 4;
+    node *Eight = NodePushBack(&Head, Arena);
+    Eight->Value = 8;
+    node *Two = NodePushBack(&Head, Arena);
+    Two->Value = 2;
+    node *Eleven = NodePushBack(&Head, Arena);
+    Eleven->Value = 11;
+    
+    ASSERT(Head == FortyOne);
+    ASSERT(Head->Next == Five);
+    ASSERT(Head->Next->Next == Seven);
+    ASSERT(Head->Next->Next->Next == TwentyTwo);
+    ASSERT(Head->Next->Next->Next->Next == TwentyEight);
+    ASSERT(Head->Next->Next->Next->Next->Next == SixtyThree);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next == Four);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next == Eight);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next == Two);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next == Eleven);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next->Next == 0);
+    
+    NodeMergeSort(&Head, NodePredicate, Sort_Ascending);
+    
+    ASSERT(Head == Two);
+    ASSERT(Head->Next == Four);
+    ASSERT(Head->Next->Next == Five);
+    ASSERT(Head->Next->Next->Next == Seven);
+    ASSERT(Head->Next->Next->Next->Next == Eight);
+    ASSERT(Head->Next->Next->Next->Next->Next == Eleven);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next == TwentyTwo);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next == TwentyEight);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next == FortyOne);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next == SixtyThree);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next->Next == 0);
+    
+    NodeMergeSort(&Head, NodePredicate, Sort_Descending);
+    
+    ASSERT(Head == SixtyThree);
+    ASSERT(Head->Next == FortyOne);
+    ASSERT(Head->Next->Next == TwentyEight);
+    ASSERT(Head->Next->Next->Next == TwentyTwo);
+    ASSERT(Head->Next->Next->Next->Next == Eleven);
+    ASSERT(Head->Next->Next->Next->Next->Next == Eight);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next == Seven);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next == Five);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next == Four);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next == Two);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next->Next == 0);
+}
+
+internal b32
 RunAllTests(memory_arena *Arena)
 {
     RunStringsAreEqualTests(Arena);
@@ -741,18 +538,6 @@ RunAllTests(memory_arena *Arena)
     
     RunUpperCamelCaseTests(Arena);
     
-    RunDoubleLinkedListInitTests(Arena);
-    RunDoubleLinkedListInsertTests(Arena);
-    RunDoubleLinkedListInsertAtLastTests(Arena);
-    RunDoubleLinkedListRemoveTests(Arena);
-    RunDoubleLinkedListGetByIndexTests(Arena);
-    RunDoubleLinkedListIsEmptyTests(Arena);
-    RunDoubleLinkedListSwapTests(Arena);
-    RunDoubleLinkedListSplitTests(Arena);
-    RunDoubleLinkedListSortTests(Arena);
-    
-    RunFreelistTests(Arena);
-    
     RunRadixSortTests(Arena);
     
     RunParseFromStringTests(Arena);
@@ -760,6 +545,8 @@ RunAllTests(memory_arena *Arena)
     RunSha512Tests(Arena);
     
     RunEdDSATests(Arena);
+    
+    RunLinkedListMergeSortTests(Arena);
     
     b32 Result = (FailedTests == 0);
     return Result;

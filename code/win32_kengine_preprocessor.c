@@ -543,7 +543,7 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
 }
 
 internal void
-GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
+GenerateLinkedList(c_tokenizer *Tokenizer)
 {
     c_token Token = GetNextCToken(Tokenizer);
     Assert(StringsAreEqual(String("typedef"), Token.Str));
@@ -554,229 +554,111 @@ GenerateDoubleLinkedList(c_tokenizer *Tokenizer)
     string FunctionName = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
     ToUpperCamelCase(&FunctionName);
     
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SInit(%S *Sentinel)\n", FunctionName, Type);
+    Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\nGet%STail(%S *Head)\n", Type, FunctionName, Type);
     Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Sentinel->Next = Sentinel;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Sentinel->Prev = Sentinel;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}\n");
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SInsert(%S *Sentinel, %S *Element)\n", FunctionName, Type, Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Element->Next = Sentinel->Next;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Element->Prev = Sentinel;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Element->Next->Prev = Element;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Element->Prev->Next = Element;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}\n");
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SInsertAtLast(%S *Sentinel, %S *Element)\n", FunctionName, Type, Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Element->Next = Sentinel;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Element->Prev = Sentinel->Prev;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Element->Next->Prev = Element;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Element->Prev->Next = Element;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}\n");
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\n%SGetByIndex(%S *Sentinel, u32 Index)\n", Type, FunctionName, Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *Result = Sentinel->Next;\n\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    while(Index--)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %S *Result = Head;\n\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    if(Result != 0)\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Result = Result->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        while(Result->Next != 0)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Result = Result->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        }\n");
     Win32ConsoleOut(Tokenizer->Arena, "    }\n\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    return Result;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    return Result;");
     Win32ConsoleOut(Tokenizer->Arena, "}\n");
     
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SRemove(%S *Element)\n", FunctionName, Type);
+    Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\n%SPushBack(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
     Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Element->Prev->Next = Element->Next;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    Element->Next->Prev = Element->Prev;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}\n");
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline b32\n%SIsEmpty(%S *Sentinel)\n", FunctionName, Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    b32 Result = (Sentinel->Next == Sentinel);\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    return Result;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}\n");
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SSwap(%S *A, %S *B)\n", FunctionName, Type, Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    if(A == B)\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    {   \n");
-    Win32ConsoleOut(Tokenizer->Arena, "        InvalidCodePath;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    else if(A->Next == B)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    Result->Next = 0;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    if(*HeadRef == 0)\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        A->Next = B->Next;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        B->Prev = A->Prev;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        A->Next->Prev = A;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        B->Prev->Next = B;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        B->Next = A;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        A->Prev = B;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        *HeadRef = Result;\n");
     Win32ConsoleOut(Tokenizer->Arena, "    }\n");
     Win32ConsoleOut(Tokenizer->Arena, "    else\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        %S *ANext = A->Next;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "        %S *APrev = A->Prev;\n\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "        A->Next = B->Next;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        A->Prev = B->Prev;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        A->Next->Prev = A;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        A->Prev->Next = A;\n\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        B->Next = ANext;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        B->Prev = APrev;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        B->Next->Prev = B;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        B->Prev->Next = B;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}\n");
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SSplit(%S *Sentinel, %S **First, %S **Second)\n", FunctionName, Type, Type, Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *Head = Sentinel->Next;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *Fast = Sentinel->Next;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *Slow = Sentinel->Next;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    if(Sentinel->Prev)\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Sentinel->Prev->Next = 0;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Sentinel->Prev = 0;\n\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Head = Sentinel->Next;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Fast = Sentinel->Next;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Slow = Sentinel->Next;\n\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Fast->Prev = 0;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    else\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Head = Sentinel;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Fast = Sentinel;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Slow = Sentinel;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        %S *Tail = Get%STail(*HeadRef);\n", Type, FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        Tail->Next = Result;\n");
     Win32ConsoleOut(Tokenizer->Arena, "    }\n\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    while((Fast->Next) &&\n");
-    Win32ConsoleOut(Tokenizer->Arena, "          (Fast->Next->Next))\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Fast = Fast->Next->Next;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Slow = Slow->Next;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *Temp = Slow->Next;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    Slow->Next = 0;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    *First = Head;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    *Second = Temp;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    return Result;");
     Win32ConsoleOut(Tokenizer->Arena, "}\n");
     
     Win32ConsoleOut(Tokenizer->Arena, "\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);
     
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\n%SMergeSort__(%S *First, %S *Second, %S_predicate *Predicate)\n", Type, FunctionName, Type, Type, Type);
+    
+    Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\n%SMergeSort_(%S *Front, %S *Back, %S_predicate *Predicate, sort_type SortType)\n", 
+                    Type, FunctionName, Type, Type, Type);
     Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *Result;\n\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    if(!First)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %S *Result = 0;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    if(Front == 0)\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Result = Second;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        Result = Back;\n");
     Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    else if(!Second)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    else if(Back == 0)\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Result = First;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    else if(Predicate(First, Second))\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        First->Next = %SMergeSort__(First->Next, Second, Predicate);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "        First->Next->Prev = First;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        First->Prev = 0;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Result = First;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        Result = Front;\n");
     Win32ConsoleOut(Tokenizer->Arena, "    }\n");
     Win32ConsoleOut(Tokenizer->Arena, "    else\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Second->Next = %SMergeSort__(First, Second->Next, Predicate);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "        Second->Next->Prev = Second;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Second->Prev = 0;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Result = Second;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n\n");  
-    Win32ConsoleOut(Tokenizer->Arena, "    return Result;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}\n");
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\n%SMergeSort_(%S *Head, %S_predicate *Predicate)\n", Type, FunctionName, Type, Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *Result;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    if(!Head || !Head->Next)\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Result = Head;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    else\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        %S *FirstHalf;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "        %S *SecondHalf;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "        %SSplit(Head, &FirstHalf, &SecondHalf);\n\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "        FirstHalf = %SMergeSort_(FirstHalf, Predicate);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "        SecondHalf = %SMergeSort_(SecondHalf, Predicate);\n\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "        Result = %SMergeSort__(FirstHalf, SecondHalf, Predicate);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    return Result;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}\n");
-    
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SMergeSort(%S *Sentinel, %S_predicate *Predicate)\n", FunctionName, Type, Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    if(Sentinel->Next->Next != Sentinel)\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        %S *FirstHalf;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "        %S *SecondHalf;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "        %SSplit(Sentinel, &FirstHalf, &SecondHalf);\n\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "        FirstHalf = %SMergeSort_(FirstHalf, Predicate);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "        SecondHalf = %SMergeSort_(SecondHalf, Predicate);\n\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "        %S *Merged = %SMergeSort__(FirstHalf, SecondHalf, Predicate);\n\n", Type, FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "        Sentinel->Next = Merged;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Merged->Prev = Sentinel;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        %S *Last = Merged;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "        while(Last->Next)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        b32 PredicateResult = Predicate(Front, Back);\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        if(SortType == Sort_Descending)\n");
     Win32ConsoleOut(Tokenizer->Arena, "        {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "            Last = Last->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            PredicateResult = !PredicateResult;\n");
     Win32ConsoleOut(Tokenizer->Arena, "        }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Sentinel->Prev = Last;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Last->Next = Sentinel;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}\n");
-    
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ntypedef struct %S_free_list\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %S Sentinel;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    %S FreeSentinel;\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    memory_arena *Arena;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "} %S_free_list;\n", Type);
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n");
-    Win32ConsoleOut(Tokenizer->Arena, "%SFreeListInit(%S_free_list *FreeList, memory_arena *Arena)\n", FunctionName, Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %SInit(&FreeList->Sentinel);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "    %SInit(&FreeList->FreeSentinel);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "    FreeList->Arena = Arena;\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}\n");
-    
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline %S *\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "%SFreeListAllocate(%S_free_list *FreeList)\n", FunctionName, Type);
-    Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %S *Result = FreeList->FreeSentinel.Next;\n\n", Type);
-    Win32ConsoleOut(Tokenizer->Arena, "    if(Result != &FreeList->FreeSentinel)\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        %SRemove(Result);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    else\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        Result = PushStruct(FreeList->Arena, %S);\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "        else\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Assert(SortType == Sort_Ascending);\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        if(PredicateResult)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Result = Front;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Result->Next = %SMergeSort_(Front->Next, Back, Predicate, SortType);\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        else\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Result = Back;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Back->Next = %SMergeSort_(Front, Back->Next, Predicate, SortType);\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        }\n");
     Win32ConsoleOut(Tokenizer->Arena, "    }\n\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    %SInsert(&FreeList->Sentinel, Result);\n\n", FunctionName);
     Win32ConsoleOut(Tokenizer->Arena, "    return Result;\n");
     Win32ConsoleOut(Tokenizer->Arena, "}\n");
     
-    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n");
-    Win32ConsoleOut(Tokenizer->Arena, "%SFreeListDeallocate(%S_free_list *FreeList, %S *Element)\n", FunctionName, Type);
+    
+    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SFrontBackSplit(%S *Head, %S **FrontRef, %S **BackRef)\n", FunctionName, Type, Type);
     Win32ConsoleOut(Tokenizer->Arena, "{\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    if(Element)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %S *Fast;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    %S *Slow;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    Slow = Head;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    Fast = Head->Next;\n\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    while(Fast != 0)\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        %SRemove(Element);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "        %SInsert(&FreeList->FreeSentinel, Element);\n", FunctionName);
-    Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "    else\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        Fast = Fast->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        if(Fast != 0)\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        {\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Slow = Slow->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "            Fast = Fast->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        }\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    }\n\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    *FrontRef = Head;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    *BackRef = Slow->Next;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    Slow->Next = 0;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "}\n");
+    
+    
+    Win32ConsoleOut(Tokenizer->Arena, "\ninline void\n%SMergeSort(%S **HeadRef, %S_predicate *Predicate, sort_type SortType)\n", FunctionName, Type, Type);
+    Win32ConsoleOut(Tokenizer->Arena, "{\n");
+    Win32ConsoleOut(Tokenizer->Arena, "    %S *Head = *HeadRef;\n\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "    if((Head!= 0) &&\n");
+    Win32ConsoleOut(Tokenizer->Arena, "       (Head->Next != 0))\n");
     Win32ConsoleOut(Tokenizer->Arena, "    {\n");
-    Win32ConsoleOut(Tokenizer->Arena, "        InvalidCodePath;\n");
+    Win32ConsoleOut(Tokenizer->Arena, "        %S *Front;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "        %S *Back;\n", Type);
+    Win32ConsoleOut(Tokenizer->Arena, "        %SFrontBackSplit(Head, &Front, &Back);\n\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        %SMergeSort(&Front, Predicate, SortType);\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        %SMergeSort(&Back, Predicate, SortType);\n\n", FunctionName);
+    Win32ConsoleOut(Tokenizer->Arena, "        *HeadRef = %SMergeSort_(Front, Back, Predicate, SortType);\n", FunctionName);
     Win32ConsoleOut(Tokenizer->Arena, "    }\n");
-    Win32ConsoleOut(Tokenizer->Arena, "}");
+    Win32ConsoleOut(Tokenizer->Arena, "}\n");
     
     Token = GetNextCToken(Tokenizer);
     while(Token.Type != CToken_CloseBrace)
@@ -1038,7 +920,7 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
         b32 IsSet1 = false;
         b32 IsMath = false;
         b32 IsWin32 = false;
-        b32 IsDList = false;
+        b32 IsLinkedList = false;
         b32 IsRadix = false;
         string Parameter;
         ZeroStruct(Parameter);
@@ -1070,9 +952,9 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
                 {
                     IsWin32 = true;
                 }
-                else if(StringsAreEqual(String("dlist"), Token.Str))
+                else if(StringsAreEqual(String("linked_list"), Token.Str))
                 {
-                    IsDList = true;
+                    IsLinkedList = true;
                 }
                 else if(StringsAreEqual(String("radix"), Token.Str))
                 {
@@ -1096,9 +978,9 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
         {
             GenerateFunctionPointer(Tokenizer, Parameter, Parameter2);
         }
-        else if(IsDList)
+        else if(IsLinkedList)
         {
-            GenerateDoubleLinkedList(Tokenizer);
+            GenerateLinkedList(Tokenizer);
         }
         else if(IsRadix)
         {

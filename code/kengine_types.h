@@ -150,18 +150,17 @@ typedef enum sort_type
 } sort_type;
 
 
-// TODO(kstandbridge): Replace this with a double linked list we use in production
-introspect(dlist) typedef struct double_linked_list
+// TODO(kstandbridge): Replace this with something we actually use
+introspect(linked_list) typedef struct node
 {
-    u32 SortKey;
+    u32 Value;
     
-    struct double_linked_list *Prev;
-    struct double_linked_list *Next;
-    
-} double_linked_list;
+    struct node *Next;
+} node;
+
 
 // TODO(kstandbridge): move this to types.h
-introspect(dlist) typedef struct node_link
+typedef struct node_link
 {
     struct node *Node;
     
