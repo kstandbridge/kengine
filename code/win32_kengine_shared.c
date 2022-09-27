@@ -1125,13 +1125,11 @@ Win32UnzipToFolder(string SourceZip, string DestFolder)
     
     wchar_t CSourceZip[MAX_PATH];
     Win32MultiByteToWideChar(CP_UTF8, 0, (char *)SourceZip.Data, SourceZip.Size, CSourceZip, MAX_PATH);
-    
-    wchar_t CDestFolder[MAX_PATH];
-    Win32MultiByteToWideChar(CP_UTF8, 0, (char *)DestFolder.Data, DestFolder.Size, CDestFolder, MAX_PATH);
-    
     CSourceZip[SourceZip.Size + 0] = '\0';
     CSourceZip[SourceZip.Size + 1] = '\0';
     
+    wchar_t CDestFolder[MAX_PATH];
+    Win32MultiByteToWideChar(CP_UTF8, 0, (char *)DestFolder.Data, DestFolder.Size, CDestFolder, MAX_PATH);
     CDestFolder[DestFolder.Size + 0] = '\0';
     CDestFolder[DestFolder.Size + 1] = '\0';
     
@@ -1212,16 +1210,13 @@ Win32ZipFolder(string SourceFolderPath, string DestPath)
     
     wchar_t CDestZip[MAX_PATH];
     Win32MultiByteToWideChar(CP_ACP, 0, (char *)DestPath.Data, DestPath.Size, CDestZip, MAX_PATH);
-    
+    CDestZip[DestPath.Size + 0] = '\0';
+    CDestZip[DestPath.Size + 1] = '\0';
     
     wchar_t CSourceFolder[MAX_PATH];
     Win32MultiByteToWideChar(CP_ACP, 0, (char *)SourceFolderPath.Data, SourceFolderPath.Size, CSourceFolder, MAX_PATH);
-    
     CSourceFolder[SourceFolderPath.Size + 0] = '\0';
     CSourceFolder[SourceFolderPath.Size + 1] = '\0';
-    
-    CDestZip[DestPath.Size + 0] = '\0';
-    CDestZip[DestPath.Size + 1] = '\0';
     
     HRESULT HResult;
     IShellDispatch *ShellDispatch;
@@ -1278,10 +1273,10 @@ Win32ZipFolder(string SourceFolderPath, string DestPath)
 internal umm
 Win32GetInternetData(u8 *Buffer, umm BufferSize, string Url)
 {
-    local_persist HINTERNET WebConnect;
-    if(WebConnect == 0)
+    local_persist HINTERNET WebSession;
+    if(WebSession == 0)
     {
-        WebConnect = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
+        WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
         
         // TODO(kstandbridge): Win32InternetCloseHandle(WebConnect);
         // But not really, because this will be closed automatically when the application closes
@@ -1291,7 +1286,7 @@ Win32GetInternetData(u8 *Buffer, umm BufferSize, string Url)
     StringToCString(Url, sizeof(CUrl), CUrl);
     umm Result = 0;
     
-    HINTERNET WebAddress = Win32InternetOpenUrlA(WebConnect, CUrl, 0, 0, 0, 0);
+    HINTERNET WebAddress = Win32InternetOpenUrlA(WebSession, CUrl, 0, 0, 0, 0);
     
     if (WebAddress)
     {
@@ -1320,13 +1315,48 @@ Win32GetInternetData(u8 *Buffer, umm BufferSize, string Url)
         }
         while (true);
         
+        Win32InternetCloseHandle(WebAddress);
     }
     else
     {
         Assert(!"Failed to open Url");
     }
     
-    Win32InternetCloseHandle(WebAddress);
+    
+    return Result;
+}
+
+internal string
+Win32ReadEntireFile(memory_arena *Arena, char *FilePath)
+{
+    string Result;
+    ZeroStruct(Result);
+    
+    HANDLE FileHandle = Win32CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    Assert(FileHandle != INVALID_HANDLE_VALUE);
+    
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER FileSize;
+        b32 ReadResult = Win32GetFileSizeEx(FileHandle, &FileSize);
+        Assert(ReadResult);
+        if(ReadResult)
+        {    
+            Result.Size = FileSize.QuadPart;
+            Result.Data = PushSize(Arena, Result.Size);
+            Assert(Result.Data);
+            
+            if(Result.Data)
+            {
+                u32 BytesRead;
+                ReadResult = Win32ReadFile(FileHandle, Result.Data, (u32)Result.Size, (LPDWORD)&BytesRead, 0);
+                Assert(ReadResult);
+                Assert(BytesRead == Result.Size);
+            }
+        }
+        
+        Win32CloseHandle(FileHandle);
+    }
     
     return Result;
 }

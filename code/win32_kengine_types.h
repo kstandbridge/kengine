@@ -185,6 +185,27 @@ introspect(win32, Wininet) typedef HINTERNET internet_open_url_a(HINTERNET hInte
                                                                  DWORD     dwFlags,
                                                                  DWORD_PTR dwContext);
 introspect(win32, Wininet) typedef BOOL internet_close_handle(HINTERNET hInternet);
+introspect(win32, Wininet) typedef HINTERNET internet_connect_a(HINTERNET     hInternet,
+                                                                LPCSTR        lpszServerName,
+                                                                INTERNET_PORT nServerPort,
+                                                                LPCSTR        lpszUserName,
+                                                                LPCSTR        lpszPassword,
+                                                                DWORD         dwService,
+                                                                DWORD         dwFlags,
+                                                                DWORD_PTR     dwContext);
+introspect(win32, Wininet) typedef HINTERNET http_open_request_a(HINTERNET hConnect,
+                                                                 LPCSTR    lpszVerb,
+                                                                 LPCSTR    lpszObjectName,
+                                                                 LPCSTR    lpszVersion,
+                                                                 LPCSTR    lpszReferrer,
+                                                                 LPCSTR    *lplpszAcceptTypes,
+                                                                 DWORD     dwFlags,
+                                                                 DWORD_PTR dwContext);
+introspect(win32, Wininet) typedef BOOL http_send_request_a(HINTERNET hRequest,
+                                                            LPCSTR    lpszHeaders,
+                                                            DWORD     dwHeadersLength,
+                                                            LPVOID    lpOptional,
+                                                            DWORD     dwOptionalLength);
 
 
 
