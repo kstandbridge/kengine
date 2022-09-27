@@ -1129,10 +1129,10 @@ Win32UnzipToFolder(string SourceZip, string DestFolder)
     wchar_t CDestFolder[MAX_PATH];
     Win32MultiByteToWideChar(CP_UTF8, 0, (char *)DestFolder.Data, DestFolder.Size, CDestFolder, MAX_PATH);
     
-    CSourceZip[SourceZip.Size] = '\0';
+    CSourceZip[SourceZip.Size + 0] = '\0';
     CSourceZip[SourceZip.Size + 1] = '\0';
     
-    CDestFolder[DestFolder.Size] = '\0';
+    CDestFolder[DestFolder.Size + 0] = '\0';
     CDestFolder[DestFolder.Size + 1] = '\0';
     
     HRESULT HResult;
@@ -1157,7 +1157,6 @@ Win32UnzipToFolder(string SourceZip, string DestFolder)
         OutputDirectory.bstrVal = CDestFolder;
         ShellDispatch->lpVtbl->NameSpace(ShellDispatch, OutputDirectory, &ToFolder);
         
-        
         ShellDispatch->lpVtbl->NameSpace(ShellDispatch, SourceFile, &FromFolder);
         FolderItems *FolderItems = 0;
         FromFolder->lpVtbl->Items(FromFolder, &FolderItems);
@@ -1173,10 +1172,105 @@ Win32UnzipToFolder(string SourceZip, string DestFolder)
         
         HResult = ToFolder->lpVtbl->CopyHere(ToFolder, ItemsToBeCopied, ProgressDialog);
         
+        // NOTE(kstandbridge): As much as I hate sleep, CopyHere creates a separate thread
+        // which may not finish if this thread exist before completion. So 1000ms sleep.
         Win32Sleep(1000);
         
         FromFolder->lpVtbl->Release(FromFolder);
         ToFolder->lpVtbl->Release(ToFolder);
+    }
+    Win32CoUninitialize();
+}
+
+internal b32
+Win32WriteTextToFile(string Text, string FilePath)
+{
+    char CFilePath[MAX_PATH];
+    StringToCString(FilePath, MAX_PATH, CFilePath);
+    HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    
+    DWORD BytesWritten = 0;
+    Win32WriteFile(FileHandle, Text.Data, (DWORD)Text.Size, &BytesWritten, 0);
+    
+    b32 Result = (Text.Size == BytesWritten);
+    Assert(Result);
+    
+    Win32CloseHandle(FileHandle);
+    
+    return Result;
+}
+
+internal void
+Win32ZipFolder(string SourceFolderPath, string DestPath)
+{
+    // NOTE(kstandbridge): No Win32 API to create zip file, so lets build our own!!!
+    {
+        u8 Buffer[] = {80, 75, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        umm BufferSize = sizeof(Buffer);
+        Win32WriteTextToFile(String_(BufferSize, Buffer), DestPath);
+    }
+    
+    wchar_t CDestZip[MAX_PATH];
+    Win32MultiByteToWideChar(CP_ACP, 0, (char *)DestPath.Data, DestPath.Size, CDestZip, MAX_PATH);
+    
+    
+    wchar_t CSourceFolder[MAX_PATH];
+    Win32MultiByteToWideChar(CP_ACP, 0, (char *)SourceFolderPath.Data, SourceFolderPath.Size, CSourceFolder, MAX_PATH);
+    
+    CSourceFolder[SourceFolderPath.Size + 0] = '\0';
+    CSourceFolder[SourceFolderPath.Size + 1] = '\0';
+    
+    CDestZip[DestPath.Size + 0] = '\0';
+    CDestZip[DestPath.Size + 1] = '\0';
+    
+    HRESULT HResult;
+    IShellDispatch *ShellDispatch;
+    Folder *ToFolder = 0;
+    VARIANT DestZip, SourceFolder, ProgressDialog;
+    
+    Win32CoInitialize(0);
+    
+    HResult = Win32CoCreateInstance(&CLSID_Shell, 0, CLSCTX_INPROC_SERVER, &IID_IShellDispatch, (void **)&ShellDispatch);
+    
+    if (SUCCEEDED(HResult))
+    {
+        
+        Win32VariantInit(&DestZip);
+        DestZip.vt = VT_BSTR;
+        DestZip.bstrVal = CDestZip;
+        HResult = ShellDispatch->lpVtbl->NameSpace(ShellDispatch, DestZip, &ToFolder);
+        
+        if(SUCCEEDED(HResult))
+        {
+            
+            Win32VariantInit(&SourceFolder);
+            SourceFolder.vt = VT_BSTR;
+            SourceFolder.bstrVal = CSourceFolder;
+            
+            Folder *FromFolder = 0;
+            ShellDispatch->lpVtbl->NameSpace(ShellDispatch, SourceFolder, &FromFolder);
+            FolderItems *FolderItems = 0;
+            FromFolder->lpVtbl->Items(FromFolder, &FolderItems);
+            
+            Win32VariantInit(&ProgressDialog);
+            ProgressDialog.vt = VT_I4;
+            ProgressDialog.lVal = FOF_NO_UI;
+            
+            VARIANT ItemsToBeCopied;
+            Win32VariantInit(&ItemsToBeCopied);
+            ItemsToBeCopied.vt = VT_DISPATCH;
+            ItemsToBeCopied.pdispVal = (IDispatch *)FolderItems;
+            
+            HResult = ToFolder->lpVtbl->CopyHere(ToFolder, ItemsToBeCopied, ProgressDialog);
+            
+            // NOTE(kstandbridge): As much as I hate sleep, CopyHere creates a separate thread
+            // which may not finish if this thread exist before completion. So 1000ms sleep.
+            Win32Sleep(1000);
+            
+            ToFolder->lpVtbl->Release(ToFolder);
+            FromFolder->lpVtbl->Release(FromFolder);
+        }
+        
     }
     Win32CoUninitialize();
 }
@@ -1233,24 +1327,6 @@ Win32GetInternetData(u8 *Buffer, umm BufferSize, string Url)
     }
     
     Win32InternetCloseHandle(WebAddress);
-    
-    return Result;
-}
-
-internal b32
-Win32WriteTextToFile(string Text, string FilePath)
-{
-    char CFilePath[MAX_PATH];
-    StringToCString(FilePath, MAX_PATH, CFilePath);
-    HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
-    
-    DWORD BytesWritten = 0;
-    Win32WriteFile(FileHandle, Text.Data, (DWORD)Text.Size, &BytesWritten, 0);
-    
-    b32 Result = (Text.Size == BytesWritten);
-    Assert(Result);
-    
-    Win32CloseHandle(FileHandle);
     
     return Result;
 }
