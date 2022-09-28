@@ -1270,50 +1270,122 @@ Win32ZipFolder(string SourceFolderPath, string DestPath)
     Win32CoUninitialize();
 }
 
-internal umm
-Win32GetInternetData(u8 *Buffer, umm BufferSize, string Url)
+global HINTERNET GlobalWebSession;
+inline void
+WebSessionInit()
 {
-    local_persist HINTERNET WebSession;
-    if(WebSession == 0)
+    if(GlobalWebSession == 0)
     {
-        WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
+        GlobalWebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
         
         // TODO(kstandbridge): Win32InternetCloseHandle(WebConnect);
         // But not really, because this will be closed automatically when the application closes
     }
     
-    char CUrl[2048];
-    StringToCString(Url, sizeof(CUrl), CUrl);
+}
+
+inline umm
+Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
+{
     umm Result = 0;
     
-    HINTERNET WebAddress = Win32InternetOpenUrlA(WebSession, CUrl, 0, 0, 0, 0);
-    
-    if (WebAddress)
+    DWORD CurrentBytesRead;
+    do
     {
-        DWORD CurrentBytesRead;
-        do
+        if (Win32InternetReadFile(FileHandle, Buffer + Result, BufferMaxSize - Result, &CurrentBytesRead))
         {
-            if (Win32InternetReadFile(WebAddress, Buffer + Result, BufferSize, &CurrentBytesRead))
+            if (CurrentBytesRead == 0)
             {
-                if (CurrentBytesRead == 0)
-                {
-                    break;
-                }
-                Result += CurrentBytesRead;
+                break;
+            }
+            Result += CurrentBytesRead;
+        }
+        else
+        {
+            if (Win32GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+            {
+                Assert(!"Read error");
             }
             else
             {
-                if (Win32GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-                {
-                    Assert(!"Read error");
-                }
-                else
-                {
-                    Assert(!"Insufficient buffer");
-                }
+                Assert(!"Insufficient buffer");
             }
         }
-        while (true);
+    }
+    while (true);
+    
+    return Result;
+}
+
+internal umm
+Win32SendInternetData(string Host, string Endpoint, char *Verb, string Payload, u8 *ResponseBuffer, umm ResponseBufferMaxSize,
+                      char *Username, char *Password)
+{
+    umm Result = 0;
+    
+    WebSessionInit();
+    
+    char CHost_[2048];
+    StringToCString(Host, sizeof(CHost_), CHost_);
+    
+    char CEndpoint[2048];
+    StringToCString(Endpoint, sizeof(CEndpoint), CEndpoint);
+    
+    INTERNET_PORT Port = INTERNET_DEFAULT_HTTP_PORT;
+    DWORD Flags = 0;
+    
+    char *CHost = CHost_;
+    if(StringBeginsWith(String("https"), Host))
+    {
+        CHost += 8;
+        Port = INTERNET_DEFAULT_HTTPS_PORT;
+        Flags = INTERNET_FLAG_SECURE;
+    }
+    else if(StringBeginsWith(String("http"), Host))
+    {
+        CHost += 6;
+    }
+    
+    HINTERNET WebConnect = Win32InternetConnectA(GlobalWebSession, CHost, Port, Username, Password,
+                                                 INTERNET_SERVICE_HTTP, 0, 0);
+    if(WebConnect)
+    {
+        HINTERNET WebRequest = Win32HttpOpenRequestA(WebConnect, Verb, CEndpoint, 0, 0, 0, Flags, 0);
+        if(Win32HttpSendRequestA(WebRequest, 0, 0, Payload.Data, Payload.Size))
+        {
+            if(ResponseBuffer)
+            {
+                Result = Win32ReadInternetResponse(WebRequest, ResponseBuffer, ResponseBufferMaxSize);
+            }
+            
+            Win32InternetCloseHandle(WebRequest);
+        }
+        
+        Win32InternetCloseHandle(WebConnect);
+    }
+    else
+    {
+        Assert(!"Unable to connect");
+    }
+    
+    return Result;
+}
+
+internal umm
+Win32GetInternetData(u8 *Buffer, umm BufferMaxSize, string Url)
+{
+    umm Result = 0;
+    
+    WebSessionInit();
+    
+    char CUrl[2048];
+    StringToCString(Url, sizeof(CUrl), CUrl);
+    
+    HINTERNET WebAddress = Win32InternetOpenUrlA(GlobalWebSession, CUrl, 0, 0, 0, 0);
+    
+    if (WebAddress)
+    {
+        Result = Win32ReadInternetResponse(WebAddress, Buffer, BufferMaxSize);
         
         Win32InternetCloseHandle(WebAddress);
     }
@@ -1327,12 +1399,15 @@ Win32GetInternetData(u8 *Buffer, umm BufferSize, string Url)
 }
 
 internal string
-Win32ReadEntireFile(memory_arena *Arena, char *FilePath)
+Win32ReadEntireFile(memory_arena *Arena, string FilePath)
 {
     string Result;
     ZeroStruct(Result);
     
-    HANDLE FileHandle = Win32CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    char CFilePath[MAX_PATH];
+    StringToCString(FilePath, MAX_PATH, CFilePath);
+    
+    HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     Assert(FileHandle != INVALID_HANDLE_VALUE);
     
     if(FileHandle != INVALID_HANDLE_VALUE)
