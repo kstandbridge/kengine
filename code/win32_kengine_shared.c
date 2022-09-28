@@ -1302,7 +1302,8 @@ Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
         }
         else
         {
-            if (Win32GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+            DWORD LastError = Win32GetLastError();
+            if (LastError != ERROR_INSUFFICIENT_BUFFER)
             {
                 Assert(!"Read error");
             }
@@ -1310,6 +1311,7 @@ Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
             {
                 Assert(!"Insufficient buffer");
             }
+            break;
         }
     }
     while (true);
@@ -1358,7 +1360,11 @@ Win32SendInternetData(string Host, string Endpoint, char *Verb, string Payload, 
                 Result = Win32ReadInternetResponse(WebRequest, ResponseBuffer, ResponseBufferMaxSize);
             }
             
-            Win32InternetCloseHandle(WebRequest);
+            Win32HttpEndRequestA(WebRequest, 0, 0, 0);
+        }
+        else
+        {
+            Assert(!"Unable to send request");
         }
         
         Win32InternetCloseHandle(WebConnect);
@@ -1394,6 +1400,137 @@ Win32GetInternetData(u8 *Buffer, umm BufferMaxSize, string Url)
         Assert(!"Failed to open Url");
     }
     
+    
+    return Result;
+}
+
+internal umm
+Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, char *Verb, string File, u8 *ResponseBuffer, umm ResponseBuferMaxSize, 
+                          char *Username, char *Password)
+{
+    umm Result = 0;
+    
+    char CFile[MAX_PATH];
+    StringToCString(File, MAX_PATH, CFile);
+    
+    HANDLE FileHandle = Win32CreateFileA(CFile, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER LFileSize;
+        Win32GetFileSizeEx(FileHandle, &LFileSize);
+        umm FileSize = LFileSize.QuadPart;
+        
+        WebSessionInit();
+        
+        char CHost_[2048];
+        StringToCString(Host, sizeof(CHost_), CHost_);
+        
+        char CEndpoint[2048];
+        StringToCString(Endpoint, sizeof(CEndpoint), CEndpoint);
+        
+        INTERNET_PORT Port = INTERNET_DEFAULT_HTTP_PORT;
+        DWORD Flags = 0;
+        
+        char *CHost = CHost_;
+        if(StringBeginsWith(String("https"), Host))
+        {
+            CHost += 8;
+            Port = INTERNET_DEFAULT_HTTPS_PORT;
+            Flags = INTERNET_FLAG_SECURE;
+        }
+        else if(StringBeginsWith(String("http"), Host))
+        {
+            CHost += 6;
+        }
+        
+        HINTERNET WebConnect = Win32InternetConnectA(GlobalWebSession, CHost, Port, Username, Password,
+                                                     INTERNET_SERVICE_HTTP, 0, 0);
+        if(WebConnect)
+        {
+            HINTERNET WebRequest = Win32HttpOpenRequestA(WebConnect, Verb, CEndpoint, 0, 0, 0, Flags, 0);
+            if(WebRequest)
+            {
+                // NOTE(kstandbridge): HttpSendRequestEx will return 401 initially asking for creds, so just EndRequest and start again
+                if((Username != 0) &&
+                   (Password != 0))
+                {
+                    if(Win32HttpSendRequestExA(WebRequest, 0, 0, 0, 0))
+                    {
+                        Win32HttpEndRequestA(WebRequest, 0, 0, 0);
+                        DWORD StatusCode = 0;
+                        DWORD StatusCodeLength = sizeof(StatusCode);
+                        Win32HttpQueryInfoA(WebRequest, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &StatusCode, &StatusCodeLength, 0);
+                        Assert(StatusCode == 401);
+                    }
+                }
+                
+                // TODO(kstandbridge): Need a way to format strings without using the memory arena
+                {
+                    temporary_memory TempMem = BeginTemporaryMemory(Arena);
+                    string Header = FormatString(TempMem.Arena, "Content-Length: %u\r\n", FileSize);
+                    char CHeader[256];
+                    StringToCString(Header, 256, CHeader);
+                    Win32HttpAddRequestHeadersA(WebRequest, CHeader, 
+                                                (DWORD)-1, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE);
+                    EndTemporaryMemory(TempMem);
+                }
+                
+                if(Win32HttpSendRequestExA(WebRequest, 0, 0, HSR_INITIATE, 0))
+                {                
+                    umm Offset = 0;
+                    OVERLAPPED Overlapped;
+                    ZeroStruct(Overlapped);
+                    u8 Buffer[1024];
+                    umm BufferSize = 1024;
+                    do
+                    {
+                        Overlapped.Offset = (u32)((Offset >> 0) & 0xFFFFFFFF);
+                        Overlapped.OffsetHigh = (u32)((Offset >> 32) & 0xFFFFFFFF);
+                        
+                        DWORD BytesRead = 0;
+                        if(Win32ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
+                        {
+                            DWORD BytesSent = 0;
+                            DWORD TotalBytesSend = 0;
+                            do
+                            {
+                                if(!Win32InternetWriteFile(WebRequest, Buffer + TotalBytesSend, BytesRead, &BytesSent))
+                                {
+                                    FileSize = 0;
+                                    break;
+                                }
+                                TotalBytesSend += BytesSent;
+                            } while(TotalBytesSend < BytesRead);
+                            
+                            Offset += BytesRead;
+                        }
+                        else
+                        {
+                            Assert(!"Error reading file!");
+                        }
+                    } while(Offset < FileSize);
+                    
+                    Win32HttpEndRequestA(WebRequest, 0, 0, 0);
+                    
+                    Result = Win32ReadInternetResponse(WebRequest, ResponseBuffer, ResponseBuferMaxSize);
+                }
+                else
+                {
+                    Assert(!"Unable to send request");
+                }
+            }
+            else
+            {
+                Assert(!"Unable to create request");
+            }
+        }
+        Win32InternetCloseHandle(WebConnect);
+        Win32CloseHandle(FileHandle);
+    }
+    else
+    {
+        Assert(!"Unable to open file");
+    }
     
     return Result;
 }
@@ -1435,3 +1572,4 @@ Win32ReadEntireFile(memory_arena *Arena, string FilePath)
     
     return Result;
 }
+

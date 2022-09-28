@@ -206,7 +206,28 @@ introspect(win32, Wininet) typedef BOOL http_send_request_a(HINTERNET hRequest,
                                                             DWORD     dwHeadersLength,
                                                             LPVOID    lpOptional,
                                                             DWORD     dwOptionalLength);
-
+introspect(win32, Wininet) typedef BOOL internet_write_file(HINTERNET hFile,
+                                                            LPCVOID   lpBuffer,
+                                                            DWORD     dwNumberOfBytesToWrite,
+                                                            LPDWORD   lpdwNumberOfBytesWritten);
+introspect(win32, Wininet) typedef BOOL http_end_request_a(HINTERNET           hRequest,
+                                                           LPINTERNET_BUFFERSA lpBuffersOut,
+                                                           DWORD               dwFlags,
+                                                           DWORD_PTR           dwContext);
+introspect(win32, Wininet) typedef BOOL http_send_request_ex_a(HINTERNET           hRequest,
+                                                               LPINTERNET_BUFFERSA lpBuffersIn,
+                                                               LPINTERNET_BUFFERSA lpBuffersOut,
+                                                               DWORD               dwFlags,
+                                                               DWORD_PTR           dwContext);
+introspect(win32, Wininet) typedef BOOL http_query_info_a(HINTERNET hRequest,
+                                                          DWORD     dwInfoLevel,
+                                                          LPVOID    lpBuffer,
+                                                          LPDWORD   lpdwBufferLength,
+                                                          LPDWORD   lpdwIndex);
+introspect(win32, Wininet) typedef BOOL http_add_request_headers_a(HINTERNET hRequest,
+                                                                   LPCSTR    lpszHeaders,
+                                                                   DWORD     dwHeadersLength,
+                                                                   DWORD     dwModifiers);
 
 
 #define WIN32_KENGINE_TYPES_H
