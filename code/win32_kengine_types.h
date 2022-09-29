@@ -60,11 +60,13 @@ introspect(win32, Kernel32) typedef DWORD get_last_error();
 introspect(win32, Kernel32) typedef HANDLE create_toolhelp32_snapshot(DWORD dwFlags, DWORD th32ProcessID);
 introspect(win32, Kernel32) typedef BOOL process32_first(HANDLE hSnapshot, LPPROCESSENTRY32 lppe);
 introspect(win32, Kernel32) typedef BOOL process32_next(HANDLE hSnapshot, LPPROCESSENTRY32 lppe);
-introspect(win32, Kernel32) typedef HANDLE open_process(DWORD dwDesiredAccess, BOOL  bInheritHandle, DWORD dwProcessId);
-introspect(win32, Kernel32) typedef BOOL terminate_process(HANDLE hProcess, UINT   uExitCode);
+introspect(win32, Kernel32) typedef HANDLE open_process(DWORD dwDesiredAccess, BOOL bInheritHandle, DWORD dwProcessId);
+introspect(win32, Kernel32) typedef BOOL terminate_process(HANDLE hProcess, UINT uExitCode);
 introspect(win32, Kernel32) typedef int multi_byte_to_wide_char(UINT CodePage, DWORD dwFlags, LPCCH lpMultiByteStr, int cbMultiByte, 
                                                                 LPWSTR lpWideCharStr, int cchWideChar);
 introspect(win32, Kernel32) typedef BOOL delete_file_a(LPCSTR lpFileName);
+introspect(win32, Kernel32) typedef BOOL file_time_to_system_time(FILETIME *lpFileTime, LPSYSTEMTIME lpSystemTime);
+introspect(win32, Kernel32) typedef void get_system_time(LPSYSTEMTIME lpSystemTime);
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);
@@ -169,65 +171,25 @@ introspect(win32, Advapi32) typedef BOOL crypt_acquire_context_a(HCRYPTPROV *phP
 introspect(win32, Advapi32) typedef BOOL crypt_gen_random(HCRYPTPROV hProv, DWORD dwLen, BYTE *pbBuffer);
 introspect(win32, Advapi32) typedef BOOL crypt_release_context(HCRYPTPROV hProv, DWORD dwFlags);
 
-introspect(win32, Wininet) typedef BOOL internet_read_file(HINTERNET hFile,
-                                                           LPVOID    lpBuffer,
-                                                           DWORD     dwNumberOfBytesToRead,
-                                                           LPDWORD   lpdwNumberOfBytesRead);
-introspect(win32, Wininet) typedef HINTERNET internet_open_a(LPCSTR lpszAgent,
-                                                             DWORD  dwAccessType,
-                                                             LPCSTR lpszProxy,
-                                                             LPCSTR lpszProxyBypass,
-                                                             DWORD  dwFlags);
-introspect(win32, Wininet) typedef HINTERNET internet_open_url_a(HINTERNET hInternet,
-                                                                 LPCSTR    lpszUrl,
-                                                                 LPCSTR    lpszHeaders,
-                                                                 DWORD     dwHeadersLength,
-                                                                 DWORD     dwFlags,
-                                                                 DWORD_PTR dwContext);
+introspect(win32, Wininet) typedef BOOL internet_read_file(HINTERNET hFile, LPVOID lpBuffer, DWORD dwNumberOfBytesToRead, LPDWORD lpdwNumberOfBytesRead);
+introspect(win32, Wininet) typedef HINTERNET internet_open_a(LPCSTR lpszAgent, DWORD dwAccessType, LPCSTR lpszProxy, LPCSTR lpszProxyBypass, DWORD dwFlags);
+introspect(win32, Wininet) typedef HINTERNET internet_open_url_a(HINTERNET hInternet, LPCSTR lpszUrl, LPCSTR lpszHeaders, 
+                                                                 DWORD dwHeadersLength, DWORD dwFlags, DWORD_PTR dwContext);
 introspect(win32, Wininet) typedef BOOL internet_close_handle(HINTERNET hInternet);
-introspect(win32, Wininet) typedef HINTERNET internet_connect_a(HINTERNET     hInternet,
-                                                                LPCSTR        lpszServerName,
-                                                                INTERNET_PORT nServerPort,
-                                                                LPCSTR        lpszUserName,
-                                                                LPCSTR        lpszPassword,
-                                                                DWORD         dwService,
-                                                                DWORD         dwFlags,
-                                                                DWORD_PTR     dwContext);
-introspect(win32, Wininet) typedef HINTERNET http_open_request_a(HINTERNET hConnect,
-                                                                 LPCSTR    lpszVerb,
-                                                                 LPCSTR    lpszObjectName,
-                                                                 LPCSTR    lpszVersion,
-                                                                 LPCSTR    lpszReferrer,
-                                                                 LPCSTR    *lplpszAcceptTypes,
-                                                                 DWORD     dwFlags,
-                                                                 DWORD_PTR dwContext);
-introspect(win32, Wininet) typedef BOOL http_send_request_a(HINTERNET hRequest,
-                                                            LPCSTR    lpszHeaders,
-                                                            DWORD     dwHeadersLength,
-                                                            LPVOID    lpOptional,
-                                                            DWORD     dwOptionalLength);
-introspect(win32, Wininet) typedef BOOL internet_write_file(HINTERNET hFile,
-                                                            LPCVOID   lpBuffer,
-                                                            DWORD     dwNumberOfBytesToWrite,
-                                                            LPDWORD   lpdwNumberOfBytesWritten);
-introspect(win32, Wininet) typedef BOOL http_end_request_a(HINTERNET           hRequest,
-                                                           LPINTERNET_BUFFERSA lpBuffersOut,
-                                                           DWORD               dwFlags,
-                                                           DWORD_PTR           dwContext);
-introspect(win32, Wininet) typedef BOOL http_send_request_ex_a(HINTERNET           hRequest,
-                                                               LPINTERNET_BUFFERSA lpBuffersIn,
-                                                               LPINTERNET_BUFFERSA lpBuffersOut,
-                                                               DWORD               dwFlags,
-                                                               DWORD_PTR           dwContext);
-introspect(win32, Wininet) typedef BOOL http_query_info_a(HINTERNET hRequest,
-                                                          DWORD     dwInfoLevel,
-                                                          LPVOID    lpBuffer,
-                                                          LPDWORD   lpdwBufferLength,
-                                                          LPDWORD   lpdwIndex);
-introspect(win32, Wininet) typedef BOOL http_add_request_headers_a(HINTERNET hRequest,
-                                                                   LPCSTR    lpszHeaders,
-                                                                   DWORD     dwHeadersLength,
-                                                                   DWORD     dwModifiers);
+introspect(win32, Wininet) typedef HINTERNET internet_connect_a(HINTERNET hInternet, LPCSTR lpszServerName, INTERNET_PORT nServerPort, LPCSTR lpszUserName,
+                                                                LPCSTR lpszPassword, DWORD dwService, DWORD dwFlags, DWORD_PTR dwContext);
+introspect(win32, Wininet) typedef HINTERNET http_open_request_a(HINTERNET hConnect, LPCSTR lpszVerb, LPCSTR lpszObjectName, LPCSTR lpszVersion,
+                                                                 LPCSTR lpszReferrer, LPCSTR *lplpszAcceptTypes, DWORD dwFlags, DWORD_PTR dwContext);
+introspect(win32, Wininet) typedef BOOL http_send_request_a(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, 
+                                                            LPVOID lpOptional, DWORD dwOptionalLength);
+introspect(win32, Wininet) typedef BOOL internet_write_file(HINTERNET hFile, LPCVOID lpBuffer, DWORD dwNumberOfBytesToWrite, 
+                                                            LPDWORD lpdwNumberOfBytesWritten);
+introspect(win32, Wininet) typedef BOOL http_end_request_a(HINTERNET hRequest, LPINTERNET_BUFFERSA lpBuffersOut, DWORD dwFlags, DWORD_PTR dwContext);
+introspect(win32, Wininet) typedef BOOL http_send_request_ex_a(HINTERNET hRequest, LPINTERNET_BUFFERSA lpBuffersIn, LPINTERNET_BUFFERSA lpBuffersOut,
+                                                               DWORD dwFlags, DWORD_PTR dwContext);
+introspect(win32, Wininet) typedef BOOL http_query_info_a(HINTERNET hRequest, DWORD dwInfoLevel, LPVOID lpBuffer, 
+                                                          LPDWORD lpdwBufferLength,LPDWORD lpdwIndex);
+introspect(win32, Wininet) typedef BOOL http_add_request_headers_a(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, DWORD dwModifiers);
 
 
 #define WIN32_KENGINE_TYPES_H

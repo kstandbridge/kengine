@@ -122,6 +122,18 @@ introspect(ctor) typedef struct
     
 } element_colors;
 
+typedef struct date_time
+{
+    u16 Year;
+    u8 Month;
+    u8 Day;
+    
+    u8 Hour;
+    u8 Minute;
+    u8 Second;
+    u16 Milliseconds;
+} date_time;
+
 // TODO(kstandbridge): Where should loaded_bitmap live?
 #define BITMAP_BYTES_PER_PIXEL 4
 typedef struct

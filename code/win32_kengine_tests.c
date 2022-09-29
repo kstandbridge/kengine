@@ -229,18 +229,6 @@ RunFormatStringPercentTests(memory_arena *Arena)
     }
 }
 
-typedef struct date_time
-{
-    u16 Year;
-    u8 Month;
-    u8 Day;
-    
-    u8 Hour;
-    u8 Minute;
-    u8 Second;
-    u16 Milliseconds;
-} date_time;
-
 inline void
 RunFormatStringDateTests(memory_arena *Arena)
 {

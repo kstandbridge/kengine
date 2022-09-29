@@ -1185,6 +1185,23 @@ Win32WriteTextToFile(string Text, string FilePath)
 {
     char CFilePath[MAX_PATH];
     StringToCString(FilePath, MAX_PATH, CFilePath);
+    
+    for(u32 Index = FilePath.Size;
+        Index > 0;
+        --Index)
+    {
+        if(FilePath.Data[Index] == '\\')
+        {
+            FilePath.Size = Index;
+            break;
+        }
+    }
+    
+    if(!Win32DirectoryExists(FilePath))
+    {
+        Win32CreateDirectory(FilePath);
+    }
+    
     HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
     
     DWORD BytesWritten = 0;
@@ -1405,7 +1422,7 @@ Win32GetInternetData(u8 *Buffer, umm BufferMaxSize, string Url)
 }
 
 internal umm
-Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, char *Verb, string File, u8 *ResponseBuffer, umm ResponseBuferMaxSize, 
+Win32UploadFileToInternet(string Host, string Endpoint, char *Verb, string File, u8 *ResponseBuffer, umm ResponseBuferMaxSize, 
                           char *Username, char *Password)
 {
     umm Result = 0;
@@ -1464,24 +1481,19 @@ Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, cha
                     }
                 }
                 
-                // TODO(kstandbridge): Need a way to format strings without using the memory arena
-                {
-                    temporary_memory TempMem = BeginTemporaryMemory(Arena);
-                    string Header = FormatString(TempMem.Arena, "Content-Length: %u\r\n", FileSize);
-                    char CHeader[256];
-                    StringToCString(Header, 256, CHeader);
-                    Win32HttpAddRequestHeadersA(WebRequest, CHeader, 
-                                                (DWORD)-1, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE);
-                    EndTemporaryMemory(TempMem);
-                }
+                u8 Buffer[1024];
+                umm BufferSize = sizeof(Buffer);
+                string Header = FormatStringToBuffer(Buffer, BufferSize, "Content-Length: %u\r\n", FileSize);
+                char CHeader[256];
+                StringToCString(Header, 256, CHeader);
+                Win32HttpAddRequestHeadersA(WebRequest, CHeader, 
+                                            (DWORD)-1, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE);
                 
                 if(Win32HttpSendRequestExA(WebRequest, 0, 0, HSR_INITIATE, 0))
                 {                
                     umm Offset = 0;
                     OVERLAPPED Overlapped;
                     ZeroStruct(Overlapped);
-                    u8 Buffer[1024];
-                    umm BufferSize = 1024;
                     do
                     {
                         Overlapped.Offset = (u32)((Offset >> 0) & 0xFFFFFFFF);
@@ -1573,3 +1585,57 @@ Win32ReadEntireFile(memory_arena *Arena, string FilePath)
     return Result;
 }
 
+internal u64
+Win32GetSystemTimeStamp()
+{
+    u64 Result;
+    
+    SYSTEMTIME SystemTime;
+    Win32GetSystemTime(&SystemTime);
+    
+    FILETIME FileTime;
+    Win32SystemTimeToFileTime(&SystemTime, &FileTime);
+    
+    ULARGE_INTEGER ULargeInteger;
+    ULargeInteger.LowPart = FileTime.dwLowDateTime;
+    ULargeInteger.HighPart = FileTime.dwHighDateTime;
+    
+    Result = ULargeInteger.QuadPart;
+    
+    return Result;
+}
+
+internal date_time
+Win32GetDateTimeForTimeStamp(u64 TimeStamp)
+{
+    date_time Result;
+    
+    ULARGE_INTEGER ULargeInteger;
+    ULargeInteger.QuadPart = TimeStamp;
+    
+    FILETIME FileTime;
+    FileTime.dwLowDateTime = ULargeInteger.LowPart;
+    FileTime.dwHighDateTime = ULargeInteger.HighPart;
+    
+    SYSTEMTIME SystemTime;
+    Win32FileTimeToSystemTime(&FileTime, &SystemTime);
+    
+    Result.Year = SystemTime.wYear;
+    Result.Month = (u8)SystemTime.wMonth;
+    Result.Day = (u8)SystemTime.wDay;
+    Result.Hour = (u8)SystemTime.wHour;
+    Result.Minute = (u8)SystemTime.wMinute;
+    Result.Second = (u8)SystemTime.wSecond;
+    Result.Milliseconds = SystemTime.wMilliseconds;
+    
+    return Result;
+}
+
+internal date_time
+Win32GetDateTime()
+{
+    u64 TimeStamp = Win32GetSystemTimeStamp();
+    date_time Result = Win32GetDateTimeForTimeStamp(TimeStamp);
+    
+    return Result;
+}
