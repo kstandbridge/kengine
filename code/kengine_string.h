@@ -363,6 +363,7 @@ typedef enum
     FormatStringToken_PrecisionArgSpecifier,
     FormatStringToken_LongSpecifier,
     FormatStringToken_WidthSpecifier,
+    FormatStringToken_PadWithZeros,
     
     FormatStringToken_EndOfStream,
 } format_string_token_type;
@@ -410,9 +411,18 @@ GetNextFormatStringToken(format_string_state *State)
         
         default:
         {
-            
             if(IsNumber(C))
             {
+                if(C == '0')
+                {
+                    Result.Type = FormatStringToken_PadWithZeros;
+                }
+                else
+                {
+                    Result.Type = FormatStringToken_WidthSpecifier;
+                }
+                
+                
                 while(State->At[0] &&
                       IsNumber(State->At[0]))
                 {
@@ -420,7 +430,6 @@ GetNextFormatStringToken(format_string_state *State)
                 }
                 
                 Result.Str.Size = State->At - (char *)Result.Str.Data;
-                Result.Type = FormatStringToken_WidthSpecifier;
                 
             }
             else
@@ -448,8 +457,10 @@ GetNextFormatStringToken(format_string_state *State)
 
 global char Digits[] = "0123456789";
 inline void
-FormatStringParseU64(format_string_state *State, u64 Value, u32 Width)
+FormatStringParseU64(format_string_state *State, u64 Value, u32 Width, b32 PadWithZeros)
 {
+    b32 PrintValue = (Width == 0 || Value > 0);
+    
     u32 Base = 10;
     
     u32 PowersOfBase = 0;
@@ -462,33 +473,36 @@ FormatStringParseU64(format_string_state *State, u64 Value, u32 Width)
     }
     while(Width > 0)
     {
-        *State->Tail++ = ' ';
+        *State->Tail++ = PadWithZeros ? '0' : ' ';
         --Width;
     }
     
-    char *Start = State->Tail;
-    do
+    if(PrintValue)
     {
-        u64 DigitIndex = (Value % Base);
-        char Digit = Digits[DigitIndex];
-        *State->Tail++ = Digit;
+        char *Start = State->Tail;
+        do
+        {
+            u64 DigitIndex = (Value % Base);
+            char Digit = Digits[DigitIndex];
+            *State->Tail++ = Digit;
+            
+            Value /= Base;
+        } while(Value != 0);
+        char *End = State->Tail;
         
-        Value /= Base;
-    } while(Value != 0);
-    char *End = State->Tail;
-    
-    while(Start < End)
-    {
-        --End;
-        char Temp = *End;
-        *End = *Start;
-        *Start = Temp;
-        ++Start;
+        while(Start < End)
+        {
+            --End;
+            char Temp = *End;
+            *End = *Start;
+            *Start = Temp;
+            ++Start;
+        }
     }
 }
 
 inline void
-FormatStringParseF64(format_string_state *State, f64 Value, u32 Width, u32 Precision)
+FormatStringParseF64(format_string_state *State, f64 Value, u32 Width, u32 Precision, b32 PadWithZeros)
 {
     f64 ValueLeft = Value;
     while((ValueLeft > 1) && 
@@ -511,7 +525,7 @@ FormatStringParseF64(format_string_state *State, f64 Value, u32 Width, u32 Preci
     
     u64 IntegerPart = (u64)Value;
     Value -= (f64)IntegerPart;
-    FormatStringParseU64(State, IntegerPart, 0);
+    FormatStringParseU64(State, IntegerPart, 0, PadWithZeros);
     
     *State->Tail++ = '.';
     
@@ -557,6 +571,7 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                     u32 FloatLength = 8;
                     s32 Precision = 6;
                     b32 WidthSpecified = false;
+                    b32 PadWithZeros = false;
                     s32 Width = 0;
                     b32 PrecisionSpecified = false;
                     while(ParsingParam)
@@ -564,9 +579,13 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                         format_string_token ParamToken = GetNextFormatStringToken(State);
                         switch(ParamToken.Type)
                         {
+                            case FormatStringToken_PadWithZeros:
+                            {
+                                PadWithZeros = true;
+                                Width = U32FromString((char *)ParamToken.Str.Data);
+                            } break;
                             case FormatStringToken_WidthSpecifier:
                             {
-                                WidthSpecified = true;
                                 Width = U32FromString((char *)ParamToken.Str.Data);
                             } break;
                             
@@ -613,7 +632,7 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                     Value = -Value;
                                     *State->Tail++ = '-';
                                 }
-                                FormatStringParseU64(State, Value, Width);
+                                FormatStringParseU64(State, Value, Width, PadWithZeros);
                             } break;
                             
                             case FormatStringToken_UnsignedDecimalInteger:
@@ -621,7 +640,7 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                 ParsingParam = false;
                                 
                                 u64 Value = ReadVarArgUnsignedInteger(IntegerLength, ArgList);
-                                FormatStringParseU64(State, Value, Width);
+                                FormatStringParseU64(State, Value, Width, PadWithZeros);
                             } break;
                             
                             case FormatStringToken_DecimalFloatingPoint:
@@ -629,7 +648,7 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                 ParsingParam = false;
                                 FloatLength; // NOTE(kstandbridge): local variable is initialized but not referenced.
                                 f64 Value = ReadVarArgFloat(FloatLength, ArgList);
-                                FormatStringParseF64(State, Value, Width, Precision);
+                                FormatStringParseF64(State, Value, Width, Precision, PadWithZeros);
                             } break;
                             
                             case FormatStringToken_StringOfCharacters:
@@ -724,7 +743,6 @@ BeginFormatString(memory_arena *Arena)
     ++Arena->TempCount;
     
     Result.Result.Size = 0;
-    Result.Result.Size = (Result.Result.Size + 1)*sizeof(char);
     Result.Result.Data = (u8 *)PushSize(Arena, Result.Result.Size);
     Result.Tail = (char *)Result.Result.Data;
     
@@ -756,6 +774,46 @@ FormatString(memory_arena *Arena, char *Format, ...)
     
     return Result;
 }
+
+
+internal format_string_state
+BeginFormatStringToBuffer(u8 *Buffer)
+{
+    format_string_state Result;
+    Result.Arena = 0;
+    
+    Result.Result.Size = 0;
+    Result.Result.Data = Buffer;
+    Result.Tail = (char *)Buffer;
+    
+    return Result;
+}
+
+internal string
+EndFormatStringToBuffer(format_string_state *State, umm BufferSize)
+{
+    string Result = State->Result;
+    
+    Assert(Result.Size <= BufferSize);
+    
+    return Result;
+}
+
+internal string
+FormatStringToBuffer(u8 *Buffer, umm BufferSize, char *Format, ...)
+{
+    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
+    
+    va_list ArgList;
+    va_start(ArgList, Format);
+    AppendFormatString_(&StringState, Format, ArgList);
+    va_end(ArgList);
+    
+    string Result = EndFormatStringToBuffer(&StringState, BufferSize);
+    
+    return Result;
+}
+
 
 inline void
 StringToCString(string Text, u32 BufferSize, char *Buffer)

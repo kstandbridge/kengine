@@ -18,6 +18,24 @@ Win32ConsoleOut(Arena, "%s(%d): failed assert!\n", \
 __FILE__, __LINE__);        \
 }
 
+#define AssertEqualString(Expected, Actual) \
+++TotalTests; \
+if(!StringsAreEqual(Expected, Actual)) \
+{ \
+++FailedTests; \
+Win32ConsoleOut(Arena, "%s(%d): string assert fail.\n\t\t\tExpected:    '%S'\n\t\t\tActual:      '%S'\n", \
+__FILE__, __LINE__, Expected, Actual);        \
+}
+
+#define AssertEqualU32(Expected, Actual) \
+++TotalTests; \
+if(Expected != Actual) \
+{ \
+++FailedTests; \
+Win32ConsoleOut(Arena, "%s(%d): string assert fail.\n\t\t\tExpected:    '%u'\n\t\t\tActual:      '%u'\n", \
+__FILE__, __LINE__, Expected, Actual);        \
+}
+
 inline void
 RunStringsAreEqualTests(memory_arena *Arena)
 {
@@ -83,17 +101,18 @@ RunFormatStringUnsignedDecimalIntegerTests(memory_arena *Arena)
         string B = FormatString(Arena, "before %u after", U32Max);
         ASSERT(StringsAreEqual(A, B));
     }
+    
     {
         string A = String("before 0 after");
         string B = FormatString(Arena, "before %u after", U32Min);
-        ASSERT(StringsAreEqual(A, B));
+        AssertEqualString(A, B);
     }
+    
     {
         string A = String("before    42 after");
         string B = FormatString(Arena, "before %5u after", 42);
-        ASSERT(StringsAreEqual(A, B));
+        AssertEqualString(A, B);
     }
-    
 }
 
 inline void
@@ -207,6 +226,106 @@ RunFormatStringPercentTests(memory_arena *Arena)
         string A = String("before  after");
         string B = FormatString(Arena, "before %% after");
         ASSERT(!StringsAreEqual(A, B));
+    }
+}
+
+typedef struct date_time
+{
+    u16 Year;
+    u8 Month;
+    u8 Day;
+    
+    u8 Hour;
+    u8 Minute;
+    u8 Second;
+    u16 Milliseconds;
+} date_time;
+
+inline void
+RunFormatStringDateTests(memory_arena *Arena)
+{
+    {
+        date_time Date;
+        Date.Year = 2020;
+        Date.Month = 9;
+        Date.Day = 29;
+        Date.Hour = 7;
+        Date.Minute = 45;
+        Date.Second = 13;
+        Date.Milliseconds = 0;
+        string A = String("2020-09-29 07:45:13:000");
+        string B = FormatString(Arena,
+                                "%04d-%02d-%02d %02d:%02d:%02d:%03d",
+                                Date.Year, Date.Month, Date.Day, Date.Hour, Date.Minute, Date.Second, Date.Milliseconds);
+        AssertEqualString(A, B)
+    }
+    {
+        date_time Date;
+        Date.Year = 2020;
+        Date.Month = 9;
+        Date.Day = 29;
+        Date.Hour = 7;
+        Date.Minute = 45;
+        Date.Second = 00;
+        Date.Milliseconds = 123;
+        string A = String("2020-09-29 07:45:00:123");
+        string B = FormatString(Arena,
+                                "%04d-%02d-%02d %02d:%02d:%02d:%03d",
+                                Date.Year, Date.Month, Date.Day, Date.Hour, Date.Minute, Date.Second, Date.Milliseconds);
+        AssertEqualString(A, B)
+    }
+    {
+        date_time Date;
+        Date.Year = 2020;
+        Date.Month = 9;
+        Date.Day = 29;
+        Date.Hour = 7;
+        Date.Minute = 45;
+        Date.Second = 7;
+        Date.Milliseconds = 4;
+        string A = String("2020-09-29 07:45:07:004");
+        string B = FormatString(Arena,
+                                "%04d-%02d-%02d %02d:%02d:%02d:%03d",
+                                Date.Year, Date.Month, Date.Day, Date.Hour, Date.Minute, Date.Second, Date.Milliseconds);
+        AssertEqualString(A, B)
+    }
+    {
+        date_time Date;
+        Date.Year = 2020;
+        Date.Month = 9;
+        Date.Day = 29;
+        Date.Hour = 7;
+        Date.Minute = 45;
+        Date.Second = 42;
+        Date.Milliseconds = 42;
+        string A = String("2020-09-29 07:45:42:042");
+        string B = FormatString(Arena,
+                                "%04d-%02d-%02d %02d:%02d:%02d:%03d",
+                                Date.Year, Date.Month, Date.Day, Date.Hour, Date.Minute, Date.Second, Date.Milliseconds);
+        AssertEqualString(A, B)
+    }
+}
+
+inline void
+RunFormatStringWithoutArenaTests(memory_arena *Arena)
+{
+    {
+        u8 Buffer[256];
+        umm BufferSize = sizeof(Buffer);
+        AssertEqualU32(256, BufferSize);
+        
+        format_string_state State = BeginFormatStringToBuffer(Buffer);
+        AppendStringFormat(&State, "before %d after", 42);
+        string Actual = EndFormatStringToBuffer(&State, BufferSize);
+        
+        AssertEqualString(String("before 42 after"), Actual);
+    }
+    {
+        u8 Buffer[256];
+        umm BufferSize = sizeof(Buffer);
+        
+        string Actual = FormatStringToBuffer(Buffer, BufferSize, "before %d after", 42);
+        AssertEqualString(String("before 42 after"), Actual);
     }
 }
 
@@ -429,7 +548,7 @@ RunEdDSATests(memory_arena *Arena)
             Index < 64;
             ++Index)
         {
-            PersistentKey[Index] = RandomU32(&RandomState) % 128;
+            PersistentKey[Index] = RandomU32(&RandomState) % 256;
         }
     }
     
@@ -533,6 +652,8 @@ RunAllTests(memory_arena *Arena)
     RunFormatStringStringOfCharactersTests(Arena);
     RunFormatStringStringTypeTests(Arena);
     RunFormatStringPercentTests(Arena);
+    RunFormatStringDateTests(Arena);
+    RunFormatStringWithoutArenaTests(Arena);
     
     RunV2Tests(Arena);
     
