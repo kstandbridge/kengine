@@ -45,6 +45,8 @@ typedef unsigned __int64 umm;
 #define Minimum(A, B) ((A < B) ? (A) : (B))
 #define Maximum(A, B) ((A > B) ? (A) : (B))
 
+#define MAX_URL 2048
+
 typedef struct
 {
     umm Size;

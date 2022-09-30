@@ -44,18 +44,19 @@ Win32ConsoleOut_(string Text)
     return Result;
 }
 
-
 internal b32
-Win32ConsoleOut(memory_arena *Arena, char *Format, ...)
+Win32ConsoleOut(char *Format, ...)
 {
-    format_string_state StringState = BeginFormatString(Arena);
+    u8 Buffer[4096];
+    umm BufferSize = sizeof(Buffer);
+    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
     
     va_list ArgList;
     va_start(ArgList, Format);
     AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
     
-    string Text = EndFormatString(&StringState);
+    string Text = EndFormatStringToBuffer(&StringState, BufferSize);
     
     b32 Result = Win32ConsoleOut_(Text);
     return Result;
