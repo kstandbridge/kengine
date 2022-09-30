@@ -932,7 +932,8 @@ Win32GetTimestamp(s16 Year, s16 Month, s16 Day, s16 Hour, s16 Minute, s16 Second
 typedef enum iterate_processes_by_name_op
 {
     IterateProcessesByName_None,
-    IterateProcessesByName_Terminate
+    IterateProcessesByName_Terminate,
+    IterateProcessesByName_CloseRequest
 } iterate_processes_by_name_op;
 
 internal b32
@@ -954,16 +955,30 @@ Win32IterateProcessesByName_(string FileName, iterate_processes_by_name_op Op)
             if(Process != 0)
             {
                 Result = true;
-                if(Op == IterateProcessesByName_Terminate)
-                {                    
+                if(Op == IterateProcessesByName_CloseRequest)
+                {
+                    u8 CPipe[MAX_PATH];
+                    string Pipe = FormatStringToBuffer(CPipe, sizeof(CPipe),  "\\\\.\\pipe\\close-request-pipe-%d", Entry.th32ProcessID);
+                    CPipe[Pipe.Size] = '\0';
+                    HANDLE PipeHandle = Win32CreateFileA((char *)CPipe, 0, 0, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
+                    
+                    // NOTE(kstandbridge): Give it 3 seconds to close
+                    Win32Sleep(3000); 
+                    Win32CloseHandle(PipeHandle);
+                    
+                    // NOTE(kstandbridge): Kill it anyway
                     Win32TerminateProcess(Process, 0);
-                    Win32CloseHandle(Process);
+                }
+                else if(Op == IterateProcessesByName_Terminate)
+                {
+                    Win32TerminateProcess(Process, 0);
                 }
                 else
                 {
                     Assert(Op == IterateProcessesByName_None);
+                    break;
                 }
-                break;
+                Win32CloseHandle(Process);
             }
             else
             {
@@ -974,6 +989,13 @@ Win32IterateProcessesByName_(string FileName, iterate_processes_by_name_op Op)
     }
     Win32CloseHandle(Snapshot);
     
+    return Result;
+}
+
+internal b32
+Win32CloseRequestProcessByName(string FileName)
+{
+    b32 Result = Win32IterateProcessesByName_(FileName, IterateProcessesByName_CloseRequest);
     return Result;
 }
 
