@@ -130,10 +130,10 @@ EndTemporaryMemory(temporary_memory TempMem)
 {
     memory_arena *Arena = TempMem.Arena;
     Assert(Arena->Used >= TempMem.Used);
+    ZeroSize(Arena->Used - TempMem.Used, Arena->Base + TempMem.Used);
     Arena->Used = TempMem.Used;
     Assert(Arena->TempCount > 0);
     
-    ZeroSize(TempMem.Used, Arena->Base + Arena->Used);
     
     --Arena->TempCount;
 }
