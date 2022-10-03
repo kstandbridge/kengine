@@ -129,7 +129,7 @@ GetNullTerminiatedStringLength(char *Str)
 }
 
 inline char
-ToLowercase(char Char)
+CToLowercase(char Char)
 {
     char Result = Char;
     
@@ -142,7 +142,7 @@ ToLowercase(char Char)
 }
 
 inline char
-ToUppercase(char Char)
+CToUppercase(char Char)
 {
     char Result = Char;
     
@@ -175,14 +175,14 @@ inline void
 SnakeToLowerCase(string *Text)
 {
     u32 ToSkip = 0;
-    Text->Data[0] = ToLowercase(Text->Data[0]);
+    Text->Data[0] = CToLowercase(Text->Data[0]);
     for(u32 Index = 0;
         Index < Text->Size;
         ++Index)
     {
         if(Text->Data[Index + ToSkip] == '_')
         {
-            Text->Data[Index + ToSkip + 1] = ToLowercase(Text->Data[Index + ToSkip + 1]);
+            Text->Data[Index + ToSkip + 1] = CToLowercase(Text->Data[Index + ToSkip + 1]);
             ++ToSkip;
         }
         
@@ -198,14 +198,14 @@ inline void
 ToUpperCamelCase(string *Text)
 {
     u32 ToSkip = 0;
-    Text->Data[0] = ToUppercase(Text->Data[0]);
+    Text->Data[0] = CToUppercase(Text->Data[0]);
     for(u32 Index = 0;
         Index < Text->Size;
         ++Index)
     {
         if(Text->Data[Index + ToSkip] == '_')
         {
-            Text->Data[Index + ToSkip + 1] = ToUppercase(Text->Data[Index + ToSkip + 1]);
+            Text->Data[Index + ToSkip + 1] = CToUppercase(Text->Data[Index + ToSkip + 1]);
             ++ToSkip;
         }
         
@@ -215,6 +215,28 @@ ToUpperCamelCase(string *Text)
         }
     }
     Text->Size -= ToSkip;
+}
+
+inline void
+StringToUppercase(string Text)
+{
+    for(u32 Index = 0;
+        Index < Text.Size;
+        ++Index)
+    {
+        Text.Data[Index] = CToUppercase(Text.Data[Index]);
+    }
+}
+
+inline void
+StringToLowercase(string Text)
+{
+    for(u32 Index = 0;
+        Index < Text.Size;
+        ++Index)
+    {
+        Text.Data[Index] = CToLowercase(Text.Data[Index]);
+    }
 }
 
 inline b32

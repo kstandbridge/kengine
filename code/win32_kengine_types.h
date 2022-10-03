@@ -67,6 +67,8 @@ introspect(win32, Kernel32) typedef int multi_byte_to_wide_char(UINT CodePage, D
 introspect(win32, Kernel32) typedef BOOL delete_file_a(LPCSTR lpFileName);
 introspect(win32, Kernel32) typedef BOOL file_time_to_system_time(FILETIME *lpFileTime, LPSYSTEMTIME lpSystemTime);
 introspect(win32, Kernel32) typedef void get_system_time(LPSYSTEMTIME lpSystemTime);
+introspect(win32, Kernel32) typedef BOOL get_computer_name_a(LPSTR lpBuffer, LPDWORD nSize);
+introspect(win32, Kernel32) typedef DWORD get_current_process_id();
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);
@@ -190,6 +192,7 @@ introspect(win32, Wininet) typedef BOOL http_send_request_ex_a(HINTERNET hReques
 introspect(win32, Wininet) typedef BOOL http_query_info_a(HINTERNET hRequest, DWORD dwInfoLevel, LPVOID lpBuffer, 
                                                           LPDWORD lpdwBufferLength,LPDWORD lpdwIndex);
 introspect(win32, Wininet) typedef BOOL http_add_request_headers_a(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, DWORD dwModifiers);
+introspect(win32, Wininet) typedef BOOL internet_get_last_response_info_a(LPDWORD lpdwError, LPSTR lpszBuffer, LPDWORD lpdwBufferLength);
 
 
 #define WIN32_KENGINE_TYPES_H

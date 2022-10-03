@@ -708,8 +708,8 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     ToUpperCamelCase(&FunctionName);
     if(StringsAreEqual(String("lowerCamelCase"), Parameter))
     {
-        MethodName.Data[0] = ToLowercase(FunctionName.Data[0]);
-        FunctionName.Data[0] = ToLowercase(FunctionName.Data[0]);
+        MethodName.Data[0] = CToLowercase(FunctionName.Data[0]);
+        FunctionName.Data[0] = CToLowercase(FunctionName.Data[0]);
     }
     
     
@@ -807,7 +807,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     }
     Win32PrintOut(Tokenizer->Arena, "    Assert(%S);\n", Library);
     Win32PrintOut(Tokenizer->Arena, "    local_persist %S *Func = 0;\n", FunctionType);
-    Win32PrintOut(Tokenizer->Arena, "    if(!Func);\n");
+    Win32PrintOut(Tokenizer->Arena, "    if(Func == 0)\n");
     Win32PrintOut(Tokenizer->Arena, "    {\n");
     Win32PrintOut(Tokenizer->Arena, "         Func = (%S *)Win32GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, MethodName);
     Win32PrintOut(Tokenizer->Arena, "    }\n");
