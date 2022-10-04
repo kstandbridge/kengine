@@ -22,10 +22,7 @@ typedef struct telemetry_message
 {
     struct telemetry_message *Next;
     
-    date_time DateTime;
-    
     telemetry_field *Fields;
-    string Payload;
 } telemetry_message;
 
 typedef enum telemetry_state_type
@@ -129,16 +126,56 @@ PostTelemetryThread(void *Data)
                                                            DateTime.Hour, DateTime.Minute, DateTime.Second,
                                                            DateTime.Milliseconds);
                     
+                    u8 CPayload[4096];
+                    format_string_state StringState = BeginFormatStringToBuffer(CPayload);
+                    
+                    AppendStringFormat(&StringState, "{\n    \"@timestamp\": \"%d-%02d-%02dT%02d:%02d:%02d.%03dZ\"",
+                                       DateTime.Year, DateTime.Month, DateTime.Day,
+                                       DateTime.Hour, DateTime.Minute, DateTime.Second,
+                                       DateTime.Milliseconds);
+                    
+                    for(telemetry_field *Field = Message->Fields;
+                        Field;
+                        Field = Field->Next)
+                    {
+                        if((Field->Key.Data) && 
+                           (Field->Key.Data != '\0'))
+                        {
+                            if(Field->Type == TelemetryField_Number)
+                            {
+                                AppendStringFormat(&StringState, ",\n    \"%S\": %.03f", Field->Key, Field->NumberValue);
+                            }
+                            else
+                            {
+                                Assert(Field->Type == TelemetryField_String);
+                                AppendStringFormat(&StringState, ",\n    \"%S\": \"%S\"", Field->Key, Field->StringValue);
+                            }
+                            
+                        }
+                        else
+                        {
+                            Assert(!"Blank key");
+                        }
+                    }
+                    
+                    AppendStringFormat(&StringState, ",\n    \"product_name\": \"%S\"", GlobalTelemetryState_.ProductName);
+                    AppendStringFormat(&StringState, ",\n    \"machine_name\": \"%S\"", GlobalTelemetryState_.MachineName);
+                    AppendStringFormat(&StringState, ",\n    \"user_name\": \"%S\"", GlobalTelemetryState_.Username);
+                    AppendStringFormat(&StringState, ",\n    \"pid\": %.03f", GlobalTelemetryState_.ProcessId);
+                    
+                    AppendStringFormat(&StringState, "\n}");
+                    
+                    string Payload = EndFormatStringToBuffer(&StringState, sizeof(CPayload));
 #if KENGINE_INTERNAL
                     u8 *Buffer = BeginPushSize(&Queue->Arena);
-                    umm Size = Win32SendInternetRequest(Host->Hostname, 0, Endpoint, "POST", Message->Payload,
+                    umm Size = Win32SendInternetRequest(Host->Hostname, 0, Endpoint, "POST", Payload,
                                                         Buffer, Queue->Arena.Size - Queue->Arena.Used, 
                                                         "Content-Type: application/json;\r\n", 0, 0);
                     EndPushSize(&Queue->Arena, Size);
                     string Response = String_(Size, Buffer);
                     int x = 5;
 #else
-                    Win32SendInternetRequest(Host->Hostname, 0, Endpoint, "POST", Message->Payload,
+                    Win32SendInternetRequest(Host->Hostname, 0, Endpoint, "POST", Payload,
                                              0, 0, "Content-Type: application/json;\r\n", 0, 0);
 #endif
                 }
@@ -191,8 +228,6 @@ BeginTelemetryMessage()
                     Message = PushStruct(&GlobalTelemetryState_.AddingQueue->Arena, telemetry_message);
                 }
                 GlobalTelemetryState_.AddingQueue->Messages = Message;
-                
-                Message->DateTime = Win32GetDateTime();
                 
                 break;
             }
@@ -302,46 +337,6 @@ EndTelemetryMessage()
     Assert(GlobalTelemetryState_.CurrentState == TelemetryState_AddingToQueue);
     
     telemetry_message *Message = GlobalTelemetryState_.AddingQueue->Messages;
-    
-    AppendTelemetryMessageStringField(String("product_name"), GlobalTelemetryState_.ProductName);
-    AppendTelemetryMessageStringField(String("machine_name"), GlobalTelemetryState_.MachineName);
-    AppendTelemetryMessageStringField(String("user_name"), GlobalTelemetryState_.Username);
-    AppendTelemetryMessageNumberField(String("pid"), GlobalTelemetryState_.ProcessId);
-    
-    format_string_state StringState = BeginFormatString(&GlobalTelemetryState_.AddingQueue->Arena);
-    
-    AppendStringFormat(&StringState, "{\n    \"@timestamp\": \"%d-%02d-%02dT%02d:%02d:%02d.%03dZ\"",
-                       Message->DateTime.Year, Message->DateTime.Month, Message->DateTime.Day,
-                       Message->DateTime.Hour, Message->DateTime.Minute, Message->DateTime.Second,
-                       Message->DateTime.Milliseconds);
-    
-    for(telemetry_field *Field = Message->Fields;
-        Field;
-        Field = Field->Next)
-    {
-        if((Field->Key.Data) && 
-           (Field->Key.Data != '\0'))
-        {
-            if(Field->Type == TelemetryField_Number)
-            {
-                AppendStringFormat(&StringState, ",\n    \"%S\": %.03f", Field->Key, Field->NumberValue);
-            }
-            else
-            {
-                Assert(Field->Type == TelemetryField_String);
-                AppendStringFormat(&StringState, ",\n    \"%S\": \"%S\"", Field->Key, Field->StringValue);
-            }
-            
-        }
-        else
-        {
-            Assert(!"Blank key");
-        }
-    }
-    
-    AppendStringFormat(&StringState, "\n}");
-    
-    Message->Payload = EndFormatString(&StringState);
     
     CompletePreviousWritesBeforeFutureWrites;
     GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
