@@ -62,7 +62,10 @@ typedef struct telemetry_state
     string TeamId;
     string ProductName;
     string MachineName;
+    string Username;
     u32 ProcessId;
+    
+    b32 TelemetryThreadRunning;
     
     telemetry_queue *AddingQueue;
     telemetry_queue *ProcessingQueue;
@@ -73,6 +76,9 @@ telemetry_state GlobalTelemetryState_;
 internal void
 PostTelemetryThread(void *Data)
 {
+    Assert(!GlobalTelemetryState_.TelemetryThreadRunning);
+    GlobalTelemetryState_.TelemetryThreadRunning = true;
+    
     for(;;)
     {
         // NOTE(kstandbridge): Swap queues
@@ -132,11 +138,20 @@ PostTelemetryThread(void *Data)
         Queue->MemoryFlush = BeginTemporaryMemory(&Queue->Arena);
         Queue->Messages = 0;
         
+        if(!GlobalTelemetryState_.TelemetryThreadRunning)
+        {
+            break;
+        }
+        
         Win32Sleep(500);
-        
-        // TODO(kstandbridge): Flush?
-        
     }
+}
+
+inline void
+EndTelemetryThread()
+{
+    Assert(GlobalTelemetryState_.TelemetryThreadRunning);
+    GlobalTelemetryState_.TelemetryThreadRunning = false;
 }
 
 internal void
@@ -240,6 +255,7 @@ EndTelemetryMessage()
     
     AppendTelemetryMessageStringField(String("product_name"), GlobalTelemetryState_.ProductName);
     AppendTelemetryMessageStringField(String("machine_name"), GlobalTelemetryState_.MachineName);
+    AppendTelemetryMessageStringField(String("user_name"), GlobalTelemetryState_.Username);
     AppendTelemetryMessageNumberField(String("pid"), GlobalTelemetryState_.ProcessId);
     
     format_string_state StringState = BeginFormatString(&GlobalTelemetryState_.AddingQueue->Arena);
@@ -314,8 +330,7 @@ AddTelemetryHost(memory_arena *Arena, string Hostname)
                 Host = PushStruct(Arena, telemetry_host);
             }
             GlobalTelemetryState_.Hosts = Host;
-            Host->Hostname = String_(Hostname.Size, Hostname.Data);
-            
+            Host->Hostname = PushString_(Arena, Hostname.Size, Hostname.Data);
             
             CompletePreviousWritesBeforeFutureWrites;
             GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
@@ -329,7 +344,7 @@ AddTelemetryHost(memory_arena *Arena, string Hostname)
 }
 
 internal void
-InitializeTelemetry(memory_arena *Arena, umm QueueSize, string TeamId, string ProductName, string MachineName, u32 ProcessId)
+InitializeTelemetry(memory_arena *Arena, umm QueueSize, string TeamId, string ProductName, string MachineName, string Username, u32 ProcessId)
 {
     if(GlobalTelemetryState_.CurrentState == TelemetryState_Uninitialized)
     {
@@ -349,6 +364,7 @@ InitializeTelemetry(memory_arena *Arena, umm QueueSize, string TeamId, string Pr
                 GlobalTelemetryState_.TeamId = PushString_(Arena, TeamId.Size, TeamId.Data);
                 GlobalTelemetryState_.ProductName = PushString_(Arena, ProductName.Size, ProductName.Data);
                 GlobalTelemetryState_.MachineName = PushString_(Arena, MachineName.Size, MachineName.Data);
+                GlobalTelemetryState_.Username = PushString_(Arena, Username.Size, Username.Data);
                 GlobalTelemetryState_.ProcessId = ProcessId;
                 
                 GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
@@ -365,4 +381,59 @@ InitializeTelemetry(memory_arena *Arena, umm QueueSize, string TeamId, string Pr
     {
         Assert(!"Invalid telemetry state");
     }
+}
+
+inline void
+SendHeartbeatTelemetry()
+{
+    BeginTelemetryMessage();
+    AppendTelemetryMessageNumberField(String("cl"), VERSION);
+    AppendTelemetryMessageStringField(String("category"), String("/heartbeat"));
+    AppendTelemetryMessageStringField(String("message"), String("heartbeat"));
+    EndTelemetryMessage();
+}
+
+#define SendLogTelemetry___(SourceFilePlusLine, Level, Format, ...) SendLogTelemetry____(String(SourceFilePlusLine), Level, Format, __VA_ARGS__)
+#define SendLogTelemetry__(File, Line, Level, Format, ...) SendLogTelemetry___(File "(" #Line ")", Level, Format, __VA_ARGS__)
+#define SendLogTelemetry_(File, Line, Level, Format, ...) SendLogTelemetry__(File, Line, Level, Format, __VA_ARGS__)
+#define LogVerbose(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("verbose"), Format, __VA_ARGS__)
+#define LogInfo(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("info"), Format, __VA_ARGS__)
+#define LogWarning(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("waring"), Format, __VA_ARGS__)
+#define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("error"), Format, __VA_ARGS__)
+
+internal void
+SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
+{
+    SourceFilePlusLine.Data += SourceFilePlusLine.Size;
+    SourceFilePlusLine.Size = 0;
+    while(SourceFilePlusLine.Data[-1] != '\\')
+    {
+        ++SourceFilePlusLine.Size;
+        --SourceFilePlusLine.Data;
+    }
+    
+    BeginTelemetryMessage();
+    AppendTelemetryMessageNumberField(String("cl"), VERSION);
+    AppendTelemetryMessageStringField(String("source_file_plus_line"), SourceFilePlusLine);
+    AppendTelemetryMessageStringField(String("category"), String("/log"));
+    AppendTelemetryMessageStringField(String("log_level"), Level);
+    AppendTelemetryMessageStringField(String("message"), Message);
+    EndTelemetryMessage();
+}
+
+internal void
+SendLogTelemetry____(string FileLine, string Level, char *Format, ...)
+{
+    u8 Buffer[4096];
+    umm BufferSize = sizeof(Buffer);
+    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
+    
+    va_list ArgList;
+    va_start(ArgList, Format);
+    AppendFormatString_(&StringState, Format, ArgList);
+    va_end(ArgList);
+    
+    string Message = EndFormatStringToBuffer(&StringState, BufferSize);
+    
+    SendLogTelemetry_____(FileLine, Level, Message);
 }

@@ -107,7 +107,7 @@ inline void
 SubArena(memory_arena *Result, memory_arena *Arena, u64 Size)
 {
     Result->Size = Size;
-    Result->Base = (u8 *)PushSize_(Arena, Size, 16);
+    Result->Base = (u8 *)PushSize_(Arena, Size, 4);
     Result->Used = 0;
     Result->TempCount = 0;
 }

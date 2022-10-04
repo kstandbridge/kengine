@@ -1318,7 +1318,7 @@ Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
     DWORD CurrentBytesRead;
     do
     {
-        if (Win32InternetReadFile(FileHandle, Buffer + Result, BufferMaxSize - Result, &CurrentBytesRead))
+        if (Win32InternetReadFile(FileHandle, Buffer + Result, 4096, &CurrentBytesRead))
         {
             if (CurrentBytesRead == 0)
             {
@@ -1398,6 +1398,13 @@ Win32SendInternetRequest(string Host, u32 Port, string Endpoint, char *Verb, str
         
         if(Win32HttpSendRequestA(WebRequest, 0, 0, Payload.Data, Payload.Size))
         {
+            
+#if KENGINE_INTERNAL
+            DWORD Status = 404;
+            DWORD StatusSize = sizeof(StatusSize);
+            Win32HttpQueryInfoA(WebRequest, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&Status, &StatusSize, 0);
+#endif
+            
             if(ResponseBuffer)
             {
                 Result = Win32ReadInternetResponse(WebRequest, ResponseBuffer, ResponseBufferMaxSize);
