@@ -26,7 +26,6 @@ typedef struct telemetry_message
     
     telemetry_field *Fields;
     string Payload;
-    string Endpoint;
 } telemetry_message;
 
 typedef enum telemetry_state_type
@@ -107,24 +106,39 @@ PostTelemetryThread(void *Data)
         // NOTE(kstandbridge): Post all telemetry messages
         if(GlobalTelemetryState_.ProcessingQueue->Messages)
         {
-            for(telemetry_host *Host = GlobalTelemetryState_.Hosts;
-                Host;
-                Host = Host->Next)
+            for(telemetry_message *Message = Queue->Messages;
+                Message;
+                Message = Message->Next)
             {
-                for(telemetry_message *Message = Queue->Messages;
-                    Message;
-                    Message = Message->Next)
+                for(telemetry_host *Host = GlobalTelemetryState_.Hosts;
+                    Host;
+                    Host = Host->Next)
                 {
+                    date_time DateTime = Win32GetDateTime();
+                    
+                    u8 CEndpoint[MAX_URL];
+                    string Endpoint = FormatStringToBuffer(CEndpoint, MAX_URL,
+                                                           "/%S_%S_%d-%02d/_doc/%S_%S_%d_%d%02d%02d%02d%02d%02d%03d?pretty",
+                                                           GlobalTelemetryState_.TeamId,
+                                                           GlobalTelemetryState_.ProductName,
+                                                           DateTime.Year, DateTime.Month,
+                                                           GlobalTelemetryState_.ProductName,
+                                                           GlobalTelemetryState_.MachineName,
+                                                           GlobalTelemetryState_.ProcessId,
+                                                           DateTime.Year, DateTime.Month, DateTime.Day,
+                                                           DateTime.Hour, DateTime.Minute, DateTime.Second,
+                                                           DateTime.Milliseconds);
+                    
 #if KENGINE_INTERNAL
                     u8 *Buffer = BeginPushSize(&Queue->Arena);
-                    umm Size = Win32SendInternetRequest(Host->Hostname, 0, Message->Endpoint, "POST", Message->Payload,
+                    umm Size = Win32SendInternetRequest(Host->Hostname, 0, Endpoint, "POST", Message->Payload,
                                                         Buffer, Queue->Arena.Size - Queue->Arena.Used, 
                                                         "Content-Type: application/json;\r\n", 0, 0);
                     EndPushSize(&Queue->Arena, Size);
                     string Response = String_(Size, Buffer);
                     int x = 5;
 #else
-                    Win32SendInternetRequest(Host->Hostname, 0, Message->Endpoint, "POST", Message->Payload,
+                    Win32SendInternetRequest(Host->Hostname, 0, Endpoint, "POST", Message->Payload,
                                              0, 0, "Content-Type: application/json;\r\n", 0, 0);
 #endif
                 }
@@ -243,7 +257,43 @@ AppendTelemetryMessageStringField(string Key, string Value)
     
     Field->Type = TelemetryField_String;
     Field->Key = PushString_(&Queue->Arena, Key.Size, Key.Data);
-    Field->StringValue = PushString_(&Queue->Arena, Value.Size, Value.Data);
+    
+    // NOTE(kstandbridge): Sanitize json
+    Assert(Value.Size < 4096);
+    char Buffer[4096];
+    ZeroArray(4096, Buffer);
+    char *At = Buffer;
+    for(umm Index = 0;
+        Index < Value.Size;
+        ++Index)
+    {
+        if(Value.Data[Index] == '\\')
+        {
+            *At++ = '\\';
+            *At++ = '\\';
+        }
+        else if(Value.Data[Index] == '\n')
+        {
+            *At++ = '\\';
+            *At++ = 'n';
+        }
+        else if(Value.Data[Index] == '\r')
+        {
+            *At++ = '\\';
+            *At++ = 'r';
+        }
+        else if(Value.Data[Index] == '"')
+        {
+            *At++ = '\\';
+            *At++ = '"';
+        }
+        else
+        {
+            *At++ = Value.Data[Index];
+        }
+    }
+    
+    Field->StringValue = FormatString(&Queue->Arena, "%s", Buffer);
 }
 
 internal void
@@ -292,18 +342,6 @@ EndTelemetryMessage()
     AppendStringFormat(&StringState, "\n}");
     
     Message->Payload = EndFormatString(&StringState);
-    
-    Message->Endpoint = FormatString(&GlobalTelemetryState_.AddingQueue->Arena,
-                                     "/%S_%S_%d-%02d/_doc/%S_%S_%d_%d%02d%02d%02d%02d%02d%03d?pretty",
-                                     GlobalTelemetryState_.TeamId,
-                                     GlobalTelemetryState_.ProductName,
-                                     Message->DateTime.Year, Message->DateTime.Month,
-                                     GlobalTelemetryState_.ProductName,
-                                     GlobalTelemetryState_.MachineName,
-                                     GlobalTelemetryState_.ProcessId,
-                                     Message->DateTime.Year, Message->DateTime.Month, Message->DateTime.Day,
-                                     Message->DateTime.Hour, Message->DateTime.Minute, Message->DateTime.Second,
-                                     Message->DateTime.Milliseconds);
     
     CompletePreviousWritesBeforeFutureWrites;
     GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
