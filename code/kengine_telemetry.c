@@ -150,7 +150,6 @@ PostTelemetryThread(void *Data)
                                 Assert(Field->Type == TelemetryField_String);
                                 AppendStringFormat(&StringState, ",\n    \"%S\": \"%S\"", Field->Key, Field->StringValue);
                             }
-                            
                         }
                         else
                         {
@@ -335,8 +334,6 @@ internal void
 EndTelemetryMessage()
 {
     Assert(GlobalTelemetryState_.CurrentState == TelemetryState_AddingToQueue);
-    
-    telemetry_message *Message = GlobalTelemetryState_.AddingQueue->Messages;
     
     CompletePreviousWritesBeforeFutureWrites;
     GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
