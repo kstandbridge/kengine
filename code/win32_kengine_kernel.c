@@ -64,6 +64,7 @@ global HMODULE Urlmon;
 global HMODULE Winmm;
 global HMODULE Ws2_32;
 global HMODULE Wininet;
+global HMODULE Httpapi;
 
 global SecurityFunctionTableA *Win32SecurityFunctionTable;
 

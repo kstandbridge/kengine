@@ -4,6 +4,7 @@
 
 #include <WS2tcpip.h>
 #include <Windows.h>
+#include <http.h>
 #include <CommCtrl.h>
 #include <Shlobj.h>
 #include <Uxtheme.h>
@@ -12,8 +13,6 @@
 #include <sspi.h>
 #include <Schnlsp.h>
 #include <tlhelp32.h>
-
-
 
 #include <gl/gl.h>
 
@@ -193,6 +192,47 @@ introspect(win32, Wininet) typedef BOOL http_query_info_a(HINTERNET hRequest, DW
                                                           LPDWORD lpdwBufferLength,LPDWORD lpdwIndex);
 introspect(win32, Wininet) typedef BOOL http_add_request_headers_a(HINTERNET hRequest, LPCSTR lpszHeaders, DWORD dwHeadersLength, DWORD dwModifiers);
 introspect(win32, Wininet) typedef BOOL internet_get_last_response_info_a(LPDWORD lpdwError, LPSTR lpszBuffer, LPDWORD lpdwBufferLength);
+
+introspect(win32, Httpapi) typedef ULONG http_initialize(HTTPAPI_VERSION Version, ULONG Flags, PVOID pReserved);
+introspect(win32, Httpapi) typedef ULONG http_create_server_session(HTTPAPI_VERSION Version, PHTTP_SERVER_SESSION_ID ServerSessionId, ULONG Reserved);
+introspect(win32, Httpapi) typedef ULONG http_create_url_group(HTTP_SERVER_SESSION_ID ServerSessionId, PHTTP_URL_GROUP_ID pUrlGroupId, ULONG Reserved);
+introspect(win32, Httpapi) typedef ULONG http_create_request_queue(HTTPAPI_VERSION      Version,
+                                                                   PCWSTR               Name,
+                                                                   PSECURITY_ATTRIBUTES SecurityAttributes,
+                                                                   ULONG                Flags,
+                                                                   PHANDLE              RequestQueueHandle);
+introspect(win32, Httpapi) typedef ULONG http_set_url_group_property(HTTP_URL_GROUP_ID    UrlGroupId,
+                                                                     HTTP_SERVER_PROPERTY Property,
+                                                                     PVOID                PropertyInformation,
+                                                                     ULONG                PropertyInformationLength);
+introspect(win32, Httpapi) typedef ULONG http_add_url_to_url_group(HTTP_URL_GROUP_ID UrlGroupId,
+                                                                   PCWSTR            pFullyQualifiedUrl,
+                                                                   HTTP_URL_CONTEXT  UrlContext,
+                                                                   ULONG             Reserved);
+introspect(win32, Httpapi) typedef ULONG http_remove_url_from_url_group(HTTP_URL_GROUP_ID UrlGroupId,
+                                                                        PCWSTR            pFullyQualifiedUrl,
+                                                                        ULONG             Flags);
+introspect(win32, Httpapi) typedef ULONG http_close_url_group(HTTP_URL_GROUP_ID UrlGroupId);
+introspect(win32, Httpapi) typedef ULONG http_close_server_session(HTTP_SERVER_SESSION_ID ServerSessionId);
+introspect(win32, Httpapi) typedef ULONG http_close_request_queue(HANDLE RequestQueueHandle);
+introspect(win32, Httpapi) typedef ULONG http_terminate(ULONG Flags, PVOID pReserved);
+introspect(win32, Httpapi) typedef ULONG http_receive_http_request(HANDLE          RequestQueueHandle,
+                                                                   HTTP_REQUEST_ID RequestId,
+                                                                   ULONG           Flags,
+                                                                   PHTTP_REQUEST   RequestBuffer,
+                                                                   ULONG           RequestBufferLength,
+                                                                   PULONG          BytesReturned,
+                                                                   LPOVERLAPPED    Overlapped);
+introspect(win32, Httpapi) typedef ULONG http_send_http_response(HANDLE             RequestQueueHandle,
+                                                                 HTTP_REQUEST_ID    RequestId,
+                                                                 ULONG              Flags,
+                                                                 PHTTP_RESPONSE     HttpResponse,
+                                                                 PHTTP_CACHE_POLICY CachePolicy,
+                                                                 PULONG             BytesSent,
+                                                                 PVOID              Reserved1,
+                                                                 ULONG              Reserved2,
+                                                                 LPOVERLAPPED       Overlapped,
+                                                                 PHTTP_LOG_DATA     LogData);
 
 
 #define WIN32_KENGINE_TYPES_H

@@ -434,6 +434,19 @@ SendHeartbeatTelemetry()
 internal void
 SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
 {
+    date_time Date = Win32GetDateTime();
+    u8 Buffer[4096];
+    string Output = FormatStringToBuffer(Buffer, sizeof(Buffer), 
+                                         "[%02d/%02d/%04d %02d:%02d:%02d] (%S) %S\n", 
+                                         Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
+                                         Level, Message);
+    Win32ConsoleOut_(Output);
+    
+#if KENGINE_INTERNAL
+    Buffer[Output.Size] = '\0';
+    Win32OutputDebugStringA((char *)Buffer);
+#endif
+    
     SourceFilePlusLine.Data += SourceFilePlusLine.Size;
     SourceFilePlusLine.Size = 0;
     while(SourceFilePlusLine.Data[-1] != '\\')
