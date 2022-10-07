@@ -562,6 +562,37 @@ NodePredicate(node *A, node *B)
 }
 
 inline void
+RunLinkedListPushTests(memory_arena *Arena)
+{
+    {
+        node *Head = 0;
+        node *FortyOne = NodePushBack(&Head, Arena);
+        FortyOne->Value = 41;
+        node *Five = NodePushBack(&Head, Arena);
+        Five->Value = 5;
+        node *Seven = NodePushBack(&Head, Arena);
+        Seven->Value = 7;
+        ASSERT(Head == FortyOne);
+        ASSERT(Head->Next == Five);
+        ASSERT(Head->Next->Next == Seven);
+        ASSERT(Head->Next->Next->Next == 0);
+    }
+    {
+        node *Head = 0;
+        node *FortyOne = NodePush(&Head, Arena);
+        FortyOne->Value = 41;
+        node *Five = NodePush(&Head, Arena);
+        Five->Value = 5;
+        node *Seven = NodePush(&Head, Arena);
+        Seven->Value = 7;
+        ASSERT(Head == Seven);
+        ASSERT(Head->Next == Five);
+        ASSERT(Head->Next->Next == FortyOne);
+        ASSERT(Head->Next->Next->Next == 0);
+    }
+}
+
+inline void
 RunLinkedListMergeSortTests(memory_arena *Arena)
 {
     node *Head = 0;
@@ -655,6 +686,7 @@ RunAllTests(memory_arena *Arena)
     
     RunEdDSATests(Arena);
     
+    RunLinkedListPushTests(Arena);
     RunLinkedListMergeSortTests(Arena);
     
     b32 Result = (FailedTests == 0);

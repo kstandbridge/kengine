@@ -22,6 +22,8 @@ typedef struct telemetry_message
 {
     struct telemetry_message *Next;
     
+    u64 TimeStamp;
+    
     telemetry_field *Fields;
 } telemetry_message;
 
@@ -111,7 +113,7 @@ PostTelemetryThread(void *Data)
                     Host;
                     Host = Host->Next)
                 {
-                    date_time DateTime = Win32GetDateTime();
+                    date_time DateTime = Win32GetDateTimeForTimeStamp(Message->TimeStamp);
                     
                     u8 CEndpoint[MAX_URL];
                     string Endpoint = FormatStringToBuffer(CEndpoint, MAX_URL,
@@ -335,6 +337,9 @@ EndTelemetryMessage()
 {
     Assert(GlobalTelemetryState_.CurrentState == TelemetryState_AddingToQueue);
     
+    telemetry_message *Message = GlobalTelemetryState_.AddingQueue->Messages;
+    Message->TimeStamp = Win32GetSystemTimeStamp();
+    
     CompletePreviousWritesBeforeFutureWrites;
     GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
 }
@@ -429,24 +434,26 @@ SendHeartbeatTelemetry()
 #define LogVerbose(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("verbose"), Format, __VA_ARGS__)
 #define LogInfo(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("info"), Format, __VA_ARGS__)
 #define LogWarning(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("waring"), Format, __VA_ARGS__)
-#define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("error"), Format, __VA_ARGS__)
+#define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("error"), Format, __VA_ARGS__);
+// TODO(kstandbridge): debug_break on error
 
 internal void
 SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
 {
     date_time Date = Win32GetDateTime();
+    u32 ThreadId = GetThreadID();
     u8 Buffer[4096];
     string Output = FormatStringToBuffer(Buffer, sizeof(Buffer), 
-                                         "[%02d/%02d/%04d %02d:%02d:%02d] (%S) %S\n", 
+                                         "[%02d/%02d/%04d %02d:%02d:%02d] <%5u> (%S)\t%S\n", 
                                          Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
-                                         Level, Message);
+                                         ThreadId, Level, Message);
+    
     Win32ConsoleOut_(Output);
     
 #if KENGINE_INTERNAL
     Buffer[Output.Size] = '\0';
     Win32OutputDebugStringA((char *)Buffer);
-#endif
-    
+#else
     SourceFilePlusLine.Data += SourceFilePlusLine.Size;
     SourceFilePlusLine.Size = 0;
     while(SourceFilePlusLine.Data[-1] != '\\')
@@ -462,6 +469,7 @@ SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
     AppendTelemetryMessageStringField(String("log_level"), Level);
     AppendTelemetryMessageStringField(String("message"), Message);
     EndTelemetryMessage();
+#endif
 }
 
 internal void

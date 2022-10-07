@@ -1,146 +1,191 @@
-typedef enum http_token_type
+typedef enum html_token_type
 {
-    HttpToken_OpenTag,
-    HttpToken_CloseTag,
+    HtmlToken_Unknown,
     
-    HttpToken_Equals,
+    HtmlToken_OpenTag,
+    HtmlToken_CloseTag,
     
-    HttpToken_String,
+    HtmlToken_Equals,
     
-    HttpToken_EndOfStream,
-} http_token_type;
+    HtmlToken_String,
+    
+    HtmlToken_EndOfStream,
+} html_token_type;
 
-typedef struct http_token
+typedef struct html_token
 {
-    http_token_type Type;
-    string Text;
-} http_token;
+    html_token_type Type;
+    string Value;
+} html_token;
 
-typedef struct http_tokenizer
+typedef struct html_tokenizer
 {
     memory_arena *Arena;
-    char *At;
-} http_tokenizer;
+    string Html;
+    umm Index;
+} html_tokenizer;
 
-inline void
-HttpTokenizerEatallWhitespace(http_tokenizer *Tokenizer)
+internal html_token
+GetNextHtmlToken(html_tokenizer *Tokenizer)
 {
+    // NOTE(kstandbridge): Eat all whitespace
     for(;;)
     {
-        // TODO(kstandbridge): Eat comments?
-        if(IsWhitespace(Tokenizer->At[0]))
+        if(Tokenizer->Index > Tokenizer->Html.Size)
         {
-            ++Tokenizer->At;
+            break;
+        }
+        u8 *At = Tokenizer->Html.Data + Tokenizer->Index;
+        if(IsWhitespace(At[0]))
+        {
+            ++Tokenizer->Index;
         }
         else
         {
             break;
         }
     }
-}
-
-internal http_token
-GetNextHttpToken(http_tokenizer *Tokenizer)
-{
-    HttpTokenizerEatallWhitespace(Tokenizer);
     
-    http_token Result;
-    Result.Text = String_(1, (u8 *)Tokenizer->At);
-    char C = Tokenizer->At[0];
-    ++Tokenizer->At;
-    if(C == '>')
+    u8 *At = Tokenizer->Html.Data + Tokenizer->Index;
+    
+    html_token Result;
+    Result.Type = HtmlToken_Unknown;
+    Result.Value.Size = 1;
+    Result.Value.Data = At;
+    
+    if(Tokenizer->Index > Tokenizer->Html.Size)
     {
-        C = Tokenizer->At[0];
-        ++Tokenizer->At;
+        Result.Type = HtmlToken_EndOfStream;
     }
-    switch(C)
+    else
     {
-        case '\0': {Result.Type = HttpToken_EndOfStream; } break;
-        case '=':  {Result.Type = HttpToken_Equals; } break;
-        case '<': 
+        char C = At[0];
+        ++Tokenizer->Index;
+        ++At;
+        switch(C)
         {
-            if(Tokenizer->At[0] == '/')
+            case '\0': {Result.Type = HtmlToken_EndOfStream; } break;
+            case '=':  {Result.Type = HtmlToken_Equals; } break;
+            case '<': 
             {
-                Result.Type = HttpToken_CloseTag; 
-                ++Tokenizer->At;
-            }
-            else
-            {
-                Result.Type = HttpToken_OpenTag; 
-            }
-            
-            Result.Text.Data = (u8 *)Tokenizer->At;
-            
-            while(!IsWhitespace(Tokenizer->At[0]) &&
-                  (Tokenizer->At[0] != '>') &&
-                  (Tokenizer->At[0] != '/'))
-            {
-                ++Tokenizer->At;
-            }
-            
-            Result.Text.Size = Tokenizer->At - (char *)Result.Text.Data;
-            
-            if(Tokenizer->At[0] == '>')
-            {
-                ++Tokenizer->At;
-            }
-            else if((Tokenizer->At[0] == '/') &&
-                    (Tokenizer->At[1] == '>'))
-            {
-                Tokenizer->At += 2;
-            }
-        } break;
-        case '/':
-        {
-            if(Tokenizer->At[0] == '>')
-            {
-                ++Tokenizer->At;
-                Result.Type = HttpToken_CloseTag; 
-            }
-            else
-            {
-                // NOTE(kstandbridge): Something didn't parse correctly, we are expecting a nameless end tag
-                // like this <meta name="robots" />
-                __debugbreak();
-            }
-        } break;
-        
-        default:
-        {
-            --Tokenizer->At;
-            Result.Type = HttpToken_String; 
-            if(Tokenizer->At[0] == '"')
-            {
+                if(At[0] == '/')
+                {
+                    Result.Type = HtmlToken_CloseTag; 
+                    ++At;
+                    ++Tokenizer->Index;
+                }
+                else
+                {
+                    Result.Type = HtmlToken_OpenTag; 
+                }
                 
-                ++Tokenizer->At;
-            }
-            
-            Result.Text.Data = (u8 *)Tokenizer->At;
-            
-            while(Tokenizer->At[0] &&
-                  Tokenizer->At[0] != '"' &&
-                  Tokenizer->At[0] != '=' &&
-                  Tokenizer->At[0] != '<')
+                Result.Value.Data = At;
+                
+                while(!IsWhitespace(At[0]) &&
+                      (At[0] != '>') &&
+                      (At[0] != '/'))
+                {
+                    ++At;
+                    ++Tokenizer->Index;
+                }
+                
+                Result.Value.Size = At - Result.Value.Data;
+                
+                if(At[0] == '>')
+                {
+                    ++At;
+                    ++Tokenizer->Index;
+                }
+                else if((At[0] == '/') &&
+                        (At[1] == '>'))
+                {
+                    At += 2;
+                    Tokenizer->Index += 2;
+                }
+            } break;
+            case '/':
             {
-                ++Tokenizer->At;
-            }
+                if(At[0] == '>')
+                {
+                    ++At;
+                    ++Tokenizer->Index;
+                    Result.Type = HtmlToken_CloseTag; 
+                }
+                else
+                {
+                    // NOTE(kstandbridge): Something didn't parse correctly, we are expecting a nameless end tag
+                    // like this <meta name="robots" />
+                    __debugbreak();
+                }
+            } break;
             
-            Result.Text.Size = Tokenizer->At - (char *)Result.Text.Data;
-            
-            if(Tokenizer->At[0] == '"')
+            default:
             {
-                ++Tokenizer->At;
-            }
-        } break;
+                --At;
+                --Tokenizer->Index;
+                Result.Type = HtmlToken_String; 
+                if(At[0] == '"')
+                {
+                    
+                    ++At;
+                    ++Tokenizer->Index;
+                }
+                
+                Result.Value.Data = (u8 *)At;
+                
+                while(At[0] &&
+                      At[0] != '"' &&
+                      At[0] != '=' &&
+                      At[0] != '<')
+                {
+                    ++At;
+                    ++Tokenizer->Index;
+                }
+                
+                Result.Value.Size = At - Result.Value.Data;
+                
+                if(At[0] == '"')
+                {
+                    ++At;
+                    ++Tokenizer->Index;
+                }
+            } break;
+        }
     }
     
     return Result;
 }
 
 inline b32
-RequireHttpToken(http_tokenizer *Tokenizer, http_token_type DesiredType)
+RequireHtmlToken(html_tokenizer *Tokenizer, html_token_type DesiredType)
 {
-    http_token Token = GetNextHttpToken(Tokenizer);
+    html_token Token = GetNextHtmlToken(Tokenizer);
     b32 Result = (Token.Type == DesiredType);
+    return Result;
+}
+
+typedef void *parse_html_callback(memory_arena *Arena, html_tokenizer *Tokenizer);
+
+internal void *
+ParseHtml(memory_arena *Arena, string Html, parse_html_callback *Callback)
+{
+    html_tokenizer Tokenizer;
+    Tokenizer.Arena = Arena;
+    Tokenizer.Html = Html;
+    Tokenizer.Index = 0;
+    
+    // NOTE(kstandbridge): Skip over DOCTYPE
+    if(StringBeginsWith(String("<!DOCTYPE"), Tokenizer.Html))
+    {       
+        ++Tokenizer.Index;
+        while(Tokenizer.Html.Data[Tokenizer.Index] &&
+              Tokenizer.Html.Data[Tokenizer.Index] != '<')
+        {
+            ++Tokenizer.Index;
+        }
+    }
+    
+    
+    void *Result = Callback(Arena, &Tokenizer);
     return Result;
 }

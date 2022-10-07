@@ -746,6 +746,7 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
     State->Result.Size = State->Tail - (char *)State->Result.Data;
 }
 
+// TODO(kstandbridge): Rename to AppendFormatString
 internal void
 AppendStringFormat(format_string_state *State, char *Format, ...)
 {

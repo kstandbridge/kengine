@@ -33,6 +33,7 @@ Win32FileExists(string Path)
 internal b32
 Win32ConsoleOut_(string Text)
 {
+    // TODO(kstandbridge): is this thread safe? do we have to lock std out?
     u32 Result = 0;
     
     HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);
@@ -1429,7 +1430,7 @@ Win32SendInternetRequest(string Host, u32 Port, string Endpoint, char *Verb, str
 }
 
 internal umm
-Win32GetInternetData(u8 *Buffer, umm BufferMaxSize, string Url)
+Win32GetInternetDataToBuffer(u8 *Buffer, umm BufferMaxSize, string Url)
 {
     umm Result = 0;
     
@@ -1453,6 +1454,19 @@ Win32GetInternetData(u8 *Buffer, umm BufferMaxSize, string Url)
     
     Win32InternetCloseHandle(WebSession);
     
+    return Result;
+}
+
+internal string
+Win32GetInternetData(memory_arena *Arena, string Url)
+{
+    u8 *Buffer = BeginPushSize(Arena);
+    umm MaxBufferSize = (Arena->Size - Arena->Used);
+    Assert(MaxBufferSize > 0);
+    umm BufferSize = Win32GetInternetDataToBuffer(Buffer, MaxBufferSize, Url);
+    EndPushSize(Arena, BufferSize);
+    
+    string Result = String_(BufferSize, Buffer);
     return Result;
 }
 

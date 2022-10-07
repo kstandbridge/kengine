@@ -19,7 +19,6 @@ typedef enum json_token_type
 typedef struct json_token
 {
     json_token_type Type;
-    
     string Value;
 } json_token;
 
@@ -28,7 +27,6 @@ typedef struct json_tokenizer
     memory_arena *Arena;
     string Json;
     umm Index;
-    
 } json_tokenizer;
 
 internal json_token

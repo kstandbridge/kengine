@@ -561,6 +561,14 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOut(Tokenizer->Arena, "    return Result;");
     Win32PrintOut(Tokenizer->Arena, "}\n");
     
+    Win32PrintOut(Tokenizer->Arena, "\ninline %S *\n%SPush(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
+    Win32PrintOut(Tokenizer->Arena, "{\n");
+    Win32PrintOut(Tokenizer->Arena, "    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
+    Win32PrintOut(Tokenizer->Arena, "    Result->Next = *HeadRef;\n");
+    Win32PrintOut(Tokenizer->Arena, "    *HeadRef = Result;\n\n");
+    Win32PrintOut(Tokenizer->Arena, "    return Result;");
+    Win32PrintOut(Tokenizer->Arena, "}\n");
+    
     Win32PrintOut(Tokenizer->Arena, "\ninline %S *\n%SPushBack(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
     Win32PrintOut(Tokenizer->Arena, "{\n");
     Win32PrintOut(Tokenizer->Arena, "    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
