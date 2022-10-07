@@ -192,6 +192,7 @@ PostTelemetryThread(void *Data)
         
         if(!GlobalTelemetryState_.TelemetryThreadRunning)
         {
+            GlobalTelemetryState_.CurrentState = TelemetryState_Uninitialized;
             break;
         }
         
@@ -204,6 +205,11 @@ EndTelemetryThread()
 {
     Assert(GlobalTelemetryState_.TelemetryThreadRunning);
     GlobalTelemetryState_.TelemetryThreadRunning = false;
+    
+    while(GlobalTelemetryState_.CurrentState != TelemetryState_Uninitialized)
+    {
+        _mm_pause();
+    }
 }
 
 internal void
