@@ -68,6 +68,18 @@ introspect(win32, Kernel32) typedef BOOL file_time_to_system_time(FILETIME *lpFi
 introspect(win32, Kernel32) typedef void get_system_time(LPSYSTEMTIME lpSystemTime);
 introspect(win32, Kernel32) typedef BOOL get_computer_name_a(LPSTR lpBuffer, LPDWORD nSize);
 introspect(win32, Kernel32) typedef DWORD get_current_process_id();
+introspect(win32, Kernel32) typedef PTP_IO create_threadpool_io(HANDLE                fl,
+                                                                PTP_WIN32_IO_CALLBACK pfnio,
+                                                                PVOID                 pv,
+                                                                PTP_CALLBACK_ENVIRON  pcbe);
+introspect(win32, Kernel32) typedef void start_threadpool_io(PTP_IO pio);
+introspect(win32, Kernel32) typedef void close_threadpool_io(PTP_IO pio);
+introspect(win32, Kernel32) typedef void cancel_threadpool_io(PTP_IO pio);
+introspect(win32, Kernel32) typedef void wait_for_threadpool_io_callbacks(PTP_IO pio, BOOL   fCancelPendingCallbacks);
+introspect(win32, Kernel32) typedef HANDLE get_current_process();
+introspect(win32, Kernel32) typedef BOOL get_process_affinity_mask(HANDLE     hProcess,
+                                                                   PDWORD_PTR lpProcessAffinityMask,
+                                                                   PDWORD_PTR lpSystemAffinityMask);
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);
@@ -233,7 +245,7 @@ introspect(win32, Httpapi) typedef ULONG http_send_http_response(HANDLE         
                                                                  ULONG              Reserved2,
                                                                  LPOVERLAPPED       Overlapped,
                                                                  PHTTP_LOG_DATA     LogData);
-
+introspect(win32, Httpapi) typedef ULONG http_shutdown_request_queue(HANDLE RequestQueueHandle);
 
 #define WIN32_KENGINE_TYPES_H
 #endif //WIN32_KENGINE_TYPES_H

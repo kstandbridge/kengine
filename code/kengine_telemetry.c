@@ -203,7 +203,6 @@ PostTelemetryThread(void *Data)
 inline void
 EndTelemetryThread()
 {
-    Assert(GlobalTelemetryState_.TelemetryThreadRunning);
     GlobalTelemetryState_.TelemetryThreadRunning = false;
     
     while(GlobalTelemetryState_.CurrentState != TelemetryState_Uninitialized)
