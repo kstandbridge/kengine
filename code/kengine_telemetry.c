@@ -467,13 +467,16 @@ SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
         --SourceFilePlusLine.Data;
     }
     
-    BeginTelemetryMessage();
-    AppendTelemetryMessageNumberField(String("cl"), VERSION);
-    AppendTelemetryMessageStringField(String("source_file_plus_line"), SourceFilePlusLine);
-    AppendTelemetryMessageStringField(String("category"), String("/log"));
-    AppendTelemetryMessageStringField(String("log_level"), Level);
-    AppendTelemetryMessageStringField(String("message"), Message);
-    EndTelemetryMessage();
+    if(GlobalTelemetryState_.CurrentState != TelemetryState_Uninitialized)
+    {
+        BeginTelemetryMessage();
+        AppendTelemetryMessageNumberField(String("cl"), VERSION);
+        AppendTelemetryMessageStringField(String("source_file_plus_line"), SourceFilePlusLine);
+        AppendTelemetryMessageStringField(String("category"), String("/log"));
+        AppendTelemetryMessageStringField(String("log_level"), Level);
+        AppendTelemetryMessageStringField(String("message"), Message);
+        EndTelemetryMessage();
+    }
 #endif
 }
 

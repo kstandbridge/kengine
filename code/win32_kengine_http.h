@@ -24,16 +24,17 @@ typedef struct http_io_context
     
 } http_io_context;
 
-#define REQUEST_BUFFER_SIZE 4096
-
 typedef struct http_io_request
 {
+    b32 InUse;
+    memory_arena Arena;
+    
+    temporary_memory MemoryFlush;
+    
     http_io_context IoContext;
     
+    u8 *Buffer;
     HTTP_REQUEST *HttpRequest;
-    
-    u8 Buffer[REQUEST_BUFFER_SIZE];
-    
 } http_io_request;
 
 typedef struct http_io_response
