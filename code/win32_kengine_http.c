@@ -192,7 +192,7 @@ Win32IoCallbackThread(PTP_CALLBACK_INSTANCE Instance, PVOID Context, void *pOver
 internal b32
 Win32InitializeIoThreadPool(server_context *ServerContext)
 {
-    LogVerbose("Initializing I/O completion Context");
+    LogVerbose("Initializing I/O completion context");
     
     LogVerbose("Creating request queue");
     u32 Result = Win32HttpCreateRequestQueue(ServerContext->Version, L"AsyncHttpServer", 0, 0, &ServerContext->RequestQueue);
@@ -236,7 +236,7 @@ Win32InitializeIoThreadPool(server_context *ServerContext)
 internal void
 Win32UninitializeIoCompletionContext(server_context *ServerContext)
 {
-    LogVerbose("Uninitializing I/O completion Context");
+    LogVerbose("Uninitializing I/O completion context");
     
     if(ServerContext->RequestQueue != 0)
     {
