@@ -1,22 +1,91 @@
-#include "win32_kengine_http.h"
+#include "kengine_platform.h"
+#include "kengine_generated.h"
+#include "win32_kengine_types.h"
+#include "kengine_string.h"
+#include "kengine_intrinsics.h"
+#include "kengine_math.h"
+#include "kengine_http.h"
+
+#ifndef VERSION
+#define VERSION 0
+#endif // VERSION
+
 
 #include "win32_kengine_kernel.c"
 #include "win32_kengine_generated.c"
 #include "win32_kengine_shared.c"
 #include "kengine_telemetry.c"
 
+typedef void http_completion_function(struct http_io_context *pIoContext, PTP_IO IoThreadpool, u32 IoResult);
+
+typedef struct http_io_context
+{
+    OVERLAPPED Overlapped;
+    http_completion_function *CompletionFunction;
+    struct win32_http_state *HttpState;
+    
+} http_io_context;
+
+typedef struct http_io_request
+{
+    b32 InUse;
+    memory_arena Arena;
+    
+    temporary_memory MemoryFlush;
+    
+    http_io_context IoContext;
+    
+    u8 *Buffer;
+    HTTP_REQUEST *HttpRequest;
+} http_io_request;
+
+typedef struct http_io_response
+{
+    http_io_context IoContext;
+    
+    HTTP_RESPONSE HttpResponse;
+    
+    HTTP_DATA_CHUNK HttpDataChunk;
+    
+} http_io_response;
+
+typedef struct win32_http_state
+{
+    //memory_arena *Arena;
+    
+    HTTPAPI_VERSION Version;
+    HTTP_SERVER_SESSION_ID SessionId;
+    HTTP_URL_GROUP_ID UrlGroupId;
+    HANDLE RequestQueue;
+    PTP_IO IoThreadpool;
+    
+    b32 HttpInit;
+    b32 StopServer;
+    
+    u32 RequestCount;
+    u32 volatile NextRequestIndex;
+    http_io_request *Requests;
+    
+    u32 ResponseCount;
+    u32 volatile NextResponseIndex;
+    http_io_response *Responses;
+} win32_http_state;
+
+internal void ReceiveCompletionCallback(http_io_context *IoContext, PTP_IO IoThreadpool, u32 IoResult);
+internal void SendCompletionCallback(http_io_context *IoContext, PTP_IO IoThreadpool, u32 IoResult);
+
 inline http_io_request *
-SafeGetNextRequest(server_context *ServerContext)
+SafeGetNextRequest(win32_http_state *HttpState)
 {
     http_io_request *Result = 0;
     for(;;)
     {
-        u32 OrigionalNext = ServerContext->NextRequestIndex;
-        u32 NewNext = (OrigionalNext + 1) % ServerContext->RequestCount;
-        u32 Index = AtomicCompareExchangeU32(&ServerContext->NextRequestIndex, NewNext, OrigionalNext);
+        u32 OrigionalNext = HttpState->NextRequestIndex;
+        u32 NewNext = (OrigionalNext + 1) % HttpState->RequestCount;
+        u32 Index = AtomicCompareExchangeU32(&HttpState->NextRequestIndex, NewNext, OrigionalNext);
         if(Index == OrigionalNext)
         {
-            Result = ServerContext->Requests + Index;
+            Result = HttpState->Requests + Index;
             if(!Result->InUse)
             {
                 Result->InUse = true;
@@ -36,10 +105,10 @@ SafeGetNextRequest(server_context *ServerContext)
 }
 
 inline http_io_request *
-AllocateHttpIoRequest(server_context *ServerContext)
+AllocateHttpIoRequest(win32_http_state *HttpState)
 {
-    http_io_request *Result = SafeGetNextRequest(ServerContext);
-    Result->IoContext.ServerContext = ServerContext;
+    http_io_request *Result = SafeGetNextRequest(HttpState);
+    Result->IoContext.HttpState = HttpState;
     Result->IoContext.CompletionFunction = ReceiveCompletionCallback;
     Result->MemoryFlush = BeginTemporaryMemory(&Result->Arena);
     Result->Buffer = BeginPushSize(Result->MemoryFlush.Arena);
@@ -51,17 +120,17 @@ AllocateHttpIoRequest(server_context *ServerContext)
 }
 
 inline http_io_response *
-SafeGetNextResponse(server_context *ServerContext)
+SafeGetNextResponse(win32_http_state *HttpState)
 {
     http_io_response *Result = 0;
     for(;;)
     {
-        u32 OrigionalNext = ServerContext->NextResponseIndex;
-        u32 NewNext = (OrigionalNext + 1) % ServerContext->ResponseCount;
-        u32 Index = AtomicCompareExchangeU32(&ServerContext->NextResponseIndex, NewNext, OrigionalNext);
+        u32 OrigionalNext = HttpState->NextResponseIndex;
+        u32 NewNext = (OrigionalNext + 1) % HttpState->ResponseCount;
+        u32 Index = AtomicCompareExchangeU32(&HttpState->NextResponseIndex, NewNext, OrigionalNext);
         if(Index == OrigionalNext)
         {
-            Result = ServerContext->Responses + Index;
+            Result = HttpState->Responses + Index;
             break;
         }
         else
@@ -79,10 +148,10 @@ SendCompletionCallback(http_io_context *pIoContext, PTP_IO IoThreadpool, u32 IoR
 }
 
 inline http_io_response *
-AllocateHttpIoResponse(server_context *ServerContext)
+AllocateHttpIoResponse(win32_http_state *HttpState)
 {
-    http_io_response *Result = SafeGetNextResponse(ServerContext);
-    Result->IoContext.ServerContext = ServerContext;
+    http_io_response *Result = SafeGetNextResponse(HttpState);
+    Result->IoContext.HttpState = HttpState;
     Result->IoContext.CompletionFunction = SendCompletionCallback;
     
     Result->HttpResponse.EntityChunkCount = 1;
@@ -96,27 +165,27 @@ AllocateHttpIoResponse(server_context *ServerContext)
 }
 
 internal u32
-Win32InitializeHttpServer(server_context *ServerContext)
+Win32InitializeHttpServer(win32_http_state *HttpState)
 {
     LogVerbose("Initializing HTTP server");
     
-    ServerContext->Version.HttpApiMajorVersion = 2;
-    ServerContext->Version.HttpApiMinorVersion = 0;
+    HttpState->Version.HttpApiMajorVersion = 2;
+    HttpState->Version.HttpApiMinorVersion = 0;
     
-    u32 Result = Win32HttpInitialize(ServerContext->Version, HTTP_INITIALIZE_SERVER, 0);
+    u32 Result = Win32HttpInitialize(HttpState->Version, HTTP_INITIALIZE_SERVER, 0);
     if(Result == NO_ERROR)
     {
-        ServerContext->HttpInit = true;
+        HttpState->HttpInit = true;
         LogVerbose("Creating server session");
-        Result = Win32HttpCreateServerSession(ServerContext->Version, &ServerContext->SessionId, 0);
+        Result = Win32HttpCreateServerSession(HttpState->Version, &HttpState->SessionId, 0);
         if(Result == NO_ERROR)
         {
             LogVerbose("Creating url group");
-            Result = Win32HttpCreateUrlGroup(ServerContext->SessionId, &ServerContext->UrlGroupId, 0);
+            Result = Win32HttpCreateUrlGroup(HttpState->SessionId, &HttpState->UrlGroupId, 0);
             if(Result == NO_ERROR)
             {
                 LogVerbose("Adding url to url group");
-                Result = Win32HttpAddUrlToUrlGroup(ServerContext->UrlGroupId, L"http://localhost:8090/", 0, 0);
+                Result = Win32HttpAddUrlToUrlGroup(HttpState->UrlGroupId, L"http://localhost:8090/", 0, 0);
                 if(Result != NO_ERROR)
                 {
                     LogError("HttpAddUrlToUrlGroup failed with error code %u", Result);
@@ -141,76 +210,76 @@ Win32InitializeHttpServer(server_context *ServerContext)
 }
 
 internal void
-Win32UnitializeHttpServer(server_context *ServerContext)
+Win32UnitializeHttpServer(win32_http_state *HttpState)
 {
     LogVerbose("Uninitializing HTTP server");
     
-    if(ServerContext->UrlGroupId != 0)
+    if(HttpState->UrlGroupId != 0)
     {
-        u32 Result = Win32HttpCloseUrlGroup(ServerContext->UrlGroupId);
+        u32 Result = Win32HttpCloseUrlGroup(HttpState->UrlGroupId);
         if(Result != NO_ERROR)
         {
             LogError("HttpCloseUrlGroup failed with error code %u", Result);
         }
-        ServerContext->UrlGroupId = 0;
+        HttpState->UrlGroupId = 0;
     }
     
-    if(ServerContext->SessionId != 0)
+    if(HttpState->SessionId != 0)
     {
-        u32 Result = Win32HttpCloseServerSession(ServerContext->SessionId);
+        u32 Result = Win32HttpCloseServerSession(HttpState->SessionId);
         if(Result != NO_ERROR)
         {
             LogError("HttpCloseServerSession failed with error code %u", Result);
         }
-        ServerContext->SessionId = 0;
+        HttpState->SessionId = 0;
     }
     
-    if(ServerContext->HttpInit)
+    if(HttpState->HttpInit)
     {
         u32 Result = Win32HttpTerminate(HTTP_INITIALIZE_SERVER, 0);
         if(Result != NO_ERROR)
         {
             LogError("HttpTerminate failed with error code %u", Result);
         }
-        ServerContext->HttpInit = false;
+        HttpState->HttpInit = false;
     }
 }
 
 internal void
 Win32IoCallbackThread(PTP_CALLBACK_INSTANCE Instance, PVOID Context, void *pOverlapped, ULONG IoResult, ULONG_PTR BytesTransferred, PTP_IO IoThreadpool)
 {
-    server_context *ServerContext;
+    win32_http_state *HttpState;
     
     http_io_context *IoContext = CONTAINING_RECORD(pOverlapped, http_io_context, Overlapped);
     
-    ServerContext = IoContext->ServerContext;
+    HttpState = IoContext->HttpState;
     
     IoContext->CompletionFunction(IoContext, IoThreadpool, IoResult);
     
 }
 
 internal b32
-Win32InitializeIoThreadPool(server_context *ServerContext)
+Win32InitializeIoThreadPool(win32_http_state *HttpState)
 {
     LogVerbose("Initializing I/O completion context");
     
     LogVerbose("Creating request queue");
-    u32 Result = Win32HttpCreateRequestQueue(ServerContext->Version, L"AsyncHttpServer", 0, 0, &ServerContext->RequestQueue);
+    u32 Result = Win32HttpCreateRequestQueue(HttpState->Version, L"AsyncHttpServer", 0, 0, &HttpState->RequestQueue);
     if(Result == NO_ERROR)
     {
         HTTP_BINDING_INFO HttpBindingInfo;
         ZeroStruct(HttpBindingInfo);
         HttpBindingInfo.Flags.Present = 1;
-        HttpBindingInfo.RequestQueueHandle = ServerContext->RequestQueue;
+        HttpBindingInfo.RequestQueueHandle = HttpState->RequestQueue;
         LogVerbose("Setting url group property");
-        Result = Win32HttpSetUrlGroupProperty(ServerContext->UrlGroupId, HttpServerBindingProperty, &HttpBindingInfo, sizeof(HttpBindingInfo));
+        Result = Win32HttpSetUrlGroupProperty(HttpState->UrlGroupId, HttpServerBindingProperty, &HttpBindingInfo, sizeof(HttpBindingInfo));
         
         if(Result == NO_ERROR)
         {
             LogVerbose("Creating I/O thread pool");
-            ServerContext->IoThreadpool = Win32CreateThreadpoolIo(ServerContext->RequestQueue, Win32IoCallbackThread, 0, 0);
+            HttpState->IoThreadpool = Win32CreateThreadpoolIo(HttpState->RequestQueue, Win32IoCallbackThread, 0, 0);
             
-            if(ServerContext->IoThreadpool == 0)
+            if(HttpState->IoThreadpool == 0)
             {
                 LogError("Creating I/O thread pool failed");
                 Result = false;
@@ -234,33 +303,33 @@ Win32InitializeIoThreadPool(server_context *ServerContext)
 }
 
 internal void
-Win32UninitializeIoCompletionContext(server_context *ServerContext)
+Win32UninitializeIoCompletionContext(win32_http_state *HttpState)
 {
     LogVerbose("Uninitializing I/O completion context");
     
-    if(ServerContext->RequestQueue != 0)
+    if(HttpState->RequestQueue != 0)
     {
         LogVerbose("Closing request queue");
-        u32 Result = Win32HttpCloseRequestQueue(ServerContext->RequestQueue);
+        u32 Result = Win32HttpCloseRequestQueue(HttpState->RequestQueue);
         if(Result != NO_ERROR)
         {
             LogError("HttpCloseRequestQueue failed with error code %u", Result);
         }
-        ServerContext->RequestQueue = 0;
+        HttpState->RequestQueue = 0;
     }
     
-    if(ServerContext->IoThreadpool != 0)
+    if(HttpState->IoThreadpool != 0)
     {
         LogVerbose("Closing I/O thread pool");
-        Win32CloseThreadpoolIo(ServerContext->IoThreadpool);
-        ServerContext->IoThreadpool = 0;
+        Win32CloseThreadpoolIo(HttpState->IoThreadpool);
+        HttpState->IoThreadpool = 0;
     }
 }
 
 inline http_io_response *
-CreateMessageResponse(server_context *ServerContext, u16 StatusCode, string Reason, string Message)
+CreateMessageResponse(win32_http_state *HttpState, u16 StatusCode, string Reason, string Message)
 {
-    http_io_response *Result = AllocateHttpIoResponse(ServerContext);
+    http_io_response *Result = AllocateHttpIoResponse(HttpState);
     
     if(Result)
     {
@@ -300,7 +369,7 @@ HandleHttpRequest(
 {
     platform_http_response Result;
     
-    if(StringsAreEqual(String("/"), Request.Endpoint))
+    if(StringsAreEqual(String("/echo"), Request.Endpoint))
     {
         Result.Code = 200;
         if(Request.Payload.Size == 0)
@@ -325,7 +394,7 @@ internal void
 ProcessReceiveAndPostResponse(http_io_request *IoRequest, PTP_IO IoThreadpool, u32 IoResult)
 {
     Assert(IoRequest->Arena.TempCount == 2);
-    server_context *ServerContext = IoRequest->IoContext.ServerContext;
+    win32_http_state *HttpState = IoRequest->IoContext.HttpState;
     http_io_response *IoResponse = 0;
     
     switch(IoResult)
@@ -386,14 +455,14 @@ ProcessReceiveAndPostResponse(http_io_request *IoRequest, PTP_IO IoThreadpool, u
                                            Request->pEntityChunks->FromMemory.pBuffer);
                 platform_http_response PlatformResponse = HandleHttpRequest(&IoRequest->Arena,
                                                                             PlatformRequest);
-                IoResponse = CreateMessageResponse(ServerContext, 
+                IoResponse = CreateMessageResponse(HttpState, 
                                                    PlatformResponse.Code, 
                                                    String("OK"),  // TODO(kstandbridge): Code to string?
                                                    PlatformResponse.Payload);
             }
             else
             {
-                IoResponse = CreateMessageResponse(ServerContext, 501, String("Not Implemented"), 
+                IoResponse = CreateMessageResponse(HttpState, 501, String("Not Implemented"), 
                                                    String("{ \"Error\": \"Not Implemented\" }"));
             }
         } break;
@@ -401,7 +470,7 @@ ProcessReceiveAndPostResponse(http_io_request *IoRequest, PTP_IO IoThreadpool, u
         case ERROR_MORE_DATA:
         {
             EndPushSize(IoRequest->MemoryFlush.Arena, 0);
-            IoResponse = CreateMessageResponse(ServerContext, 413, String("Payload Too Large"), 
+            IoResponse = CreateMessageResponse(HttpState, 413, String("Payload Too Large"), 
                                                String("{ \"Error\": \"The request is larger than the server is willing or able to process\" }"));
         } break;
         
@@ -416,7 +485,7 @@ ProcessReceiveAndPostResponse(http_io_request *IoRequest, PTP_IO IoThreadpool, u
     {
         Win32StartThreadpoolIo(IoThreadpool);
         
-        u32 Result = Win32HttpSendHttpResponse(ServerContext->RequestQueue, IoRequest->HttpRequest->RequestId, 0, &IoResponse->HttpResponse,
+        u32 Result = Win32HttpSendHttpResponse(HttpState->RequestQueue, IoRequest->HttpRequest->RequestId, 0, &IoResponse->HttpResponse,
                                                0, 0, 0, 0, &IoResponse->IoContext.Overlapped, 0);
         
         if((Result != NO_ERROR) &&
@@ -430,9 +499,9 @@ ProcessReceiveAndPostResponse(http_io_request *IoRequest, PTP_IO IoThreadpool, u
 }
 
 internal void
-PostNewReceive(server_context *ServerContext, PTP_IO IoThreadpool)
+PostNewReceive(win32_http_state *HttpState, PTP_IO IoThreadpool)
 {
-    http_io_request *IoRequest = AllocateHttpIoRequest(ServerContext);
+    http_io_request *IoRequest = AllocateHttpIoRequest(HttpState);
     Assert(IoRequest->Arena.TempCount == 2);
     
     if(IoRequest != 0)
@@ -440,7 +509,7 @@ PostNewReceive(server_context *ServerContext, PTP_IO IoThreadpool)
         Win32StartThreadpoolIo(IoThreadpool);
         
         umm BufferMaxSize = (IoRequest->Arena.Size - IoRequest->Arena.Used);
-        u32 Result = Win32HttpReceiveHttpRequest(ServerContext->RequestQueue, HTTP_NULL_ID, HTTP_RECEIVE_REQUEST_FLAG_COPY_BODY,
+        u32 Result = Win32HttpReceiveHttpRequest(HttpState->RequestQueue, HTTP_NULL_ID, HTTP_RECEIVE_REQUEST_FLAG_COPY_BODY,
                                                  IoRequest->HttpRequest, BufferMaxSize, 0,
                                                  &IoRequest->IoContext.Overlapped);
         
@@ -477,13 +546,13 @@ ReceiveCompletionCallback(http_io_context *pIoContext, PTP_IO IoThreadpool, u32 
     http_io_request *IoRequest = CONTAINING_RECORD(pIoContext, http_io_request, IoContext);
     Assert(IoRequest->Arena.TempCount == 2);
     
-    server_context *ServerContext = IoRequest->IoContext.ServerContext;
+    win32_http_state *HttpState = IoRequest->IoContext.HttpState;
     
-    if(ServerContext->StopServer == false)
+    if(HttpState->StopServer == false)
     {
         ProcessReceiveAndPostResponse(IoRequest, IoThreadpool, IoResult);
         
-        PostNewReceive(ServerContext, IoThreadpool);
+        PostNewReceive(HttpState, IoThreadpool);
     }
     else
     {
@@ -499,34 +568,34 @@ ReceiveCompletionCallback(http_io_context *pIoContext, PTP_IO IoThreadpool, u32 
 }
 
 internal b32
-Win32StartHttpServer(server_context *ServerContext)
+Win32StartHttpServer(win32_http_state *HttpState)
 {
     b32 Result = true;
     
-    u32 RequestCount = 0.75f*ServerContext->RequestCount;
+    u32 RequestCount = 0.75f*HttpState->RequestCount;
     
     for(; RequestCount > 0;
         --RequestCount)
     {
-        http_io_request *IoRequest = AllocateHttpIoRequest(ServerContext);
+        http_io_request *IoRequest = AllocateHttpIoRequest(HttpState);
         if(IoRequest)
         {
             Assert(IoRequest->Arena.TempCount == 2);
-            Win32StartThreadpoolIo(ServerContext->IoThreadpool);
+            Win32StartThreadpoolIo(HttpState->IoThreadpool);
             
             umm BufferMaxSize = (IoRequest->Arena.Size - IoRequest->Arena.Used);
-            Result = Win32HttpReceiveHttpRequest(ServerContext->RequestQueue, HTTP_NULL_ID, HTTP_RECEIVE_REQUEST_FLAG_COPY_BODY,
+            Result = Win32HttpReceiveHttpRequest(HttpState->RequestQueue, HTTP_NULL_ID, HTTP_RECEIVE_REQUEST_FLAG_COPY_BODY,
                                                  IoRequest->HttpRequest, BufferMaxSize, 0,
                                                  &IoRequest->IoContext.Overlapped);
             
             if((Result != ERROR_IO_PENDING) &&
                (Result != NO_ERROR))
             {
-                Win32CancelThreadpoolIo(ServerContext->IoThreadpool);
+                Win32CancelThreadpoolIo(HttpState->IoThreadpool);
                 
                 if(Result == ERROR_MORE_DATA)
                 {
-                    ProcessReceiveAndPostResponse(IoRequest, ServerContext->IoThreadpool, ERROR_MORE_DATA);
+                    ProcessReceiveAndPostResponse(IoRequest, HttpState->IoThreadpool, ERROR_MORE_DATA);
                 }
                 
                 Assert(IoRequest->Arena.TempCount == 1);
@@ -554,26 +623,26 @@ Win32StartHttpServer(server_context *ServerContext)
 }
 
 internal void
-Win32StopHttpServer(server_context *ServerContext)
+Win32StopHttpServer(win32_http_state *HttpState)
 {
     LogVerbose("Stopping http server");
     
-    if(ServerContext->RequestQueue != 0)
+    if(HttpState->RequestQueue != 0)
     {
         LogVerbose("Shutting down request queue");
-        ServerContext->StopServer = true;
-        u32 Result = Win32HttpShutdownRequestQueue(ServerContext->RequestQueue);
+        HttpState->StopServer = true;
+        u32 Result = Win32HttpShutdownRequestQueue(HttpState->RequestQueue);
         if(Result != NO_ERROR)
         {
             LogError("HttpShutdownRequestQueue failed with error code %u", Result);
         }
     }
     
-    if(ServerContext->IoThreadpool != 0)
+    if(HttpState->IoThreadpool != 0)
     {
         LogVerbose("Waiting for all IO completion threads to complete");
         b32 CancelPendingCallbacks = false;
-        Win32WaitForThreadpoolIoCallbacks(ServerContext->IoThreadpool, CancelPendingCallbacks);
+        Win32WaitForThreadpoolIoCallbacks(HttpState->IoThreadpool, CancelPendingCallbacks);
     }
 }
 
@@ -632,33 +701,33 @@ mainCRTStartup()
     memory_arena *Arena = &Arena_;
     InitializeArena(Arena, StorageSize, Storage);
     
-    server_context ServerContext_;
-    ZeroStruct(ServerContext_);
-    server_context *ServerContext = &ServerContext_;
+    win32_http_state HttpState_;
+    ZeroStruct(HttpState_);
+    win32_http_state *HttpState = &HttpState_;
     
-    ServerContext->ResponseCount = RequestCount;
-    ServerContext->NextResponseIndex = 0;
-    ServerContext->Responses = PushArray(Arena, RequestCount, http_io_response);
+    HttpState->ResponseCount = RequestCount;
+    HttpState->NextResponseIndex = 0;
+    HttpState->Responses = PushArray(Arena, RequestCount, http_io_response);
     
-    ServerContext->RequestCount = RequestCount;
-    ServerContext->NextRequestIndex = 0;
-    ServerContext->Requests = PushArray(Arena, RequestCount, http_io_request);
+    HttpState->RequestCount = RequestCount;
+    HttpState->NextRequestIndex = 0;
+    HttpState->Requests = PushArray(Arena, RequestCount, http_io_request);
     
     for(u32 RequestIndex = 0;
         RequestIndex < RequestCount;
         ++RequestIndex)
     {
-        http_io_request *Request = ServerContext->Requests + RequestIndex;
+        http_io_request *Request = HttpState->Requests + RequestIndex;
         umm Size = Kilobytes(REQUEST_ARENA_SIZE);
         SubArena(&Request->Arena, Arena, Size);
     }
     
-    u32 Result = Win32InitializeHttpServer(ServerContext);
+    u32 Result = Win32InitializeHttpServer(HttpState);
     if(Result == NO_ERROR)
     {
-        if(Win32InitializeIoThreadPool(ServerContext))
+        if(Win32InitializeIoThreadPool(HttpState))
         {
-            if(Win32StartHttpServer(ServerContext))
+            if(Win32StartHttpServer(HttpState))
             {
                 // TODO(kstandbridge): Console input?
                 for(;;)
@@ -689,17 +758,17 @@ mainCRTStartup()
         }
         else
         {
-            Win32UninitializeIoCompletionContext(ServerContext);
+            Win32UninitializeIoCompletionContext(HttpState);
         }
         
-        Win32StopHttpServer(ServerContext);
-        Win32UnitializeHttpServer(ServerContext);
-        Win32UninitializeIoCompletionContext(ServerContext);
+        Win32StopHttpServer(HttpState);
+        Win32UnitializeHttpServer(HttpState);
+        Win32UninitializeIoCompletionContext(HttpState);
     }
     else
     {
         LogError("Failed to initialize http server");
-        Win32UnitializeHttpServer(ServerContext);
+        Win32UnitializeHttpServer(HttpState);
     }
     
     LogVerbose("Ending telemetry thread");
