@@ -1,4 +1,14 @@
-#include "win32_kengine.h"
+#include "kengine_platform.h"
+#include "kengine_memory.h"
+#include "kengine_generated.h"
+#include "kengine_debug_shared.h"
+#include "win32_kengine_types.h"
+#include "win32_kengine_opengl.h"
+#include "kengine_string.h"
+#include "kengine_intrinsics.h"
+#include "kengine_math.h"
+#include "kengine_renderer_shared.h"
+
 #include "win32_kengine_kernel.c"
 #include "win32_kengine_generated.c"
 #include "win32_kengine_shared.c"
@@ -6,8 +16,6 @@
 #if KENGINE_INTERNAL
 global debug_event_table GlobalDebugEventTable_;
 debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
-#else
-global platform_api *Platform;
 #endif
 
 global GLuint GlobalBlitTextureHandle;
@@ -17,7 +25,6 @@ global wgl_swap_interval_ext *wglSwapIntervalEXT;
 global wgl_get_extensions_string_ext *wglGetExtensionsStringEXT;
 global b32 OpenGLSupportsSRGBFramebuffer;
 global GLuint OpenGLDefaultInternalTextureFormat;
-global b32 HardwareRendering = false;
 
 #if KENGINE_INTERNAL
 #include "kengine_sort.c"
@@ -25,12 +32,11 @@ global b32 HardwareRendering = false;
 #include "kengine.h"
 #include "kengine.c"
 #endif
-#include "kengine_renderer_software.c"
 #include "kengine_renderer.c"
 #include "win32_kengine_opengl.c"
 
-internal LRESULT
-Win32MainWindowCallback_(win32_state *Win32State, HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
+internal LRESULT __stdcall
+Win32MainWindowCallback(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
 {
     LRESULT Result = 0;
     
@@ -38,44 +44,7 @@ Win32MainWindowCallback_(win32_state *Win32State, HWND Window, u32 Message, WPAR
     {
         case WM_CLOSE:
         {
-            Win32State->IsRunning = false;
-        } break;
-        
-        case WM_SIZE:
-        {
-            RECT ClientRect;
-            if(Win32GetClientRect(Window, &ClientRect))
-            {
-                win32_offscreen_buffer *Backbuffer = &Win32State->Backbuffer;
-                Backbuffer->Width = ClientRect.right - ClientRect.left;
-                Backbuffer->Height = ClientRect.bottom - ClientRect.top;
-                
-                if(Backbuffer->Memory)
-                {
-                    Win32VirtualFree(Backbuffer->Memory, 0, MEM_RELEASE);
-                }
-                
-                Backbuffer->Info.bmiHeader.biSize = sizeof(Backbuffer->Info.bmiHeader);
-                Backbuffer->Info.bmiHeader.biWidth = Backbuffer->Width;
-                Backbuffer->Info.bmiHeader.biHeight = Backbuffer->Height;
-                Backbuffer->Info.bmiHeader.biPlanes = 1;
-                Backbuffer->Info.bmiHeader.biBitCount = 32;
-                Backbuffer->Info.bmiHeader.biCompression = BI_RGB;
-                
-                // TODO(kstandbridge): Need to figure out a way we can align this
-                //Backbuffer->Pitch = Align16(Backbuffer->Width*BITMAP_BYTES_PER_PIXEL);
-                Backbuffer->Pitch = Backbuffer->Width*BITMAP_BYTES_PER_PIXEL;
-                
-                Backbuffer->Memory = Win32VirtualAlloc(0, sizeof(u32)*Backbuffer->Pitch*Backbuffer->Height,
-                                                       MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-                
-            }
-            else
-            {
-                // TODO(kstandbridge): Error failed to get client rect?
-                InvalidCodePath;
-            }
-            
+            GlobalWin32State.IsRunning = false;
         } break;
         
         default:
@@ -87,42 +56,9 @@ Win32MainWindowCallback_(win32_state *Win32State, HWND Window, u32 Message, WPAR
     return Result;
 }
 
-internal LRESULT __stdcall
-Win32MainWindowCallback(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
-{
-    LRESULT Result = 0;
-    
-    win32_state *Win32State = 0;
-    
-    if(Message == WM_NCCREATE)
-    {
-        CREATESTRUCTA *CreateStruct = (CREATESTRUCTA *)LParam;
-        Win32State = (win32_state *)CreateStruct->lpCreateParams;
-        Win32SetWindowLongPtrA(Window, GWLP_USERDATA, (LONG_PTR)Win32State);
-    }
-    else
-    {
-        Win32State = (win32_state *)Win32GetWindowLongPtrA(Window, GWLP_USERDATA);
-    }
-    
-    if(Win32State)
-    {        
-        Result = Win32MainWindowCallback_(Win32State, Window, Message, WParam, LParam);
-    }
-    else
-    {
-        Result = Win32DefWindowProcA(Window, Message, WParam, LParam);
-    }
-    
-    return Result;
-    
-}
-
 internal void
-Win32ProcessPendingMessages(win32_state *Win32State, app_input *Input)
+Win32ProcessPendingMessages(app_input *Input)
 {
-    Win32State;
-    
     MSG Message;
     while(Win32PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
     {
@@ -159,7 +95,7 @@ Win32ProcessPendingMessages(win32_state *Win32State, app_input *Input)
                 {
                     if((VKCode == VK_F4) && AltKeyWasDown)
                     {
-                        Win32State->IsRunning = false;
+                        GlobalWin32State.IsRunning = false;
                     }
                     else if((VKCode >= VK_F1) && (VKCode <= VK_F12))
                     {
@@ -190,7 +126,7 @@ AppendCString(char *StartAt, char *Text)
 }
 
 internal void
-Win32ParseCommandLingArgs(win32_state *Win32State)
+Win32ParseCommandLingArgs()
 {
     char *CommandLingArgs = Win32GetCommandLineA();
     Assert(CommandLingArgs);
@@ -241,17 +177,17 @@ Win32ParseCommandLingArgs(win32_state *Win32State)
                     --LastSlash;
                 }
                 ++ParamLength;
-                Copy(ParamLength, ParamStart, Win32State->ExeFilePath);
-                Win32State->ExeFilePath[ParamLength] = '\0';
+                Copy(ParamLength, ParamStart, GlobalWin32State.ExeFilePath);
+                GlobalWin32State.ExeFilePath[ParamLength] = '\0';
                 
-                Copy(ParamLength, Win32State->ExeFilePath, Win32State->DllFullFilePath);
-                AppendCString(Win32State->DllFullFilePath + ParamLength, "\\kengine.dll");
+                Copy(ParamLength, GlobalWin32State.ExeFilePath, GlobalWin32State.DllFullFilePath);
+                AppendCString(GlobalWin32State.DllFullFilePath + ParamLength, "\\kengine.dll");
                 
-                Copy(ParamLength, Win32State->ExeFilePath, Win32State->TempDllFullFilePath);
-                AppendCString(Win32State->TempDllFullFilePath + ParamLength, "\\kengine_temp.dll");
+                Copy(ParamLength, GlobalWin32State.ExeFilePath, GlobalWin32State.TempDllFullFilePath);
+                AppendCString(GlobalWin32State.TempDllFullFilePath + ParamLength, "\\kengine_temp.dll");
                 
-                Copy(ParamLength, Win32State->ExeFilePath, Win32State->LockFullFilePath);
-                AppendCString(Win32State->LockFullFilePath + ParamLength, "\\lock.tmp");
+                Copy(ParamLength, GlobalWin32State.ExeFilePath, GlobalWin32State.LockFullFilePath);
+                AppendCString(GlobalWin32State.LockFullFilePath + ParamLength, "\\lock.tmp");
 #endif
                 
             }
@@ -532,37 +468,36 @@ ProcessInputMessage(app_button_state *NewState, b32 IsDown)
 
 #if KENGINE_INTERNAL
 internal void
-Win32UnloadAppCode(win32_state *Win32State)
+Win32UnloadAppCode()
 {
-    if(Win32State->AppLibrary && !Win32FreeLibrary(Win32State->AppLibrary))
+    if(GlobalWin32State.AppLibrary && !Win32FreeLibrary(GlobalWin32State.AppLibrary))
     {
         // TODO(kstandbridge): Error freeing app library
         InvalidCodePath;
     }
-    Win32State->AppLibrary = 0;
-    Win32State->AppUpdateFrame = 0;
+    GlobalWin32State.AppLibrary = 0;
+    GlobalWin32State.AppUpdateFrame = 0;
 }
 
 internal void
-Win32LoadAppCode(platform_api *Platform, win32_state *Win32State, FILETIME NewDLLWriteTime)
+Win32LoadAppCode(FILETIME NewDLLWriteTime)
 {
-    if(Win32CopyFileA(Win32State->DllFullFilePath, Win32State->TempDllFullFilePath, false))
+    if(Win32CopyFileA(GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath, false))
     {
-        Win32State->AppLibrary = Win32LoadLibraryA(Win32State->TempDllFullFilePath);
-        if(Win32State->AppLibrary)
+        GlobalWin32State.AppLibrary = Win32LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
+        if(GlobalWin32State.AppLibrary)
         {
-            Win32State->AppUpdateFrame = (app_update_frame *)Win32GetProcAddressA(Win32State->AppLibrary, "AppUpdateFrame");
-            Assert(Win32State->AppUpdateFrame);
-            Win32State->DebugUpdateFrame = (debug_update_frame *)Win32GetProcAddressA(Win32State->AppLibrary, "DebugUpdateFrame");
-            Assert(Win32State->DebugUpdateFrame);
+            GlobalWin32State.AppUpdateFrame = (app_update_frame *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppUpdateFrame");
+            Assert(GlobalWin32State.AppUpdateFrame);
+            GlobalWin32State.DebugUpdateFrame = (debug_update_frame *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "DebugUpdateFrame");
+            Assert(GlobalWin32State.DebugUpdateFrame);
             
-            if(!Win32State->AppUpdateFrame || !Win32State->DebugUpdateFrame)
+            if(!GlobalWin32State.AppUpdateFrame || !GlobalWin32State.DebugUpdateFrame)
             {
-                Win32UnloadAppCode(Win32State);
+                Win32UnloadAppCode();
             }
             
-            Win32State->LastDLLWriteTime = NewDLLWriteTime;
-            Platform->DllReloaded = true;
+            GlobalWin32State.LastDLLWriteTime = NewDLLWriteTime;
         }
     }
     else
@@ -579,6 +514,9 @@ WinMainCRTStartup()
     Kernel32 = FindModuleBase(_ReturnAddress());
     Assert(Kernel32);
     
+    GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
+    GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
+    
     HINSTANCE Instance = Win32GetModuleHandleA(0);
     
     WNDCLASSEXA WindowClass;
@@ -588,27 +526,12 @@ WinMainCRTStartup()
     WindowClass.hInstance = Instance;
     WindowClass.lpszClassName = "KengineWindowClass";
     
-    win32_state Win32State_;
-    ZeroStruct(Win32State_);
-    win32_state *Win32State = &Win32State_;
-    
     LARGE_INTEGER PerfCountFrequencyResult;
     Win32QueryPerformanceFrequency(&PerfCountFrequencyResult);
-    Win32State->PerfCountFrequency = (s64)PerfCountFrequencyResult.QuadPart;
+    GlobalWin32State.PerfCountFrequency = (s64)PerfCountFrequencyResult.QuadPart;
     
-    
-    
-    
-    
-    platform_api Platform_;
-    ZeroStruct(&Platform_);
-#if KENGINE_INTERNAL
-    platform_api *Platform = &Platform_;
-    void *BaseAddress = (void *)Terabytes(2);
-#else
-    Platform = &Platform_;
-    void *BaseAddress = 0;
-#endif
+    app_memory AppMemory;
+    ZeroStruct(AppMemory);
     
     SYSTEM_INFO SystemInfo;
     Win32GetSystemInfo(&SystemInfo);
@@ -617,42 +540,41 @@ WinMainCRTStartup()
     platform_work_queue PerFrameWorkQueue;
     u32 PerFrameThreadCount = RoundF32ToU32((f32)ProcessorCount*1.5f);
     Win32MakeQueue(&PerFrameWorkQueue, PerFrameThreadCount);
-    Platform->PerFrameWorkQueue = &PerFrameWorkQueue;
+    AppMemory.PerFrameWorkQueue = &PerFrameWorkQueue;
     
     platform_work_queue BackgroundWorkQueue;
     u32 BackgroundThreadCount = RoundF32ToU32((f32)ProcessorCount/2.0f);
     Win32MakeQueue(&BackgroundWorkQueue, BackgroundThreadCount);
-    Platform->BackgroundWorkQueue = &BackgroundWorkQueue;
+    AppMemory.BackgroundWorkQueue = &BackgroundWorkQueue;
     
-    Platform->AddWorkEntry = Win32AddWorkEntry;
-    Platform->CompleteAllWork = Win32CompleteAllWork;
-    Platform->GetGlyphForCodePoint = Win32GetGlyphForCodePoint;
-    Platform->GetHorizontalAdvance = Win32GetHorizontalAdvance;
-    Platform->GetVerticleAdvance = Win32GetVerticleAdvance;;
+    AppMemory.PlatformAPI.AllocateMemory = Win32AllocateMemory;
+    AppMemory.PlatformAPI.DeallocateMemory = Win32DeallocateMemory;
+    AppMemory.PlatformAPI.GetMemoryStats = Win32GetMemoryStats;
+    AppMemory.PlatformAPI.AddWorkEntry = Win32AddWorkEntry;
+    AppMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
+    AppMemory.PlatformAPI.GetGlyphForCodePoint = Win32GetGlyphForCodePoint;
+    AppMemory.PlatformAPI.GetHorizontalAdvance = Win32GetHorizontalAdvance;
+    AppMemory.PlatformAPI.GetVerticleAdvance = Win32GetVerticleAdvance;;
     
 #if KENGINE_INTERNAL
-    Platform->DebugEventTable = GlobalDebugEventTable;
+    AppMemory.DebugEventTable = GlobalDebugEventTable;
 #endif
     
-    u64 StorageSize = Megabytes(128);
-    void *Storage = Win32VirtualAlloc(BaseAddress, StorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-    Assert(Storage);
-    InitializeArena(&Win32State->Arena, StorageSize, Storage);
-    
-    Win32ParseCommandLingArgs(Win32State);
+    Platform = AppMemory.PlatformAPI;
+    Win32ParseCommandLingArgs();
     
     if(Win32RegisterClassExA(&WindowClass))
     {
-        Win32State->Window = Win32CreateWindowExA(0,
-                                                  WindowClass.lpszClassName,
-                                                  "kengine",
-                                                  WS_OVERLAPPEDWINDOW,
-                                                  CW_USEDEFAULT, CW_USEDEFAULT, 1280, 720,
-                                                  0, 0, Instance, Win32State);
-        if(Win32State->Window)
+        GlobalWin32State.Window = Win32CreateWindowExA(0,
+                                                       WindowClass.lpszClassName,
+                                                       "kengine",
+                                                       WS_OVERLAPPEDWINDOW,
+                                                       CW_USEDEFAULT, CW_USEDEFAULT, 1280, 720,
+                                                       0, 0, Instance, 0);
+        if(GlobalWin32State.Window)
         {
-            Win32ShowWindow(Win32State->Window, SW_SHOW);
-            HDC OpenGLDC = Win32GetDC(Win32State->Window);
+            Win32ShowWindow(GlobalWin32State.Window, SW_SHOW);
+            HDC OpenGLDC = Win32GetDC(GlobalWin32State.Window);
             HGLRC OpenGLRC = Win32InitOpenGL(OpenGLDC);
             
             u32 PushBufferSize = Megabytes(64);
@@ -671,6 +593,11 @@ WinMainCRTStartup()
             app_input *NewInput = &Input[0];
             app_input *OldInput = &Input[1];
             
+            // NOTE(kstandbridge): Otherwise Sleep will be ignored for requests less than 50? citation needed
+            UINT MinSleepPeriod = 1;
+            Win32timeBeginPeriod(MinSleepPeriod);
+            
+#if 0            
             s32 MonitorRefreshHz = 60;
             s32 Win32RefreshRate = Win32GetDeviceCaps(OpenGLDC, VREFRESH);
             if(Win32RefreshRate > 1)
@@ -678,25 +605,27 @@ WinMainCRTStartup()
                 MonitorRefreshHz = Win32RefreshRate;
             }
             
-            // NOTE(kstandbridge): Otherwise Sleep will be ignored for requests less than 50? citation needed
-            UINT MinSleepPeriod = 1;
-            Win32timeBeginPeriod(MinSleepPeriod);
+            f32 TargetSecondsPerFrame = 1.0f / MonitorRefreshHz;
+#else
+            f32 TargetSecondsPerFrame = 1.0f / 20.0f;
+#endif
+            RECT ClientRect;
+            Win32GetClientRect(GlobalWin32State.Window, &ClientRect);
             
-            u32 ExpectedFramesPerUpdate = 1;
-            f32 TargetSecondsPerFrame = (f32)ExpectedFramesPerUpdate / MonitorRefreshHz;
+            v2i WindowDimensions = V2i((ClientRect.right - ClientRect.left),
+                                       (ClientRect.bottom - ClientRect.top));
             
-            Win32State->IsRunning = true;
-            while(Win32State->IsRunning)
+            GlobalWin32State.IsRunning = true;
+            while(GlobalWin32State.IsRunning)
             {
                 
 #if KENGINE_INTERNAL
-                Platform->DllReloaded = false;
                 b32 DllNeedsToBeReloaded = false;
-                FILETIME NewDLLWriteTime = Win32GetLastWriteTime(Win32State->DllFullFilePath);
-                if(Win32CompareFileTime(&NewDLLWriteTime, &Win32State->LastDLLWriteTime) != 0)
+                FILETIME NewDLLWriteTime = Win32GetLastWriteTime(GlobalWin32State.DllFullFilePath);
+                if(Win32CompareFileTime(&NewDLLWriteTime, &GlobalWin32State.LastDLLWriteTime) != 0)
                 {
                     WIN32_FILE_ATTRIBUTE_DATA Ignored;
-                    if(!Win32GetFileAttributesExA(Win32State->LockFullFilePath, GetFileExInfoStandard, &Ignored))
+                    if(!Win32GetFileAttributesExA(GlobalWin32State.LockFullFilePath, GetFileExInfoStandard, &Ignored))
                     {
                         DllNeedsToBeReloaded = true;
                     }
@@ -707,15 +636,15 @@ WinMainCRTStartup()
                 NewInput->dtForFrame = TargetSecondsPerFrame;
                 NewInput->MouseZ = 0;
                 ZeroStruct(NewInput->FKeyPressed);
-                Win32ProcessPendingMessages(Win32State, NewInput);
+                Win32ProcessPendingMessages(NewInput);
                 END_BLOCK();
                 
                 BEGIN_BLOCK("ProcessMouseInput");
                 POINT MouseP;
                 Win32GetCursorPos(&MouseP);
-                Win32ScreenToClient(Win32State->Window, &MouseP);
+                Win32ScreenToClient(GlobalWin32State.Window, &MouseP);
                 NewInput->MouseX = (f32)MouseP.x;
-                NewInput->MouseY = (f32)((Win32State->Backbuffer.Height - 1) - MouseP.y);
+                NewInput->MouseY = (f32)((WindowDimensions.Y - 1) - MouseP.y);
                 
                 NewInput->ShiftDown = (Win32GetKeyState(VK_SHIFT) & (1 << 15));
                 NewInput->AltDown = (Win32GetKeyState(VK_MENU) & (1 << 15));
@@ -742,49 +671,39 @@ WinMainCRTStartup()
                 }
                 END_BLOCK();
                 
-                HDC DeviceContext = Win32GetDC(Win32State->Window);
+                HDC DeviceContext = Win32GetDC(GlobalWin32State.Window);
                 
-                win32_offscreen_buffer *Backbuffer = &Win32State->Backbuffer;
-                
-                loaded_bitmap OutputTarget;
-                ZeroStruct(OutputTarget);
-                OutputTarget.Memory = Backbuffer->Memory;
-                OutputTarget.Width = Backbuffer->Width;
-                OutputTarget.Height = Backbuffer->Height;
-                OutputTarget.Pitch = Backbuffer->Pitch;
-                
-                render_commands Commands_ = BeginRenderCommands(PushBufferSize, PushBuffer, Backbuffer->Width, Backbuffer->Height);
+                render_commands Commands_ = BeginRenderCommands(PushBufferSize, PushBuffer, WindowDimensions.X, WindowDimensions.Y);
                 render_commands *Commands = &Commands_;
                 
 #if KENGINE_INTERNAL
                 BEGIN_BLOCK("AppUpdateFrame");
-                if(Win32State->AppUpdateFrame)
+                if(GlobalWin32State.AppUpdateFrame)
                 {
-                    Win32State->AppUpdateFrame(Platform, Commands, &Win32State->Arena, NewInput);
+                    GlobalWin32State.AppUpdateFrame(&AppMemory, Commands, &GlobalWin32State.Arena, NewInput);
                 }
                 END_BLOCK();
                 if(DllNeedsToBeReloaded)
                 {
-                    Win32CompleteAllWork(Platform->PerFrameWorkQueue);
-                    Win32CompleteAllWork(Platform->BackgroundWorkQueue);
+                    Win32CompleteAllWork(AppMemory.PerFrameWorkQueue);
+                    Win32CompleteAllWork(AppMemory.BackgroundWorkQueue);
                     SetDebugEventRecording(false);
                 }
                 
-                if(Win32State->DebugUpdateFrame)
+                if(GlobalWin32State.DebugUpdateFrame)
                 {
-                    Win32State->DebugUpdateFrame(Platform, Commands, &Win32State->Arena, NewInput);
+                    GlobalWin32State.DebugUpdateFrame(&AppMemory, Commands, &GlobalWin32State.Arena, NewInput);
                 }
-                
                 
                 if(DllNeedsToBeReloaded)
                 {
-                    Win32UnloadAppCode(Win32State);
-                    Win32LoadAppCode(Platform, Win32State, NewDLLWriteTime);
+                    Win32UnloadAppCode();
+                    Win32LoadAppCode(NewDLLWriteTime);
                     SetDebugEventRecording(true);
                 }
                 
 #else
-                AppUpdateFrame(Platform, Commands, &Win32State->Arena, NewInput);
+                AppUpdateFrame(&AppMemory, Commands, &GlobalWin32State.Arena, NewInput);
 #endif
                 
                 BEGIN_BLOCK("ExpandRenderStorage");
@@ -816,77 +735,46 @@ WinMainCRTStartup()
                 SortRenderCommands(Commands, SortMemory);
                 LinearizeClipRects(Commands, ClipMemory);
                 
-                b32 ForceSoftwareRendering = false;
-                
-                DEBUG_IF(ForceSoftwareRendering)
-                {
-                    ForceSoftwareRendering = true;
-                }
-                
-                if(ForceSoftwareRendering || !HardwareRendering)
-                {
-                    SoftwareRenderCommands(Platform, Platform->PerFrameWorkQueue, Commands, &OutputTarget);
-                    if(!Win32StretchDIBits(DeviceContext, 0, 0, Backbuffer->Width, Backbuffer->Height, 0, 0, Backbuffer->Width, Backbuffer->Height,
-                                           Backbuffer->Memory, &Backbuffer->Info, DIB_RGB_COLORS, SRCCOPY))
-                    {
-                        InvalidCodePath;
-                    }
-                }
-                else
-                {                
-                    Win32OpenGLRenderCommands(Commands);
-                    Win32SwapBuffers(DeviceContext);
-                }
+                Win32OpenGLRenderCommands(Commands);
+                Win32SwapBuffers(DeviceContext);
                 
                 EndRenderCommands(Commands);
                 
-                if(!Win32ReleaseDC(Win32State->Window, DeviceContext))
+                if(!Win32ReleaseDC(GlobalWin32State.Window, DeviceContext))
                 {
                     InvalidCodePath;
                 }
                 END_BLOCK();
-                Win32CompleteAllWork(Platform->PerFrameWorkQueue);
+                Win32CompleteAllWork(AppMemory.PerFrameWorkQueue);
                 
                 app_input *Temp = NewInput;
                 NewInput = OldInput;
                 OldInput = Temp;
                 
+                BEGIN_BLOCK("FrameWait");
+                f32 FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
                 
-#if 0
-                //if(!HardwareRendering)
-                {                
-                    BEGIN_BLOCK("FrameWait");
-                    f32 FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
-                    
-                    if(FrameSeconds < TargetSeconds)
+                if(FrameSeconds < TargetSecondsPerFrame)
+                {
+                    DWORD Miliseconds = (DWORD)(1000.0f * (TargetSecondsPerFrame - FrameSeconds));
+                    if(Miliseconds > 0)
                     {
-                        DWORD Miliseconds = (DWORD)(1000.0f * (TargetSeconds - FrameSeconds));
-                        if(Miliseconds > 0)
-                        {
-                            Win32Sleep(Miliseconds);
-                        }
-                        
-                        FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
-                        
-                        // NOTE(kstandbridge): FINE I'll make my own sleep function, with blackjack and hookers!
-                        while(FrameSeconds < TargetSeconds)
-                        {
-                            FrameSeconds = Win32GetSecondsElapsed(Win32State, LastCounter, Win32GetWallClock());
-                            _mm_pause();
-                        }
+                        Win32Sleep(Miliseconds);
                     }
-                    END_BLOCK();
+                    
+                    FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
+                    
+                    // NOTE(kstandbridge): FINE I'll make my own sleep function, with blackjack and hookers!
+                    while(FrameSeconds < TargetSecondsPerFrame)
+                    {
+                        FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
+                        _mm_pause();
+                    }
                 }
-#endif
-                
+                END_BLOCK();
+                               
                 LARGE_INTEGER ThisCounter = Win32GetWallClock();                
-                f32 MeasuredSecondsPerFrame = Win32GetSecondsElapsed(LastCounter, ThisCounter, Win32State->PerfCountFrequency);
-                f32 ExactTargetFramesPerUpdate = MeasuredSecondsPerFrame*(f32)MonitorRefreshHz;
-                u32 NewExpectedFramesPerUpdate = RoundF32ToU32(ExactTargetFramesPerUpdate);
-                ExpectedFramesPerUpdate = NewExpectedFramesPerUpdate;
-                
-                TargetSecondsPerFrame = MeasuredSecondsPerFrame;
-                
+                f32 MeasuredSecondsPerFrame = Win32GetSecondsElapsed(LastCounter, ThisCounter, GlobalWin32State.PerfCountFrequency);
                 DEBUG_FRAME_END(MeasuredSecondsPerFrame);
                 LastCounter = ThisCounter;
                 

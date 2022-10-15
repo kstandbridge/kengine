@@ -1,5 +1,5 @@
 
-typedef struct node
+typedef struct path_node
 {
     b32 Obstacle;
     b32 Visited;
@@ -9,15 +9,15 @@ typedef struct node
     
     v2i P;
     
-    struct node_link NeighbourSentinal;
-    struct node *Parent;
+    struct path_node_link NeighbourSentinal;
+    struct path_node *Parent;
     
-    struct node *Next;
-} node;
+    struct path_node *Next;
+} path_node;
 
-global node *EndNode;
-global node *StartNode;
-global node *Nodes;
+global path_node *EndNode;
+global path_node *StartNode;
+global path_node *Nodes;
 global s32 Columns;
 global s32 Rows;
 
@@ -35,7 +35,7 @@ GetCellP(v2 StartingPoint, s32 Column, s32 Row)
 }
 
 internal b32
-NodeLinkPredicate(node_link *A, node_link *B)
+NodeLinkPredicate(path_node_link *A, path_node_link *B)
 {
     b32 Result = A->Node->GlobalGoal < B->Node->GlobalGoal;
     return Result;
@@ -55,7 +55,7 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
     {
         Columns = CeilF32ToS32(TotalDim.X / (PADDING+CEL_DIM)) - 1;
         Rows = CeilF32ToS32(TotalDim.Y / (PADDING+CEL_DIM)) - 1;
-        Nodes = PushArray(PermArena, Rows * Columns, node);
+        Nodes = PushArray(PermArena, Rows * Columns, path_node);
         for(s32 Row = 0;
             Row < Rows;
             ++Row)
@@ -64,12 +64,12 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
                 Column < Columns;
                 ++Column)
             {
-                node *Node = Nodes + (Row*Columns + Column);
+                path_node *Node = Nodes + (Row*Columns + Column);
                 Node->Obstacle = false;
                 Node->Visited = false;
                 Node->P = V2i(Column, Row);
                 Node->Parent = 0;
-                NodeLinkInit(&Node->NeighbourSentinal);
+                PathNodeLinkInit(&Node->NeighbourSentinal);
                 Node->Next = 0;
             }
         }
@@ -85,13 +85,13 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
                 node *Node = Nodes + (Row*Columns + Column);
                 if(Row > 0)
                 {
-                    node_link *Link = PushStruct(PermArena, node_link);
+                    path_node_link *Link = PushStruct(PermArena, path_node_link);
                     Link->Node = Nodes + ((Row - 1)*Columns + (Column + 0));;
                     NodeLinkInsertAtLast(&Node->NeighbourSentinal, Link);
                 }
                 if(Row < Rows - 1)
                 {
-                    node_link *Link = PushStruct(PermArena, node_link);
+                    path_node_link *Link = PushStruct(PermArena, path_node_link);
                     Link->Node = Nodes + ((Row + 1)*Columns + (Column + 0));
                     NodeLinkInsertAtLast(&Node->NeighbourSentinal, Link);
                     
@@ -99,13 +99,13 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
                 
                 if(Column > 0)
                 {
-                    node_link *Link = PushStruct(PermArena, node_link);
+                    path_node_link *Link = PushStruct(PermArena, path_node_link);
                     Link->Node = Nodes + ((Row + 0)*Columns + (Column - 1));
                     NodeLinkInsertAtLast(&Node->NeighbourSentinal, Link);
                 }
                 if(Column < Columns -1)
                 {
-                    node_link *Link = PushStruct(PermArena, node_link);
+                    path_node_link *Link = PushStruct(PermArena, path_node_link);
                     Link->Node = Nodes + ((Row + 0)*Columns + (Column + 1));
                     NodeLinkInsertAtLast(&Node->NeighbourSentinal, Link);
                 }
@@ -138,7 +138,7 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
             
             // NOTE(kstandbridge): Draw paths between nodes
             {        
-                for(node_link *NeighbourLink = Node->NeighbourSentinal.Next;
+                for(path_node_link *NeighbourLink = Node->NeighbourSentinal.Next;
                     NeighbourLink != &Node->NeighbourSentinal;
                     NeighbourLink = NeighbourLink->Next)
                 {
@@ -220,10 +220,10 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
         StartNode->LocalGoal = 0.0f;
         StartNode->GlobalGoal = V2iDistanceBetween(StartNode->P, EndNode->P);
         
-        node_link NotTestedSentinel;
+        path_node_link NotTestedSentinel;
         NodeLinkInit(&NotTestedSentinel);
         
-        node_link *CurrentLink = PushStruct(TempArena, node_link);
+        path_node_link *CurrentLink = PushStruct(TempArena, path_node_link);
         CurrentLink->Node = StartNode;
         NodeLinkInsertAtLast(&NotTestedSentinel, CurrentLink); 
         
@@ -245,7 +245,7 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
                 CurrentNode->Visited = true;
                 
                 // NOTE(kstandbridge): Check each Neighbour
-                for(node_link *NeighbourLink = CurrentNode->NeighbourSentinal.Next;
+                for(path_node_link *NeighbourLink = CurrentNode->NeighbourSentinal.Next;
                     NeighbourLink != &CurrentNode->NeighbourSentinal;
                     NeighbourLink = NeighbourLink->Next)
                 {
@@ -253,7 +253,7 @@ DrawPathfinding(app_state *AppState, ui_state *UIState, render_group *RenderGrou
                     
                     if(!NeighbourNode->Visited && !NeighbourNode->Obstacle)
                     {
-                        node_link *LinkCopy = PushStruct(TempArena, node_link);
+                        path_node_link *LinkCopy = PushStruct(TempArena, path_node_link);
                         LinkCopy->Node = NeighbourNode;
                         NodeLinkInsertAtLast(&NotTestedSentinel, LinkCopy);
                     }

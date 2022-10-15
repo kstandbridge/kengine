@@ -287,7 +287,6 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
 inline string
 GenerateHttpMessage_(http_request *Request, memory_arena *Arena)
 {
-    // TODO(kstandbridge): Actually generate the raw message
     format_string_state StringState = BeginFormatString(Arena);
     AppendStringFormat(&StringState, "%S %S HTTP/1.1\r\n", HttpMethodToString(Request->Method), Request->Endpoint);
     AppendStringFormat(&StringState, "Host: %S\r\n", Request->Client->Hostname);

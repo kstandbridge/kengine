@@ -12,43 +12,34 @@ ZeroSize(u64 Size, void *Ptr)
     }
 }
 
-typedef struct
+typedef struct memory_arena
 {
-    u64 Size;
-    u8 *Base;
-    umm Used;
-    
-    s32 TempCount;
+    platform_memory_block *CurrentBlock;
+    umm MinimumBlockSize;
+    u32 AllocationFlags;
+    u32 TempCount;
 } memory_arena;
 
 typedef struct temporary_memory
 {
     memory_arena *Arena;
+    platform_memory_block *Block;
     umm Used;
 } temporary_memory;
-
-inline void
-InitializeArena(memory_arena *Arena, u64 Size, void *Base)
-{
-    Arena->Size = Size;
-    Arena->Base = (u8 *)Base;
-    Arena->Used = 0;
-    Arena->TempCount = 0;
-}
 
 inline umm
 GetAlignmentOffset(memory_arena *Arena, umm Alignment)
 {
-    umm AlignmentOffset = 0;
+    umm Result = 0;
     
-    umm ResultPointer = (umm)Arena->Base + Arena->Used;
+    umm ResultPointer = (umm)Arena->CurrentBlock->Base + Arena->CurrentBlock->Used;
     umm AlignmentMask = Alignment - 1;
     if(ResultPointer & AlignmentMask)
     {
-        AlignmentOffset = Alignment - (ResultPointer & AlignmentMask);
+        Result = Alignment - (ResultPointer & AlignmentMask);
     }
     
-    return AlignmentOffset;
+    return Result;
 }
 
 
@@ -62,23 +53,89 @@ Copy(umm Size, void *SourceInit, void *DestInit)
     return DestInit;
 }
 
-#define PushStruct(Arena, type) (type *)PushSize_(Arena, sizeof(type), 4)
-#define PushArray(Arena, Count, type) (type *)PushSize_(Arena, (Count)*sizeof(type), 4)
-#define PushSize(Arena, Size) PushSize_(Arena, Size, 4)
-#define PushCopy(Arena, Size, Source) Copy(Size, Source, PushSize_(Arena, Size, 4))
-inline void *
-PushSize_(memory_arena *Arena, umm SizeInit, umm Alignment)
+typedef enum arena_push_flags
 {
-    umm Size = SizeInit;
+    ArenaPushFlag_ClearToZero = 0x1
+} arena_push_flags;
+
+typedef struct arena_push_params
+{
+    u32 Flags;
+    u32 Alignment;
+} arena_push_params;
+
+inline arena_push_params
+DefaultArenaPushParams()
+{
+    arena_push_params Result;
+    Result.Flags = ArenaPushFlag_ClearToZero;
+    Result.Alignment = 4;
+    return Result;
+}
+
+#define MEMORY_ALIGNMENT 4
+#define PushStruct(Arena, type) (type *)PushSize_(Arena, sizeof(type), DefaultArenaPushParams())
+#define PushArray(Arena, Count, type) (type *)PushSize_(Arena, (Count)*sizeof(type), DefaultArenaPushParams())
+#define PushSize(Arena, Size) PushSize_(Arena, Size, DefaultArenaPushParams())
+#define PushCopy(Arena, Size, Source) Copy(Size, Source, PushSize_(Arena, Size, DefaultArenaPushParams()))
+inline void *
+PushSize_(memory_arena *Arena, umm SizeInit, arena_push_params Params)
+{
+    void *Result = 0;
     
-    umm AlignmentOffset = GetAlignmentOffset(Arena, Alignment);
-    Size += AlignmentOffset;
+    Assert(Params.Alignment <= 128);
+    Assert(IsPow2(Params.Alignment));
     
-    Assert((Arena->Used + Size) <= Arena->Size);
-    void *Result = Arena->Base + Arena->Used + AlignmentOffset;
-    Arena->Used += Size;
+    umm Size = 0;
+    if(Arena->CurrentBlock)
+    {
+        Size = SizeInit;
+        umm AlignmentOffset = GetAlignmentOffset(Arena, Params.Alignment);
+        Size += AlignmentOffset;
+    }
+    
+    if(!Arena->CurrentBlock ||
+       ((Arena->CurrentBlock->Used + Size) > Arena->CurrentBlock->Size))
+    {
+        Size = SizeInit; // NOTE(kstandbridge): The base will be aligned automatically
+        if(Arena->AllocationFlags &(PlatformMemoryBlockFlag_UnderflowCheck|
+                                    PlatformMemoryBlockFlag_OverflowCheck))
+        {
+            Arena->MinimumBlockSize = 0;
+            Size = AlignPow2(Size, Params.Alignment);
+        }
+        else if(!Arena->MinimumBlockSize)
+        {
+            // NOTE(kstandbridge): Raymond Chen on page sizes https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200
+            Arena->MinimumBlockSize = Megabytes(2);
+        }
+        
+        umm BlockSize = Maximum(Size, Arena->MinimumBlockSize);
+        
+        platform_memory_block *NewBlock = Platform.AllocateMemory(BlockSize, Arena->AllocationFlags);
+        NewBlock->Prev = Arena->CurrentBlock;
+        Arena->CurrentBlock = NewBlock;
+        // TODO(kstandbridge): Debug block allocation event
+    }
+    
+    Assert((Arena->CurrentBlock->Used + Size) <= Arena->CurrentBlock->Size);
+    
+    umm AlignmentOffset = GetAlignmentOffset(Arena, Params.Alignment);
+    umm OffsetInBlock = Arena->CurrentBlock->Used + AlignmentOffset;
+    Result = Arena->CurrentBlock->Base + OffsetInBlock;
+    Arena->CurrentBlock->Used += Size;
     
     Assert(Size >= SizeInit);
+    
+    // NOTE(kstandbridge): Incase the first allocation was greater than the page alignment
+    Assert(Arena->CurrentBlock->Used <= Arena->CurrentBlock->Size);
+    
+    if(Params.Flags & ArenaPushFlag_ClearToZero)
+    {
+        ZeroSize(SizeInit, Result);
+    }
+    
+    // TODO(kstandbridge): Debug allocation event
     
     return Result;
 }
@@ -89,7 +146,7 @@ BeginPushSize(memory_arena *Arena)
 {
     umm AlignmentOffset = GetAlignmentOffset(Arena, 4);
     
-    u8 *Result = Arena->Base + Arena->Used + AlignmentOffset;
+    u8 *Result = Arena->CurrentBlock->Base + Arena->CurrentBlock->Used + AlignmentOffset;
     ++Arena->TempCount;
     
     return Result;
@@ -99,17 +156,7 @@ inline void
 EndPushSize(memory_arena *Arena, umm Size)
 {
     --Arena->TempCount;
-    PushSize_(Arena, Size, 4);
-}
-
-
-inline void
-SubArena(memory_arena *Result, memory_arena *Arena, u64 Size)
-{
-    Result->Size = Size;
-    Result->Base = (u8 *)PushSize_(Arena, Size, 4);
-    Result->Used = 0;
-    Result->TempCount = 0;
+    PushSize_(Arena, Size, DefaultArenaPushParams());
 }
 
 inline temporary_memory
@@ -118,7 +165,8 @@ BeginTemporaryMemory(memory_arena *Arena)
     temporary_memory Result;
     
     Result.Arena = Arena;
-    Result.Used = Arena->Used;
+    Result.Block = Arena->CurrentBlock;
+    Result.Used = Arena->CurrentBlock ? Arena->CurrentBlock->Used : 0;
     
     ++Arena->TempCount;
     
@@ -129,11 +177,22 @@ inline void
 EndTemporaryMemory(temporary_memory TempMem)
 {
     memory_arena *Arena = TempMem.Arena;
-    Assert(Arena->Used >= TempMem.Used);
-    ZeroSize(Arena->Used - TempMem.Used, Arena->Base + TempMem.Used);
-    Arena->Used = TempMem.Used;
-    Assert(Arena->TempCount > 0);
+    while(Arena->CurrentBlock != TempMem.Block)
+    {
+        platform_memory_block *Free = Arena->CurrentBlock;
+        // TODO(kstandbridge): Debug event block free
+        Arena->CurrentBlock = Free->Prev;
+        Platform.DeallocateMemory(Free);
+    }
     
+    if(Arena->CurrentBlock)
+    {
+        Assert(Arena->CurrentBlock->Used >= TempMem.Used);
+        Arena->CurrentBlock->Used = TempMem.Used;
+        // TODO(kstandbridge): Debug event block truncate?
+    }
+    
+    Assert(Arena->TempCount > 0);
     --Arena->TempCount;
 }
 
@@ -143,7 +202,7 @@ BeginPushString(memory_arena *Arena)
     string Result;
     
     umm AlignmentOffset = GetAlignmentOffset(Arena, 4);
-    Result.Data = Arena->Base + Arena->Used + AlignmentOffset;
+    Result.Data = Arena->CurrentBlock->Base + Arena->CurrentBlock->Used + AlignmentOffset;
     Result.Size = 1;
     
     ++Arena->TempCount;
@@ -154,10 +213,10 @@ BeginPushString(memory_arena *Arena)
 inline void
 EndPushString(string *Text, memory_arena *Arena, umm Size)
 {
-    Assert((Arena->Used + Size) <= Arena->Size);
+    Assert((Arena->CurrentBlock->Used + Size) <= Arena->CurrentBlock->Size);
     
     Text->Size = Size;
-    Arena->Used += Size;
+    Arena->CurrentBlock->Used += Size;
     
     --Arena->TempCount;
 }
@@ -166,16 +225,6 @@ inline void
 CheckArena(memory_arena *Arena)
 {
     Assert(Arena->TempCount == 0);
-}
-
-inline b32
-ArenaHasRoomFor(memory_arena *Arena, umm Size)
-{
-    
-    umm AlignmentOffset = GetAlignmentOffset(Arena, 4);
-    Size += AlignmentOffset;
-    b32 Result = ((Arena->Used + Size) <= Arena->Size);
-    return Result;
 }
 
 #define KENGINE_MEMORY_H

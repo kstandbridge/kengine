@@ -281,14 +281,7 @@ StoreEvent(debug_state *DebugState, debug_element *Element, debug_event *Event)
         }
         else
         {
-            if(ArenaHasRoomFor(&DebugState->Arena, sizeof(debug_stored_event)))
-            {
-                Result = PushStruct(&DebugState->Arena, debug_stored_event);
-            }
-            else
-            {
-                FreeOldestFrame(DebugState);
-            }
+            Result = PushStruct(&DebugState->Arena, debug_stored_event);
         }
     }
     
@@ -360,7 +353,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
             }
             CollationFrame->SecondsElapsed = Event->Value_F32;
             
-            // TODO(kstandbridge): Skip a frame when paused
             if(DebugState->Paused)
             {
                 FreeFrame(DebugState, DebugState->CollationFrameOrdinal);
@@ -519,7 +511,7 @@ DrawProfileBars(memory_arena *Arena, render_group *RenderGroup, debug_profile_no
         
         if(Rectangle2IsIn(RegionRect, MouseP))
         {
-            v2 TextP = V2Add(EventRect.Min, V2Set1(Platform->GetVerticleAdvance()));
+            v2 TextP = V2Add(EventRect.Min, V2Set1(Platform.GetVerticleAdvance()));
             PushRenderCommandText(RenderGroup, 1.0f, TextP, V4(0, 0, 0, 1),
                                   FormatString(Arena, "%S %ucy",
                                                Element->ParsedName.Name, TotalClock));
@@ -568,7 +560,7 @@ DrawProfilerTab(debug_state *DebugState, ui_state *UIState, render_group *Render
                     rectangle2 BarBounds = GetCellBounds(&FrameGrid, FrameIndex, 0);
                     
                     f32 Thickness = 1.0f;
-                    // TODO(kstandbridge): NO use interactions you tool!
+                    
                     if(Rectangle2IsIn(BarBounds, MouseP))
                     {
                         if(WasPressed(Input->MouseButtons[MouseButton_Left]))
@@ -604,9 +596,10 @@ DrawProfilerTab(debug_state *DebugState, ui_state *UIState, render_group *Render
             
             f32 MsPerFrame = Frame->SecondsElapsed;
             f32 FramesPerSecond = 1.0f / MsPerFrame;
-            Button(&CurrentFrameGrid, RenderGroup, 0, 0, InteractionIdFromPtr(DebugState), DebugState, FormatString(TempArena, "%d : %.02f ms %.02f fps | Arena %u / %u", 
+            platform_memory_stats MemStats = Platform.GetMemoryStats();
+            Button(&CurrentFrameGrid, RenderGroup, 0, 0, InteractionIdFromPtr(DebugState), DebugState, FormatString(TempArena, "%d : %.02f ms %.02f fps - Mem: %u blocks, %lu / %lu used", 
                                                                                                                     Frame->FrameIndex, MsPerFrame*1000.0f, FramesPerSecond,
-                                                                                                                    TempArena->Used/1024, TempArena->Size/1024));
+                                                                                                                    MemStats.BlockCount, MemStats.TotalUsed, MemStats.TotalSize));
             
             ui_grid TopClockSplitGrid = BeginGrid(UIState, TempArena, GetCellBounds(&CurrentFrameGrid, 0, 1), 1, 2);
             {
@@ -786,8 +779,8 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
                         // TODO(kstandbridge): Memory usage tab
                         Label(&Grid, RenderGroup, 0, 0, 
                               FormatString(TempArena, "PermArena %u / %u\nTempArena %u / %u", 
-                                           DebugState->Arena.Used, DebugState->Arena.Size,
-                                           TempArena->Used, TempArena->Size),
+                                           DebugState->Arena.CurrentBlock->Used, DebugState->Arena.CurrentBlock->Size,
+                                           TempArena->CurrentBlock->Used, TempArena->CurrentBlock->Size),
                               TextPosition_MiddleMiddle);
                     }
                     EndGrid(&Grid);
@@ -802,7 +795,7 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
 }
 
 extern void
-DebugUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena, app_input *Input)
+DebugUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Arena, app_input *Input)
 {
     GlobalDebugEventTable->CurrentEventArrayIndex = !GlobalDebugEventTable->CurrentEventArrayIndex;
     u64 ArrayIndex_EventIndex = AtomicExchangeU64(&GlobalDebugEventTable->EventArrayIndex_EventIndex,
@@ -812,12 +805,11 @@ DebugUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_ar
     Assert(EventArrayIndex <= 1);
     u32 EventCount = ArrayIndex_EventIndex & 0xFFFFFFFF;
     
-    if(!PlatformAPI->DebugState)
+    if(!Memory->DebugState)
     {
-        PlatformAPI->DebugState = PushStruct(Arena, debug_state);
-        ZeroStruct(*PlatformAPI->DebugState);
-        debug_state *DebugState = PlatformAPI->DebugState;
-        SubArena(&DebugState->Arena, Arena, Megabytes(64));
+        Memory->DebugState = PushStruct(Arena, debug_state);
+        ZeroStruct(*Memory->DebugState);
+        debug_state *DebugState = Memory->DebugState;
         
         DebugState->RootGroup = CreateVariableLink(DebugState, 4, "Root");
         DebugState->ProfileGroup = CreateVariableLink(DebugState, 7, "Profile");
@@ -825,8 +817,9 @@ DebugUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_ar
         ZeroStruct(RootProfileEvent);
         RootProfileEvent.GUID = GenerateDebugId("RootProfile");
         DebugState->RootProfileElement = GetElementFromEvent(DebugState, &RootProfileEvent, 0, 0);
+        DebugState->CurrentView = DebugView_Profiler;
     }
-    debug_state *DebugState = PlatformAPI->DebugState;
+    debug_state *DebugState = Memory->DebugState;
     
     CollateDebugRecords(DebugState, EventCount, GlobalDebugEventTable->Events[EventArrayIndex]);
     

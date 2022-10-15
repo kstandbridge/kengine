@@ -1,6 +1,8 @@
 #include "win32_kengine_preprocessor.h"
 #include "win32_kengine_kernel.c"
 
+platform_api Platform;
+
 internal HANDLE
 Win32CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
 {
@@ -14,6 +16,23 @@ Win32CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LP
     }
     Assert(Func);
     Result = Func(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    
+    return Result;
+}
+
+internal LPVOID
+Win32VirtualAlloc(LPVOID lpAddress, SIZE_T dwSize, DWORD flAllocationType, DWORD flProtect)
+{
+    LPVOID Result;
+    
+    Assert(Kernel32);
+    local_persist virtual_alloc *Func = 0;
+    if(!Func);
+    {
+        Func = (virtual_alloc *)Win32GetProcAddressA(Kernel32, "VirtualAlloc");
+    }
+    Assert(Func);
+    Result = Func(lpAddress, dwSize, flAllocationType, flProtect);
     
     return Result;
 }
@@ -103,23 +122,6 @@ Win32WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDW
     return Result;
 }
 
-internal LPVOID
-Win32VirtualAlloc(LPVOID lpAddress, SIZE_T dwSize, DWORD flAllocationType, DWORD flProtect)
-{
-    LPVOID Result;
-    
-    Assert(Kernel32);
-    local_persist virtual_alloc *Func = 0;
-    if(!Func);
-    {
-        Func = (virtual_alloc *)Win32GetProcAddressA(Kernel32, "VirtualAlloc");
-    }
-    Assert(Func);
-    Result = Func(lpAddress, dwSize, flAllocationType, flProtect);
-    
-    return Result;
-}
-
 internal LPSTR
 Win32GetCommandLineA()
 {
@@ -149,47 +151,10 @@ Win32ExitProcess(UINT uExitCode)
     Assert(Func);
     Func(uExitCode);
 }
-
-internal string
-Win32ReadEntireFile(memory_arena *Arena, char *FilePath)
-{
-    string Result;
-    ZeroStruct(Result);
-    
-    HANDLE FileHandle = Win32CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
-    Assert(FileHandle != INVALID_HANDLE_VALUE);
-    
-    if(FileHandle != INVALID_HANDLE_VALUE)
-    {
-        LARGE_INTEGER FileSize;
-        b32 ReadResult = Win32GetFileSizeEx(FileHandle, &FileSize);
-        Assert(ReadResult);
-        if(ReadResult)
-        {    
-            Result.Size = FileSize.QuadPart;
-            Result.Data = PushSize(Arena, Result.Size);
-            Assert(Result.Data);
-            
-            if(Result.Data)
-            {
-                u32 BytesRead;
-                ReadResult = Win32ReadFile(FileHandle, Result.Data, (u32)Result.Size, (LPDWORD)&BytesRead, 0);
-                Assert(ReadResult);
-                Assert(BytesRead == Result.Size);
-            }
-        }
-        
-        Win32CloseHandle(FileHandle);
-    }
-    
-    return Result;
-}
-
 internal b32
-Win32PrintOut(memory_arena *Arena, char *Format, ...)
+Win32WriteOutput(char *Format, ...)
 {
     u8 Buffer[4096];
-    umm BufferSize = sizeof(Buffer);
     format_string_state StringState = BeginFormatStringToBuffer(Buffer);
     
     va_list ArgList;
@@ -197,7 +162,7 @@ Win32PrintOut(memory_arena *Arena, char *Format, ...)
     AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
     
-    string Text = EndFormatStringToBuffer(&StringState, BufferSize);
+    string Text = EndFormatStringToBuffer(&StringState, sizeof(Buffer));
     
     u32 Result = 0;
     
@@ -354,7 +319,8 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
 {
     char *Start = Tokenizer->At;
     
-    format_string_state StringState = BeginFormatString(Tokenizer->Arena);
+    u8 Buffer[4096];
+    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
     
     b32 FirstParam = true;
     c_token Token;
@@ -436,36 +402,37 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
         }
     }
     
-    string Types = EndFormatString(&StringState);
+    string Types = EndFormatStringToBuffer(&StringState, sizeof(Buffer));
     string SnakeStruct = Token.Str;
-    string UpperCamelStruct = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+    u8 UpperCamelStructBuffer[256];
+    string UpperCamelStruct = FormatStringToBuffer(UpperCamelStructBuffer, sizeof(UpperCamelStructBuffer), "%S", Token.Str);
     ToUpperCamelCase(&UpperCamelStruct);
     
     switch(Op)
     {
         case GenerateMethod_Ctor:
         {
-            Win32PrintOut(Tokenizer->Arena, "inline %S\n%S(", SnakeStruct, UpperCamelStruct);
+            Win32WriteOutput("inline %S\n%S(", SnakeStruct, UpperCamelStruct);
         } break;
         case GenerateMethod_Set1:
         {
-            Win32PrintOut(Tokenizer->Arena, "inline %S\n%SSet1(", SnakeStruct, UpperCamelStruct);
+            Win32WriteOutput("inline %S\n%SSet1(", SnakeStruct, UpperCamelStruct);
         } break;
         case GenerateMethod_MathAdd:
         {
-            Win32PrintOut(Tokenizer->Arena, "inline %S\n%SAdd(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32WriteOutput("inline %S\n%SAdd(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         case GenerateMethod_MathSubtract:
         {
-            Win32PrintOut(Tokenizer->Arena, "inline %S\n%SSubtract(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32WriteOutput("inline %S\n%SSubtract(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         case GenerateMethod_MathMultiply:
         {
-            Win32PrintOut(Tokenizer->Arena, "inline %S\n%SMultiply(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32WriteOutput("inline %S\n%SMultiply(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         case GenerateMethod_MathDivide:
         {
-            Win32PrintOut(Tokenizer->Arena, "inline %S\n%SDivide(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32WriteOutput("inline %S\n%SDivide(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         InvalidDefaultCase;
     }
@@ -473,10 +440,10 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
     if((Op == GenerateMethod_Ctor) || 
        (Op == GenerateMethod_Set1))
     {
-        Win32PrintOut(Tokenizer->Arena, "%S", Types);
+        Win32WriteOutput("%S", Types);
     }
     
-    Win32PrintOut(Tokenizer->Arena, ")\n{\n    %S Result;\n\n", SnakeStruct);
+    Win32WriteOutput(")\n{\n    %S Result;\n\n", SnakeStruct);
     
     Tokenizer->At = Start;
     
@@ -486,7 +453,7 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
         if((Token.Type == CToken_EndOfStream) ||
            (Token.Type == CToken_CloseBrace))
         {
-            Win32PrintOut(Tokenizer->Arena, "\n    return Result;\n}\n\n");
+            Win32WriteOutput("\n    return Result;\n}\n\n");
             break;
         }
         else if(Token.Type == CToken_Identifier)
@@ -508,27 +475,27 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
             {
                 case GenerateMethod_Ctor:
                 {
-                    Win32PrintOut(Tokenizer->Arena, "    Result.%S = %S;\n", Var, Var);
+                    Win32WriteOutput("    Result.%S = %S;\n", Var, Var);
                 } break;
                 case GenerateMethod_Set1:
                 {
-                    Win32PrintOut(Tokenizer->Arena, "    Result.%S = Value;\n", Var);
+                    Win32WriteOutput("    Result.%S = Value;\n", Var);
                 } break;
                 case GenerateMethod_MathAdd:
                 {
-                    Win32PrintOut(Tokenizer->Arena, "    Result.%S = A.%S + B.%S;\n", Var, Var, Var);
+                    Win32WriteOutput("    Result.%S = A.%S + B.%S;\n", Var, Var, Var);
                 } break;
                 case GenerateMethod_MathSubtract:
                 {
-                    Win32PrintOut(Tokenizer->Arena, "    Result.%S = A.%S - B.%S;\n", Var, Var, Var);
+                    Win32WriteOutput("    Result.%S = A.%S - B.%S;\n", Var, Var, Var);
                 } break;
                 case GenerateMethod_MathMultiply:
                 {
-                    Win32PrintOut(Tokenizer->Arena, "    Result.%S = A.%S * B.%S;\n", Var, Var, Var);
+                    Win32WriteOutput("    Result.%S = A.%S * B.%S;\n", Var, Var, Var);
                 } break;
                 case GenerateMethod_MathDivide:
                 {
-                    Win32PrintOut(Tokenizer->Arena, "    Result.%S = A.%S / B.%S;\n", Var, Var, Var);
+                    Win32WriteOutput("    Result.%S = A.%S / B.%S;\n", Var, Var, Var);
                 } break;
                 InvalidDefaultCase;
             }
@@ -544,123 +511,117 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Token = GetNextCToken(Tokenizer);
     Assert(StringsAreEqual(String("struct"), Token.Str));
     Token = GetNextCToken(Tokenizer);
-    string Type = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
-    string FunctionName = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+    u8 TypeBuffer[256];
+    string Type = FormatStringToBuffer(TypeBuffer, sizeof(TypeBuffer), "%S", Token.Str);
+    u8 FunctionNameBuffer[256];
+    string FunctionName = FormatStringToBuffer(FunctionNameBuffer, sizeof(FunctionNameBuffer), "%S", Token.Str);
     ToUpperCamelCase(&FunctionName);
     
-    Win32PrintOut(Tokenizer->Arena, "\ninline %S *\nGet%STail(%S *Head)\n", Type, FunctionName, Type);
-    Win32PrintOut(Tokenizer->Arena, "{\n");
-    Win32PrintOut(Tokenizer->Arena, "    %S *Result = Head;\n\n", Type);
-    Win32PrintOut(Tokenizer->Arena, "    if(Result != 0)\n");
-    Win32PrintOut(Tokenizer->Arena, "    {\n");
-    Win32PrintOut(Tokenizer->Arena, "        while(Result->Next != 0)\n");
-    Win32PrintOut(Tokenizer->Arena, "        {\n");
-    Win32PrintOut(Tokenizer->Arena, "            Result = Result->Next;\n");
-    Win32PrintOut(Tokenizer->Arena, "        }\n");
-    Win32PrintOut(Tokenizer->Arena, "    }\n\n");
-    Win32PrintOut(Tokenizer->Arena, "    return Result;");
-    Win32PrintOut(Tokenizer->Arena, "}\n");
+    Win32WriteOutput("\ninline %S *\nGet%STail(%S *Head)\n", Type, FunctionName, Type);
+    Win32WriteOutput("{\n");
+    Win32WriteOutput("    %S *Result = Head;\n\n", Type);
+    Win32WriteOutput("    if(Result != 0)\n");
+    Win32WriteOutput("    {\n");
+    Win32WriteOutput("        while(Result->Next != 0)\n");
+    Win32WriteOutput("        {\n");
+    Win32WriteOutput("            Result = Result->Next;\n");
+    Win32WriteOutput("        }\n");
+    Win32WriteOutput("    }\n\n");
+    Win32WriteOutput("    return Result;");
+    Win32WriteOutput("}\n");
     
-    Win32PrintOut(Tokenizer->Arena, "\ninline %S *\n%SPush(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
-    Win32PrintOut(Tokenizer->Arena, "{\n");
-    Win32PrintOut(Tokenizer->Arena, "    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
-    Win32PrintOut(Tokenizer->Arena, "    Result->Next = *HeadRef;\n");
-    Win32PrintOut(Tokenizer->Arena, "    *HeadRef = Result;\n\n");
-    Win32PrintOut(Tokenizer->Arena, "    return Result;");
-    Win32PrintOut(Tokenizer->Arena, "}\n");
+    Win32WriteOutput("\ninline %S *\n%SPushBack(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
+    Win32WriteOutput("{\n");
+    Win32WriteOutput("    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
+    Win32WriteOutput("    Result->Next = 0;\n");
+    Win32WriteOutput("    if(*HeadRef == 0)\n");
+    Win32WriteOutput("    {\n");
+    Win32WriteOutput("        *HeadRef = Result;\n");
+    Win32WriteOutput("    }\n");
+    Win32WriteOutput("    else\n");
+    Win32WriteOutput("    {\n");
+    Win32WriteOutput("        %S *Tail = Get%STail(*HeadRef);\n", Type, FunctionName);
+    Win32WriteOutput("        Tail->Next = Result;\n");
+    Win32WriteOutput("    }\n\n");
+    Win32WriteOutput("    return Result;");
+    Win32WriteOutput("}\n");
     
-    Win32PrintOut(Tokenizer->Arena, "\ninline %S *\n%SPushBack(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
-    Win32PrintOut(Tokenizer->Arena, "{\n");
-    Win32PrintOut(Tokenizer->Arena, "    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
-    Win32PrintOut(Tokenizer->Arena, "    Result->Next = 0;\n");
-    Win32PrintOut(Tokenizer->Arena, "    if(*HeadRef == 0)\n");
-    Win32PrintOut(Tokenizer->Arena, "    {\n");
-    Win32PrintOut(Tokenizer->Arena, "        *HeadRef = Result;\n");
-    Win32PrintOut(Tokenizer->Arena, "    }\n");
-    Win32PrintOut(Tokenizer->Arena, "    else\n");
-    Win32PrintOut(Tokenizer->Arena, "    {\n");
-    Win32PrintOut(Tokenizer->Arena, "        %S *Tail = Get%STail(*HeadRef);\n", Type, FunctionName);
-    Win32PrintOut(Tokenizer->Arena, "        Tail->Next = Result;\n");
-    Win32PrintOut(Tokenizer->Arena, "    }\n\n");
-    Win32PrintOut(Tokenizer->Arena, "    return Result;");
-    Win32PrintOut(Tokenizer->Arena, "}\n");
-    
-    Win32PrintOut(Tokenizer->Arena, "\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);
+    Win32WriteOutput("\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);
     
     
-    Win32PrintOut(Tokenizer->Arena, "\ninline %S *\n%SMergeSort_(%S *Front, %S *Back, %S_predicate *Predicate, sort_type SortType)\n", 
-                  Type, FunctionName, Type, Type, Type);
-    Win32PrintOut(Tokenizer->Arena, "{\n");
-    Win32PrintOut(Tokenizer->Arena, "    %S *Result = 0;\n", Type);
-    Win32PrintOut(Tokenizer->Arena, "    if(Front == 0)\n");
-    Win32PrintOut(Tokenizer->Arena, "    {\n");
-    Win32PrintOut(Tokenizer->Arena, "        Result = Back;\n");
-    Win32PrintOut(Tokenizer->Arena, "    }\n");
-    Win32PrintOut(Tokenizer->Arena, "    else if(Back == 0)\n");
-    Win32PrintOut(Tokenizer->Arena, "    {\n");
-    Win32PrintOut(Tokenizer->Arena, "        Result = Front;\n");
-    Win32PrintOut(Tokenizer->Arena, "    }\n");
-    Win32PrintOut(Tokenizer->Arena, "    else\n");
-    Win32PrintOut(Tokenizer->Arena, "    {\n");
-    Win32PrintOut(Tokenizer->Arena, "        b32 PredicateResult = Predicate(Front, Back);\n");
-    Win32PrintOut(Tokenizer->Arena, "        if(SortType == Sort_Descending)\n");
-    Win32PrintOut(Tokenizer->Arena, "        {\n");
-    Win32PrintOut(Tokenizer->Arena, "            PredicateResult = !PredicateResult;\n");
-    Win32PrintOut(Tokenizer->Arena, "        }\n");
-    Win32PrintOut(Tokenizer->Arena, "        else\n");
-    Win32PrintOut(Tokenizer->Arena, "        {\n");
-    Win32PrintOut(Tokenizer->Arena, "            Assert(SortType == Sort_Ascending);\n");
-    Win32PrintOut(Tokenizer->Arena, "        }\n");
-    Win32PrintOut(Tokenizer->Arena, "        if(PredicateResult)\n");
-    Win32PrintOut(Tokenizer->Arena, "        {\n");
-    Win32PrintOut(Tokenizer->Arena, "            Result = Front;\n");
-    Win32PrintOut(Tokenizer->Arena, "            Result->Next = %SMergeSort_(Front->Next, Back, Predicate, SortType);\n", FunctionName);
-    Win32PrintOut(Tokenizer->Arena, "        }\n");
-    Win32PrintOut(Tokenizer->Arena, "        else\n");
-    Win32PrintOut(Tokenizer->Arena, "        {\n");
-    Win32PrintOut(Tokenizer->Arena, "            Result = Back;\n");
-    Win32PrintOut(Tokenizer->Arena, "            Back->Next = %SMergeSort_(Front, Back->Next, Predicate, SortType);\n", FunctionName);
-    Win32PrintOut(Tokenizer->Arena, "        }\n");
-    Win32PrintOut(Tokenizer->Arena, "    }\n\n");
-    Win32PrintOut(Tokenizer->Arena, "    return Result;\n");
-    Win32PrintOut(Tokenizer->Arena, "}\n");
+    Win32WriteOutput("\ninline %S *\n%SMergeSort_(%S *Front, %S *Back, %S_predicate *Predicate, sort_type SortType)\n", 
+                     Type, FunctionName, Type, Type, Type);
+    Win32WriteOutput("{\n");
+    Win32WriteOutput("    %S *Result = 0;\n", Type);
+    Win32WriteOutput("    if(Front == 0)\n");
+    Win32WriteOutput("    {\n");
+    Win32WriteOutput("        Result = Back;\n");
+    Win32WriteOutput("    }\n");
+    Win32WriteOutput("    else if(Back == 0)\n");
+    Win32WriteOutput("    {\n");
+    Win32WriteOutput("        Result = Front;\n");
+    Win32WriteOutput("    }\n");
+    Win32WriteOutput("    else\n");
+    Win32WriteOutput("    {\n");
+    Win32WriteOutput("        b32 PredicateResult = Predicate(Front, Back);\n");
+    Win32WriteOutput("        if(SortType == Sort_Descending)\n");
+    Win32WriteOutput("        {\n");
+    Win32WriteOutput("            PredicateResult = !PredicateResult;\n");
+    Win32WriteOutput("        }\n");
+    Win32WriteOutput("        else\n");
+    Win32WriteOutput("        {\n");
+    Win32WriteOutput("            Assert(SortType == Sort_Ascending);\n");
+    Win32WriteOutput("        }\n");
+    Win32WriteOutput("        if(PredicateResult)\n");
+    Win32WriteOutput("        {\n");
+    Win32WriteOutput("            Result = Front;\n");
+    Win32WriteOutput("            Result->Next = %SMergeSort_(Front->Next, Back, Predicate, SortType);\n", FunctionName);
+    Win32WriteOutput("        }\n");
+    Win32WriteOutput("        else\n");
+    Win32WriteOutput("        {\n");
+    Win32WriteOutput("            Result = Back;\n");
+    Win32WriteOutput("            Back->Next = %SMergeSort_(Front, Back->Next, Predicate, SortType);\n", FunctionName);
+    Win32WriteOutput("        }\n");
+    Win32WriteOutput("    }\n\n");
+    Win32WriteOutput("    return Result;\n");
+    Win32WriteOutput("}\n");
     
     
-    Win32PrintOut(Tokenizer->Arena, "\ninline void\n%SFrontBackSplit(%S *Head, %S **FrontRef, %S **BackRef)\n", FunctionName, Type, Type);
-    Win32PrintOut(Tokenizer->Arena, "{\n");
-    Win32PrintOut(Tokenizer->Arena, "    %S *Fast;\n", Type);
-    Win32PrintOut(Tokenizer->Arena, "    %S *Slow;\n", Type);
-    Win32PrintOut(Tokenizer->Arena, "    Slow = Head;\n");
-    Win32PrintOut(Tokenizer->Arena, "    Fast = Head->Next;\n\n");
-    Win32PrintOut(Tokenizer->Arena, "    while(Fast != 0)\n");
-    Win32PrintOut(Tokenizer->Arena, "    {\n");
-    Win32PrintOut(Tokenizer->Arena, "        Fast = Fast->Next;\n");
-    Win32PrintOut(Tokenizer->Arena, "        if(Fast != 0)\n");
-    Win32PrintOut(Tokenizer->Arena, "        {\n");
-    Win32PrintOut(Tokenizer->Arena, "            Slow = Slow->Next;\n");
-    Win32PrintOut(Tokenizer->Arena, "            Fast = Fast->Next;\n");
-    Win32PrintOut(Tokenizer->Arena, "        }\n");
-    Win32PrintOut(Tokenizer->Arena, "    }\n\n");
-    Win32PrintOut(Tokenizer->Arena, "    *FrontRef = Head;\n");
-    Win32PrintOut(Tokenizer->Arena, "    *BackRef = Slow->Next;\n");
-    Win32PrintOut(Tokenizer->Arena, "    Slow->Next = 0;\n");
-    Win32PrintOut(Tokenizer->Arena, "}\n");
+    Win32WriteOutput("\ninline void\n%SFrontBackSplit(%S *Head, %S **FrontRef, %S **BackRef)\n", FunctionName, Type, Type);
+    Win32WriteOutput("{\n");
+    Win32WriteOutput("    %S *Fast;\n", Type);
+    Win32WriteOutput("    %S *Slow;\n", Type);
+    Win32WriteOutput("    Slow = Head;\n");
+    Win32WriteOutput("    Fast = Head->Next;\n\n");
+    Win32WriteOutput("    while(Fast != 0)\n");
+    Win32WriteOutput("    {\n");
+    Win32WriteOutput("        Fast = Fast->Next;\n");
+    Win32WriteOutput("        if(Fast != 0)\n");
+    Win32WriteOutput("        {\n");
+    Win32WriteOutput("            Slow = Slow->Next;\n");
+    Win32WriteOutput("            Fast = Fast->Next;\n");
+    Win32WriteOutput("        }\n");
+    Win32WriteOutput("    }\n\n");
+    Win32WriteOutput("    *FrontRef = Head;\n");
+    Win32WriteOutput("    *BackRef = Slow->Next;\n");
+    Win32WriteOutput("    Slow->Next = 0;\n");
+    Win32WriteOutput("}\n");
     
     
-    Win32PrintOut(Tokenizer->Arena, "\ninline void\n%SMergeSort(%S **HeadRef, %S_predicate *Predicate, sort_type SortType)\n", FunctionName, Type, Type);
-    Win32PrintOut(Tokenizer->Arena, "{\n");
-    Win32PrintOut(Tokenizer->Arena, "    %S *Head = *HeadRef;\n\n", Type);
-    Win32PrintOut(Tokenizer->Arena, "    if((Head!= 0) &&\n");
-    Win32PrintOut(Tokenizer->Arena, "       (Head->Next != 0))\n");
-    Win32PrintOut(Tokenizer->Arena, "    {\n");
-    Win32PrintOut(Tokenizer->Arena, "        %S *Front;\n", Type);
-    Win32PrintOut(Tokenizer->Arena, "        %S *Back;\n", Type);
-    Win32PrintOut(Tokenizer->Arena, "        %SFrontBackSplit(Head, &Front, &Back);\n\n", FunctionName);
-    Win32PrintOut(Tokenizer->Arena, "        %SMergeSort(&Front, Predicate, SortType);\n", FunctionName);
-    Win32PrintOut(Tokenizer->Arena, "        %SMergeSort(&Back, Predicate, SortType);\n\n", FunctionName);
-    Win32PrintOut(Tokenizer->Arena, "        *HeadRef = %SMergeSort_(Front, Back, Predicate, SortType);\n", FunctionName);
-    Win32PrintOut(Tokenizer->Arena, "    }\n");
-    Win32PrintOut(Tokenizer->Arena, "}\n");
+    Win32WriteOutput("\ninline void\n%SMergeSort(%S **HeadRef, %S_predicate *Predicate, sort_type SortType)\n", FunctionName, Type, Type);
+    Win32WriteOutput("{\n");
+    Win32WriteOutput("    %S *Head = *HeadRef;\n\n", Type);
+    Win32WriteOutput("    if((Head!= 0) &&\n");
+    Win32WriteOutput("       (Head->Next != 0))\n");
+    Win32WriteOutput("    {\n");
+    Win32WriteOutput("        %S *Front;\n", Type);
+    Win32WriteOutput("        %S *Back;\n", Type);
+    Win32WriteOutput("        %SFrontBackSplit(Head, &Front, &Back);\n\n", FunctionName);
+    Win32WriteOutput("        %SMergeSort(&Front, Predicate, SortType);\n", FunctionName);
+    Win32WriteOutput("        %SMergeSort(&Back, Predicate, SortType);\n\n", FunctionName);
+    Win32WriteOutput("        *HeadRef = %SMergeSort_(Front, Back, Predicate, SortType);\n", FunctionName);
+    Win32WriteOutput("    }\n");
+    Win32WriteOutput("}\n");
     
     Token = GetNextCToken(Tokenizer);
     while(Token.Type != CToken_CloseBrace)
@@ -676,7 +637,8 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     c_token Token = GetNextCToken(Tokenizer);
     Assert(StringsAreEqual(String("typedef"), Token.Str));
     Token = GetNextCToken(Tokenizer);
-    string ReturnType = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+    u8 ReturnTypeBuffer[256];
+    string ReturnType = FormatStringToBuffer(ReturnTypeBuffer, sizeof(ReturnTypeBuffer), "%S", Token.Str);
     Token = GetNextCToken(Tokenizer);
     if(StringsAreEqual(Token.Str, String("WINAPI")))
     {
@@ -690,12 +652,15 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     }
     if(Token.Type == CToken_Asterisk)
     {
-        ReturnType = FormatString(Tokenizer->Arena, "%S *", ReturnType);
+        ReturnType = FormatStringToBuffer(ReturnTypeBuffer, sizeof(ReturnTypeBuffer), "%S *", ReturnType);
         Token = GetNextCToken(Tokenizer);
     }
-    string FunctionType = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
-    string FunctionName = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
-    string MethodName = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+    u8 FunctionTypeBuffer[256];
+    string FunctionType = FormatStringToBuffer(FunctionTypeBuffer, sizeof(FunctionTypeBuffer), "%S", Token.Str);
+    u8 FunctionNameBuffer[256];
+    string FunctionName = FormatStringToBuffer(FunctionNameBuffer, sizeof(FunctionNameBuffer), "%S", Token.Str);
+    u8 MethodNameBuffer[256];
+    string MethodName = FormatStringToBuffer(MethodNameBuffer, sizeof(MethodNameBuffer), "%S", Token.Str);
     if(TrimWsa)
     {
         FunctionName.Data += 4;
@@ -723,8 +688,8 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     
     Token = GetNextCToken(Tokenizer);
     Assert(Token.Type == CToken_OpenParen);
-    Win32PrintOut(Tokenizer->Arena, "\ninternal %S\n", ReturnType);
-    Win32PrintOut(Tokenizer->Arena, "Win32%S(", FunctionName);
+    Win32WriteOutput("\ninternal %S\n", ReturnType);
+    Win32WriteOutput("Win32%S(", FunctionName);
     Token = GetNextCToken(Tokenizer);
     b32 FirstParamFound = false;
     string ParametersWithoutTypes;
@@ -735,7 +700,8 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     }
     else
     {
-        format_string_state StringState = BeginFormatString(Tokenizer->Arena);
+        u8 Buffer[4096];
+        format_string_state StringState = BeginFormatStringToBuffer(Buffer);
         while(Token.Type != CToken_CloseParen)
         {
             if(Token.Type == CToken_Identifier)
@@ -776,60 +742,60 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
                 
                 if(FirstParamFound)
                 {
-                    Win32PrintOut(Tokenizer->Arena, ", ");
+                    Win32WriteOutput(", ");
                     AppendStringFormat(&StringState, ", ");
                 }
                 else
                 {
                     FirstParamFound = true;
                 }
-                Win32PrintOut(Tokenizer->Arena, "%s%s%S%s %s%S", 
-                              IsConst ? "const " : "",
-                              IsStruct ? "struct " : "",
-                              Type, 
-                              IsVolatile ? " volatile" : "", 
-                              IsPointer ? (IsPointerToPointer ? "**" : "*") : "", 
-                              Name);
+                Win32WriteOutput("%s%s%S%s %s%S", 
+                                 IsConst ? "const " : "",
+                                 IsStruct ? "struct " : "",
+                                 Type, 
+                                 IsVolatile ? " volatile" : "", 
+                                 IsPointer ? (IsPointerToPointer ? "**" : "*") : "", 
+                                 Name);
                 
                 AppendStringFormat(&StringState, "%S", Token.Str);
                 
             }
             Token = GetNextCToken(Tokenizer);
         }
-        ParametersWithoutTypes = EndFormatString(&StringState);
+        ParametersWithoutTypes = EndFormatStringToBuffer(&StringState, sizeof(Buffer));
     }
     
     b32 HasResult = !StringsAreEqual(String("void"), ReturnType);
     
-    Win32PrintOut(Tokenizer->Arena, ")\n{\n");
+    Win32WriteOutput(")\n{\n");
     if(HasResult)
     {
-        Win32PrintOut(Tokenizer->Arena, "    %S Result;\n\n", ReturnType);
+        Win32WriteOutput("    %S Result;\n\n", ReturnType);
     }
     if(!StringsAreEqual(Library, String("Kernel32")))
     {
-        Win32PrintOut(Tokenizer->Arena, "    if(!%S)\n", Library);
-        Win32PrintOut(Tokenizer->Arena, "    {\n");
-        Win32PrintOut(Tokenizer->Arena, "        %S = Win32LoadLibraryA(\"%S.dll\");\n", Library, Library);
-        Win32PrintOut(Tokenizer->Arena, "    }\n");
+        Win32WriteOutput("    if(!%S)\n", Library);
+        Win32WriteOutput("    {\n");
+        Win32WriteOutput("        %S = Win32LoadLibraryA(\"%S.dll\");\n", Library, Library);
+        Win32WriteOutput("    }\n");
     }
-    Win32PrintOut(Tokenizer->Arena, "    Assert(%S);\n", Library);
-    Win32PrintOut(Tokenizer->Arena, "    local_persist %S *Func = 0;\n", FunctionType);
-    Win32PrintOut(Tokenizer->Arena, "    if(Func == 0)\n");
-    Win32PrintOut(Tokenizer->Arena, "    {\n");
-    Win32PrintOut(Tokenizer->Arena, "         Func = (%S *)Win32GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, MethodName);
-    Win32PrintOut(Tokenizer->Arena, "    }\n");
-    Win32PrintOut(Tokenizer->Arena, "    Assert(Func);\n");
+    Win32WriteOutput("    Assert(%S);\n", Library);
+    Win32WriteOutput("    local_persist %S *Func = 0;\n", FunctionType);
+    Win32WriteOutput("    if(!Func);\n");
+    Win32WriteOutput("    {\n");
+    Win32WriteOutput("         Func = (%S *)Win32GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, MethodName);
+    Win32WriteOutput("    }\n");
+    Win32WriteOutput("    Assert(Func);\n");
     if(HasResult)
     {
-        Win32PrintOut(Tokenizer->Arena, "    Result = Func(%S);\n\n", ParametersWithoutTypes);
-        Win32PrintOut(Tokenizer->Arena, "    return Result;\n");
+        Win32WriteOutput("    Result = Func(%S);\n\n", ParametersWithoutTypes);
+        Win32WriteOutput("    return Result;\n");
     }
     else
     {
-        Win32PrintOut(Tokenizer->Arena, "    Func(%S);\n", ParametersWithoutTypes);
+        Win32WriteOutput("    Func(%S);\n", ParametersWithoutTypes);
     }
-    Win32PrintOut(Tokenizer->Arena, "}\n");
+    Win32WriteOutput("}\n");
 }
 
 internal void
@@ -840,69 +806,71 @@ GenerateRadixSort(c_tokenizer *Tokenizer, string SortKey)
     Token = GetNextCToken(Tokenizer);
     Assert(StringsAreEqual(String("struct"), Token.Str));
     Token = GetNextCToken(Tokenizer);
-    string Type = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
-    string FunctionName = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+    u8 TypeBuffer[256];
+    string Type = FormatStringToBuffer(TypeBuffer, sizeof(TypeBuffer), "%S", Token.Str);
+    u8 FunctionNameBuffer[256];
+    string FunctionName = FormatStringToBuffer(FunctionNameBuffer, sizeof(FunctionNameBuffer), "%S", Token.Str);
     ToUpperCamelCase(&FunctionName);
     
-    Win32PrintOut(Tokenizer->Arena, "\ninternal void\n%SRadixSort(u32 Count, %S *First, %S *Temp, sort_type SortType)\n", FunctionName, Type, Type);
-    Win32PrintOut(Tokenizer->Arena, "{\n");
-    Win32PrintOut(Tokenizer->Arena, "    %S *Source = First;\n", Type);
-    Win32PrintOut(Tokenizer->Arena, "    %S *Dest = Temp;\n", Type);
-    Win32PrintOut(Tokenizer->Arena, "    for(u32 ByteIndex = 0;\n");
-    Win32PrintOut(Tokenizer->Arena, "        ByteIndex < 32;\n");
-    Win32PrintOut(Tokenizer->Arena, "        ByteIndex += 8)\n");
-    Win32PrintOut(Tokenizer->Arena, "    {\n");
-    Win32PrintOut(Tokenizer->Arena, "        u32 SortKeyOffsets[256];\n");
-    Win32PrintOut(Tokenizer->Arena, "        ZeroArray(ArrayCount(SortKeyOffsets), SortKeyOffsets);\n\n");
-    Win32PrintOut(Tokenizer->Arena, "        for(u32 Index = 0;\n");
-    Win32PrintOut(Tokenizer->Arena, "            Index < Count;\n");
-    Win32PrintOut(Tokenizer->Arena, "            ++Index)\n");
-    Win32PrintOut(Tokenizer->Arena, "        {\n");
-    Win32PrintOut(Tokenizer->Arena, "            u32 RadixValue;\n");
-    Win32PrintOut(Tokenizer->Arena, "            if(SortType == Sort_Descending)\n");
-    Win32PrintOut(Tokenizer->Arena, "            {\n");
-    Win32PrintOut(Tokenizer->Arena, "                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
-    Win32PrintOut(Tokenizer->Arena, "            }\n");
-    Win32PrintOut(Tokenizer->Arena, "            else\n");
-    Win32PrintOut(Tokenizer->Arena, "            {\n");
-    Win32PrintOut(Tokenizer->Arena, "                Assert(SortType == Sort_Ascending);\n");
-    Win32PrintOut(Tokenizer->Arena, "                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
-    Win32PrintOut(Tokenizer->Arena, "            }\n");
-    Win32PrintOut(Tokenizer->Arena, "            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
-    Win32PrintOut(Tokenizer->Arena, "            ++SortKeyOffsets[RadixPiece];\n");
-    Win32PrintOut(Tokenizer->Arena, "        }\n\n");
-    Win32PrintOut(Tokenizer->Arena, "        u32 Total = 0;\n");
-    Win32PrintOut(Tokenizer->Arena, "        for(u32 SortKeyIndex = 0;\n");
-    Win32PrintOut(Tokenizer->Arena, "            SortKeyIndex < ArrayCount(SortKeyOffsets);\n");
-    Win32PrintOut(Tokenizer->Arena, "            ++SortKeyIndex)\n");
-    Win32PrintOut(Tokenizer->Arena, "        {\n");
-    Win32PrintOut(Tokenizer->Arena, "            u32 OffsetCount = SortKeyOffsets[SortKeyIndex];\n");
-    Win32PrintOut(Tokenizer->Arena, "            SortKeyOffsets[SortKeyIndex] = Total;\n");
-    Win32PrintOut(Tokenizer->Arena, "            Total += OffsetCount;\n");
-    Win32PrintOut(Tokenizer->Arena, "        }\n\n");
-    Win32PrintOut(Tokenizer->Arena, "        \n");
-    Win32PrintOut(Tokenizer->Arena, "        for(u32 Index = 0;\n");
-    Win32PrintOut(Tokenizer->Arena, "            Index < Count;\n");
-    Win32PrintOut(Tokenizer->Arena, "            ++Index)\n");
-    Win32PrintOut(Tokenizer->Arena, "        {\n");
-    Win32PrintOut(Tokenizer->Arena, "            u32 RadixValue;\n");
-    Win32PrintOut(Tokenizer->Arena, "            if(SortType == Sort_Descending)\n");
-    Win32PrintOut(Tokenizer->Arena, "            {\n");
-    Win32PrintOut(Tokenizer->Arena, "                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
-    Win32PrintOut(Tokenizer->Arena, "            }\n");
-    Win32PrintOut(Tokenizer->Arena, "            else\n");
-    Win32PrintOut(Tokenizer->Arena, "            {\n");
-    Win32PrintOut(Tokenizer->Arena, "                Assert(SortType == Sort_Ascending);\n");
-    Win32PrintOut(Tokenizer->Arena, "                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
-    Win32PrintOut(Tokenizer->Arena, "            }\n");
-    Win32PrintOut(Tokenizer->Arena, "            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
-    Win32PrintOut(Tokenizer->Arena, "            Dest[SortKeyOffsets[RadixPiece]++] = Source[Index];\n");
-    Win32PrintOut(Tokenizer->Arena, "        }\n\n");
-    Win32PrintOut(Tokenizer->Arena, "        %S *SwapTemp = Dest;\n", Type);
-    Win32PrintOut(Tokenizer->Arena, "        Dest = Source;\n");
-    Win32PrintOut(Tokenizer->Arena, "        Source = SwapTemp;\n");
-    Win32PrintOut(Tokenizer->Arena, "    }\n");
-    Win32PrintOut(Tokenizer->Arena, "}\n");
+    Win32WriteOutput("\ninternal void\n%SRadixSort(u32 Count, %S *First, %S *Temp, sort_type SortType)\n", FunctionName, Type, Type);
+    Win32WriteOutput("{\n");
+    Win32WriteOutput("    %S *Source = First;\n", Type);
+    Win32WriteOutput("    %S *Dest = Temp;\n", Type);
+    Win32WriteOutput("    for(u32 ByteIndex = 0;\n");
+    Win32WriteOutput("        ByteIndex < 32;\n");
+    Win32WriteOutput("        ByteIndex += 8)\n");
+    Win32WriteOutput("    {\n");
+    Win32WriteOutput("        u32 SortKeyOffsets[256];\n");
+    Win32WriteOutput("        ZeroArray(ArrayCount(SortKeyOffsets), SortKeyOffsets);\n\n");
+    Win32WriteOutput("        for(u32 Index = 0;\n");
+    Win32WriteOutput("            Index < Count;\n");
+    Win32WriteOutput("            ++Index)\n");
+    Win32WriteOutput("        {\n");
+    Win32WriteOutput("            u32 RadixValue;\n");
+    Win32WriteOutput("            if(SortType == Sort_Descending)\n");
+    Win32WriteOutput("            {\n");
+    Win32WriteOutput("                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
+    Win32WriteOutput("            }\n");
+    Win32WriteOutput("            else\n");
+    Win32WriteOutput("            {\n");
+    Win32WriteOutput("                Assert(SortType == Sort_Ascending);\n");
+    Win32WriteOutput("                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
+    Win32WriteOutput("            }\n");
+    Win32WriteOutput("            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
+    Win32WriteOutput("            ++SortKeyOffsets[RadixPiece];\n");
+    Win32WriteOutput("        }\n\n");
+    Win32WriteOutput("        u32 Total = 0;\n");
+    Win32WriteOutput("        for(u32 SortKeyIndex = 0;\n");
+    Win32WriteOutput("            SortKeyIndex < ArrayCount(SortKeyOffsets);\n");
+    Win32WriteOutput("            ++SortKeyIndex)\n");
+    Win32WriteOutput("        {\n");
+    Win32WriteOutput("            u32 OffsetCount = SortKeyOffsets[SortKeyIndex];\n");
+    Win32WriteOutput("            SortKeyOffsets[SortKeyIndex] = Total;\n");
+    Win32WriteOutput("            Total += OffsetCount;\n");
+    Win32WriteOutput("        }\n\n");
+    Win32WriteOutput("        \n");
+    Win32WriteOutput("        for(u32 Index = 0;\n");
+    Win32WriteOutput("            Index < Count;\n");
+    Win32WriteOutput("            ++Index)\n");
+    Win32WriteOutput("        {\n");
+    Win32WriteOutput("            u32 RadixValue;\n");
+    Win32WriteOutput("            if(SortType == Sort_Descending)\n");
+    Win32WriteOutput("            {\n");
+    Win32WriteOutput("                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
+    Win32WriteOutput("            }\n");
+    Win32WriteOutput("            else\n");
+    Win32WriteOutput("            {\n");
+    Win32WriteOutput("                Assert(SortType == Sort_Ascending);\n");
+    Win32WriteOutput("                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
+    Win32WriteOutput("            }\n");
+    Win32WriteOutput("            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
+    Win32WriteOutput("            Dest[SortKeyOffsets[RadixPiece]++] = Source[Index];\n");
+    Win32WriteOutput("        }\n\n");
+    Win32WriteOutput("        %S *SwapTemp = Dest;\n", Type);
+    Win32WriteOutput("        Dest = Source;\n");
+    Win32WriteOutput("        Source = SwapTemp;\n");
+    Win32WriteOutput("    }\n");
+    Win32WriteOutput("}\n");
     
     Token = GetNextCToken(Tokenizer);
     while(Token.Type != CToken_CloseBrace)
@@ -924,8 +892,10 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
         b32 IsWin32 = false;
         b32 IsLinkedList = false;
         b32 IsRadix = false;
+        u8 ParameterBuffer[256];
         string Parameter;
         ZeroStruct(Parameter);
+        u8 Parameter2Buffer[256];
         string Parameter2;
         ZeroStruct(Parameter2);
         
@@ -966,11 +936,11 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
                 {
                     if(!Parameter.Data)
                     {
-                        Parameter = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+                        Parameter = FormatStringToBuffer(ParameterBuffer, sizeof(ParameterBuffer), "%S", Token.Str);
                     }
                     else
                     {
-                        Parameter2 = PushString_(Tokenizer->Arena, Token.Str.Size, Token.Str.Data);
+                        Parameter2 = FormatStringToBuffer(Parameter2Buffer, sizeof(Parameter2Buffer), "%S", Token.Str);
                     }
                 }
             }
@@ -1043,10 +1013,9 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
 }
 
 internal void
-ParseIntrospectable(memory_arena *Arena, string File)
+ParseIntrospectable(string File)
 {
     c_tokenizer Tokenizer;
-    Tokenizer.Arena = Arena;
     Tokenizer.At = (char *)File.Data;
     
     b32 Parsing = true;
@@ -1082,19 +1051,9 @@ mainCRTStartup()
     Kernel32 = FindModuleBase(_ReturnAddress());
     Assert(Kernel32);
     
-#if KENGINE_INTERNAL
-    void *BaseAddress = (void *)Terabytes(2);
-#else
-    void *BaseAddress = 0;
-#endif
-    
-    u64 MemoryBlockSize = Megabytes(16);
-    void *MemoryBlock = Win32VirtualAlloc(BaseAddress, MemoryBlockSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-    Assert(MemoryBlock);
-    
     memory_arena Arena_;
+    ZeroStruct(Arena_);
     memory_arena *Arena = &Arena_;
-    InitializeArena(Arena, MemoryBlockSize, MemoryBlock);
     
     char *CommandLingArgs = Win32GetCommandLineA();
     Assert(CommandLingArgs);
@@ -1126,11 +1085,39 @@ mainCRTStartup()
                 Copy(FileNameLength, FileName, FilePath);
                 FilePath[FileNameLength] = '\0';
                 
-                string SourceFile = Win32ReadEntireFile(Arena, FilePath);
+                string SourceFile;
+                ZeroStruct(SourceFile);
+                
+                HANDLE FileHandle = Win32CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+                Assert(FileHandle != INVALID_HANDLE_VALUE);
+                
+                if(FileHandle != INVALID_HANDLE_VALUE)
+                {
+                    LARGE_INTEGER FileSize;
+                    b32 ReadResult = Win32GetFileSizeEx(FileHandle, &FileSize);
+                    Assert(ReadResult);
+                    if(ReadResult)
+                    {    
+                        SourceFile.Size = FileSize.QuadPart;
+                        SourceFile.Data = Win32VirtualAlloc(0, SourceFile.Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+                        Assert(SourceFile.Data);
+                        
+                        if(SourceFile.Data)
+                        {
+                            u32 BytesRead;
+                            ReadResult = Win32ReadFile(FileHandle, SourceFile.Data, (u32)SourceFile.Size, (LPDWORD)&BytesRead, 0);
+                            Assert(ReadResult);
+                            Assert(BytesRead == SourceFile.Size);
+                        }
+                    }
+                    
+                    Win32CloseHandle(FileHandle);
+                }
+                
                 Assert(SourceFile.Data);
                 if(SourceFile.Data)
                 {
-                    ParseIntrospectable(Arena, SourceFile);
+                    ParseIntrospectable(SourceFile);
                 }
             }
             else

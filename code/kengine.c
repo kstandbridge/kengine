@@ -29,7 +29,7 @@ typedef struct colors
 } colors;
 
 #if KENGINE_INTERNAL
-global platform_api *Platform;
+platform_api Platform;
 global debug_event_table *GlobalDebugEventTable;
 #endif
 
@@ -45,27 +45,27 @@ global debug_event_table *GlobalDebugEventTable;
 
 
 extern void
-AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_arena *Arena, app_input *Input)
+AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Arena, app_input *Input)
 {
 #if KENGINE_INTERNAL
-    Platform = PlatformAPI;
-    GlobalDebugEventTable = Platform->DebugEventTable;
+    Platform = Memory->PlatformAPI;
+    GlobalDebugEventTable = Memory->DebugEventTable;
 #endif
     
-    if(!Platform->AppState)
+    if(!Memory->AppState)
     {
-        Platform->AppState = PushStruct(Arena, app_state);
+        Memory->AppState = PushStruct(Arena, app_state);
+        GlobalDebugEventTable->Settings.ShowDebugTab = true;
     }
     
-    if(!Platform->UIState)
+    if(!Memory->UIState)
     {
-        Platform->UIState = PushStruct(Arena, ui_state);
-        Platform->UIState->PermArena = Arena;
-        SubArena(&Platform->UIState->TranArena, Arena, Kilobytes(1024));
+        Memory->UIState = PushStruct(Arena, ui_state);
+        Memory->UIState->PermArena = Arena;
         
         // NOTE(kstandbridge): GetVerticleAdvance will return 0 if no glyphs have been loaded
-        Platform->GetGlyphForCodePoint(Arena, 'K');
-        Platform->UIState->LineAdvance = Platform->GetVerticleAdvance();
+        Platform.GetGlyphForCodePoint(Arena, 'K');
+        Memory->UIState->LineAdvance = Platform.GetVerticleAdvance();
     }
     
     if(Input->dtForFrame > 0.1f)
@@ -77,7 +77,9 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
         Input->dtForFrame = 0.001f;
     }
     
-    ui_state *UIState = Platform->UIState;
+    app_state *AppState = Memory->AppState;
+    ui_state *UIState = Memory->UIState;
+    debug_state *DebugState = Memory->DebugState;
     
     colors Colors;
     Colors.Clear = RGBColor(240, 240, 240, 255);
@@ -147,29 +149,18 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     
     temporary_memory TempMem = BeginTemporaryMemory(&UIState->TranArena);
     
+    rectangle2 Bounds = Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height));
 #if KENGINE_INTERNAL
     DEBUG_IF(ShowDebugTab)
     {
-        ui_grid SplitPanel = BeginSplitPanelGrid(UIState, RenderGroup, TempMem.Arena, 
-                                                 Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)), 
-                                                 Input, SplitPanel_Verticle);
-        {
-            BEGIN_BLOCK("DrawAppGrid");
-            DrawAppGrid(Platform->AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&SplitPanel, 0, 0));
-            END_BLOCK();
-            
-            BEGIN_BLOCK("DrawDebugGrid");
-            DrawDebugGrid(Platform->DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, GetCellBounds(&SplitPanel, 0, 1));
-            END_BLOCK();
-        }
-        EndGrid(&SplitPanel);
+        DrawDebugGrid(DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Bounds);
     }
     else
     {
-        DrawAppGrid(Platform->AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)));
+        DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Bounds);
     }
 #else
-    DrawAppGrid(Platform->AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height)));
+    DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Bounds);
 #endif
     
     Interact(UIState, Input);
@@ -187,4 +178,5 @@ AppUpdateFrame(platform_api *PlatformAPI, render_commands *Commands, memory_aren
     EndTemporaryMemory(TempMem);
     CheckArena(&UIState->TranArena);
     CheckArena(Arena);
+    
 }

@@ -1,4 +1,131 @@
 
+typedef struct win32_memory_block
+{
+    platform_memory_block PlatformBlock;
+    struct win32_memory_block *Prev;
+    struct win32_memory_block *Next;
+    u64 Padding;
+} win32_memory_block;
+
+typedef struct win32_state
+{
+    ticket_mutex MemoryMutex;
+    win32_memory_block MemorySentinel;
+    
+    b32 IsRunning;
+    HWND Window;
+    
+    memory_arena Arena;
+    
+    s64 PerfCountFrequency;
+    
+#if KENGINE_INTERNAL    
+    char ExeFilePath[MAX_PATH];
+    char DllFullFilePath[MAX_PATH];
+    char TempDllFullFilePath[MAX_PATH];
+    char LockFullFilePath[MAX_PATH];
+    FILETIME LastDLLWriteTime;
+    HMODULE AppLibrary;
+    app_update_frame *AppUpdateFrame;
+    debug_update_frame *DebugUpdateFrame;
+#endif
+    
+} win32_state;
+
+global win32_state GlobalWin32State;
+
+platform_api Platform;
+
+internal platform_memory_block *
+Win32AllocateMemory(umm Size, u64 Flags)
+{
+    // NOTE(kstandbridge): Cache align
+    Assert(sizeof(win32_memory_block) == 64);
+    
+    // NOTE(kstandbridge): Raymond Chen on page sizes: https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200
+    umm PageSize = Kilobytes(4);
+    umm TotalSize = Size + sizeof(win32_memory_block);
+    umm BaseOffset = sizeof(win32_memory_block);
+    umm ProtectOffset = 0;
+    if(Flags & PlatformMemoryBlockFlag_UnderflowCheck)
+    {
+        TotalSize = Size + 2*PageSize;
+        BaseOffset = 2*PageSize;
+        ProtectOffset = PageSize;
+    }
+    else if(Flags & PlatformMemoryBlockFlag_OverflowCheck)
+    {
+        umm SizeRoundedUp = AlignPow2(Size, PageSize);
+        TotalSize = SizeRoundedUp + 2*PageSize;
+        BaseOffset = PageSize + SizeRoundedUp - Size;
+        ProtectOffset = PageSize + SizeRoundedUp;
+    }
+    
+    win32_memory_block *Win32Block = (win32_memory_block *)Win32VirtualAlloc(0, TotalSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    Assert(Win32Block);
+    Win32Block->PlatformBlock.Base = (u8 *)Win32Block + BaseOffset;
+    Assert(Win32Block->PlatformBlock.Used == 0);
+    Assert(Win32Block->PlatformBlock.Prev == 0);
+    
+    if(Flags & (PlatformMemoryBlockFlag_UnderflowCheck|PlatformMemoryBlockFlag_OverflowCheck))
+    {
+        DWORD OldProtect = 0;
+        b32 IsProtected = Win32VirtualProtect((u8 *)Win32Block + ProtectOffset, PageSize, PAGE_NOACCESS, &OldProtect);
+        Assert(IsProtected);
+    }
+    
+    win32_memory_block *Sentinel = &GlobalWin32State.MemorySentinel;
+    Win32Block->Next = Sentinel;
+    Win32Block->PlatformBlock.Size = Size;
+    Win32Block->PlatformBlock.Flags = Flags;
+    
+    BeginTicketMutex(&GlobalWin32State.MemoryMutex);
+    Win32Block->Prev = Sentinel->Prev;
+    Win32Block->Prev->Next = Win32Block;
+    Win32Block->Next->Prev = Win32Block;
+    EndTicketMutex(&GlobalWin32State.MemoryMutex);
+    
+    platform_memory_block *Result = &Win32Block->PlatformBlock;
+    return Result;
+}
+
+internal void
+Win32DeallocateMemory(platform_memory_block *Block)
+{
+    win32_memory_block *Win32Block = (win32_memory_block *)Block;
+    
+    BeginTicketMutex(&GlobalWin32State.MemoryMutex);
+    Win32Block->Prev->Next = Win32Block->Next;
+    Win32Block->Next->Prev = Win32Block->Prev;
+    EndTicketMutex(&GlobalWin32State.MemoryMutex);
+    
+    b32 IsFreed = Win32VirtualFree(Win32Block, 0, MEM_RELEASE);
+    Assert(IsFreed);
+}
+
+internal platform_memory_stats
+Win32GetMemoryStats()
+{
+    platform_memory_stats Result;
+    ZeroStruct(Result);
+    
+    BeginTicketMutex(&GlobalWin32State.MemoryMutex);
+    win32_memory_block *Sentinel = &GlobalWin32State.MemorySentinel;
+    for(win32_memory_block *Win32Block = Sentinel->Next;
+        Win32Block != Sentinel;
+        Win32Block = Win32Block->Next)
+    {
+        Assert(Win32Block->PlatformBlock.Size <= U32Max);
+        
+        ++Result.BlockCount;
+        Result.TotalSize += Win32Block->PlatformBlock.Size;
+        Result.TotalUsed += Win32Block->PlatformBlock.Used;
+    }
+    EndTicketMutex(&GlobalWin32State.MemoryMutex);
+    
+    return Result;
+}
+
 internal b32
 Win32DirectoryExists(string Path)
 {
@@ -33,7 +160,6 @@ Win32FileExists(string Path)
 internal b32
 Win32ConsoleOut_(string Text)
 {
-    // TODO(kstandbridge): is this thread safe? do we have to lock std out?
     u32 Result = 0;
     
     HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);
@@ -45,19 +171,18 @@ Win32ConsoleOut_(string Text)
     return Result;
 }
 
+
 internal b32
-Win32ConsoleOut(char *Format, ...)
+Win32ConsoleOut(memory_arena *Arena, char *Format, ...)
 {
-    u8 Buffer[4096];
-    umm BufferSize = sizeof(Buffer);
-    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
+    format_string_state StringState = BeginFormatString(Arena);
     
     va_list ArgList;
     va_start(ArgList, Format);
     AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
     
-    string Text = EndFormatStringToBuffer(&StringState, BufferSize);
+    string Text = EndFormatString(&StringState);
     
     b32 Result = Win32ConsoleOut_(Text);
     return Result;
@@ -847,7 +972,6 @@ Win32SslSocketConnect(string Hostname, string Port, CredHandle *SSPICredHandle, 
         Assert(!"Hostname look up failed");
     }
     
-    // TODO(kstandbridge): Can I FreeAddress here or does it break the socket?
     Win32FreeAddrInfo(AddressInfos);
     
     return Result;
@@ -933,8 +1057,7 @@ Win32GetTimestamp(s16 Year, s16 Month, s16 Day, s16 Hour, s16 Minute, s16 Second
 typedef enum iterate_processes_by_name_op
 {
     IterateProcessesByName_None,
-    IterateProcessesByName_Terminate,
-    IterateProcessesByName_CloseRequest
+    IterateProcessesByName_Terminate
 } iterate_processes_by_name_op;
 
 internal b32
@@ -956,30 +1079,16 @@ Win32IterateProcessesByName_(string FileName, iterate_processes_by_name_op Op)
             if(Process != 0)
             {
                 Result = true;
-                if(Op == IterateProcessesByName_CloseRequest)
-                {
-                    u8 CPipe[MAX_PATH];
-                    string Pipe = FormatStringToBuffer(CPipe, sizeof(CPipe),  "\\\\.\\pipe\\close-request-pipe-%d", Entry.th32ProcessID);
-                    CPipe[Pipe.Size] = '\0';
-                    HANDLE PipeHandle = Win32CreateFileA((char *)CPipe, 0, 0, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
-                    
-                    // NOTE(kstandbridge): Give it 3 seconds to close
-                    Win32Sleep(3000); 
-                    Win32CloseHandle(PipeHandle);
-                    
-                    // NOTE(kstandbridge): Kill it anyway
+                if(Op == IterateProcessesByName_Terminate)
+                {                    
                     Win32TerminateProcess(Process, 0);
-                }
-                else if(Op == IterateProcessesByName_Terminate)
-                {
-                    Win32TerminateProcess(Process, 0);
+                    Win32CloseHandle(Process);
                 }
                 else
                 {
                     Assert(Op == IterateProcessesByName_None);
-                    break;
                 }
-                Win32CloseHandle(Process);
+                break;
             }
             else
             {
@@ -990,13 +1099,6 @@ Win32IterateProcessesByName_(string FileName, iterate_processes_by_name_op Op)
     }
     Win32CloseHandle(Snapshot);
     
-    return Result;
-}
-
-internal b32
-Win32CloseRequestProcessByName(string FileName)
-{
-    b32 Result = Win32IterateProcessesByName_(FileName, IterateProcessesByName_CloseRequest);
     return Result;
 }
 
@@ -1209,23 +1311,6 @@ Win32WriteTextToFile(string Text, string FilePath)
 {
     char CFilePath[MAX_PATH];
     StringToCString(FilePath, MAX_PATH, CFilePath);
-    
-    for(u32 Index = FilePath.Size;
-        Index > 0;
-        --Index)
-    {
-        if(FilePath.Data[Index] == '\\')
-        {
-            FilePath.Size = Index;
-            break;
-        }
-    }
-    
-    if(!Win32DirectoryExists(FilePath))
-    {
-        Win32CreateDirectory(FilePath);
-    }
-    
     HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
     
     DWORD BytesWritten = 0;
@@ -1311,6 +1396,20 @@ Win32ZipFolder(string SourceFolderPath, string DestPath)
     Win32CoUninitialize();
 }
 
+global HINTERNET GlobalWebSession;
+inline void
+WebSessionInit()
+{
+    if(GlobalWebSession == 0)
+    {
+        GlobalWebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
+        
+        // TODO(kstandbridge): Win32InternetCloseHandle(WebConnect);
+        // But not really, because this will be closed automatically when the application closes
+    }
+    
+}
+
 inline umm
 Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
 {
@@ -1319,7 +1418,7 @@ Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
     DWORD CurrentBytesRead;
     do
     {
-        if (Win32InternetReadFile(FileHandle, Buffer + Result, 4096, &CurrentBytesRead))
+        if (Win32InternetReadFile(FileHandle, Buffer + Result, BufferMaxSize - Result, &CurrentBytesRead))
         {
             if (CurrentBytesRead == 0)
             {
@@ -1332,9 +1431,6 @@ Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
             DWORD LastError = Win32GetLastError();
             if (LastError != ERROR_INSUFFICIENT_BUFFER)
             {
-                DWORD ResponseError = 0;
-                Result = BufferMaxSize;
-                Win32InternetGetLastResponseInfoA(&ResponseError, (char *)Buffer, (DWORD *)&Result);
                 Assert(!"Read error");
             }
             else
@@ -1350,12 +1446,12 @@ Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
 }
 
 internal umm
-Win32SendInternetRequest(string Host, u32 Port, string Endpoint, char *Verb, string Payload, u8 *ResponseBuffer, umm ResponseBufferMaxSize,
-                         char *Headers, char *Username, char *Password)
+Win32SendInternetData(string Host, string Endpoint, char *Verb, string Payload, u8 *ResponseBuffer, umm ResponseBufferMaxSize,
+                      char *Username, char *Password)
 {
     umm Result = 0;
     
-    HINTERNET WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
+    WebSessionInit();
     
     char CHost_[2048];
     StringToCString(Host, sizeof(CHost_), CHost_);
@@ -1363,60 +1459,40 @@ Win32SendInternetRequest(string Host, u32 Port, string Endpoint, char *Verb, str
     char CEndpoint[2048];
     StringToCString(Endpoint, sizeof(CEndpoint), CEndpoint);
     
-    INTERNET_PORT InternetPort = 0;
-    if(Port == 0)
-    {
-        InternetPort = INTERNET_DEFAULT_HTTP_PORT;
-    }
+    INTERNET_PORT Port = INTERNET_DEFAULT_HTTP_PORT;
     DWORD Flags = 0;
     
     char *CHost = CHost_;
     if(StringBeginsWith(String("https"), Host))
     {
         CHost += 8;
-        if(Port == 0)
-        {
-            Port = INTERNET_DEFAULT_HTTPS_PORT;
-        }
+        Port = INTERNET_DEFAULT_HTTPS_PORT;
         Flags = INTERNET_FLAG_SECURE;
     }
     else if(StringBeginsWith(String("http"), Host))
     {
-        CHost += 7;
+        CHost += 6;
     }
     
-    HINTERNET WebConnect = Win32InternetConnectA(WebSession, CHost, Port, Username, Password,
+    HINTERNET WebConnect = Win32InternetConnectA(GlobalWebSession, CHost, Port, Username, Password,
                                                  INTERNET_SERVICE_HTTP, 0, 0);
     if(WebConnect)
     {
         HINTERNET WebRequest = Win32HttpOpenRequestA(WebConnect, Verb, CEndpoint, 0, 0, 0, Flags, 0);
-        
-        if(Headers)
-        {
-            Win32HttpAddRequestHeadersA(WebRequest, Headers, (DWORD) -1, HTTP_ADDREQ_FLAG_ADD);
-        }
-        
-        
         if(Win32HttpSendRequestA(WebRequest, 0, 0, Payload.Data, Payload.Size))
         {
-            
-#if KENGINE_INTERNAL
-            DWORD Status = 404;
-            DWORD StatusSize = sizeof(StatusSize);
-            Win32HttpQueryInfoA(WebRequest, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&Status, &StatusSize, 0);
-#endif
-            
             if(ResponseBuffer)
             {
                 Result = Win32ReadInternetResponse(WebRequest, ResponseBuffer, ResponseBufferMaxSize);
             }
+            
+            Win32HttpEndRequestA(WebRequest, 0, 0, 0);
         }
         else
         {
             Assert(!"Unable to send request");
         }
         
-        Win32HttpEndRequestA(WebRequest, 0, 0, 0);
         Win32InternetCloseHandle(WebConnect);
     }
     else
@@ -1424,22 +1500,20 @@ Win32SendInternetRequest(string Host, u32 Port, string Endpoint, char *Verb, str
         Assert(!"Unable to connect");
     }
     
-    Win32InternetCloseHandle(WebSession);
-    
     return Result;
 }
 
 internal umm
-Win32GetInternetDataToBuffer(u8 *Buffer, umm BufferMaxSize, string Url)
+Win32GetInternetData(u8 *Buffer, umm BufferMaxSize, string Url)
 {
     umm Result = 0;
     
-    HINTERNET WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
+    WebSessionInit();
     
     char CUrl[2048];
     StringToCString(Url, sizeof(CUrl), CUrl);
     
-    HINTERNET WebAddress = Win32InternetOpenUrlA(WebSession, CUrl, 0, 0, 0, 0);
+    HINTERNET WebAddress = Win32InternetOpenUrlA(GlobalWebSession, CUrl, 0, 0, 0, 0);
     
     if (WebAddress)
     {
@@ -1452,26 +1526,12 @@ Win32GetInternetDataToBuffer(u8 *Buffer, umm BufferMaxSize, string Url)
         Assert(!"Failed to open Url");
     }
     
-    Win32InternetCloseHandle(WebSession);
     
-    return Result;
-}
-
-internal string
-Win32GetInternetData(memory_arena *Arena, string Url)
-{
-    u8 *Buffer = BeginPushSize(Arena);
-    umm MaxBufferSize = (Arena->Size - Arena->Used);
-    Assert(MaxBufferSize > 0);
-    umm BufferSize = Win32GetInternetDataToBuffer(Buffer, MaxBufferSize, Url);
-    EndPushSize(Arena, BufferSize);
-    
-    string Result = String_(BufferSize, Buffer);
     return Result;
 }
 
 internal umm
-Win32UploadFileToInternet(string Host, string Endpoint, char *Verb, string File, u8 *ResponseBuffer, umm ResponseBuferMaxSize, 
+Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, char *Verb, string File, u8 *ResponseBuffer, umm ResponseBuferMaxSize, 
                           char *Username, char *Password)
 {
     umm Result = 0;
@@ -1486,7 +1546,7 @@ Win32UploadFileToInternet(string Host, string Endpoint, char *Verb, string File,
         Win32GetFileSizeEx(FileHandle, &LFileSize);
         umm FileSize = LFileSize.QuadPart;
         
-        HINTERNET WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
+        WebSessionInit();
         
         char CHost_[2048];
         StringToCString(Host, sizeof(CHost_), CHost_);
@@ -1509,7 +1569,7 @@ Win32UploadFileToInternet(string Host, string Endpoint, char *Verb, string File,
             CHost += 6;
         }
         
-        HINTERNET WebConnect = Win32InternetConnectA(WebSession, CHost, Port, Username, Password,
+        HINTERNET WebConnect = Win32InternetConnectA(GlobalWebSession, CHost, Port, Username, Password,
                                                      INTERNET_SERVICE_HTTP, 0, 0);
         if(WebConnect)
         {
@@ -1530,12 +1590,10 @@ Win32UploadFileToInternet(string Host, string Endpoint, char *Verb, string File,
                     }
                 }
                 
-                u8 Buffer[1024];
-                umm BufferSize = sizeof(Buffer);
-                string Header = FormatStringToBuffer(Buffer, BufferSize, "Content-Length: %u\r\n", FileSize);
-                char CHeader[256];
-                StringToCString(Header, 256, CHeader);
-                Win32HttpAddRequestHeadersA(WebRequest, CHeader, 
+                u8 HeaderBuffer[256];
+                string Header = FormatStringToBuffer(HeaderBuffer, sizeof(HeaderBuffer), "Content-Length: %u\r\n", FileSize);
+                HeaderBuffer[Header.Size] = '\0';
+                Win32HttpAddRequestHeadersA(WebRequest, (char *)HeaderBuffer, 
                                             (DWORD)-1, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE);
                 
                 if(Win32HttpSendRequestExA(WebRequest, 0, 0, HSR_INITIATE, 0))
@@ -1543,6 +1601,8 @@ Win32UploadFileToInternet(string Host, string Endpoint, char *Verb, string File,
                     umm Offset = 0;
                     OVERLAPPED Overlapped;
                     ZeroStruct(Overlapped);
+                    u8 Buffer[1024];
+                    umm BufferSize = 1024;
                     do
                     {
                         Overlapped.Offset = (u32)((Offset >> 0) & 0xFFFFFFFF);
@@ -1586,7 +1646,6 @@ Win32UploadFileToInternet(string Host, string Endpoint, char *Verb, string File,
             }
         }
         Win32InternetCloseHandle(WebConnect);
-        Win32InternetCloseHandle(WebSession);
         Win32CloseHandle(FileHandle);
     }
     else
@@ -1635,57 +1694,3 @@ Win32ReadEntireFile(memory_arena *Arena, string FilePath)
     return Result;
 }
 
-internal u64
-Win32GetSystemTimeStamp()
-{
-    u64 Result;
-    
-    SYSTEMTIME SystemTime;
-    Win32GetSystemTime(&SystemTime);
-    
-    FILETIME FileTime;
-    Win32SystemTimeToFileTime(&SystemTime, &FileTime);
-    
-    ULARGE_INTEGER ULargeInteger;
-    ULargeInteger.LowPart = FileTime.dwLowDateTime;
-    ULargeInteger.HighPart = FileTime.dwHighDateTime;
-    
-    Result = ULargeInteger.QuadPart;
-    
-    return Result;
-}
-
-internal date_time
-Win32GetDateTimeForTimeStamp(u64 TimeStamp)
-{
-    date_time Result;
-    
-    ULARGE_INTEGER ULargeInteger;
-    ULargeInteger.QuadPart = TimeStamp;
-    
-    FILETIME FileTime;
-    FileTime.dwLowDateTime = ULargeInteger.LowPart;
-    FileTime.dwHighDateTime = ULargeInteger.HighPart;
-    
-    SYSTEMTIME SystemTime;
-    Win32FileTimeToSystemTime(&FileTime, &SystemTime);
-    
-    Result.Year = SystemTime.wYear;
-    Result.Month = (u8)SystemTime.wMonth;
-    Result.Day = (u8)SystemTime.wDay;
-    Result.Hour = (u8)SystemTime.wHour;
-    Result.Minute = (u8)SystemTime.wMinute;
-    Result.Second = (u8)SystemTime.wSecond;
-    Result.Milliseconds = SystemTime.wMilliseconds;
-    
-    return Result;
-}
-
-internal date_time
-Win32GetDateTime()
-{
-    u64 TimeStamp = Win32GetSystemTimeStamp();
-    date_time Result = Win32GetDateTimeForTimeStamp(TimeStamp);
-    
-    return Result;
-}

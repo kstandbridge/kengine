@@ -204,7 +204,6 @@ Win32InitOpenGL(HDC WindowDC)
             // NOTE(kstandbridge): Vsync off as will Sleep
             wglSwapIntervalEXT(0);
         }
-        HardwareRendering = true;
     }
     
     return OpenGLRC;

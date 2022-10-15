@@ -1,6 +1,7 @@
 #ifndef KENGINE_H
 
 #include "kengine_platform.h"
+#include "kengine_memory.h"
 #if KENGINE_INTERNAL
 #include "kengine_generated.h"
 #endif

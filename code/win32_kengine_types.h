@@ -36,6 +36,11 @@ introspect(win32, Kernel32) typedef BOOL release_semaphore(HANDLE hSemaphore, LO
 introspect(win32, Kernel32) typedef BOOL write_file(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped);
 introspect(win32, Kernel32) typedef LPVOID virtual_alloc(LPVOID lpAddress, SIZE_T dwSize, DWORD flAllocationType, DWORD flProtect);
 introspect(win32, Kernel32) typedef BOOL virtual_free(LPVOID lpAddress, SIZE_T dwSize, DWORD dwFreeType);
+introspect(win32, Kernel32) typedef BOOL virtual_protect(LPVOID lpAddress,
+                                                         SIZE_T dwSize,
+                                                         DWORD  flNewProtect,
+                                                         PDWORD lpflOldProtect);
+
 introspect(win32, Kernel32) typedef DWORD wait_for_single_object_ex(HANDLE hHandle, DWORD dwMilliseconds, BOOL bAlertable);
 introspect(win32, Kernel32) typedef HMODULE get_module_handle_a(LPCSTR lpModuleName);
 introspect(win32, Kernel32) typedef int mul_div(int nNumber, int nNumerator, int nDenominator);

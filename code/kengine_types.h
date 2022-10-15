@@ -45,9 +45,102 @@ typedef unsigned __int64 umm;
 #define Minimum(A, B) ((A < B) ? (A) : (B))
 #define Maximum(A, B) ((A > B) ? (A) : (B))
 
-#define MAX_URL 2048
+#define AlignPow2(Value, Alignment) (((Value) + ((Alignment) - 1)) & ~(((Value) - (Value)) + (Alignment) - 1))
+#define IsPow2(Value) ((Value & ~(Value - 1)) == Value)
 
-typedef struct
+#if KENGINE_SLOW
+#define Assert(Expression) if(!(Expression)) {__debugbreak();}
+#else
+#define Assert(...)
+#endif
+
+#define InvalidCodePath Assert(!"InvalidCodePath")
+#define InvalidDefaultCase default: {InvalidCodePath;} break
+
+#define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+
+#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
+#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
+inline u32 
+AtomicCompareExchangeU32(u32 volatile *Value, u32 New, u32 Expected)
+{
+    u32 Result = _InterlockedCompareExchange((long volatile *)Value, New, Expected);
+    
+    return Result;
+}
+
+inline u32
+AtomicIncrementU32(u32 volatile *Value)
+{
+    u32 Result = _InterlockedIncrement((long volatile *)Value);
+    
+    return Result;
+}
+
+inline u32 
+AtomicExchange(u32 volatile *Value, u32 New)
+{
+    u32 Result = (u32)_InterlockedExchange((long volatile *)Value, New);
+    
+    return Result;
+}
+
+inline u64 
+AtomicExchangeU64(u64 volatile *Value, u64 New)
+{
+    u64 Result = (u64)_InterlockedExchange64((__int64 volatile *)Value, New);
+    
+    return Result;
+}
+
+inline u32 
+AtomicAddU32(u32 volatile *Value, u32 Addend)
+{
+    u32 Result = (u32)_InterlockedExchangeAdd((long volatile *)Value, Addend);
+    
+    return Result;
+}    
+
+inline u64 
+AtomicAddU64(u64 volatile *Value, u64 Addend)
+{
+    u64 Result = _InterlockedExchangeAdd64((__int64 volatile *)Value, Addend);
+    
+    return Result;
+}    
+
+inline u32 
+GetThreadID()
+{
+    u8 *ThreadLocalStorage = (u8 *)__readgsqword(0x30);
+    u32 ThreadID = *(u32 *)(ThreadLocalStorage + 0x48);
+    
+    return ThreadID;
+}
+
+typedef struct ticket_mutex
+{
+    u64 volatile Ticket;
+    u64 volatile Serving;
+} ticket_mutex;
+
+inline void
+BeginTicketMutex(ticket_mutex *Mutex)
+{
+    u64 Ticket = AtomicAddU64(&Mutex->Ticket, 1);
+    while(Ticket != Mutex->Serving)
+    {
+        _mm_pause();
+    }
+}
+
+inline void
+EndTicketMutex(ticket_mutex *Mutex)
+{
+    AtomicAddU64(&Mutex->Serving, 1);
+}
+
+typedef struct string
 {
     umm Size;
     u8 *Data;
@@ -156,7 +249,6 @@ typedef struct
     f32 KerningChange;
 } loaded_glyph;
 
-
 typedef enum sort_type
 {
     Sort_Ascending,
@@ -174,13 +266,13 @@ introspect(linked_list) typedef struct node
 
 
 // TODO(kstandbridge): move this to types.h
-typedef struct node_link
+typedef struct path_node_link
 {
-    struct node *Node;
+    struct path_node *Node;
     
-    struct node_link *Prev;
-    struct node_link *Next;
-} node_link;
+    struct path_node_link *Prev;
+    struct path_node_link *Next;
+} path_node_link;
 
 #define KENGINE_TYPES_H
 #endif //KENGINE_TYPES_H

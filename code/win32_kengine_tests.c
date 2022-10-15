@@ -1,4 +1,14 @@
-#include "win32_kengine_tests.h"
+#include "kengine_platform.h"
+#include "kengine_memory.h"
+#include "kengine_generated.h"
+#include "kengine_intrinsics.h"
+#include "kengine_math.h"
+#include "kengine_debug_shared.h"
+#include "kengine_debug.h"
+#include "kengine_debug_generated.h"
+#include "win32_kengine_types.h"
+#include "kengine_string.h"
+
 #include "win32_kengine_kernel.c"
 #include "win32_kengine_generated.c"
 #include "win32_kengine_shared.c"
@@ -14,7 +24,7 @@ global s32 FailedTests;
 if(!(Expression))                      \
 {                                      \
 ++FailedTests;                     \
-Win32ConsoleOut("%s(%d): failed assert!\n", \
+Win32ConsoleOut(Arena, "%s(%d): failed assert!\n", \
 __FILE__, __LINE__);        \
 }
 
@@ -23,7 +33,7 @@ __FILE__, __LINE__);        \
 if(!StringsAreEqual(Expected, Actual)) \
 { \
 ++FailedTests; \
-Win32ConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%S'\n\t\t\tActual:      '%S'\n", \
+Win32ConsoleOut(Arena, "%s(%d): string assert fail.\n\t\t\tExpected:    '%S'\n\t\t\tActual:      '%S'\n", \
 __FILE__, __LINE__, Expected, Actual);        \
 }
 
@@ -32,7 +42,7 @@ __FILE__, __LINE__, Expected, Actual);        \
 if(Expected != Actual) \
 { \
 ++FailedTests; \
-Win32ConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%u'\n\t\t\tActual:      '%u'\n", \
+Win32ConsoleOut(Arena, "%s(%d): string assert fail.\n\t\t\tExpected:    '%u'\n\t\t\tActual:      '%u'\n", \
 __FILE__, __LINE__, Expected, Actual);        \
 }
 
@@ -562,37 +572,6 @@ NodePredicate(node *A, node *B)
 }
 
 inline void
-RunLinkedListPushTests(memory_arena *Arena)
-{
-    {
-        node *Head = 0;
-        node *FortyOne = NodePushBack(&Head, Arena);
-        FortyOne->Value = 41;
-        node *Five = NodePushBack(&Head, Arena);
-        Five->Value = 5;
-        node *Seven = NodePushBack(&Head, Arena);
-        Seven->Value = 7;
-        ASSERT(Head == FortyOne);
-        ASSERT(Head->Next == Five);
-        ASSERT(Head->Next->Next == Seven);
-        ASSERT(Head->Next->Next->Next == 0);
-    }
-    {
-        node *Head = 0;
-        node *FortyOne = NodePush(&Head, Arena);
-        FortyOne->Value = 41;
-        node *Five = NodePush(&Head, Arena);
-        Five->Value = 5;
-        node *Seven = NodePush(&Head, Arena);
-        Seven->Value = 7;
-        ASSERT(Head == Seven);
-        ASSERT(Head->Next == Five);
-        ASSERT(Head->Next->Next == FortyOne);
-        ASSERT(Head->Next->Next->Next == 0);
-    }
-}
-
-inline void
 RunLinkedListMergeSortTests(memory_arena *Arena)
 {
     node *Head = 0;
@@ -686,7 +665,6 @@ RunAllTests(memory_arena *Arena)
     
     RunEdDSATests(Arena);
     
-    RunLinkedListPushTests(Arena);
     RunLinkedListMergeSortTests(Arena);
     
     b32 Result = (FailedTests == 0);
@@ -699,22 +677,19 @@ mainCRTStartup()
     Kernel32 = FindModuleBase(_ReturnAddress());
     Assert(Kernel32);
     
-#if KENGINE_INTERNAL
-    void *BaseAddress = (void *)Terabytes(2);
-#else
-    void *BaseAddress = 0;
-#endif
+    Platform.AllocateMemory = Win32AllocateMemory;
+    Platform.DeallocateMemory = Win32DeallocateMemory;
     
-    u64 MemoryBlockSize = Megabytes(16);
-    void *MemoryBlock = Win32VirtualAlloc(BaseAddress, MemoryBlockSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-    Assert(MemoryBlock);
+    GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
+    GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
     
-    memory_arena Arena_;
-    memory_arena *Arena = &Arena_;
-    InitializeArena(Arena, MemoryBlockSize, MemoryBlock);
+    memory_arena Arena;
+    ZeroStruct(Arena);
     
-    b32 Result = RunAllTests(Arena);
-    Win32ConsoleOut("Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);
+    void *Foo = Win32VirtualAlloc(0, Megabytes(4), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    
+    b32 Result = RunAllTests(&Arena);
+    Win32ConsoleOut(&Arena, "Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);
     
     Win32ExitProcess(0);
     

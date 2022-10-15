@@ -114,7 +114,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, e
         }
         else if(Text.Data[Index] == '\n')
         {
-            AtY -= Platform->GetVerticleAdvance()*Scale;
+            AtY -= Platform.GetVerticleAdvance()*Scale;
             AtX = P.X;
         }
         else
@@ -137,7 +137,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, e
                 if(Glyphs[CodePoint].Bitmap.Memory == 0)
                 {
                     // TODO(kstandbridge): This should be threaded
-                    Glyphs[CodePoint] = Platform->GetGlyphForCodePoint(Arena, CodePoint);
+                    Glyphs[CodePoint] = Platform.GetGlyphForCodePoint(Arena, CodePoint);
                 }
                 
                 loaded_glyph *Glyph = Glyphs + CodePoint;
@@ -151,7 +151,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, e
                     if(Text.SelectionStart < Index && Text.SelectionEnd > Index)
                     {
                         bitmap_dim Dim = GetBitmapDim(&Glyph->Bitmap, BitmapScale, Offset);
-                        PushRenderCommandRectangle(RenderGroup, Colors->SelectedTextBackground, Rectangle2MinDim(V2(AtX - 2.0f, AtY - 4.0f), V2(Dim.Size.X + 3.0f, Platform->GetVerticleAdvance())), 10.0f);
+                        PushRenderCommandRectangle(RenderGroup, Colors->SelectedTextBackground, Rectangle2MinDim(V2(AtX - 2.0f, AtY - 4.0f), V2(Dim.Size.X + 3.0f, Platform.GetVerticleAdvance())), 10.0f);
                         PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, Offset, Colors->SelectedText, 200.0f);
                         // PushRenderCommandBitmap(RenderGroup, &Glyph->Bitmap, BitmapScale, V2Add(Offset, V2(2.0f, -2.0f)), V4(0, 0, 0, 1), 12.0f);
                     }
@@ -174,7 +174,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, e
                 
                 PrevCodePoint = CodePoint;
                 
-                f32 AdvanceX = (Scale*Platform->GetHorizontalAdvance(PrevCodePoint, CodePoint)) + Glyph->KerningChange;
+                f32 AdvanceX = (Scale*Platform.GetHorizontalAdvance(PrevCodePoint, CodePoint)) + Glyph->KerningChange;
                 loaded_glyph *PreviousGlyph = Glyphs + PrevCodePoint;
                 AdvanceX += PreviousGlyph->KerningChange;
                 
@@ -183,10 +183,10 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, e
             else
             {
                 
-                f32 AdvanceX = Platform->GetHorizontalAdvance(PrevCodePoint, CodePoint);
+                f32 AdvanceX = Platform.GetHorizontalAdvance(PrevCodePoint, CodePoint);
                 if(Text.SelectionStart < Index && Text.SelectionEnd > Index)
                 {
-                    PushRenderCommandRectangle(RenderGroup, Colors->SelectedTextBackground, Rectangle2MinDim(V2(AtX - 2.0f, AtY - 4.0f), V2(AdvanceX + 2.0f, Platform->GetVerticleAdvance())), 10.0f);
+                    PushRenderCommandRectangle(RenderGroup, Colors->SelectedTextBackground, Rectangle2MinDim(V2(AtX - 2.0f, AtY - 4.0f), V2(AdvanceX + 2.0f, Platform.GetVerticleAdvance())), 10.0f);
                 }
                 if(AdvanceX)
                 {

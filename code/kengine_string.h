@@ -777,7 +777,7 @@ EndFormatString(format_string_state *State)
 {
     string Result = State->Result;
     
-    State->Arena->Used += Result.Size;
+    State->Arena->CurrentBlock->Used += Result.Size;
     --State->Arena->TempCount;
     
     return Result;
