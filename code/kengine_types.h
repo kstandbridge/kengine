@@ -37,6 +37,8 @@ typedef unsigned __int64 umm;
 #define Pi32 3.14159265359f
 #define Tau32 6.28318530717958647692f
 
+#define MAX_URL 2048
+
 #define Kilobytes(Value) ((Value)*1024LL)
 #define Megabytes(Value) (Kilobytes(Value)*1024LL)
 #define Gigabytes(Value) (Megabytes(Value)*1024LL)

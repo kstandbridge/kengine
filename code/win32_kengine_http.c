@@ -1,4 +1,5 @@
 #include "kengine_platform.h"
+#include "kengine_memory.h"
 #include "kengine_generated.h"
 #include "win32_kengine_types.h"
 #include "kengine_string.h"
@@ -508,7 +509,7 @@ PostNewReceive(win32_http_state *HttpState, PTP_IO IoThreadpool)
     {
         Win32StartThreadpoolIo(IoThreadpool);
         
-        umm BufferMaxSize = (IoRequest->Arena.Size - IoRequest->Arena.Used);
+        umm BufferMaxSize = (IoRequest->Arena.CurrentBlock->Size - IoRequest->Arena.CurrentBlock->Used);
         u32 Result = Win32HttpReceiveHttpRequest(HttpState->RequestQueue, HTTP_NULL_ID, HTTP_RECEIVE_REQUEST_FLAG_COPY_BODY,
                                                  IoRequest->HttpRequest, BufferMaxSize, 0,
                                                  &IoRequest->IoContext.Overlapped);
@@ -583,7 +584,7 @@ Win32StartHttpServer(win32_http_state *HttpState)
             Assert(IoRequest->Arena.TempCount == 2);
             Win32StartThreadpoolIo(HttpState->IoThreadpool);
             
-            umm BufferMaxSize = (IoRequest->Arena.Size - IoRequest->Arena.Used);
+            umm BufferMaxSize = (IoRequest->Arena.CurrentBlock->Size - IoRequest->Arena.CurrentBlock->Used);
             Result = Win32HttpReceiveHttpRequest(HttpState->RequestQueue, HTTP_NULL_ID, HTTP_RECEIVE_REQUEST_FLAG_COPY_BODY,
                                                  IoRequest->HttpRequest, BufferMaxSize, 0,
                                                  &IoRequest->IoContext.Overlapped);
@@ -652,11 +653,11 @@ mainCRTStartup()
     Kernel32 = FindModuleBase(_ReturnAddress());
     Assert(Kernel32);
     
-#if KENGINE_INTERNAL
-    void *BaseAddress = (void *)Terabytes(2);
-#else
-    void *BaseAddress = 0;
-#endif
+    Platform.AllocateMemory = Win32AllocateMemory;
+    Platform.DeallocateMemory = Win32DeallocateMemory;
+    
+    GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
+    GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
     
 #define OUTSTANDING_REQUESTS 16
 #define REQUESTS_PER_PROCESSOR 4
@@ -688,18 +689,9 @@ mainCRTStartup()
     
     LogVerbose("Set request count to %u", RequestCount);
     
-#define REQUEST_ARENA_SIZE 128
-#define ARENA_SIZE 4096
-    
-    u64 StorageSize = Kilobytes(ARENA_SIZE);
-    StorageSize += (Kilobytes(REQUEST_ARENA_SIZE) * RequestCount);
-    LogVerbose("Allocating %u bytes", StorageSize);
-    void *Storage = Win32VirtualAlloc(BaseAddress, StorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-    
     memory_arena Arena_;
     ZeroStruct(Arena_);
     memory_arena *Arena = &Arena_;
-    InitializeArena(Arena, StorageSize, Storage);
     
     win32_http_state HttpState_;
     ZeroStruct(HttpState_);
@@ -712,15 +704,6 @@ mainCRTStartup()
     HttpState->RequestCount = RequestCount;
     HttpState->NextRequestIndex = 0;
     HttpState->Requests = PushArray(Arena, RequestCount, http_io_request);
-    
-    for(u32 RequestIndex = 0;
-        RequestIndex < RequestCount;
-        ++RequestIndex)
-    {
-        http_io_request *Request = HttpState->Requests + RequestIndex;
-        umm Size = Kilobytes(REQUEST_ARENA_SIZE);
-        SubArena(&Request->Arena, Arena, Size);
-    }
     
     u32 Result = Win32InitializeHttpServer(HttpState);
     if(Result == NO_ERROR)

@@ -1446,12 +1446,12 @@ Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
 }
 
 internal umm
-Win32SendInternetData(string Host, string Endpoint, char *Verb, string Payload, u8 *ResponseBuffer, umm ResponseBufferMaxSize,
-                      char *Username, char *Password)
+Win32SendInternetRequest(string Host, u32 Port, string Endpoint, char *Verb, string Payload, u8 *ResponseBuffer, umm ResponseBufferMaxSize,
+                         char *Headers, char *Username, char *Password)
 {
     umm Result = 0;
     
-    WebSessionInit();
+    HINTERNET WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
     
     char CHost_[2048];
     StringToCString(Host, sizeof(CHost_), CHost_);
@@ -1459,46 +1459,68 @@ Win32SendInternetData(string Host, string Endpoint, char *Verb, string Payload, 
     char CEndpoint[2048];
     StringToCString(Endpoint, sizeof(CEndpoint), CEndpoint);
     
-    INTERNET_PORT Port = INTERNET_DEFAULT_HTTP_PORT;
+    INTERNET_PORT InternetPort = 0;
+    if(Port == 0)
+    {
+        InternetPort = INTERNET_DEFAULT_HTTP_PORT;
+    }
     DWORD Flags = 0;
     
     char *CHost = CHost_;
     if(StringBeginsWith(String("https"), Host))
     {
         CHost += 8;
-        Port = INTERNET_DEFAULT_HTTPS_PORT;
+        if(Port == 0)
+        {
+            Port = INTERNET_DEFAULT_HTTPS_PORT;
+        }
         Flags = INTERNET_FLAG_SECURE;
     }
     else if(StringBeginsWith(String("http"), Host))
     {
-        CHost += 6;
+        CHost += 7;
     }
     
-    HINTERNET WebConnect = Win32InternetConnectA(GlobalWebSession, CHost, Port, Username, Password,
+    HINTERNET WebConnect = Win32InternetConnectA(WebSession, CHost, Port, Username, Password,
                                                  INTERNET_SERVICE_HTTP, 0, 0);
     if(WebConnect)
     {
         HINTERNET WebRequest = Win32HttpOpenRequestA(WebConnect, Verb, CEndpoint, 0, 0, 0, Flags, 0);
+        
+        if(Headers)
+        {
+            Win32HttpAddRequestHeadersA(WebRequest, Headers, (DWORD) -1, HTTP_ADDREQ_FLAG_ADD);
+        }
+        
+        
         if(Win32HttpSendRequestA(WebRequest, 0, 0, Payload.Data, Payload.Size))
         {
+            
+#if KENGINE_INTERNAL
+            DWORD Status = 404;
+            DWORD StatusSize = sizeof(StatusSize);
+            Win32HttpQueryInfoA(WebRequest, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&Status, &StatusSize, 0);
+#endif
+            
             if(ResponseBuffer)
             {
                 Result = Win32ReadInternetResponse(WebRequest, ResponseBuffer, ResponseBufferMaxSize);
             }
-            
-            Win32HttpEndRequestA(WebRequest, 0, 0, 0);
         }
         else
         {
             Assert(!"Unable to send request");
         }
         
+        Win32HttpEndRequestA(WebRequest, 0, 0, 0);
         Win32InternetCloseHandle(WebConnect);
     }
     else
     {
         Assert(!"Unable to connect");
     }
+    
+    Win32InternetCloseHandle(WebSession);
     
     return Result;
 }
@@ -1694,3 +1716,57 @@ Win32ReadEntireFile(memory_arena *Arena, string FilePath)
     return Result;
 }
 
+internal u64
+Win32GetSystemTimeStamp()
+{
+    u64 Result;
+    
+    SYSTEMTIME SystemTime;
+    Win32GetSystemTime(&SystemTime);
+    
+    FILETIME FileTime;
+    Win32SystemTimeToFileTime(&SystemTime, &FileTime);
+    
+    ULARGE_INTEGER ULargeInteger;
+    ULargeInteger.LowPart = FileTime.dwLowDateTime;
+    ULargeInteger.HighPart = FileTime.dwHighDateTime;
+    
+    Result = ULargeInteger.QuadPart;
+    
+    return Result;
+}
+
+internal date_time
+Win32GetDateTimeForTimeStamp(u64 TimeStamp)
+{
+    date_time Result;
+    
+    ULARGE_INTEGER ULargeInteger;
+    ULargeInteger.QuadPart = TimeStamp;
+    
+    FILETIME FileTime;
+    FileTime.dwLowDateTime = ULargeInteger.LowPart;
+    FileTime.dwHighDateTime = ULargeInteger.HighPart;
+    
+    SYSTEMTIME SystemTime;
+    Win32FileTimeToSystemTime(&FileTime, &SystemTime);
+    
+    Result.Year = SystemTime.wYear;
+    Result.Month = (u8)SystemTime.wMonth;
+    Result.Day = (u8)SystemTime.wDay;
+    Result.Hour = (u8)SystemTime.wHour;
+    Result.Minute = (u8)SystemTime.wMinute;
+    Result.Second = (u8)SystemTime.wSecond;
+    Result.Milliseconds = SystemTime.wMilliseconds;
+    
+    return Result;
+}
+
+internal date_time
+Win32GetDateTime()
+{
+    u64 TimeStamp = Win32GetSystemTimeStamp();
+    date_time Result = Win32GetDateTimeForTimeStamp(TimeStamp);
+    
+    return Result;
+}

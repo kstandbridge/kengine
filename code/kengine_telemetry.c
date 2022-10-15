@@ -170,7 +170,7 @@ PostTelemetryThread(void *Data)
 #if KENGINE_INTERNAL
                     u8 *Buffer = BeginPushSize(&Queue->Arena);
                     umm Size = Win32SendInternetRequest(Host->Hostname, 0, Endpoint, "POST", Payload,
-                                                        Buffer, Queue->Arena.Size - Queue->Arena.Used, 
+                                                        Buffer, Queue->Arena.CurrentBlock->Size - Queue->Arena.CurrentBlock->Used, 
                                                         "Content-Type: application/json;\r\n", 0, 0);
                     EndPushSize(&Queue->Arena, Size);
                     string Response = String_(Size, Buffer);
@@ -185,7 +185,7 @@ PostTelemetryThread(void *Data)
         
         EndTemporaryMemory(Queue->MemoryFlush);
         CheckArena(&Queue->Arena);
-        Assert(Queue->Arena.Used == 0);
+        Assert(Queue->Arena.CurrentBlock->Used == 0);
         
         Queue->MemoryFlush = BeginTemporaryMemory(&Queue->Arena);
         Queue->Messages = 0;
@@ -216,7 +216,7 @@ BeginTelemetryMessage()
 {
     for(;;)
     {
-        f32 PercentFree = ((f32)GlobalTelemetryState_.AddingQueue->Arena.Used / (f32)GlobalTelemetryState_.AddingQueue->Arena.Size);
+        f32 PercentFree = ((f32)GlobalTelemetryState_.AddingQueue->Arena.CurrentBlock->Used / (f32)GlobalTelemetryState_.AddingQueue->Arena.CurrentBlock->Size);
         
         if(PercentFree < 0.9f)
         {
@@ -394,11 +394,9 @@ InitializeTelemetry(memory_arena *Arena, umm QueueSize, string TeamId, string Pr
             if(StateType == TelemetryState_Uninitialized)
             {
                 GlobalTelemetryState_.AddingQueue = PushStruct(Arena, telemetry_queue);
-                SubArena(&GlobalTelemetryState_.AddingQueue->Arena, Arena, QueueSize);
                 GlobalTelemetryState_.AddingQueue->MemoryFlush = BeginTemporaryMemory(&GlobalTelemetryState_.AddingQueue->Arena);
                 
                 GlobalTelemetryState_.ProcessingQueue = PushStruct(Arena, telemetry_queue);
-                SubArena(&GlobalTelemetryState_.ProcessingQueue->Arena, Arena, QueueSize);
                 GlobalTelemetryState_.ProcessingQueue->MemoryFlush = BeginTemporaryMemory(&GlobalTelemetryState_.ProcessingQueue->Arena);
                 
                 GlobalTelemetryState_.TeamId = PushString_(Arena, TeamId.Size, TeamId.Data);

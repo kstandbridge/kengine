@@ -73,6 +73,14 @@ DefaultArenaPushParams()
     return Result;
 }
 
+inline arena_push_params
+NoClearArenaPushParams()
+{
+    arena_push_params Result = DefaultArenaPushParams();
+    Result.Flags &= ~ArenaPushFlag_ClearToZero;
+    return Result;
+}
+
 #define MEMORY_ALIGNMENT 4
 #define PushStruct(Arena, type) (type *)PushSize_(Arena, sizeof(type), DefaultArenaPushParams())
 #define PushArray(Arena, Count, type) (type *)PushSize_(Arena, (Count)*sizeof(type), DefaultArenaPushParams())
@@ -144,6 +152,22 @@ PushSize_(memory_arena *Arena, umm SizeInit, arena_push_params Params)
 inline u8 *
 BeginPushSize(memory_arena *Arena)
 {
+    // TODO(kstandbridge): Lots of copy/pasta from PushSize_ here, also setting alignment to 4?
+    if(!Arena->CurrentBlock)
+    {
+        if(!Arena->MinimumBlockSize)
+        {
+            // NOTE(kstandbridge): Raymond Chen on page sizes https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200
+            Arena->MinimumBlockSize = Megabytes(2);
+        }
+        
+        umm BlockSize = Arena->MinimumBlockSize;
+        
+        platform_memory_block *NewBlock = Platform.AllocateMemory(BlockSize, Arena->AllocationFlags);
+        NewBlock->Prev = Arena->CurrentBlock;
+        Arena->CurrentBlock = NewBlock;
+    }
+    
     umm AlignmentOffset = GetAlignmentOffset(Arena, 4);
     
     u8 *Result = Arena->CurrentBlock->Base + Arena->CurrentBlock->Used + AlignmentOffset;
@@ -156,7 +180,7 @@ inline void
 EndPushSize(memory_arena *Arena, umm Size)
 {
     --Arena->TempCount;
-    PushSize_(Arena, Size, DefaultArenaPushParams());
+    PushSize_(Arena, Size, NoClearArenaPushParams());
 }
 
 inline temporary_memory
