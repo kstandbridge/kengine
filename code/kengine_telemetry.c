@@ -437,12 +437,17 @@ SendHeartbeatTelemetry()
 #define LogVerbose(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("verbose"), Format, __VA_ARGS__)
 #define LogInfo(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("info"), Format, __VA_ARGS__)
 #define LogWarning(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("waring"), Format, __VA_ARGS__)
+#if KENGINE_INTERNAL
+#define LogError(Format, ...) __debugbreak(); SendLogTelemetry_(__FILE__, __LINE__, String("error"), Format, __VA_ARGS__);
+#else
 #define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("error"), Format, __VA_ARGS__);
+#endif
 // TODO(kstandbridge): debug_break on error
 
 internal void
 SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
 {
+#if KENGINE_INTERNAL
     date_time Date = Win32GetDateTime();
     u32 ThreadId = GetThreadID();
     u8 Buffer[4096];
@@ -450,10 +455,10 @@ SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
                                          "[%02d/%02d/%04d %02d:%02d:%02d] <%5u> (%S)\t%S\n", 
                                          Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
                                          ThreadId, Level, Message);
-    
+#if KENGINE_CONSOLE
     Win32ConsoleOut_(Output);
+#endif
     
-#if KENGINE_INTERNAL
     Buffer[Output.Size] = '\0';
     Win32OutputDebugStringA((char *)Buffer);
 #else

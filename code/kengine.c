@@ -43,7 +43,6 @@ global debug_event_table *GlobalDebugEventTable;
 
 #include "main.c"
 
-
 extern void
 AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Arena, app_input *Input)
 {
@@ -56,6 +55,12 @@ AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Aren
     {
         Memory->AppState = PushStruct(Arena, app_state);
         GlobalDebugEventTable->Settings.ShowDebugTab = true;
+        
+#if 0        
+        b32 HttpInit = Platform.InitializeHttpServer();
+        Assert(HttpInit);
+#endif
+        
     }
     
     if(!Memory->UIState)
@@ -157,7 +162,7 @@ AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Aren
     }
     else
     {
-        DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Bounds);
+        //DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Bounds);
     }
 #else
     DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Bounds);
@@ -178,5 +183,4 @@ AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Aren
     EndTemporaryMemory(TempMem);
     CheckArena(&UIState->TranArena);
     CheckArena(Arena);
-    
 }

@@ -28,6 +28,7 @@ typedef struct win32_state
     HMODULE AppLibrary;
     app_update_frame *AppUpdateFrame;
     debug_update_frame *DebugUpdateFrame;
+    app_handle_http_request *AppHandleHttpRequest;
 #endif
     
 } win32_state;

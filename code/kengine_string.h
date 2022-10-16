@@ -1,5 +1,14 @@
 #ifndef KENGINE_STRING_H
 
+inline void
+AppendCString(char *StartAt, char *Text)
+{
+    while(*Text)
+    {
+        *StartAt++ = *Text++;
+    }
+}
+
 inline u32
 StringToHashValue(string Text)
 {

@@ -120,5 +120,19 @@ typedef struct render_commands render_commands;
 typedef void app_update_frame(app_memory *Memory, render_commands *Commands, struct memory_arena *Arena, app_input *Input);
 typedef void debug_update_frame(app_memory *Memory, render_commands *Commands, struct memory_arena *Arena, app_input *Input);
 
+typedef struct platform_http_request
+{
+    string Endpoint;
+    string Payload;
+} platform_http_request;
+
+typedef struct platform_http_response
+{
+    u16 Code;
+    string Payload;
+} platform_http_response;
+
+typedef platform_http_response app_handle_http_request(app_memory *Memory, struct memory_arena *Arena, platform_http_request Request);
+
 #define KENGINE_PLATFORM_H
 #endif //KENGINE_PLATFORM_H

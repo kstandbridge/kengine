@@ -10,7 +10,7 @@ Win32CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LP
     
     Assert(Kernel32);
     local_persist create_file_a *Func = 0;
-    if(!Func);
+    if(!Func)
     {
         Func = (create_file_a *)Win32GetProcAddressA(Kernel32, "CreateFileA");
     }
@@ -27,7 +27,7 @@ Win32VirtualAlloc(LPVOID lpAddress, SIZE_T dwSize, DWORD flAllocationType, DWORD
     
     Assert(Kernel32);
     local_persist virtual_alloc *Func = 0;
-    if(!Func);
+    if(!Func)
     {
         Func = (virtual_alloc *)Win32GetProcAddressA(Kernel32, "VirtualAlloc");
     }
@@ -44,7 +44,7 @@ Win32GetFileSizeEx(HANDLE hFile, PLARGE_INTEGER lpFileSize)
     
     Assert(Kernel32);
     local_persist get_file_size_ex *Func = 0;
-    if(!Func);
+    if(!Func)
     {
         Func = (get_file_size_ex *)Win32GetProcAddressA(Kernel32, "GetFileSizeEx");
     }
@@ -61,7 +61,7 @@ Win32ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD
     
     Assert(Kernel32);
     local_persist read_file *Func = 0;
-    if(!Func);
+    if(!Func)
     {
         Func = (read_file *)Win32GetProcAddressA(Kernel32, "ReadFile");
     }
@@ -78,7 +78,7 @@ Win32CloseHandle(HANDLE hObject)
     
     Assert(Kernel32);
     local_persist close_handle *Func = 0;
-    if(!Func);
+    if(!Func)
     {
         Func = (close_handle *)Win32GetProcAddressA(Kernel32, "CloseHandle");
     }
@@ -95,7 +95,7 @@ Win32GetStdHandle(DWORD nStdHandle)
     
     Assert(Kernel32);
     local_persist get_std_handle *Func = 0;
-    if(!Func);
+    if(!Func)
     {
         Func = (get_std_handle *)Win32GetProcAddressA(Kernel32, "GetStdHandle");
     }
@@ -112,7 +112,7 @@ Win32WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDW
     
     Assert(Kernel32);
     local_persist write_file *Func = 0;
-    if(!Func);
+    if(!Func)
     {
         Func = (write_file *)Win32GetProcAddressA(Kernel32, "WriteFile");
     }
@@ -129,7 +129,7 @@ Win32GetCommandLineA()
     
     Assert(Kernel32);
     local_persist get_command_line_a *Func = 0;
-    if(!Func);
+    if(!Func)
     {
         Func = (get_command_line_a *)Win32GetProcAddressA(Kernel32, "GetCommandLineA");
     }
@@ -144,7 +144,7 @@ Win32ExitProcess(UINT uExitCode)
 {
     Assert(Kernel32);
     local_persist exit_process *Func = 0;
-    if(!Func);
+    if(!Func)
     {
         Func = (exit_process *)Win32GetProcAddressA(Kernel32, "ExitProcess");
     }
@@ -781,7 +781,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     }
     Win32WriteOutput("    Assert(%S);\n", Library);
     Win32WriteOutput("    local_persist %S *Func = 0;\n", FunctionType);
-    Win32WriteOutput("    if(!Func);\n");
+    Win32WriteOutput("    if(!Func)\n");
     Win32WriteOutput("    {\n");
     Win32WriteOutput("         Func = (%S *)Win32GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, MethodName);
     Win32WriteOutput("    }\n");

@@ -46,7 +46,7 @@ typedef struct debug_event_table
     u32 CurrentEventArrayIndex;
     
     u64 volatile EventArrayIndex_EventIndex;
-    debug_event Events[2][256];
+    debug_event Events[2][65535];
 } debug_event_table;
 
 #define SetDebugEventRecording(Enabled) (GlobalDebugEventTable->RecordIncrement = (Enabled) ? 1 : 0)
