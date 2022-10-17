@@ -113,7 +113,7 @@ PostTelemetryThread(void *Data)
                     Host;
                     Host = Host->Next)
                 {
-                    date_time DateTime = Win32GetDateTimeForTimeStamp(Message->TimeStamp);
+                    date_time DateTime = Platform.GetDateTimeFromTimestamp(Message->TimeStamp);
                     
                     u8 CEndpoint[MAX_URL];
                     string Endpoint = FormatStringToBuffer(CEndpoint, MAX_URL,
@@ -167,25 +167,14 @@ PostTelemetryThread(void *Data)
                     AppendStringFormat(&StringState, "\n}");
                     
                     string Payload = EndFormatStringToBuffer(&StringState, sizeof(CPayload));
-#if KENGINE_INTERNAL
-                    u8 *Buffer = BeginPushSize(&Queue->Arena);
-                    umm Size = Win32SendInternetRequest(Host->Hostname, 0, Endpoint, "POST", Payload,
-                                                        Buffer, Queue->Arena.CurrentBlock->Size - Queue->Arena.CurrentBlock->Used, 
-                                                        "Content-Type: application/json;\r\n", 0, 0);
-                    EndPushSize(&Queue->Arena, Size);
-                    string Response = String_(Size, Buffer);
-                    int x = 5;
-#else
-                    Win32SendInternetRequest(Host->Hostname, 0, Endpoint, "POST", Payload,
-                                             0, 0, "Content-Type: application/json;\r\n", 0, 0);
-#endif
+                    string Response = Platform.SendHttpRequest(&Queue->Arena, Host->Hostname, 0, Endpoint, HttpVerb_Post, Payload,
+                                                               String("Content-Type: application/json;\r\n"), String(""), String(""));
                 }
             }
         }
         
         EndTemporaryMemory(Queue->MemoryFlush);
         CheckArena(&Queue->Arena);
-        Assert(Queue->Arena.CurrentBlock->Used == 0);
         
         Queue->MemoryFlush = BeginTemporaryMemory(&Queue->Arena);
         Queue->Messages = 0;
@@ -196,7 +185,7 @@ PostTelemetryThread(void *Data)
             break;
         }
         
-        Win32Sleep(500);
+        Platform.Sleep(500);
     }
 }
 
@@ -343,7 +332,7 @@ EndTelemetryMessage()
     Assert(GlobalTelemetryState_.CurrentState == TelemetryState_AddingToQueue);
     
     telemetry_message *Message = GlobalTelemetryState_.AddingQueue->Messages;
-    Message->TimeStamp = Win32GetSystemTimeStamp();
+    Message->TimeStamp = Platform.GetSystemTimestamp();
     
     CompletePreviousWritesBeforeFutureWrites;
     GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
@@ -442,25 +431,24 @@ SendHeartbeatTelemetry()
 #else
 #define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("error"), Format, __VA_ARGS__);
 #endif
-// TODO(kstandbridge): debug_break on error
 
+inline date_time
+Win32GetDateTime()
+{
+    u64 Timestamp = Platform.GetSystemTimestamp();
+    date_time Result = Platform.GetDateTimeFromTimestamp(Timestamp);
+    
+    return Result;
+}
 internal void
 SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
 {
 #if KENGINE_INTERNAL
     date_time Date = Win32GetDateTime();
     u32 ThreadId = GetThreadID();
-    u8 Buffer[4096];
-    string Output = FormatStringToBuffer(Buffer, sizeof(Buffer), 
-                                         "[%02d/%02d/%04d %02d:%02d:%02d] <%5u> (%S)\t%S\n", 
-                                         Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
-                                         ThreadId, Level, Message);
-#if KENGINE_CONSOLE
-    Win32ConsoleOut_(Output);
-#endif
-    
-    Buffer[Output.Size] = '\0';
-    Win32OutputDebugStringA((char *)Buffer);
+    Platform.ConsoleOut("[%02d/%02d/%04d %02d:%02d:%02d] <%5u> (%S)\t%S\n", 
+                        Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
+                        ThreadId, Level, Message);
 #else
     SourceFilePlusLine.Data += SourceFilePlusLine.Size;
     SourceFilePlusLine.Size = 0;

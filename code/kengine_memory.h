@@ -154,7 +154,6 @@ BootsrapPushsize_(umm StructSize, umm OffsetToArena, arena_push_params Params)
 {
     memory_arena Arena;
     ZeroStruct(Arena);
-    Arena.AllocationFlags = Params.Flags;
     void *Result = PushSize_(&Arena, StructSize, Params);
     *(memory_arena *)((u8 *)Result + OffsetToArena) = Arena;
     

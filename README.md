@@ -271,3 +271,5 @@ switch(Tokenizer->At[0])
 - [ ] Set cursor on split panel
 - [ ] Monospace font for debug view?
 - [ ] Reusable scrollable control?
+- [ ] Telemetry to run in platform layer?
+- [ ] Debug collation to run in platform layer?

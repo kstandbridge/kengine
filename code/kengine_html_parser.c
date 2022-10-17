@@ -115,7 +115,6 @@ GetNextHtmlToken(html_tokenizer *Tokenizer)
                 {
                     // NOTE(kstandbridge): Something didn't parse correctly, we are expecting a nameless end tag
                     // like this <meta name="robots" />
-                    __debugbreak();
                 }
             } break;
             

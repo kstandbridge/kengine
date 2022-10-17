@@ -27,12 +27,13 @@ typedef struct win32_state
     FILETIME LastDLLWriteTime;
     HMODULE AppLibrary;
     
-#if KENGINE_CONSOLE
-    app_handle_arguments *AppHandleArguments;
-#else
-    app_update_frame *AppUpdateFrame;
+    app_loop *AppLoop;
+    
+#ifndef KENGINE_CONSOLE
     debug_update_frame *DebugUpdateFrame;
 #endif
+    
+    app_handle_command *AppHandleCommand;
     
 #if KENGINE_HTTP
     app_handle_http_request *AppHandleHttpRequest;
@@ -167,35 +168,33 @@ Win32FileExists(string Path)
     return Result;
 }
 
-internal b32
-Win32ConsoleOut_(string Text)
+internal void
+Win32ConsoleOut(char *Format, ...)
 {
-    u32 Result = 0;
-    
-    HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);
-    Assert(OutputHandle != INVALID_HANDLE_VALUE);
-    
-    Win32WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&Result, 0);
-    Assert(Result == Text.Size);
-    
-    return Result;
-}
-
-
-internal b32
-Win32ConsoleOut(memory_arena *Arena, char *Format, ...)
-{
-    format_string_state StringState = BeginFormatString(Arena);
+    u8 Buffer[4096];
+    umm BufferSize = sizeof(Buffer);
+    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
     
     va_list ArgList;
     va_start(ArgList, Format);
     AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
     
-    string Text = EndFormatString(&StringState);
+    string Text = EndFormatStringToBuffer(&StringState, BufferSize);
     
-    b32 Result = Win32ConsoleOut_(Text);
-    return Result;
+#if KENGINE_CONSOLE
+    HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);
+    Assert(OutputHandle != INVALID_HANDLE_VALUE);
+    
+    DWORD NumberOfBytesWritten;
+    Win32WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&NumberOfBytesWritten, 0);
+    Assert(NumberOfBytesWritten == Text.Size);
+#endif
+    
+#if KENGINE_INTERNAL
+    Buffer[Text.Size] = '\0';
+    Win32OutputDebugStringA((char *)Buffer);
+#endif
 }
 
 internal FILETIME
@@ -1455,19 +1454,18 @@ Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
     return Result;
 }
 
-internal umm
-Win32SendInternetRequest(string Host, u32 Port, string Endpoint, char *Verb, string Payload, u8 *ResponseBuffer, umm ResponseBufferMaxSize,
-                         char *Headers, char *Username, char *Password)
+internal string
+Win32SendHttpRequest(memory_arena *Arena, string Host, u32 Port, string Endpoint, http_verb_type Verb, string Payload, 
+                     string Headers, string Username, string Password)
 {
-    umm Result = 0;
+    string Result;
+    ZeroStruct(Result);
     
+    // TODO(kstandbridge): persistent session?
     HINTERNET WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
     
     char CHost_[2048];
     StringToCString(Host, sizeof(CHost_), CHost_);
-    
-    char CEndpoint[2048];
-    StringToCString(Endpoint, sizeof(CEndpoint), CEndpoint);
     
     INTERNET_PORT InternetPort = 0;
     if(Port == 0)
@@ -1491,15 +1489,54 @@ Win32SendInternetRequest(string Host, u32 Port, string Endpoint, char *Verb, str
         CHost += 7;
     }
     
-    HINTERNET WebConnect = Win32InternetConnectA(WebSession, CHost, Port, Username, Password,
+    char CEndpoint[2048];
+    StringToCString(Endpoint, sizeof(CEndpoint), CEndpoint);
+    
+    char *CVerb = 0;
+    switch(Verb)
+    {
+        case HttpVerb_Post:   { CVerb = "POST"; } break;
+        case HttpVerb_Get:    { CVerb = "GET"; } break;
+        case HttpVerb_Put:    { CVerb = "PUT"; } break;
+        case HttpVerb_Patch:  { CVerb = "PATCH"; } break;
+        case HttpVerb_Delete: { CVerb = "DELETE"; } break;
+        
+        InvalidDefaultCase;
+    }
+    
+    char CHeaders_[256];
+    char *CHeaders = 0;
+    if(Headers.Data && Headers.Data[0] != '\0')
+    {
+        StringToCString(Headers, sizeof(CHeaders), CHeaders);
+        CHeaders = CHeaders_;
+    }
+    
+    char CUsername_[256];
+    char *CUsername = 0;
+    if(Username.Data && Username.Data[0] != '\0')
+    {
+        StringToCString(Username, sizeof(CUsername), CUsername);
+        CUsername = CUsername_;
+    }
+    
+    char CPassword_[256];
+    char *CPassword = 0;
+    if(Password.Data && Password.Data[0] != '\0')
+    {
+        StringToCString(Password, sizeof(CPassword), CPassword);
+        CPassword = CPassword_;
+    }
+    
+    HINTERNET WebConnect = Win32InternetConnectA(WebSession, CHost, Port, CUsername, CPassword,
                                                  INTERNET_SERVICE_HTTP, 0, 0);
     if(WebConnect)
     {
-        HINTERNET WebRequest = Win32HttpOpenRequestA(WebConnect, Verb, CEndpoint, 0, 0, 0, Flags, 0);
+        HINTERNET WebRequest = Win32HttpOpenRequestA(WebConnect, CVerb, CEndpoint, 0, 0, 0, Flags, 0);
         
-        if(Headers)
+        if(CHeaders)
         {
-            Win32HttpAddRequestHeadersA(WebRequest, Headers, (DWORD) -1, HTTP_ADDREQ_FLAG_ADD);
+            Win32HttpAddRequestHeadersA(WebRequest, CHeaders, (DWORD) -1, HTTP_ADDREQ_FLAG_ADD);
         }
         
         
@@ -1512,10 +1549,11 @@ Win32SendInternetRequest(string Host, u32 Port, string Endpoint, char *Verb, str
             Win32HttpQueryInfoA(WebRequest, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&Status, &StatusSize, 0);
 #endif
             
-            if(ResponseBuffer)
-            {
-                Result = Win32ReadInternetResponse(WebRequest, ResponseBuffer, ResponseBufferMaxSize);
-            }
+            u8 *Buffer = BeginPushSize(Arena);
+            umm BufferMaxSize = Arena->CurrentBlock->Size - Arena->CurrentBlock->Used;
+            umm BufferSize = Win32ReadInternetResponse(WebRequest, Buffer, BufferMaxSize);
+            EndPushSize(Arena, BufferSize);
+            Result = String_(BufferSize, Buffer);
         }
         else
         {
@@ -1535,6 +1573,7 @@ Win32SendInternetRequest(string Host, u32 Port, string Endpoint, char *Verb, str
     return Result;
 }
 
+#if 0
 internal umm
 Win32GetInternetData(u8 *Buffer, umm BufferMaxSize, string Url)
 {
@@ -1561,6 +1600,7 @@ Win32GetInternetData(u8 *Buffer, umm BufferMaxSize, string Url)
     
     return Result;
 }
+#endif
 
 internal umm
 Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, char *Verb, string File, u8 *ResponseBuffer, umm ResponseBuferMaxSize, 
@@ -1727,7 +1767,7 @@ Win32ReadEntireFile(memory_arena *Arena, string FilePath)
 }
 
 internal u64
-Win32GetSystemTimeStamp()
+Win32GetSystemTimestamp()
 {
     u64 Result;
     
@@ -1747,12 +1787,12 @@ Win32GetSystemTimeStamp()
 }
 
 internal date_time
-Win32GetDateTimeForTimeStamp(u64 TimeStamp)
+Win32GetDateTimeFromTimestamp(u64 Timestamp)
 {
     date_time Result;
     
     ULARGE_INTEGER ULargeInteger;
-    ULargeInteger.QuadPart = TimeStamp;
+    ULargeInteger.QuadPart = Timestamp;
     
     FILETIME FileTime;
     FileTime.dwLowDateTime = ULargeInteger.LowPart;
@@ -1772,11 +1812,8 @@ Win32GetDateTimeForTimeStamp(u64 TimeStamp)
     return Result;
 }
 
-internal date_time
-Win32GetDateTime()
+internal void
+Win32SleepFor(u32 Miliseconds)
 {
-    u64 TimeStamp = Win32GetSystemTimeStamp();
-    date_time Result = Win32GetDateTimeForTimeStamp(TimeStamp);
-    
-    return Result;
+    Win32Sleep(Miliseconds);
 }

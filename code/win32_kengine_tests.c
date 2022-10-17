@@ -24,7 +24,7 @@ global s32 FailedTests;
 if(!(Expression))                      \
 {                                      \
 ++FailedTests;                     \
-Win32ConsoleOut(Arena, "%s(%d): failed assert!\n", \
+Win32ConsoleOut("%s(%d): failed assert!\n", \
 __FILE__, __LINE__);        \
 }
 
@@ -33,7 +33,7 @@ __FILE__, __LINE__);        \
 if(!StringsAreEqual(Expected, Actual)) \
 { \
 ++FailedTests; \
-Win32ConsoleOut(Arena, "%s(%d): string assert fail.\n\t\t\tExpected:    '%S'\n\t\t\tActual:      '%S'\n", \
+Win32ConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%S'\n\t\t\tActual:      '%S'\n", \
 __FILE__, __LINE__, Expected, Actual);        \
 }
 
@@ -42,7 +42,7 @@ __FILE__, __LINE__, Expected, Actual);        \
 if(Expected != Actual) \
 { \
 ++FailedTests; \
-Win32ConsoleOut(Arena, "%s(%d): string assert fail.\n\t\t\tExpected:    '%u'\n\t\t\tActual:      '%u'\n", \
+Win32ConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%u'\n\t\t\tActual:      '%u'\n", \
 __FILE__, __LINE__, Expected, Actual);        \
 }
 
@@ -689,7 +689,7 @@ mainCRTStartup()
     void *Foo = Win32VirtualAlloc(0, Megabytes(4), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     
     b32 Result = RunAllTests(&Arena);
-    Win32ConsoleOut(&Arena, "Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);
+    Win32ConsoleOut("Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);
     
     Win32ExitProcess(0);
     

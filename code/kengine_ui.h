@@ -99,7 +99,7 @@ typedef struct ui_value
 
 typedef struct ui_state
 {
-    memory_arena *PermArena;
+    memory_arena PermArena;
     memory_arena TranArena;
     
     loaded_glyph Glyphs[255];

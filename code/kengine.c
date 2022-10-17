@@ -1,5 +1,9 @@
 #include "kengine.h"
 
+#ifndef VERSION
+#define VERSION 0
+#endif // VERSION
+
 typedef struct colors
 {
     v4 Clear;
@@ -36,6 +40,8 @@ global debug_event_table *GlobalDebugEventTable;
 #include "kengine_sort.c"
 #include "kengine_render_group.c"
 #include "kengine_ui.c"
+#include "kengine_telemetry.c"
+#include "kengine_html_parser.c"
 
 #if KENGINE_INTERNAL
 #include "kengine_debug.c"
@@ -43,32 +49,35 @@ global debug_event_table *GlobalDebugEventTable;
 
 #include "main.c"
 
+#if KENGINE_CONSOLE
 extern void
-AppHandleArguments(app_memory *Memory)
+AppLoop(app_memory *Memory)
 {
-    __debugbreak();
 #if KENGINE_INTERNAL
     Platform = Memory->PlatformAPI;
 #endif
     app_state *AppState = Memory->AppState;
     if(!AppState)
     {
-        AppState = Memory->AppState = BootstrapPushStruct(app_state, TotalArena);
+        AppState = Memory->AppState = BootstrapPushStruct(app_state, Arena);
+        AppInit(Memory);
     }
-    int x = 5;
+    AppTick(Memory);
 }
-
+#else
 extern void
-AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Arena, app_input *Input)
+AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, app_input *Input)
 {
 #if KENGINE_INTERNAL
-    Platform = Memory->PlatformAPI;
-    GlobalDebugEventTable = Memory->DebugEventTable;
+    Platform = AppMemory->PlatformAPI;
+    GlobalDebugEventTable = AppMemory->DebugEventTable;
 #endif
     
-    if(!Memory->AppState)
+    app_state *AppState = AppMemory->AppState;
+    if(!AppState)
     {
-        Memory->AppState = PushStruct(Arena, app_state);
+        AppState = AppMemory->AppState = BootstrapPushStruct(app_state, Arena);
+        AppInit(AppMemory);
         GlobalDebugEventTable->Settings.ShowDebugTab = true;
         
 #if 0        
@@ -78,14 +87,14 @@ AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Aren
         
     }
     
-    if(!Memory->UIState)
+    ui_state *UIState = AppMemory->UIState;
+    if(!UIState)
     {
-        Memory->UIState = PushStruct(Arena, ui_state);
-        Memory->UIState->PermArena = Arena;
+        UIState = AppMemory->UIState = BootstrapPushStruct(ui_state, PermArena);
         
         // NOTE(kstandbridge): GetVerticleAdvance will return 0 if no glyphs have been loaded
         Platform.GetGlyphForCodePoint(Arena, 'K');
-        Memory->UIState->LineAdvance = Platform.GetVerticleAdvance();
+        AppMemory->UIState->LineAdvance = Platform.GetVerticleAdvance();
     }
     
     if(Input->dtForFrame > 0.1f)
@@ -97,9 +106,8 @@ AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Aren
         Input->dtForFrame = 0.001f;
     }
     
-    app_state *AppState = Memory->AppState;
-    ui_state *UIState = Memory->UIState;
-    debug_state *DebugState = Memory->DebugState;
+    
+    debug_state *DebugState = AppMemory->DebugState;
     
     colors Colors;
     Colors.Clear = RGBColor(240, 240, 240, 255);
@@ -177,7 +185,7 @@ AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Aren
     }
     else
     {
-        //DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Bounds);
+        AppTick(AppMemory);
     }
 #else
     DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Bounds);
@@ -199,3 +207,4 @@ AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Aren
     CheckArena(&UIState->TranArena);
     CheckArena(Arena);
 }
+#endif

@@ -304,7 +304,7 @@ Win32ProcessReceiveAndPostResponse(win32_http_io_request *IoRequest, PTP_IO IoTh
                     PlatformRequest.Payload = (Request->EntityChunkCount == 0) 
                         ? String("") : String_(Request->pEntityChunks->FromMemory.BufferLength, 
                                                Request->pEntityChunks->FromMemory.pBuffer);
-                    platform_http_response PlatformResponse = GlobalWin32State.AppHandleHttpRequest(&AppMemory, &IoRequest->Arena,
+                    platform_http_response PlatformResponse = GlobalWin32State.AppHandleHttpRequest(&GlobalAppMemory, &IoRequest->Arena,
                                                                                                     PlatformRequest);
                     IoResponse = Win32CreateMessageResponse(HttpState, 
                                                             PlatformResponse.Code, 

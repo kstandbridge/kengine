@@ -30,7 +30,7 @@ global wgl_swap_interval_ext *wglSwapIntervalEXT;
 global wgl_get_extensions_string_ext *wglGetExtensionsStringEXT;
 global b32 OpenGLSupportsSRGBFramebuffer;
 global GLuint OpenGLDefaultInternalTextureFormat;
-global app_memory AppMemory;
+global app_memory GlobalAppMemory;
 
 #if KENGINE_INTERNAL
 #include "kengine_sort.c"
@@ -202,6 +202,40 @@ Win32ParseCommandLingArgs()
         }
         
     }
+}
+
+inline void
+Win32ConsoleCommandLoopThread(void *Data)
+{
+    for(;;)
+    {
+        HANDLE InputHandle = Win32GetStdHandle(STD_INPUT_HANDLE);
+        Assert(InputHandle != INVALID_HANDLE_VALUE);
+        
+        u8 Buffer[MAX_PATH];
+        umm BytesRead = 0;
+        Win32ReadFile(InputHandle, Buffer, (DWORD)sizeof(Buffer), (LPDWORD)&BytesRead, 0);
+        string Command = String_(BytesRead - 2, Buffer);
+        
+        if(GlobalWin32State.AppHandleCommand)
+        {
+            GlobalWin32State.AppHandleCommand(&GlobalAppMemory, Command);
+        }
+        else
+        {
+            LogWarning("Ignoring '%S' as no command handler setup", Command);
+        }
+        
+        
+        
+    }
+}
+
+
+internal void
+Win32InitConsoleCommandLoop()
+{
+    Win32AddWorkEntry(Platform.LowPriorityQueue, Win32ConsoleCommandLoopThread, 0);
 }
 
 #define MAX_GLYPH_COUNT 5000
@@ -455,6 +489,56 @@ Win32GetVerticleAdvance()
     return Result;
 }
 
+internal string
+Win32GetHostname(memory_arena *Arena)
+{
+    string Result = String("unknown");
+    
+    DWORD MachineNameSize = 256;
+    char CMachineName[256];
+    if(Win32GetComputerNameA(CMachineName, &MachineNameSize))
+    {
+        Result = PushString_(Arena, MachineNameSize, (u8 *)CMachineName);
+        StringToLowercase(Result);
+    }
+    else
+    {
+        DWORD ErrorCode = Win32GetLastError();
+        LogError("GetComputerNameA failed with error code %u", ErrorCode);
+    }
+    
+    return Result;
+}
+
+internal string
+Win32GetUsername(memory_arena *Arena)
+{
+    string Result = String("unknown");
+    
+    DWORD UsernameSize = 256;
+    char CUsername[256];
+    DWORD UsernameLength = Win32GetEnvironmentVariableA("Username", CUsername, UsernameSize);
+    if(CUsername[0] != '\0')
+    {
+        Result = PushString_(Arena, UsernameLength, (u8 *)CUsername);
+    }
+    else
+    {
+        DWORD ErrorCode = Win32GetLastError();
+        LogError("GetEnvironmentVariableA failed with error code %u", ErrorCode);
+    }
+    
+    return Result;
+}
+
+internal u32
+Win32GetProcessId()
+{
+    u32 Result = Win32GetCurrentProcessId();
+    
+    return Result;
+}
+
 inline void
 ProcessInputMessage(app_button_state *NewState, b32 IsDown)
 {
@@ -497,32 +581,43 @@ WinMainCRTStartup()
     Win32GetSystemInfo(&SystemInfo);
     u32 ProcessorCount = SystemInfo.dwNumberOfProcessors;
     
-    platform_work_queue PerFrameWorkQueue;
-    u32 PerFrameThreadCount = RoundF32ToU32((f32)ProcessorCount*1.5f);
-    Win32MakeQueue(&PerFrameWorkQueue, PerFrameThreadCount);
-    AppMemory.PerFrameWorkQueue = &PerFrameWorkQueue;
+    platform_work_queue HighPriorityQueue;
+    Win32MakeQueue(&HighPriorityQueue, RoundF32ToU32((f32)ProcessorCount*1.5f));
+    GlobalAppMemory.PlatformAPI.HighPriorityQueue = &HighPriorityQueue;
     
-    platform_work_queue BackgroundWorkQueue;
-    u32 BackgroundThreadCount = RoundF32ToU32((f32)ProcessorCount/2.0f);
-    Win32MakeQueue(&BackgroundWorkQueue, BackgroundThreadCount);
-    AppMemory.BackgroundWorkQueue = &BackgroundWorkQueue;
+    platform_work_queue LowPriorityQueue;
+    Win32MakeQueue(&LowPriorityQueue, RoundF32ToU32((f32)ProcessorCount/2.0f));
+    GlobalAppMemory.PlatformAPI.LowPriorityQueue= &LowPriorityQueue;
     
-    AppMemory.PlatformAPI.AddWorkEntry = Win32AddWorkEntry;
-    AppMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
+    GlobalAppMemory.PlatformAPI.AddWorkEntry = Win32AddWorkEntry;
+    GlobalAppMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
     
-    AppMemory.PlatformAPI.AllocateMemory = Win32AllocateMemory;
-    AppMemory.PlatformAPI.DeallocateMemory = Win32DeallocateMemory;
-    AppMemory.PlatformAPI.GetMemoryStats = Win32GetMemoryStats;
+    GlobalAppMemory.PlatformAPI.InitConsoleCommandLoop = Win32InitConsoleCommandLoop;
     
-    AppMemory.PlatformAPI.GetGlyphForCodePoint = Win32GetGlyphForCodePoint;
-    AppMemory.PlatformAPI.GetHorizontalAdvance = Win32GetHorizontalAdvance;
-    AppMemory.PlatformAPI.GetVerticleAdvance = Win32GetVerticleAdvance;;
+    GlobalAppMemory.PlatformAPI.AllocateMemory = Win32AllocateMemory;
+    GlobalAppMemory.PlatformAPI.DeallocateMemory = Win32DeallocateMemory;
+    GlobalAppMemory.PlatformAPI.GetMemoryStats = Win32GetMemoryStats;
+    
+    GlobalAppMemory.PlatformAPI.GetGlyphForCodePoint = Win32GetGlyphForCodePoint;
+    GlobalAppMemory.PlatformAPI.GetHorizontalAdvance = Win32GetHorizontalAdvance;
+    GlobalAppMemory.PlatformAPI.GetVerticleAdvance = Win32GetVerticleAdvance;
+    
+    GlobalAppMemory.PlatformAPI.SendHttpRequest = Win32SendHttpRequest;
+    
+    GlobalAppMemory.PlatformAPI.GetHostname = Win32GetHostname;
+    GlobalAppMemory.PlatformAPI.GetUsername = Win32GetUsername;
+    GlobalAppMemory.PlatformAPI.GetProcessId = Win32GetProcessId;
+    GlobalAppMemory.PlatformAPI.GetSystemTimestamp = Win32GetSystemTimestamp;
+    GlobalAppMemory.PlatformAPI.GetDateTimeFromTimestamp = Win32GetDateTimeFromTimestamp;
+    GlobalAppMemory.PlatformAPI.Sleep = Win32SleepFor;
+    GlobalAppMemory.PlatformAPI.ConsoleOut = Win32ConsoleOut;
+    
     
 #if KENGINE_INTERNAL
-    AppMemory.DebugEventTable = GlobalDebugEventTable;
+    GlobalAppMemory.DebugEventTable = GlobalDebugEventTable;
 #endif
     
-    Platform = AppMemory.PlatformAPI;
+    Platform = GlobalAppMemory.PlatformAPI;
     
     Win32ParseCommandLingArgs();
     
@@ -533,7 +628,6 @@ WinMainCRTStartup()
     
 #define OUTSTANDING_REQUESTS 16
 #define REQUESTS_PER_PROCESSOR 4
-    
     
     u16 RequestCount;
     
@@ -708,23 +802,23 @@ WinMainCRTStartup()
                 render_commands *Commands = &Commands_;
                 
 #if KENGINE_INTERNAL
-                BEGIN_BLOCK("AppUpdateFrame");
-                if(GlobalWin32State.AppUpdateFrame)
+                BEGIN_BLOCK("AppLoop");
+                if(GlobalWin32State.AppLoop)
                 {
-                    GlobalWin32State.AppUpdateFrame(&AppMemory, Commands, &GlobalWin32State.Arena, NewInput);
+                    GlobalWin32State.AppLoop(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, NewInput);
                 }
                 END_BLOCK();
                 if(DllNeedsToBeReloaded)
                 {
-                    Win32CompleteAllWork(AppMemory.PerFrameWorkQueue);
-                    Win32CompleteAllWork(AppMemory.BackgroundWorkQueue);
+                    Win32CompleteAllWork(Platform.HighPriorityQueue);
+                    Win32CompleteAllWork(Platform.LowPriorityQueue);
                     SetDebugEventRecording(false);
                 }
                 
 #ifndef KENGINE_CONSOLE
                 if(GlobalWin32State.DebugUpdateFrame)
                 {
-                    GlobalWin32State.DebugUpdateFrame(&AppMemory, Commands, &GlobalWin32State.Arena, NewInput);
+                    GlobalWin32State.DebugUpdateFrame(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, NewInput);
                 }
 #endif
                 
@@ -736,7 +830,7 @@ WinMainCRTStartup()
                         InvalidCodePath;
                     }
                     GlobalWin32State.AppLibrary = 0;
-                    GlobalWin32State.AppUpdateFrame = 0;
+                    GlobalWin32State.AppLoop = 0;
 #ifndef KENGINE_CONSOLE
                     GlobalWin32State.DebugUpdateFrame = 0;
 #endif
@@ -749,8 +843,8 @@ WinMainCRTStartup()
                         GlobalWin32State.AppLibrary = Win32LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
                         if(GlobalWin32State.AppLibrary)
                         {
-                            GlobalWin32State.AppUpdateFrame = (app_update_frame *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppUpdateFrame");
-                            Assert(GlobalWin32State.AppUpdateFrame);
+                            GlobalWin32State.AppLoop = (app_loop *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppLoop");
+                            Assert(GlobalWin32State.AppLoop);
 #ifndef KENGINE_CONSOLE
                             GlobalWin32State.DebugUpdateFrame = (debug_update_frame *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "DebugUpdateFrame");
                             Assert(GlobalWin32State.DebugUpdateFrame);
@@ -777,7 +871,7 @@ WinMainCRTStartup()
                 }
                 
 #else
-                AppUpdateFrame(&AppMemory, Commands, &GlobalWin32State.Arena, NewInput);
+                AppUpdateFrame(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, NewInput);
 #endif
                 
                 BEGIN_BLOCK("ExpandRenderStorage");
@@ -819,7 +913,6 @@ WinMainCRTStartup()
                     InvalidCodePath;
                 }
                 END_BLOCK();
-                Win32CompleteAllWork(AppMemory.PerFrameWorkQueue);
                 
                 app_input *Temp = NewInput;
                 NewInput = OldInput;
@@ -869,11 +962,21 @@ WinMainCRTStartup()
         GlobalWin32State.AppLibrary = Win32LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
         if(GlobalWin32State.AppLibrary)
         {
-            GlobalWin32State.AppHandleArguments = (app_handle_arguments *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleArguments");
-            Assert(GlobalWin32State.AppHandleArguments);
+#if KENGINE_HTTP
+            GlobalWin32State.AppHandleHttpRequest = (app_handle_http_request *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleHttpRequest");
+            Assert(GlobalWin32State.AppHandleHttpRequest);
+#endif
             
+            GlobalWin32State.AppHandleCommand = (app_handle_command *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleCommand");
+            if(!GlobalWin32State.AppHandleCommand)
+            {
+                LogWarning("No command handler setup");
+            }
             
-            GlobalWin32State.AppHandleArguments(&AppMemory);
+            GlobalWin32State.AppLoop = (app_loop *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppLoop");
+            Assert(GlobalWin32State.AppLoop);
+            
+            GlobalWin32State.AppLoop(&GlobalAppMemory);
             
         }
         else
@@ -899,5 +1002,7 @@ WinMainCRTStartup()
     
     InvalidCodePath;
     
+#if KENGINE_CONSOLE
     return 0;
+#endif
 }

@@ -151,8 +151,9 @@ Win32ExitProcess(UINT uExitCode)
     Assert(Func);
     Func(uExitCode);
 }
+
 internal b32
-Win32WriteOutput(char *Format, ...)
+Win32PrintOutput(char *Format, ...)
 {
     u8 Buffer[4096];
     format_string_state StringState = BeginFormatStringToBuffer(Buffer);
@@ -412,27 +413,27 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
     {
         case GenerateMethod_Ctor:
         {
-            Win32WriteOutput("inline %S\n%S(", SnakeStruct, UpperCamelStruct);
+            Win32PrintOutput("inline %S\n%S(", SnakeStruct, UpperCamelStruct);
         } break;
         case GenerateMethod_Set1:
         {
-            Win32WriteOutput("inline %S\n%SSet1(", SnakeStruct, UpperCamelStruct);
+            Win32PrintOutput("inline %S\n%SSet1(", SnakeStruct, UpperCamelStruct);
         } break;
         case GenerateMethod_MathAdd:
         {
-            Win32WriteOutput("inline %S\n%SAdd(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32PrintOutput("inline %S\n%SAdd(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         case GenerateMethod_MathSubtract:
         {
-            Win32WriteOutput("inline %S\n%SSubtract(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32PrintOutput("inline %S\n%SSubtract(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         case GenerateMethod_MathMultiply:
         {
-            Win32WriteOutput("inline %S\n%SMultiply(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32PrintOutput("inline %S\n%SMultiply(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         case GenerateMethod_MathDivide:
         {
-            Win32WriteOutput("inline %S\n%SDivide(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
+            Win32PrintOutput("inline %S\n%SDivide(%S A, %S B", SnakeStruct, UpperCamelStruct, SnakeStruct, SnakeStruct);
         } break;
         InvalidDefaultCase;
     }
@@ -440,10 +441,10 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
     if((Op == GenerateMethod_Ctor) || 
        (Op == GenerateMethod_Set1))
     {
-        Win32WriteOutput("%S", Types);
+        Win32PrintOutput("%S", Types);
     }
     
-    Win32WriteOutput(")\n{\n    %S Result;\n\n", SnakeStruct);
+    Win32PrintOutput(")\n{\n    %S Result;\n\n", SnakeStruct);
     
     Tokenizer->At = Start;
     
@@ -453,7 +454,7 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
         if((Token.Type == CToken_EndOfStream) ||
            (Token.Type == CToken_CloseBrace))
         {
-            Win32WriteOutput("\n    return Result;\n}\n\n");
+            Win32PrintOutput("\n    return Result;\n}\n\n");
             break;
         }
         else if(Token.Type == CToken_Identifier)
@@ -475,27 +476,27 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
             {
                 case GenerateMethod_Ctor:
                 {
-                    Win32WriteOutput("    Result.%S = %S;\n", Var, Var);
+                    Win32PrintOutput("    Result.%S = %S;\n", Var, Var);
                 } break;
                 case GenerateMethod_Set1:
                 {
-                    Win32WriteOutput("    Result.%S = Value;\n", Var);
+                    Win32PrintOutput("    Result.%S = Value;\n", Var);
                 } break;
                 case GenerateMethod_MathAdd:
                 {
-                    Win32WriteOutput("    Result.%S = A.%S + B.%S;\n", Var, Var, Var);
+                    Win32PrintOutput("    Result.%S = A.%S + B.%S;\n", Var, Var, Var);
                 } break;
                 case GenerateMethod_MathSubtract:
                 {
-                    Win32WriteOutput("    Result.%S = A.%S - B.%S;\n", Var, Var, Var);
+                    Win32PrintOutput("    Result.%S = A.%S - B.%S;\n", Var, Var, Var);
                 } break;
                 case GenerateMethod_MathMultiply:
                 {
-                    Win32WriteOutput("    Result.%S = A.%S * B.%S;\n", Var, Var, Var);
+                    Win32PrintOutput("    Result.%S = A.%S * B.%S;\n", Var, Var, Var);
                 } break;
                 case GenerateMethod_MathDivide:
                 {
-                    Win32WriteOutput("    Result.%S = A.%S / B.%S;\n", Var, Var, Var);
+                    Win32PrintOutput("    Result.%S = A.%S / B.%S;\n", Var, Var, Var);
                 } break;
                 InvalidDefaultCase;
             }
@@ -517,111 +518,119 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     string FunctionName = FormatStringToBuffer(FunctionNameBuffer, sizeof(FunctionNameBuffer), "%S", Token.Str);
     ToUpperCamelCase(&FunctionName);
     
-    Win32WriteOutput("\ninline %S *\nGet%STail(%S *Head)\n", Type, FunctionName, Type);
-    Win32WriteOutput("{\n");
-    Win32WriteOutput("    %S *Result = Head;\n\n", Type);
-    Win32WriteOutput("    if(Result != 0)\n");
-    Win32WriteOutput("    {\n");
-    Win32WriteOutput("        while(Result->Next != 0)\n");
-    Win32WriteOutput("        {\n");
-    Win32WriteOutput("            Result = Result->Next;\n");
-    Win32WriteOutput("        }\n");
-    Win32WriteOutput("    }\n\n");
-    Win32WriteOutput("    return Result;");
-    Win32WriteOutput("}\n");
+    Win32PrintOutput("\ninline %S *\nGet%STail(%S *Head)\n", Type, FunctionName, Type);
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("    %S *Result = Head;\n\n", Type);
+    Win32PrintOutput("    if(Result != 0)\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        while(Result->Next != 0)\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            Result = Result->Next;\n");
+    Win32PrintOutput("        }\n");
+    Win32PrintOutput("    }\n\n");
+    Win32PrintOutput("    return Result;");
+    Win32PrintOutput("}\n");
     
-    Win32WriteOutput("\ninline %S *\n%SPushBack(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
-    Win32WriteOutput("{\n");
-    Win32WriteOutput("    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
-    Win32WriteOutput("    Result->Next = 0;\n");
-    Win32WriteOutput("    if(*HeadRef == 0)\n");
-    Win32WriteOutput("    {\n");
-    Win32WriteOutput("        *HeadRef = Result;\n");
-    Win32WriteOutput("    }\n");
-    Win32WriteOutput("    else\n");
-    Win32WriteOutput("    {\n");
-    Win32WriteOutput("        %S *Tail = Get%STail(*HeadRef);\n", Type, FunctionName);
-    Win32WriteOutput("        Tail->Next = Result;\n");
-    Win32WriteOutput("    }\n\n");
-    Win32WriteOutput("    return Result;");
-    Win32WriteOutput("}\n");
+    Win32PrintOutput("\ninline %S *\n%SPush(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
+    Win32PrintOutput("    Result->Next = *HeadRef;\n");
+    Win32PrintOutput("    *HeadRef = Result;\n\n");
+    Win32PrintOutput("    return Result;");
+    Win32PrintOutput("}\n");
     
-    Win32WriteOutput("\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);
+    Win32PrintOutput("\ninline %S *\n%SPushBack(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
+    Win32PrintOutput("    Result->Next = 0;\n");
+    Win32PrintOutput("    if(*HeadRef == 0)\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        *HeadRef = Result;\n");
+    Win32PrintOutput("    }\n");
+    Win32PrintOutput("    else\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        %S *Tail = Get%STail(*HeadRef);\n", Type, FunctionName);
+    Win32PrintOutput("        Tail->Next = Result;\n");
+    Win32PrintOutput("    }\n\n");
+    Win32PrintOutput("    return Result;");
+    Win32PrintOutput("}\n");
+    
+    Win32PrintOutput("\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);
     
     
-    Win32WriteOutput("\ninline %S *\n%SMergeSort_(%S *Front, %S *Back, %S_predicate *Predicate, sort_type SortType)\n", 
+    Win32PrintOutput("\ninline %S *\n%SMergeSort_(%S *Front, %S *Back, %S_predicate *Predicate, sort_type SortType)\n", 
                      Type, FunctionName, Type, Type, Type);
-    Win32WriteOutput("{\n");
-    Win32WriteOutput("    %S *Result = 0;\n", Type);
-    Win32WriteOutput("    if(Front == 0)\n");
-    Win32WriteOutput("    {\n");
-    Win32WriteOutput("        Result = Back;\n");
-    Win32WriteOutput("    }\n");
-    Win32WriteOutput("    else if(Back == 0)\n");
-    Win32WriteOutput("    {\n");
-    Win32WriteOutput("        Result = Front;\n");
-    Win32WriteOutput("    }\n");
-    Win32WriteOutput("    else\n");
-    Win32WriteOutput("    {\n");
-    Win32WriteOutput("        b32 PredicateResult = Predicate(Front, Back);\n");
-    Win32WriteOutput("        if(SortType == Sort_Descending)\n");
-    Win32WriteOutput("        {\n");
-    Win32WriteOutput("            PredicateResult = !PredicateResult;\n");
-    Win32WriteOutput("        }\n");
-    Win32WriteOutput("        else\n");
-    Win32WriteOutput("        {\n");
-    Win32WriteOutput("            Assert(SortType == Sort_Ascending);\n");
-    Win32WriteOutput("        }\n");
-    Win32WriteOutput("        if(PredicateResult)\n");
-    Win32WriteOutput("        {\n");
-    Win32WriteOutput("            Result = Front;\n");
-    Win32WriteOutput("            Result->Next = %SMergeSort_(Front->Next, Back, Predicate, SortType);\n", FunctionName);
-    Win32WriteOutput("        }\n");
-    Win32WriteOutput("        else\n");
-    Win32WriteOutput("        {\n");
-    Win32WriteOutput("            Result = Back;\n");
-    Win32WriteOutput("            Back->Next = %SMergeSort_(Front, Back->Next, Predicate, SortType);\n", FunctionName);
-    Win32WriteOutput("        }\n");
-    Win32WriteOutput("    }\n\n");
-    Win32WriteOutput("    return Result;\n");
-    Win32WriteOutput("}\n");
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("    %S *Result = 0;\n", Type);
+    Win32PrintOutput("    if(Front == 0)\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        Result = Back;\n");
+    Win32PrintOutput("    }\n");
+    Win32PrintOutput("    else if(Back == 0)\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        Result = Front;\n");
+    Win32PrintOutput("    }\n");
+    Win32PrintOutput("    else\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        b32 PredicateResult = Predicate(Front, Back);\n");
+    Win32PrintOutput("        if(SortType == Sort_Descending)\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            PredicateResult = !PredicateResult;\n");
+    Win32PrintOutput("        }\n");
+    Win32PrintOutput("        else\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            Assert(SortType == Sort_Ascending);\n");
+    Win32PrintOutput("        }\n");
+    Win32PrintOutput("        if(PredicateResult)\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            Result = Front;\n");
+    Win32PrintOutput("            Result->Next = %SMergeSort_(Front->Next, Back, Predicate, SortType);\n", FunctionName);
+    Win32PrintOutput("        }\n");
+    Win32PrintOutput("        else\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            Result = Back;\n");
+    Win32PrintOutput("            Back->Next = %SMergeSort_(Front, Back->Next, Predicate, SortType);\n", FunctionName);
+    Win32PrintOutput("        }\n");
+    Win32PrintOutput("    }\n\n");
+    Win32PrintOutput("    return Result;\n");
+    Win32PrintOutput("}\n");
     
     
-    Win32WriteOutput("\ninline void\n%SFrontBackSplit(%S *Head, %S **FrontRef, %S **BackRef)\n", FunctionName, Type, Type);
-    Win32WriteOutput("{\n");
-    Win32WriteOutput("    %S *Fast;\n", Type);
-    Win32WriteOutput("    %S *Slow;\n", Type);
-    Win32WriteOutput("    Slow = Head;\n");
-    Win32WriteOutput("    Fast = Head->Next;\n\n");
-    Win32WriteOutput("    while(Fast != 0)\n");
-    Win32WriteOutput("    {\n");
-    Win32WriteOutput("        Fast = Fast->Next;\n");
-    Win32WriteOutput("        if(Fast != 0)\n");
-    Win32WriteOutput("        {\n");
-    Win32WriteOutput("            Slow = Slow->Next;\n");
-    Win32WriteOutput("            Fast = Fast->Next;\n");
-    Win32WriteOutput("        }\n");
-    Win32WriteOutput("    }\n\n");
-    Win32WriteOutput("    *FrontRef = Head;\n");
-    Win32WriteOutput("    *BackRef = Slow->Next;\n");
-    Win32WriteOutput("    Slow->Next = 0;\n");
-    Win32WriteOutput("}\n");
+    Win32PrintOutput("\ninline void\n%SFrontBackSplit(%S *Head, %S **FrontRef, %S **BackRef)\n", FunctionName, Type, Type);
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("    %S *Fast;\n", Type);
+    Win32PrintOutput("    %S *Slow;\n", Type);
+    Win32PrintOutput("    Slow = Head;\n");
+    Win32PrintOutput("    Fast = Head->Next;\n\n");
+    Win32PrintOutput("    while(Fast != 0)\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        Fast = Fast->Next;\n");
+    Win32PrintOutput("        if(Fast != 0)\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            Slow = Slow->Next;\n");
+    Win32PrintOutput("            Fast = Fast->Next;\n");
+    Win32PrintOutput("        }\n");
+    Win32PrintOutput("    }\n\n");
+    Win32PrintOutput("    *FrontRef = Head;\n");
+    Win32PrintOutput("    *BackRef = Slow->Next;\n");
+    Win32PrintOutput("    Slow->Next = 0;\n");
+    Win32PrintOutput("}\n");
     
     
-    Win32WriteOutput("\ninline void\n%SMergeSort(%S **HeadRef, %S_predicate *Predicate, sort_type SortType)\n", FunctionName, Type, Type);
-    Win32WriteOutput("{\n");
-    Win32WriteOutput("    %S *Head = *HeadRef;\n\n", Type);
-    Win32WriteOutput("    if((Head!= 0) &&\n");
-    Win32WriteOutput("       (Head->Next != 0))\n");
-    Win32WriteOutput("    {\n");
-    Win32WriteOutput("        %S *Front;\n", Type);
-    Win32WriteOutput("        %S *Back;\n", Type);
-    Win32WriteOutput("        %SFrontBackSplit(Head, &Front, &Back);\n\n", FunctionName);
-    Win32WriteOutput("        %SMergeSort(&Front, Predicate, SortType);\n", FunctionName);
-    Win32WriteOutput("        %SMergeSort(&Back, Predicate, SortType);\n\n", FunctionName);
-    Win32WriteOutput("        *HeadRef = %SMergeSort_(Front, Back, Predicate, SortType);\n", FunctionName);
-    Win32WriteOutput("    }\n");
-    Win32WriteOutput("}\n");
+    Win32PrintOutput("\ninline void\n%SMergeSort(%S **HeadRef, %S_predicate *Predicate, sort_type SortType)\n", FunctionName, Type, Type);
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("    %S *Head = *HeadRef;\n\n", Type);
+    Win32PrintOutput("    if((Head!= 0) &&\n");
+    Win32PrintOutput("       (Head->Next != 0))\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        %S *Front;\n", Type);
+    Win32PrintOutput("        %S *Back;\n", Type);
+    Win32PrintOutput("        %SFrontBackSplit(Head, &Front, &Back);\n\n", FunctionName);
+    Win32PrintOutput("        %SMergeSort(&Front, Predicate, SortType);\n", FunctionName);
+    Win32PrintOutput("        %SMergeSort(&Back, Predicate, SortType);\n\n", FunctionName);
+    Win32PrintOutput("        *HeadRef = %SMergeSort_(Front, Back, Predicate, SortType);\n", FunctionName);
+    Win32PrintOutput("    }\n");
+    Win32PrintOutput("}\n");
     
     Token = GetNextCToken(Tokenizer);
     while(Token.Type != CToken_CloseBrace)
@@ -688,8 +697,8 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     
     Token = GetNextCToken(Tokenizer);
     Assert(Token.Type == CToken_OpenParen);
-    Win32WriteOutput("\ninternal %S\n", ReturnType);
-    Win32WriteOutput("Win32%S(", FunctionName);
+    Win32PrintOutput("\ninternal %S\n", ReturnType);
+    Win32PrintOutput("Win32%S(", FunctionName);
     Token = GetNextCToken(Tokenizer);
     b32 FirstParamFound = false;
     string ParametersWithoutTypes;
@@ -742,14 +751,14 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
                 
                 if(FirstParamFound)
                 {
-                    Win32WriteOutput(", ");
+                    Win32PrintOutput(", ");
                     AppendStringFormat(&StringState, ", ");
                 }
                 else
                 {
                     FirstParamFound = true;
                 }
-                Win32WriteOutput("%s%s%S%s %s%S", 
+                Win32PrintOutput("%s%s%S%s %s%S", 
                                  IsConst ? "const " : "",
                                  IsStruct ? "struct " : "",
                                  Type, 
@@ -767,35 +776,35 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     
     b32 HasResult = !StringsAreEqual(String("void"), ReturnType);
     
-    Win32WriteOutput(")\n{\n");
+    Win32PrintOutput(")\n{\n");
     if(HasResult)
     {
-        Win32WriteOutput("    %S Result;\n\n", ReturnType);
+        Win32PrintOutput("    %S Result;\n\n", ReturnType);
     }
     if(!StringsAreEqual(Library, String("Kernel32")))
     {
-        Win32WriteOutput("    if(!%S)\n", Library);
-        Win32WriteOutput("    {\n");
-        Win32WriteOutput("        %S = Win32LoadLibraryA(\"%S.dll\");\n", Library, Library);
-        Win32WriteOutput("    }\n");
+        Win32PrintOutput("    if(!%S)\n", Library);
+        Win32PrintOutput("    {\n");
+        Win32PrintOutput("        %S = Win32LoadLibraryA(\"%S.dll\");\n", Library, Library);
+        Win32PrintOutput("    }\n");
     }
-    Win32WriteOutput("    Assert(%S);\n", Library);
-    Win32WriteOutput("    local_persist %S *Func = 0;\n", FunctionType);
-    Win32WriteOutput("    if(!Func)\n");
-    Win32WriteOutput("    {\n");
-    Win32WriteOutput("         Func = (%S *)Win32GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, MethodName);
-    Win32WriteOutput("    }\n");
-    Win32WriteOutput("    Assert(Func);\n");
+    Win32PrintOutput("    Assert(%S);\n", Library);
+    Win32PrintOutput("    local_persist %S *Func = 0;\n", FunctionType);
+    Win32PrintOutput("    if(!Func)\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("         Func = (%S *)Win32GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, MethodName);
+    Win32PrintOutput("    }\n");
+    Win32PrintOutput("    Assert(Func);\n");
     if(HasResult)
     {
-        Win32WriteOutput("    Result = Func(%S);\n\n", ParametersWithoutTypes);
-        Win32WriteOutput("    return Result;\n");
+        Win32PrintOutput("    Result = Func(%S);\n\n", ParametersWithoutTypes);
+        Win32PrintOutput("    return Result;\n");
     }
     else
     {
-        Win32WriteOutput("    Func(%S);\n", ParametersWithoutTypes);
+        Win32PrintOutput("    Func(%S);\n", ParametersWithoutTypes);
     }
-    Win32WriteOutput("}\n");
+    Win32PrintOutput("}\n");
 }
 
 internal void
@@ -812,65 +821,65 @@ GenerateRadixSort(c_tokenizer *Tokenizer, string SortKey)
     string FunctionName = FormatStringToBuffer(FunctionNameBuffer, sizeof(FunctionNameBuffer), "%S", Token.Str);
     ToUpperCamelCase(&FunctionName);
     
-    Win32WriteOutput("\ninternal void\n%SRadixSort(u32 Count, %S *First, %S *Temp, sort_type SortType)\n", FunctionName, Type, Type);
-    Win32WriteOutput("{\n");
-    Win32WriteOutput("    %S *Source = First;\n", Type);
-    Win32WriteOutput("    %S *Dest = Temp;\n", Type);
-    Win32WriteOutput("    for(u32 ByteIndex = 0;\n");
-    Win32WriteOutput("        ByteIndex < 32;\n");
-    Win32WriteOutput("        ByteIndex += 8)\n");
-    Win32WriteOutput("    {\n");
-    Win32WriteOutput("        u32 SortKeyOffsets[256];\n");
-    Win32WriteOutput("        ZeroArray(ArrayCount(SortKeyOffsets), SortKeyOffsets);\n\n");
-    Win32WriteOutput("        for(u32 Index = 0;\n");
-    Win32WriteOutput("            Index < Count;\n");
-    Win32WriteOutput("            ++Index)\n");
-    Win32WriteOutput("        {\n");
-    Win32WriteOutput("            u32 RadixValue;\n");
-    Win32WriteOutput("            if(SortType == Sort_Descending)\n");
-    Win32WriteOutput("            {\n");
-    Win32WriteOutput("                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
-    Win32WriteOutput("            }\n");
-    Win32WriteOutput("            else\n");
-    Win32WriteOutput("            {\n");
-    Win32WriteOutput("                Assert(SortType == Sort_Ascending);\n");
-    Win32WriteOutput("                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
-    Win32WriteOutput("            }\n");
-    Win32WriteOutput("            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
-    Win32WriteOutput("            ++SortKeyOffsets[RadixPiece];\n");
-    Win32WriteOutput("        }\n\n");
-    Win32WriteOutput("        u32 Total = 0;\n");
-    Win32WriteOutput("        for(u32 SortKeyIndex = 0;\n");
-    Win32WriteOutput("            SortKeyIndex < ArrayCount(SortKeyOffsets);\n");
-    Win32WriteOutput("            ++SortKeyIndex)\n");
-    Win32WriteOutput("        {\n");
-    Win32WriteOutput("            u32 OffsetCount = SortKeyOffsets[SortKeyIndex];\n");
-    Win32WriteOutput("            SortKeyOffsets[SortKeyIndex] = Total;\n");
-    Win32WriteOutput("            Total += OffsetCount;\n");
-    Win32WriteOutput("        }\n\n");
-    Win32WriteOutput("        \n");
-    Win32WriteOutput("        for(u32 Index = 0;\n");
-    Win32WriteOutput("            Index < Count;\n");
-    Win32WriteOutput("            ++Index)\n");
-    Win32WriteOutput("        {\n");
-    Win32WriteOutput("            u32 RadixValue;\n");
-    Win32WriteOutput("            if(SortType == Sort_Descending)\n");
-    Win32WriteOutput("            {\n");
-    Win32WriteOutput("                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
-    Win32WriteOutput("            }\n");
-    Win32WriteOutput("            else\n");
-    Win32WriteOutput("            {\n");
-    Win32WriteOutput("                Assert(SortType == Sort_Ascending);\n");
-    Win32WriteOutput("                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
-    Win32WriteOutput("            }\n");
-    Win32WriteOutput("            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
-    Win32WriteOutput("            Dest[SortKeyOffsets[RadixPiece]++] = Source[Index];\n");
-    Win32WriteOutput("        }\n\n");
-    Win32WriteOutput("        %S *SwapTemp = Dest;\n", Type);
-    Win32WriteOutput("        Dest = Source;\n");
-    Win32WriteOutput("        Source = SwapTemp;\n");
-    Win32WriteOutput("    }\n");
-    Win32WriteOutput("}\n");
+    Win32PrintOutput("\ninternal void\n%SRadixSort(u32 Count, %S *First, %S *Temp, sort_type SortType)\n", FunctionName, Type, Type);
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("    %S *Source = First;\n", Type);
+    Win32PrintOutput("    %S *Dest = Temp;\n", Type);
+    Win32PrintOutput("    for(u32 ByteIndex = 0;\n");
+    Win32PrintOutput("        ByteIndex < 32;\n");
+    Win32PrintOutput("        ByteIndex += 8)\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        u32 SortKeyOffsets[256];\n");
+    Win32PrintOutput("        ZeroArray(ArrayCount(SortKeyOffsets), SortKeyOffsets);\n\n");
+    Win32PrintOutput("        for(u32 Index = 0;\n");
+    Win32PrintOutput("            Index < Count;\n");
+    Win32PrintOutput("            ++Index)\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            u32 RadixValue;\n");
+    Win32PrintOutput("            if(SortType == Sort_Descending)\n");
+    Win32PrintOutput("            {\n");
+    Win32PrintOutput("                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
+    Win32PrintOutput("            }\n");
+    Win32PrintOutput("            else\n");
+    Win32PrintOutput("            {\n");
+    Win32PrintOutput("                Assert(SortType == Sort_Ascending);\n");
+    Win32PrintOutput("                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
+    Win32PrintOutput("            }\n");
+    Win32PrintOutput("            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
+    Win32PrintOutput("            ++SortKeyOffsets[RadixPiece];\n");
+    Win32PrintOutput("        }\n\n");
+    Win32PrintOutput("        u32 Total = 0;\n");
+    Win32PrintOutput("        for(u32 SortKeyIndex = 0;\n");
+    Win32PrintOutput("            SortKeyIndex < ArrayCount(SortKeyOffsets);\n");
+    Win32PrintOutput("            ++SortKeyIndex)\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            u32 OffsetCount = SortKeyOffsets[SortKeyIndex];\n");
+    Win32PrintOutput("            SortKeyOffsets[SortKeyIndex] = Total;\n");
+    Win32PrintOutput("            Total += OffsetCount;\n");
+    Win32PrintOutput("        }\n\n");
+    Win32PrintOutput("        \n");
+    Win32PrintOutput("        for(u32 Index = 0;\n");
+    Win32PrintOutput("            Index < Count;\n");
+    Win32PrintOutput("            ++Index)\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            u32 RadixValue;\n");
+    Win32PrintOutput("            if(SortType == Sort_Descending)\n");
+    Win32PrintOutput("            {\n");
+    Win32PrintOutput("                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
+    Win32PrintOutput("            }\n");
+    Win32PrintOutput("            else\n");
+    Win32PrintOutput("            {\n");
+    Win32PrintOutput("                Assert(SortType == Sort_Ascending);\n");
+    Win32PrintOutput("                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
+    Win32PrintOutput("            }\n");
+    Win32PrintOutput("            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
+    Win32PrintOutput("            Dest[SortKeyOffsets[RadixPiece]++] = Source[Index];\n");
+    Win32PrintOutput("        }\n\n");
+    Win32PrintOutput("        %S *SwapTemp = Dest;\n", Type);
+    Win32PrintOutput("        Dest = Source;\n");
+    Win32PrintOutput("        Source = SwapTemp;\n");
+    Win32PrintOutput("    }\n");
+    Win32PrintOutput("}\n");
     
     Token = GetNextCToken(Tokenizer);
     while(Token.Type != CToken_CloseBrace)
