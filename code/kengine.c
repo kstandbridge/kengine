@@ -44,6 +44,21 @@ global debug_event_table *GlobalDebugEventTable;
 #include "main.c"
 
 extern void
+AppHandleArguments(app_memory *Memory)
+{
+    __debugbreak();
+#if KENGINE_INTERNAL
+    Platform = Memory->PlatformAPI;
+#endif
+    app_state *AppState = Memory->AppState;
+    if(!AppState)
+    {
+        AppState = Memory->AppState = BootstrapPushStruct(app_state, TotalArena);
+    }
+    int x = 5;
+}
+
+extern void
 AppUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Arena, app_input *Input)
 {
 #if KENGINE_INTERNAL

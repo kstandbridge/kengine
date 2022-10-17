@@ -26,9 +26,18 @@ typedef struct win32_state
     char LockFullFilePath[MAX_PATH];
     FILETIME LastDLLWriteTime;
     HMODULE AppLibrary;
+    
+#if KENGINE_CONSOLE
+    app_handle_arguments *AppHandleArguments;
+#else
     app_update_frame *AppUpdateFrame;
     debug_update_frame *DebugUpdateFrame;
+#endif
+    
+#if KENGINE_HTTP
     app_handle_http_request *AppHandleHttpRequest;
+#endif
+    
 #endif
     
 } win32_state;

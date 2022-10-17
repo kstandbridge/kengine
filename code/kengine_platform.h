@@ -116,10 +116,15 @@ typedef struct app_memory
     platform_api PlatformAPI;
 } app_memory;
 
+#if KENGINE_CONSOLE
+typedef void app_handle_arguments(app_memory *Memory);
+#else
 typedef struct render_commands render_commands;
 typedef void app_update_frame(app_memory *Memory, render_commands *Commands, struct memory_arena *Arena, app_input *Input);
 typedef void debug_update_frame(app_memory *Memory, render_commands *Commands, struct memory_arena *Arena, app_input *Input);
+#endif
 
+#if KENGINE_HTTP
 typedef struct platform_http_request
 {
     string Endpoint;
@@ -133,6 +138,7 @@ typedef struct platform_http_response
 } platform_http_response;
 
 typedef platform_http_response app_handle_http_request(app_memory *Memory, struct memory_arena *Arena, platform_http_request Request);
+#endif
 
 #define KENGINE_PLATFORM_H
 #endif //KENGINE_PLATFORM_H

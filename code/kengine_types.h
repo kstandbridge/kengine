@@ -61,6 +61,8 @@ typedef unsigned __int64 umm;
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
+#define OffsetOf(type, Member) (umm)&(((type *)0)->Member)
+
 #define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
 #define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
 inline u32 
