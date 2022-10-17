@@ -795,7 +795,7 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
 }
 
 extern void
-DebugUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Arena, app_input *Input)
+DebugUpdateFrame(app_memory *Memory)
 {
     GlobalDebugEventTable->CurrentEventArrayIndex = !GlobalDebugEventTable->CurrentEventArrayIndex;
     u64 ArrayIndex_EventIndex = AtomicExchangeU64(&GlobalDebugEventTable->EventArrayIndex_EventIndex,
@@ -805,11 +805,10 @@ DebugUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Ar
     Assert(EventArrayIndex <= 1);
     u32 EventCount = ArrayIndex_EventIndex & 0xFFFFFFFF;
     
-    if(!Memory->DebugState)
+    debug_state *DebugState = Memory->DebugState;
+    if(!DebugState)
     {
-        Memory->DebugState = PushStruct(Arena, debug_state);
-        ZeroStruct(*Memory->DebugState);
-        debug_state *DebugState = Memory->DebugState;
+        DebugState = Memory->DebugState = BootstrapPushStruct(debug_state, Arena);
         
         DebugState->RootGroup = CreateVariableLink(DebugState, 4, "Root");
         DebugState->ProfileGroup = CreateVariableLink(DebugState, 7, "Profile");
@@ -819,7 +818,6 @@ DebugUpdateFrame(app_memory *Memory, render_commands *Commands, memory_arena *Ar
         DebugState->RootProfileElement = GetElementFromEvent(DebugState, &RootProfileEvent, 0, 0);
         DebugState->CurrentView = DebugView_Profiler;
     }
-    debug_state *DebugState = Memory->DebugState;
     
     CollateDebugRecords(DebugState, EventCount, GlobalDebugEventTable->Events[EventArrayIndex]);
     

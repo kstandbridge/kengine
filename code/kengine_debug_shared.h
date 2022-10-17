@@ -2,6 +2,7 @@
 
 
 #if KENGINE_INTERNAL
+
 typedef enum
 {
     DebugEvent_None,
@@ -75,7 +76,7 @@ Event->Value_F32 = SecondsElapsed; \
 
 #define DEBUG_IF(B32) if(GlobalDebugEventTable && GlobalDebugEventTable->Settings.B32)
 
-#else
+#else // KENGINE_INTERNAL
 
 #define DEBUG_FRAME_END(...)
 #define BEGIN_BLOCK(...)
@@ -83,7 +84,7 @@ Event->Value_F32 = SecondsElapsed; \
 
 #define DEBUG_IF(...) if(0)
 
-#endif
+#endif // KENGINE_INTERNAL
 
 
 #define KENGINE_DEBUG_SHARED_H

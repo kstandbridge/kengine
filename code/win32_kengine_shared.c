@@ -12,7 +12,6 @@ typedef struct win32_state
     ticket_mutex MemoryMutex;
     win32_memory_block MemorySentinel;
     
-    b32 IsRunning;
     HWND Window;
     
     memory_arena Arena;
@@ -28,12 +27,11 @@ typedef struct win32_state
     HMODULE AppLibrary;
     
     app_loop *AppLoop;
-    
-#ifndef KENGINE_CONSOLE
     debug_update_frame *DebugUpdateFrame;
-#endif
     
+#if KENGINE_CONSOLE
     app_handle_command *AppHandleCommand;
+#endif
     
 #if KENGINE_HTTP
     app_handle_http_request *AppHandleHttpRequest;

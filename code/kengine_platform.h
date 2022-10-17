@@ -68,7 +68,9 @@ typedef struct platform_work_queue platform_work_queue;
 typedef void platform_add_work_entry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data);
 typedef void platform_complete_all_work(platform_work_queue *Queue);
 
+#if KENGINE_CONSOLE
 typedef void platform_init_console_command_loop();
+#endif
 
 typedef platform_memory_block *platform_allocate_memory(umm Size, u64 Flags);
 typedef void platform_deallocate_memory(platform_memory_block *Block);
@@ -117,7 +119,9 @@ typedef struct platform_api
     platform_add_work_entry *AddWorkEntry;
     platform_complete_all_work *CompleteAllWork;
     
+#if KENGINE_CONSOLE
     platform_init_console_command_loop *InitConsoleCommandLoop;
+#endif
     
     platform_allocate_memory *AllocateMemory;
     platform_deallocate_memory *DeallocateMemory;
@@ -141,6 +145,7 @@ typedef struct platform_api
 } platform_api;
 extern platform_api Platform;
 
+// TODO(kstandbridge): Rename to platform_state ???
 typedef struct app_memory
 {
     // TODO(kstandbridge): App state maybe, UI state hard no
@@ -151,19 +156,24 @@ typedef struct app_memory
     struct debug_state *DebugState;
     struct debug_event_table *DebugEventTable;
 #endif
+    
+    b32 IsRunning;
+    
     platform_api PlatformAPI;
 } app_memory;
 
 #if KENGINE_CONSOLE
 typedef void app_loop(app_memory *Memory);
+typedef void app_handle_command(app_memory *Memory, string Command);
 #else
 typedef struct render_commands render_commands;
 typedef void app_loop(app_memory *Memory, render_commands *Commands, struct memory_arena *Arena, app_input *Input);
-// TODO(kstandbridge): This should be in the platform layer?
-typedef void debug_update_frame(app_memory *Memory, render_commands *Commands, struct memory_arena *Arena, app_input *Input);
 #endif
 
-typedef void app_handle_command(app_memory *Memory, string Command);
+// TODO(kstandbridge): This should be in the platform layer?
+typedef void debug_update_frame(app_memory *Memory);
+
+
 
 #if KENGINE_HTTP
 typedef struct platform_http_request

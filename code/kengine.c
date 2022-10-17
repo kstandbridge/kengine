@@ -49,43 +49,27 @@ global debug_event_table *GlobalDebugEventTable;
 
 #include "main.c"
 
+extern void
 #if KENGINE_CONSOLE
-extern void
-AppLoop(app_memory *Memory)
-{
-#if KENGINE_INTERNAL
-    Platform = Memory->PlatformAPI;
-#endif
-    app_state *AppState = Memory->AppState;
-    if(!AppState)
-    {
-        AppState = Memory->AppState = BootstrapPushStruct(app_state, Arena);
-        AppInit(Memory);
-    }
-    AppTick(Memory);
-}
-#else
-extern void
+AppLoop(app_memory *AppMemory)
+#else // KENGINE_CONSOLE
 AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, app_input *Input)
+#endif
 {
 #if KENGINE_INTERNAL
     Platform = AppMemory->PlatformAPI;
     GlobalDebugEventTable = AppMemory->DebugEventTable;
 #endif
-    
     app_state *AppState = AppMemory->AppState;
     if(!AppState)
     {
         AppState = AppMemory->AppState = BootstrapPushStruct(app_state, Arena);
-        AppInit(AppMemory);
         GlobalDebugEventTable->Settings.ShowDebugTab = true;
-        
-#if 0        
-        b32 HttpInit = Platform.InitializeHttpServer();
-        Assert(HttpInit);
-#endif
-        
+        AppInit(AppMemory);
     }
+#if KENGINE_CONSOLE
+    AppTick(AppMemory);
+#else // KENGINE_CONSOLE
     
     ui_state *UIState = AppMemory->UIState;
     if(!UIState)
@@ -206,5 +190,6 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, a
     EndTemporaryMemory(TempMem);
     CheckArena(&UIState->TranArena);
     CheckArena(Arena);
+    
+#endif // KENGINE_CONSOLE
 }
-#endif

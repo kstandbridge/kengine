@@ -54,7 +54,7 @@ Win32MainWindowCallback(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
     {
         case WM_CLOSE:
         {
-            GlobalWin32State.IsRunning = false;
+            GlobalAppMemory.IsRunning = false;
         } break;
         
         default:
@@ -105,7 +105,7 @@ Win32ProcessPendingMessages(app_input *Input)
                 {
                     if((VKCode == VK_F4) && AltKeyWasDown)
                     {
-                        GlobalWin32State.IsRunning = false;
+                        GlobalAppMemory.IsRunning = false;
                     }
                     else if((VKCode >= VK_F1) && (VKCode <= VK_F12))
                     {
@@ -204,6 +204,7 @@ Win32ParseCommandLingArgs()
     }
 }
 
+#if KENGINE_CONSOLE
 inline void
 Win32ConsoleCommandLoopThread(void *Data)
 {
@@ -231,12 +232,12 @@ Win32ConsoleCommandLoopThread(void *Data)
     }
 }
 
-
 internal void
 Win32InitConsoleCommandLoop()
 {
     Win32AddWorkEntry(Platform.LowPriorityQueue, Win32ConsoleCommandLoopThread, 0);
 }
+#endif
 
 #define MAX_GLYPH_COUNT 5000
 global KERNINGPAIR *GlobalKerningPairs;
@@ -592,7 +593,9 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.AddWorkEntry = Win32AddWorkEntry;
     GlobalAppMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
     
+#if KENGINE_CONSOLE
     GlobalAppMemory.PlatformAPI.InitConsoleCommandLoop = Win32InitConsoleCommandLoop;
+#endif
     
     GlobalAppMemory.PlatformAPI.AllocateMemory = Win32AllocateMemory;
     GlobalAppMemory.PlatformAPI.DeallocateMemory = Win32DeallocateMemory;
@@ -687,310 +690,284 @@ WinMainCRTStartup()
     }
 #endif
     
-#ifndef KENGINE_CONSOLE
-    if(Win32RegisterClassExA(&WindowClass))
-    {
-        GlobalWin32State.Window = Win32CreateWindowExA(0,
-                                                       WindowClass.lpszClassName,
-                                                       "kengine",
-                                                       WS_OVERLAPPEDWINDOW,
-                                                       CW_USEDEFAULT, CW_USEDEFAULT, 1280, 720,
-                                                       0, 0, Instance, 0);
-        if(GlobalWin32State.Window)
-        {
-            Win32ShowWindow(GlobalWin32State.Window, SW_SHOW);
-            HDC OpenGLDC = Win32GetDC(GlobalWin32State.Window);
-            HGLRC OpenGLRC = Win32InitOpenGL(OpenGLDC);
-            
-            u32 PushBufferSize = Megabytes(64);
-            void *PushBuffer = Win32VirtualAlloc(0, PushBufferSize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-            
-            u32 CurrentSortMemorySize = Kilobytes(64);
-            void *SortMemory = Win32VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-            
-            u32 CurrentClipMemorySize = Kilobytes(64);
-            void *ClipMemory = Win32VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-            
-            LARGE_INTEGER LastCounter = Win32GetWallClock();
-            
-            app_input Input[2];
-            ZeroArray(ArrayCount(Input), Input);
-            app_input *NewInput = &Input[0];
-            app_input *OldInput = &Input[1];
-            
-            // NOTE(kstandbridge): Otherwise Sleep will be ignored for requests less than 50? citation needed
-            UINT MinSleepPeriod = 1;
-            Win32timeBeginPeriod(MinSleepPeriod);
-            
+    // NOTE(kstandbridge): Remove this
 #if 0            
-            s32 MonitorRefreshHz = 60;
-            s32 Win32RefreshRate = Win32GetDeviceCaps(OpenGLDC, VREFRESH);
-            if(Win32RefreshRate > 1)
+    s32 MonitorRefreshHz = 60;
+    s32 Win32RefreshRate = Win32GetDeviceCaps(OpenGLDC, VREFRESH);
+    if(Win32RefreshRate > 1)
+    {
+        MonitorRefreshHz = Win32RefreshRate;
+    }
+    
+    f32 TargetSecondsPerFrame = 1.0f / MonitorRefreshHz;
+#else // 0
+    f32 TargetSecondsPerFrame = 1.0f / 20.0f;
+#endif // 0
+    
+#ifndef KENGINE_CONSOLE
+    
+    b32 WindowClassIsRegistered = Win32RegisterClassExA(&WindowClass);
+    Assert(WindowClassIsRegistered);
+    
+    GlobalWin32State.Window = Win32CreateWindowExA(0,
+                                                   WindowClass.lpszClassName,
+                                                   "kengine",
+                                                   WS_OVERLAPPEDWINDOW,
+                                                   CW_USEDEFAULT, CW_USEDEFAULT, 1280, 720,
+                                                   0, 0, Instance, 0);
+    Assert(GlobalWin32State.Window);
+    Win32ShowWindow(GlobalWin32State.Window, SW_SHOW);
+    HDC OpenGLDC = Win32GetDC(GlobalWin32State.Window);
+    HGLRC OpenGLRC = Win32InitOpenGL(OpenGLDC);
+    
+    u32 PushBufferSize = Megabytes(64);
+    void *PushBuffer = Win32VirtualAlloc(0, PushBufferSize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+    
+    u32 CurrentSortMemorySize = Kilobytes(64);
+    void *SortMemory = Win32VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+    
+    u32 CurrentClipMemorySize = Kilobytes(64);
+    void *ClipMemory = Win32VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+    
+    
+    app_input Input[2];
+    ZeroArray(ArrayCount(Input), Input);
+    app_input *NewInput = &Input[0];
+    app_input *OldInput = &Input[1];
+    
+    RECT ClientRect;
+    Win32GetClientRect(GlobalWin32State.Window, &ClientRect);
+    
+    v2i WindowDimensions = V2i((ClientRect.right - ClientRect.left),
+                               (ClientRect.bottom - ClientRect.top));
+#endif // KENGINE_CONSOLE
+    
+    LARGE_INTEGER LastCounter = Win32GetWallClock();
+    
+    // NOTE(kstandbridge): Otherwise Sleep will be ignored for requests less than 50? citation needed
+    UINT MinSleepPeriod = 1;
+    Win32timeBeginPeriod(MinSleepPeriod);
+    
+    GlobalAppMemory.IsRunning = true;
+    while(GlobalAppMemory.IsRunning)
+    {
+        
+#if KENGINE_INTERNAL
+        b32 DllNeedsToBeReloaded = false;
+        FILETIME NewDLLWriteTime = Win32GetLastWriteTime(GlobalWin32State.DllFullFilePath);
+        if(Win32CompareFileTime(&NewDLLWriteTime, &GlobalWin32State.LastDLLWriteTime) != 0)
+        {
+            WIN32_FILE_ATTRIBUTE_DATA Ignored;
+            if(!Win32GetFileAttributesExA(GlobalWin32State.LockFullFilePath, GetFileExInfoStandard, &Ignored))
             {
-                MonitorRefreshHz = Win32RefreshRate;
+                DllNeedsToBeReloaded = true;
             }
-            
-            f32 TargetSecondsPerFrame = 1.0f / MonitorRefreshHz;
-#else
-            f32 TargetSecondsPerFrame = 1.0f / 20.0f;
-#endif
-            RECT ClientRect;
-            Win32GetClientRect(GlobalWin32State.Window, &ClientRect);
-            
-            v2i WindowDimensions = V2i((ClientRect.right - ClientRect.left),
-                                       (ClientRect.bottom - ClientRect.top));
-            
-            GlobalWin32State.IsRunning = true;
-            while(GlobalWin32State.IsRunning)
+        }
+#endif // KENGINE_INTERNAL
+        
+#ifndef KENGINE_CONSOLE
+        
+        BEGIN_BLOCK("ProcessPendingMessages");
+        NewInput->dtForFrame = TargetSecondsPerFrame;
+        NewInput->MouseZ = 0;
+        ZeroStruct(NewInput->FKeyPressed);
+        Win32ProcessPendingMessages(NewInput);
+        END_BLOCK();
+        
+        BEGIN_BLOCK("ProcessMouseInput");
+        POINT MouseP;
+        Win32GetCursorPos(&MouseP);
+        Win32ScreenToClient(GlobalWin32State.Window, &MouseP);
+        NewInput->MouseX = (f32)MouseP.x;
+        NewInput->MouseY = (f32)((WindowDimensions.Y - 1) - MouseP.y);
+        
+        NewInput->ShiftDown = (Win32GetKeyState(VK_SHIFT) & (1 << 15));
+        NewInput->AltDown = (Win32GetKeyState(VK_MENU) & (1 << 15));
+        NewInput->ControlDown = (Win32GetKeyState(VK_CONTROL) & (1 << 15));
+        
+        // NOTE(kstandbridge): The order of these needs to match the order on enum app_input_mouse_button_type
+        DWORD ButtonVKs[MouseButton_Count] =
+        {
+            VK_LBUTTON,
+            VK_MBUTTON,
+            VK_RBUTTON,
+            VK_XBUTTON1,
+            VK_XBUTTON2,
+        };
+        
+        for(u32 ButtonIndex = 0;
+            ButtonIndex < MouseButton_Count;
+            ++ButtonIndex)
+        {
+            NewInput->MouseButtons[ButtonIndex] = OldInput->MouseButtons[ButtonIndex];
+            NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
+            ProcessInputMessage(&NewInput->MouseButtons[ButtonIndex],
+                                Win32GetKeyState(ButtonVKs[ButtonIndex]) & (1 << 15));
+        }
+        END_BLOCK();
+        
+        HDC DeviceContext = Win32GetDC(GlobalWin32State.Window);
+        
+        render_commands Commands_ = BeginRenderCommands(PushBufferSize, PushBuffer, WindowDimensions.X, WindowDimensions.Y);
+        render_commands *Commands = &Commands_;
+        
+#endif // KENGINE_CONSOLE
+        
+#if KENGINE_INTERNAL
+        BEGIN_BLOCK("AppLoop");
+        if(GlobalWin32State.AppLoop)
+        {
+#if KENGINE_CONSOLE
+            GlobalWin32State.AppLoop(&GlobalAppMemory);
+#else // KENGINE_CONSOLE
+            GlobalWin32State.AppLoop(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, NewInput);
+#endif // KENGINE_CONSOLE
+        }
+        END_BLOCK();
+        if(DllNeedsToBeReloaded)
+        {
+            Win32CompleteAllWork(Platform.HighPriorityQueue);
+            SetDebugEventRecording(false);
+        }
+        
+        if(GlobalWin32State.DebugUpdateFrame)
+        {
+            GlobalWin32State.DebugUpdateFrame(&GlobalAppMemory);
+        }
+        
+        if(DllNeedsToBeReloaded)
+        {
+            if(GlobalWin32State.AppLibrary && !Win32FreeLibrary(GlobalWin32State.AppLibrary))
             {
-                
-#if KENGINE_INTERNAL
-                b32 DllNeedsToBeReloaded = false;
-                FILETIME NewDLLWriteTime = Win32GetLastWriteTime(GlobalWin32State.DllFullFilePath);
-                if(Win32CompareFileTime(&NewDLLWriteTime, &GlobalWin32State.LastDLLWriteTime) != 0)
-                {
-                    WIN32_FILE_ATTRIBUTE_DATA Ignored;
-                    if(!Win32GetFileAttributesExA(GlobalWin32State.LockFullFilePath, GetFileExInfoStandard, &Ignored))
-                    {
-                        DllNeedsToBeReloaded = true;
-                    }
-                }
-#endif
-                
-                BEGIN_BLOCK("ProcessPendingMessages");
-                NewInput->dtForFrame = TargetSecondsPerFrame;
-                NewInput->MouseZ = 0;
-                ZeroStruct(NewInput->FKeyPressed);
-                Win32ProcessPendingMessages(NewInput);
-                END_BLOCK();
-                
-                BEGIN_BLOCK("ProcessMouseInput");
-                POINT MouseP;
-                Win32GetCursorPos(&MouseP);
-                Win32ScreenToClient(GlobalWin32State.Window, &MouseP);
-                NewInput->MouseX = (f32)MouseP.x;
-                NewInput->MouseY = (f32)((WindowDimensions.Y - 1) - MouseP.y);
-                
-                NewInput->ShiftDown = (Win32GetKeyState(VK_SHIFT) & (1 << 15));
-                NewInput->AltDown = (Win32GetKeyState(VK_MENU) & (1 << 15));
-                NewInput->ControlDown = (Win32GetKeyState(VK_CONTROL) & (1 << 15));
-                
-                // NOTE(kstandbridge): The order of these needs to match the order on enum app_input_mouse_button_type
-                DWORD ButtonVKs[MouseButton_Count] =
-                {
-                    VK_LBUTTON,
-                    VK_MBUTTON,
-                    VK_RBUTTON,
-                    VK_XBUTTON1,
-                    VK_XBUTTON2,
-                };
-                
-                for(u32 ButtonIndex = 0;
-                    ButtonIndex < MouseButton_Count;
-                    ++ButtonIndex)
-                {
-                    NewInput->MouseButtons[ButtonIndex] = OldInput->MouseButtons[ButtonIndex];
-                    NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
-                    ProcessInputMessage(&NewInput->MouseButtons[ButtonIndex],
-                                        Win32GetKeyState(ButtonVKs[ButtonIndex]) & (1 << 15));
-                }
-                END_BLOCK();
-                
-                HDC DeviceContext = Win32GetDC(GlobalWin32State.Window);
-                
-                render_commands Commands_ = BeginRenderCommands(PushBufferSize, PushBuffer, WindowDimensions.X, WindowDimensions.Y);
-                render_commands *Commands = &Commands_;
-                
-#if KENGINE_INTERNAL
-                BEGIN_BLOCK("AppLoop");
-                if(GlobalWin32State.AppLoop)
-                {
-                    GlobalWin32State.AppLoop(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, NewInput);
-                }
-                END_BLOCK();
-                if(DllNeedsToBeReloaded)
-                {
-                    Win32CompleteAllWork(Platform.HighPriorityQueue);
-                    Win32CompleteAllWork(Platform.LowPriorityQueue);
-                    SetDebugEventRecording(false);
-                }
-                
-#ifndef KENGINE_CONSOLE
-                if(GlobalWin32State.DebugUpdateFrame)
-                {
-                    GlobalWin32State.DebugUpdateFrame(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, NewInput);
-                }
-#endif
-                
-                if(DllNeedsToBeReloaded)
-                {
-                    if(GlobalWin32State.AppLibrary && !Win32FreeLibrary(GlobalWin32State.AppLibrary))
-                    {
-                        // TODO(kstandbridge): Error freeing app library
-                        InvalidCodePath;
-                    }
-                    GlobalWin32State.AppLibrary = 0;
-                    GlobalWin32State.AppLoop = 0;
-#ifndef KENGINE_CONSOLE
-                    GlobalWin32State.DebugUpdateFrame = 0;
+                // TODO(kstandbridge): Error freeing app library
+                InvalidCodePath;
+            }
+            GlobalWin32State.AppLibrary = 0;
+            GlobalWin32State.AppLoop = 0;
+            GlobalWin32State.DebugUpdateFrame = 0;
+#if KENGINE_CONSOLE
+            GlobalWin32State.AppHandleCommand = 0;
 #endif
 #if KENGINE_HTTP
-                    GlobalWin32State.AppHandleHttpRequest = 0;
-#endif
+            GlobalWin32State.AppHandleHttpRequest = 0;
+#endif // KENGINE_HTTP
+            
+            if(Win32CopyFileA(GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath, false))
+            {
+                GlobalWin32State.AppLibrary = Win32LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
+                if(GlobalWin32State.AppLibrary)
+                {
+                    GlobalWin32State.AppLoop = (app_loop *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppLoop");
+                    Assert(GlobalWin32State.AppLoop);
+                    GlobalWin32State.DebugUpdateFrame = (debug_update_frame *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "DebugUpdateFrame");
+                    Assert(GlobalWin32State.DebugUpdateFrame);
                     
-                    if(Win32CopyFileA(GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath, false))
+#if KENGINE_CONSOLE
+                    GlobalWin32State.AppHandleCommand = (app_handle_command *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleCommand");
+                    if(!GlobalWin32State.AppHandleCommand)
                     {
-                        GlobalWin32State.AppLibrary = Win32LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
-                        if(GlobalWin32State.AppLibrary)
-                        {
-                            GlobalWin32State.AppLoop = (app_loop *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppLoop");
-                            Assert(GlobalWin32State.AppLoop);
-#ifndef KENGINE_CONSOLE
-                            GlobalWin32State.DebugUpdateFrame = (debug_update_frame *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "DebugUpdateFrame");
-                            Assert(GlobalWin32State.DebugUpdateFrame);
-#endif
+                        LogWarning("AppHandleCommand not found");
+                    }
+#endif // KENGINE_CONSOLE
+                    
 #if KENGINE_HTTP
-                            GlobalWin32State.AppHandleHttpRequest = (app_handle_http_request *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleHttpRequest");
-                            Assert(GlobalWin32State.AppHandleHttpRequest);
-#endif
-                            
-                            GlobalWin32State.LastDLLWriteTime = NewDLLWriteTime;
-                        }
-                        else
-                        {
-                            // TODO(kstandbridge): Error loading library
-                            InvalidCodePath;
-                        }
-                    }
-                    else
-                    {
-                        // TODO(kstandbridge): Error copying temp dll
-                        InvalidCodePath;
-                    }
-                    SetDebugEventRecording(true);
+                    GlobalWin32State.AppHandleHttpRequest = (app_handle_http_request *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleHttpRequest");
+                    Assert(GlobalWin32State.AppHandleHttpRequest);
+#endif // KENGINE_HTTP
+                    
+                    GlobalWin32State.LastDLLWriteTime = NewDLLWriteTime;
                 }
-                
-#else
-                AppUpdateFrame(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, NewInput);
-#endif
-                
-                BEGIN_BLOCK("ExpandRenderStorage");
-                u32 NeededSortMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
-                if(CurrentSortMemorySize < NeededSortMemorySize)
+                else
                 {
-                    Win32VirtualFree(SortMemory, 0, MEM_RELEASE);
-                    while(CurrentSortMemorySize < NeededSortMemorySize)
-                    {
-                        CurrentSortMemorySize *= 2;
-                    }
-                    SortMemory = Win32VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-                }
-                
-                // TODO(kstandbridge): Can we merge sort/clip and push buffer memory together?
-                u32 NeededClipMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
-                if(CurrentClipMemorySize < NeededClipMemorySize)
-                {
-                    Win32VirtualFree(ClipMemory, 0, MEM_RELEASE);
-                    while(CurrentClipMemorySize < NeededClipMemorySize)
-                    {
-                        CurrentClipMemorySize *= 2;
-                    }
-                    ClipMemory = Win32VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-                }
-                END_BLOCK();
-                
-                BEGIN_BLOCK("Render");
-                SortRenderCommands(Commands, SortMemory);
-                LinearizeClipRects(Commands, ClipMemory);
-                
-                Win32OpenGLRenderCommands(Commands);
-                Win32SwapBuffers(DeviceContext);
-                
-                EndRenderCommands(Commands);
-                
-                if(!Win32ReleaseDC(GlobalWin32State.Window, DeviceContext))
-                {
+                    // TODO(kstandbridge): Error loading library
                     InvalidCodePath;
                 }
-                END_BLOCK();
-                
-                app_input *Temp = NewInput;
-                NewInput = OldInput;
-                OldInput = Temp;
-                
-                BEGIN_BLOCK("FrameWait");
-                f32 FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
-                
-                if(FrameSeconds < TargetSecondsPerFrame)
-                {
-                    DWORD Miliseconds = (DWORD)(1000.0f * (TargetSecondsPerFrame - FrameSeconds));
-                    if(Miliseconds > 0)
-                    {
-                        Win32Sleep(Miliseconds);
-                    }
-                    
-                    FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
-                    
-                    // NOTE(kstandbridge): FINE I'll make my own sleep function, with blackjack and hookers!
-                    while(FrameSeconds < TargetSecondsPerFrame)
-                    {
-                        FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
-                        _mm_pause();
-                    }
-                }
-                END_BLOCK();
-                
-                LARGE_INTEGER ThisCounter = Win32GetWallClock();                
-                f32 MeasuredSecondsPerFrame = Win32GetSecondsElapsed(LastCounter, ThisCounter, GlobalWin32State.PerfCountFrequency);
-                DEBUG_FRAME_END(MeasuredSecondsPerFrame);
-                LastCounter = ThisCounter;
-                
             }
-        }
-        else
-        {
-            // TODO(kstandbridge): Error creating window
-        }
-    }
-    else
-    {
-        // TODO(kstandbridge): Error registering window class
-    }
-#else
-    if(Win32CopyFileA(GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath, false))
-    {
-        GlobalWin32State.AppLibrary = Win32LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
-        if(GlobalWin32State.AppLibrary)
-        {
-#if KENGINE_HTTP
-            GlobalWin32State.AppHandleHttpRequest = (app_handle_http_request *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleHttpRequest");
-            Assert(GlobalWin32State.AppHandleHttpRequest);
-#endif
-            
-            GlobalWin32State.AppHandleCommand = (app_handle_command *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleCommand");
-            if(!GlobalWin32State.AppHandleCommand)
+            else
             {
-                LogWarning("No command handler setup");
+                // TODO(kstandbridge): Error copying temp dll
+                InvalidCodePath;
             }
-            
-            GlobalWin32State.AppLoop = (app_loop *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppLoop");
-            Assert(GlobalWin32State.AppLoop);
-            
-            GlobalWin32State.AppLoop(&GlobalAppMemory);
-            
+            SetDebugEventRecording(true);
         }
-        else
+        
+#else // KENGINE_INTERNAL
+        AppLoop(&GlobalAppMemory);
+#endif // KENGINE_INTERNAL
+        
+#ifndef KENGINE_CONSOLE
+        BEGIN_BLOCK("ExpandRenderStorage");
+        u32 NeededSortMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
+        if(CurrentSortMemorySize < NeededSortMemorySize)
         {
-            // TODO(kstandbridge): Error loading library
+            Win32VirtualFree(SortMemory, 0, MEM_RELEASE);
+            while(CurrentSortMemorySize < NeededSortMemorySize)
+            {
+                CurrentSortMemorySize *= 2;
+            }
+            SortMemory = Win32VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+        }
+        
+        // TODO(kstandbridge): Can we merge sort/clip and push buffer memory together?
+        u32 NeededClipMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
+        if(CurrentClipMemorySize < NeededClipMemorySize)
+        {
+            Win32VirtualFree(ClipMemory, 0, MEM_RELEASE);
+            while(CurrentClipMemorySize < NeededClipMemorySize)
+            {
+                CurrentClipMemorySize *= 2;
+            }
+            ClipMemory = Win32VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+        }
+        END_BLOCK();
+        
+        BEGIN_BLOCK("Render");
+        SortRenderCommands(Commands, SortMemory);
+        LinearizeClipRects(Commands, ClipMemory);
+        
+        Win32OpenGLRenderCommands(Commands);
+        Win32SwapBuffers(DeviceContext);
+        
+        EndRenderCommands(Commands);
+        
+        if(!Win32ReleaseDC(GlobalWin32State.Window, DeviceContext))
+        {
             InvalidCodePath;
         }
+        END_BLOCK();
+        
+        app_input *Temp = NewInput;
+        NewInput = OldInput;
+        OldInput = Temp;
+#endif // KENGINE_CONSOLE
+        
+        BEGIN_BLOCK("FrameWait");
+        f32 FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
+        
+        if(FrameSeconds < TargetSecondsPerFrame)
+        {
+            DWORD Miliseconds = (DWORD)(1000.0f * (TargetSecondsPerFrame - FrameSeconds));
+            if(Miliseconds > 0)
+            {
+                Win32Sleep(Miliseconds);
+            }
+            
+            FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
+            
+            // NOTE(kstandbridge): FINE I'll make my own sleep function, with blackjack and hookers!
+            while(FrameSeconds < TargetSecondsPerFrame)
+            {
+                FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
+                _mm_pause();
+            }
+        }
+        END_BLOCK();
+        
+        LARGE_INTEGER ThisCounter = Win32GetWallClock();                
+        f32 MeasuredSecondsPerFrame = Win32GetSecondsElapsed(LastCounter, ThisCounter, GlobalWin32State.PerfCountFrequency);
+        DEBUG_FRAME_END(MeasuredSecondsPerFrame);
+        LastCounter = ThisCounter;
     }
-    else
-    {
-        // TODO(kstandbridge): Error copying temp dll
-        InvalidCodePath;
-    }
-#endif
     
 #if KENGINE_HTTP
     Win32StopHttpServer(HttpState);
