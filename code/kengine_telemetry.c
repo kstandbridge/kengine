@@ -382,10 +382,10 @@ InitializeTelemetry(memory_arena *Arena, umm QueueSize, string TeamId, string Pr
             u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState_.CurrentState, TelemetryState_Initializing, TelemetryState_Uninitialized);
             if(StateType == TelemetryState_Uninitialized)
             {
-                GlobalTelemetryState_.AddingQueue = PushStruct(Arena, telemetry_queue);
+                GlobalTelemetryState_.AddingQueue = BootstrapPushStruct(telemetry_queue, Arena);
                 GlobalTelemetryState_.AddingQueue->MemoryFlush = BeginTemporaryMemory(&GlobalTelemetryState_.AddingQueue->Arena);
                 
-                GlobalTelemetryState_.ProcessingQueue = PushStruct(Arena, telemetry_queue);
+                GlobalTelemetryState_.ProcessingQueue = BootstrapPushStruct(telemetry_queue, Arena);
                 GlobalTelemetryState_.ProcessingQueue->MemoryFlush = BeginTemporaryMemory(&GlobalTelemetryState_.ProcessingQueue->Arena);
                 
                 GlobalTelemetryState_.TeamId = PushString_(Arena, TeamId.Size, TeamId.Data);
@@ -443,13 +443,13 @@ Win32GetDateTime()
 internal void
 SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
 {
-#if KENGINE_INTERNAL
+#if KENGINE_CONSOLE
     date_time Date = Win32GetDateTime();
     u32 ThreadId = GetThreadID();
     Platform.ConsoleOut("[%02d/%02d/%04d %02d:%02d:%02d] <%5u> (%S)\t%S\n", 
                         Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
                         ThreadId, Level, Message);
-#else
+#endif // KENGINE_CONSOLE
     SourceFilePlusLine.Data += SourceFilePlusLine.Size;
     SourceFilePlusLine.Size = 0;
     while(SourceFilePlusLine.Data[-1] != '\\')
@@ -458,7 +458,8 @@ SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
         --SourceFilePlusLine.Data;
     }
     
-    if(GlobalTelemetryState_.CurrentState != TelemetryState_Uninitialized)
+    if((GlobalTelemetryState_.CurrentState != TelemetryState_Uninitialized) &&
+       (GlobalTelemetryState_.CurrentState != TelemetryState_Initializing))
     {
         BeginTelemetryMessage();
         AppendTelemetryMessageNumberField(String("cl"), VERSION);
@@ -468,7 +469,6 @@ SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
         AppendTelemetryMessageStringField(String("message"), Message);
         EndTelemetryMessage();
     }
-#endif
 }
 
 internal void

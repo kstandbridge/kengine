@@ -94,6 +94,8 @@ Win32AllocateMemory(umm Size, u64 Flags)
     Win32Block->Next->Prev = Win32Block;
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
     
+    LogVerbose("Allocated %u bytes", Size);
+    
     platform_memory_block *Result = &Win32Block->PlatformBlock;
     return Result;
 }
@@ -102,6 +104,8 @@ internal void
 Win32DeallocateMemory(platform_memory_block *Block)
 {
     win32_memory_block *Win32Block = (win32_memory_block *)Block;
+    
+    LogVerbose("Deallocated block %u / %u used.", Block->Used, Block->Size);
     
     BeginTicketMutex(&GlobalWin32State.MemoryMutex);
     Win32Block->Prev->Next = Win32Block->Next;
@@ -1506,7 +1510,7 @@ Win32SendHttpRequest(memory_arena *Arena, string Host, u32 Port, string Endpoint
     char *CHeaders = 0;
     if(Headers.Data && Headers.Data[0] != '\0')
     {
-        StringToCString(Headers, sizeof(CHeaders), CHeaders);
+        StringToCString(Headers, sizeof(CHeaders_), CHeaders_);
         CHeaders = CHeaders_;
     }
     
@@ -1514,7 +1518,7 @@ Win32SendHttpRequest(memory_arena *Arena, string Host, u32 Port, string Endpoint
     char *CUsername = 0;
     if(Username.Data && Username.Data[0] != '\0')
     {
-        StringToCString(Username, sizeof(CUsername), CUsername);
+        StringToCString(Username, sizeof(CUsername_), CUsername_);
         CUsername = CUsername_;
     }
     
@@ -1522,7 +1526,7 @@ Win32SendHttpRequest(memory_arena *Arena, string Host, u32 Port, string Endpoint
     char *CPassword = 0;
     if(Password.Data && Password.Data[0] != '\0')
     {
-        StringToCString(Password, sizeof(CPassword), CPassword);
+        StringToCString(Password, sizeof(CPassword_), CPassword_);
         CPassword = CPassword_;
     }
     

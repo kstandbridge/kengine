@@ -15,8 +15,6 @@
 
 #include "win32_kengine_kernel.c"
 #include "win32_kengine_generated.c"
-#include "win32_kengine_shared.c"
-#include "kengine_telemetry.c"
 
 #if KENGINE_INTERNAL
 global debug_event_table GlobalDebugEventTable_;
@@ -40,7 +38,7 @@ global app_memory GlobalAppMemory;
 #endif
 #include "kengine_renderer.c"
 #include "win32_kengine_opengl.c"
-
+#include "win32_kengine_shared.c"
 #if KENGINE_HTTP
 #include "win32_kengine_http.c"
 #endif
@@ -218,6 +216,7 @@ Win32ConsoleCommandLoopThread(void *Data)
         Win32ReadFile(InputHandle, Buffer, (DWORD)sizeof(Buffer), (LPDWORD)&BytesRead, 0);
         string Command = String_(BytesRead - 2, Buffer);
         
+#if KENGINE_INTERNAL
         if(GlobalWin32State.AppHandleCommand)
         {
             GlobalWin32State.AppHandleCommand(&GlobalAppMemory, Command);
@@ -226,9 +225,9 @@ Win32ConsoleCommandLoopThread(void *Data)
         {
             LogWarning("Ignoring '%S' as no command handler setup", Command);
         }
-        
-        
-        
+#else // KENGINE_INTERNAL
+        AppHandleCommand(&GlobalAppMemory, Command);
+#endif // KENGINE_INTERNAL
     }
 }
 
@@ -666,9 +665,17 @@ WinMainCRTStartup()
     
     HttpState->RequestCount = RequestCount;
     HttpState->NextRequestIndex = 0;
-    HttpState->Requests = PushArray(&GlobalWin32State.Arena, RequestCount, win32_http_io_request);
+    HttpState->Requests = PushArray(&GlobalWin32State.Arena, RequestCount, win32_http_io_request *);
     
-    u32 Result = Win32InitializeHttpServer_(HttpState);
+    for(u32 RequestIndex = 0;
+        RequestIndex < RequestCount;
+        ++RequestIndex)
+    {
+        win32_http_io_request **Request = HttpState->Requests + RequestIndex;
+        *Request = BootstrapPushStruct(win32_http_io_request, Arena);
+    }
+    
+    u32 Result = Win32InitializeHttpServer(HttpState);
     if(Result == NO_ERROR)
     {
         if(Win32InitializeIoThreadPool(HttpState))
@@ -892,7 +899,11 @@ WinMainCRTStartup()
         }
         
 #else // KENGINE_INTERNAL
-        AppLoop(&GlobalAppMemory);
+#if KENGINE_CONSOLE
+        AppLoop(&GlobalAppMemory)
+#else // KENGINE_CONSOLE
+        AppLoop(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, Input)
+#endif // KENGINE_CONSOLE
 #endif // KENGINE_INTERNAL
         
 #ifndef KENGINE_CONSOLE

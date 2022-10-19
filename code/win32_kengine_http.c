@@ -44,7 +44,7 @@ typedef struct win32_http_state
     
     u32 RequestCount;
     u32 volatile NextRequestIndex;
-    win32_http_io_request *Requests;
+    win32_http_io_request **Requests;
     
     u32 ResponseCount;
     u32 volatile NextResponseIndex;
@@ -66,7 +66,7 @@ Win32SafeGetNextRequest(win32_http_state *HttpState)
         u32 Index = AtomicCompareExchangeU32(&HttpState->NextRequestIndex, NewNext, OrigionalNext);
         if(Index == OrigionalNext)
         {
-            Result = HttpState->Requests + Index;
+            Result = *(HttpState->Requests + Index);
             if(!Result->InUse)
             {
                 Result->InUse = true;
@@ -292,36 +292,39 @@ Win32ProcessReceiveAndPostResponse(win32_http_io_request *IoRequest, PTP_IO IoTh
             }
             EndPushSize(IoRequest->MemoryFlush.Arena, TotalSize);
             Assert(IoRequest->Arena.TempCount == 1);
+            
+            
+            
+            
+            
+            platform_http_request PlatformRequest;
+            PlatformRequest.Endpoint = String_(Request->RawUrlLength,
+                                               (u8 *)Request->pRawUrl);
+            PlatformRequest.Payload = (Request->EntityChunkCount == 0) 
+                ? String("") : String_(Request->pEntityChunks->FromMemory.BufferLength, 
+                                       Request->pEntityChunks->FromMemory.pBuffer);
+            
+#if KENGINE_INTERNAL
             if(GlobalWin32State.AppHandleHttpRequest)
             {
-                if(Request->Verb == HttpVerbGET)
-                {
-                    
-                    
-                    platform_http_request PlatformRequest;
-                    PlatformRequest.Endpoint = String_(Request->RawUrlLength,
-                                                       (u8 *)Request->pRawUrl);
-                    PlatformRequest.Payload = (Request->EntityChunkCount == 0) 
-                        ? String("") : String_(Request->pEntityChunks->FromMemory.BufferLength, 
-                                               Request->pEntityChunks->FromMemory.pBuffer);
-                    platform_http_response PlatformResponse = GlobalWin32State.AppHandleHttpRequest(&GlobalAppMemory, &IoRequest->Arena,
-                                                                                                    PlatformRequest);
-                    IoResponse = Win32CreateMessageResponse(HttpState, 
-                                                            PlatformResponse.Code, 
-                                                            String("OK"),  // TODO(kstandbridge): Code to string?
-                                                            PlatformResponse.Payload);
-                }
-                else
-                {
-                    IoResponse = Win32CreateMessageResponse(HttpState, 501, String("Not Implemented"), 
-                                                            String("{ \"Error\": \"Not Implemented\" }"));
-                }
+                platform_http_response PlatformResponse = GlobalWin32State.AppHandleHttpRequest(&GlobalAppMemory, &IoRequest->Arena,PlatformRequest);
+                IoResponse = Win32CreateMessageResponse(HttpState, 
+                                                        PlatformResponse.Code, 
+                                                        String("OK"),  // TODO(kstandbridge): Code to string?
+                                                        PlatformResponse.Payload);
             }
             else
             {
                 IoResponse = Win32CreateMessageResponse(HttpState, 200, String("OK"), 
                                                         String("{ \"Message\": \"Server starting...\" }"));
             }
+#else
+            platform_http_response PlatformResponse =  AppHandleHttpRequest(&GlobalAppMemory, &IoRequest->Arena, PlatformRequest);
+            IoResponse = Win32CreateMessageResponse(HttpState, 
+                                                    PlatformResponse.Code, 
+                                                    String("OK"),  // TODO(kstandbridge): Code to string?
+                                                    PlatformResponse.Payload);
+#endif
         } break;
         
         case ERROR_MORE_DATA:
@@ -503,7 +506,7 @@ Win32StopHttpServer(win32_http_state *HttpState)
     }
 }
 internal u32
-Win32InitializeHttpServer_(win32_http_state *HttpState)
+Win32InitializeHttpServer(win32_http_state *HttpState)
 {
     LogVerbose("Initializing HTTP server");
     

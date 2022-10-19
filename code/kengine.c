@@ -54,7 +54,7 @@ extern void
 AppLoop(app_memory *AppMemory)
 #else // KENGINE_CONSOLE
 AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, app_input *Input)
-#endif
+#endif // KENGINE_CONSOLE
 {
 #if KENGINE_INTERNAL
     Platform = AppMemory->PlatformAPI;
@@ -64,7 +64,9 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, a
     if(!AppState)
     {
         AppState = AppMemory->AppState = BootstrapPushStruct(app_state, Arena);
+#if KENGINE_INTERNAL
         GlobalDebugEventTable->Settings.ShowDebugTab = true;
+#endif
         AppInit(AppMemory);
     }
 #if KENGINE_CONSOLE
@@ -90,8 +92,9 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, a
         Input->dtForFrame = 0.001f;
     }
     
-    
+#if KENGINE_INTERNAL
     debug_state *DebugState = AppMemory->DebugState;
+#endif
     
     colors Colors;
     Colors.Clear = RGBColor(240, 240, 240, 255);
@@ -172,7 +175,7 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, a
         AppTick(AppMemory);
     }
 #else
-    DrawAppGrid(AppState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Bounds);
+    AppTick(AppMemory);
 #endif
     
     Interact(UIState, Input);
