@@ -25,7 +25,6 @@ typedef struct win32_state
     HMODULE AppLibrary;
     
     app_loop *AppLoop;
-    debug_update_frame *DebugUpdateFrame;
     
 #if KENGINE_CONSOLE
     app_handle_command *AppHandleCommand;

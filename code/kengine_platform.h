@@ -175,11 +175,6 @@ typedef struct render_commands render_commands;
 typedef void app_loop(app_memory *Memory, render_commands *Commands, app_input *Input, f32 dtForFrame);
 #endif
 
-// TODO(kstandbridge): This should be in the platform layer?
-typedef void debug_update_frame(app_memory *Memory);
-
-
-
 #if KENGINE_HTTP
 typedef struct platform_http_request
 {

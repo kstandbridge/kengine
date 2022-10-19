@@ -200,5 +200,14 @@ typedef struct debug_state
     debug_view_type CurrentView;
 } debug_state;
 
+
+inline debug_variable_link *
+GetSentinel(debug_variable_link *From)
+{
+    debug_variable_link *Result = (debug_variable_link *)(&From->FirstChild);
+    return Result;
+}
+
+
 #define KENGINE_DEBUG_H
 #endif //KENGINE_DEBUG_H

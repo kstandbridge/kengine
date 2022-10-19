@@ -1,7 +1,6 @@
 #include "kengine_platform.h"
 #include "kengine_memory.h"
 #include "kengine_generated.h"
-#include "kengine_debug_shared.h"
 #include "win32_kengine_types.h"
 #include "win32_kengine_opengl.h"
 #include "kengine_string.h"
@@ -17,8 +16,11 @@
 #include "win32_kengine_generated.c"
 
 #if KENGINE_INTERNAL
+#include "kengine_debug_shared.h"
+#include "kengine_debug.h"
 global debug_event_table GlobalDebugEventTable_;
 debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
+#include "kengine_debug.c"
 #endif
 
 global GLuint GlobalBlitTextureHandle;
@@ -822,10 +824,9 @@ WinMainCRTStartup()
             SetDebugEventRecording(false);
         }
         
-        if(GlobalWin32State.DebugUpdateFrame)
-        {
-            GlobalWin32State.DebugUpdateFrame(&GlobalAppMemory);
-        }
+        BEGIN_BLOCK("DebugUpdateFrame");
+        DebugUpdateFrame(&GlobalAppMemory);
+        END_BLOCK();
         
         if(DllNeedsToBeReloaded)
         {
@@ -836,7 +837,6 @@ WinMainCRTStartup()
             }
             GlobalWin32State.AppLibrary = 0;
             GlobalWin32State.AppLoop = 0;
-            GlobalWin32State.DebugUpdateFrame = 0;
 #if KENGINE_CONSOLE
             GlobalWin32State.AppHandleCommand = 0;
 #endif
@@ -852,9 +852,6 @@ WinMainCRTStartup()
                 {
                     GlobalWin32State.AppLoop = (app_loop *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppLoop");
                     Assert(GlobalWin32State.AppLoop);
-                    GlobalWin32State.DebugUpdateFrame = (debug_update_frame *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "DebugUpdateFrame");
-                    Assert(GlobalWin32State.DebugUpdateFrame);
-                    
 #if KENGINE_CONSOLE
                     GlobalWin32State.AppHandleCommand = (app_handle_command *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleCommand");
                     if(!GlobalWin32State.AppHandleCommand)
