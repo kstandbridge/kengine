@@ -51,9 +51,9 @@ global debug_event_table *GlobalDebugEventTable;
 
 extern void
 #if KENGINE_CONSOLE
-AppLoop(app_memory *AppMemory)
+AppLoop(app_memory *AppMemory, f32 dtForFrame)
 #else // KENGINE_CONSOLE
-AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, app_input *Input)
+AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, app_input *Input, f32 dtForFrame)
 #endif // KENGINE_CONSOLE
 {
 #if KENGINE_INTERNAL
@@ -69,8 +69,9 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, a
 #endif
         AppInit(AppMemory);
     }
+    
 #if KENGINE_CONSOLE
-    AppTick(AppMemory);
+    AppTick(AppMemory, dtForFrame);
 #else // KENGINE_CONSOLE
     
     ui_state *UIState = AppMemory->UIState;
@@ -79,17 +80,8 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, a
         UIState = AppMemory->UIState = BootstrapPushStruct(ui_state, PermArena);
         
         // NOTE(kstandbridge): GetVerticleAdvance will return 0 if no glyphs have been loaded
-        Platform.GetGlyphForCodePoint(Arena, 'K');
+        Platform.GetGlyphForCodePoint(&UIState->TranArena, 'K');
         AppMemory->UIState->LineAdvance = Platform.GetVerticleAdvance();
-    }
-    
-    if(Input->dtForFrame > 0.1f)
-    {
-        Input->dtForFrame = 0.1f;
-    }
-    else if(Input->dtForFrame < 0.001f)
-    {
-        Input->dtForFrame = 0.001f;
     }
     
 #if KENGINE_INTERNAL
@@ -172,13 +164,13 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, a
     }
     else
     {
-        AppTick(AppMemory);
+        AppTick(AppMemory, dtForFrame);
     }
 #else
-    AppTick(AppMemory);
+    AppTick(AppMemory, dtForFrame);
 #endif
     
-    Interact(UIState, Input);
+    Interact(UIState, Input, dtForFrame);
     UIState->ToExecute = UIState->NextToExecute;
     ClearInteraction(&UIState->NextToExecute);
     ClearInteraction(&UIState->NextHotInteraction);

@@ -203,7 +203,7 @@ TextOp_(render_group *RenderGroup, text_op_type Op, f32 Scale, v2 P, v4 Color, e
 }
 
 internal void
-Interact(ui_state *UIState, app_input *Input)
+Interact(ui_state *UIState, app_input *Input, f32 dtForFrame)
 {
     u32 TransitionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
     b32 MouseButton = Input->MouseButtons[MouseButton_Left].EndedDown;
@@ -294,7 +294,7 @@ Interact(ui_state *UIState, app_input *Input)
             case Interaction_AddDeltaTimeF32:
             {
                 UIState->ClickedId = UIState->Interaction.Id;
-                ((ui_value *)UIState->Interaction.Target)->F32_Value += 100.0f * Input->dtForFrame;
+                ((ui_value *)UIState->Interaction.Target)->F32_Value += 100.0f * dtForFrame;
                 if(MouseUp)
                 {
                     EndInteraction = true; 
@@ -304,7 +304,7 @@ Interact(ui_state *UIState, app_input *Input)
             case Interaction_SubtractDeltaTimeF32:
             {
                 UIState->ClickedId = UIState->Interaction.Id;
-                ((ui_value *)UIState->Interaction.Target)->F32_Value -= 100.0f * Input->dtForFrame;
+                ((ui_value *)UIState->Interaction.Target)->F32_Value -= 100.0f * dtForFrame;
                 if(MouseUp)
                 {
                     EndInteraction = true;

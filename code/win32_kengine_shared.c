@@ -221,55 +221,52 @@ Win32GetLastWriteTime(char *Filename)
     return LastWriteTime;
 }
 
-typedef struct platform_work_queue_entry
+typedef struct win32_work_queue
 {
-    platform_work_queue_callback *Callback;
-    void *Data;
-} platform_work_queue_entry;
-
-typedef struct platform_work_queue
-{
+    platform_work_queue PlatformQueue;
     u32 volatile CompletionGoal;
     u32 volatile CompletionCount;
     
     u32 volatile NextEntryToWrite;
     u32 volatile NextEntryToRead;
-    HANDLE SemaphoreHandle;
     
-    platform_work_queue_entry Entries[256];
-} platform_work_queue;
+    HANDLE SemaphoreHandle;
+} win32_work_queue;
 
 internal void
-Win32AddWorkEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data)
+Win32AddWorkEntry(platform_work_queue *PlatformQueue, platform_work_queue_callback *Callback, void *Data)
 {
-    u32 NewNextEntryToWrite = (Queue->NextEntryToWrite + 1) % ArrayCount(Queue->Entries);
-    Assert(NewNextEntryToWrite != Queue->NextEntryToRead);
-    platform_work_queue_entry *Entry = Queue->Entries + Queue->NextEntryToWrite;
+    win32_work_queue *Win32Queue = (win32_work_queue *)PlatformQueue;
+    u32 NewNextEntryToWrite = (Win32Queue->NextEntryToWrite + 1) % ArrayCount(Win32Queue->PlatformQueue.Entries);
+    Assert(NewNextEntryToWrite != Win32Queue->NextEntryToRead);
+    platform_work_queue_entry *Entry = Win32Queue->PlatformQueue.Entries + Win32Queue->NextEntryToWrite;
     Entry->Callback = Callback;
     Entry->Data = Data;
-    ++Queue->CompletionGoal;
+    ++Win32Queue->CompletionGoal;
     _WriteBarrier();
-    Queue->NextEntryToWrite = NewNextEntryToWrite;
-    Win32ReleaseSemaphore(Queue->SemaphoreHandle, 1, 0);
+    Win32Queue->NextEntryToWrite = NewNextEntryToWrite;
+    Win32ReleaseSemaphore(Win32Queue->SemaphoreHandle, 1, 0);
 }
 
 internal b32
-Win32DoNextWorkQueueEntry(platform_work_queue *Queue)
+Win32DoNextWorkQueueEntry(platform_work_queue *PlatformQueue)
 {
+    win32_work_queue *Win32Queue = (win32_work_queue *)PlatformQueue;
+    
     b32 WeShouldSleep = false;
     
-    u32 OriginalNextEntryToRead = Queue->NextEntryToRead;
-    u32 NewNextEntryToRead = (OriginalNextEntryToRead + 1) % ArrayCount(Queue->Entries);
-    if(OriginalNextEntryToRead != Queue->NextEntryToWrite)
+    u32 OriginalNextEntryToRead = Win32Queue->NextEntryToRead;
+    u32 NewNextEntryToRead = (OriginalNextEntryToRead + 1) % ArrayCount(Win32Queue->PlatformQueue.Entries);
+    if(OriginalNextEntryToRead != Win32Queue->NextEntryToWrite)
     {
-        u32 Index = AtomicCompareExchangeU32(&Queue->NextEntryToRead,
+        u32 Index = AtomicCompareExchangeU32(&Win32Queue->NextEntryToRead,
                                              NewNextEntryToRead,
                                              OriginalNextEntryToRead);
         if(Index == OriginalNextEntryToRead)
         {        
-            platform_work_queue_entry Entry = Queue->Entries[Index];
+            platform_work_queue_entry Entry = Win32Queue->PlatformQueue.Entries[Index];
             Entry.Callback(Entry.Data);
-            AtomicIncrementU32(&Queue->CompletionCount);
+            AtomicIncrementU32(&Win32Queue->CompletionCount);
         }
     }
     else
@@ -281,53 +278,60 @@ Win32DoNextWorkQueueEntry(platform_work_queue *Queue)
 }
 
 internal void
-Win32CompleteAllWork(platform_work_queue *Queue)
+Win32CompleteAllWork(platform_work_queue *PlatformQueue)
 {
-    while(Queue->CompletionGoal != Queue->CompletionCount)
+    win32_work_queue *Win32Queue = (win32_work_queue *)PlatformQueue;
+    
+    while(Win32Queue->CompletionGoal != Win32Queue->CompletionCount)
     {
-        Win32DoNextWorkQueueEntry(Queue);
+        Win32DoNextWorkQueueEntry(PlatformQueue);
     }
     
-    Queue->CompletionGoal = 0;
-    Queue->CompletionCount = 0;
+    Win32Queue->CompletionGoal = 0;
+    Win32Queue->CompletionCount = 0;
 }
 
 DWORD WINAPI
 Win32WorkQueueThread(void *lpParameter)
 {
-    platform_work_queue *Queue = (platform_work_queue *)lpParameter;
+    win32_work_queue *Win32Queue = (win32_work_queue *)lpParameter;
     
     u32 TestThreadId = GetThreadID();
     Assert(TestThreadId == Win32GetCurrentThreadId());
     
     for(;;)
     {
-        if(Win32DoNextWorkQueueEntry(Queue))
+        if(Win32DoNextWorkQueueEntry((platform_work_queue *)Win32Queue))
         {
-            Win32WaitForSingleObjectEx(Queue->SemaphoreHandle, INFINITE, false);
+            Win32WaitForSingleObjectEx(Win32Queue->SemaphoreHandle, INFINITE, false);
         }
     }
 }
 
-internal void
-Win32MakeQueue(platform_work_queue *Queue, u32 ThreadCount)
+internal platform_work_queue *
+Win32MakeWorkQueue(memory_arena *Arena, u32 ThreadCount)
 {
-    Queue->CompletionGoal = 0;
-    Queue->CompletionCount = 0;
+    win32_work_queue *Win32Queue = PushStruct(Arena, win32_work_queue);
     
-    Queue->NextEntryToWrite = 0;
-    Queue->NextEntryToRead = 0;
+    Win32Queue->CompletionGoal = 0;
+    Win32Queue->CompletionCount = 0;
+    
+    Win32Queue->NextEntryToWrite = 0;
+    Win32Queue->NextEntryToRead = 0;
     
     u32 InitialCount = 0;
-    Queue->SemaphoreHandle = Win32CreateSemaphoreExA(0, InitialCount, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
+    Win32Queue->SemaphoreHandle = Win32CreateSemaphoreExA(0, InitialCount, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
     for(u32 ThreadIndex = 0;
         ThreadIndex < ThreadCount;
         ++ThreadIndex)
     {
         u32 ThreadId;
-        HANDLE ThreadHandle = Win32CreateThread(0, 0, Win32WorkQueueThread, Queue, 0, (LPDWORD)&ThreadId);
+        HANDLE ThreadHandle = Win32CreateThread(0, 0, Win32WorkQueueThread, Win32Queue, 0, (LPDWORD)&ThreadId);
         Win32CloseHandle(ThreadHandle);
     }
+    
+    platform_work_queue *Result = (platform_work_queue *)Win32Queue;
+    return Result;
 }
 
 inline f32
@@ -1812,10 +1816,4 @@ Win32GetDateTimeFromTimestamp(u64 Timestamp)
     Result.Milliseconds = SystemTime.wMilliseconds;
     
     return Result;
-}
-
-internal void
-Win32SleepFor(u32 Miliseconds)
-{
-    Win32Sleep(Miliseconds);
 }

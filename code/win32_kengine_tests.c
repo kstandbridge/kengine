@@ -9,8 +9,13 @@
 #include "win32_kengine_types.h"
 #include "kengine_string.h"
 
+#ifndef VERSION
+#define VERSION 0
+#endif // VERSION
+
 #include "win32_kengine_kernel.c"
 #include "win32_kengine_generated.c"
+#include "kengine_telemetry.c"
 #include "win32_kengine_shared.c"
 #include "kengine_sha512.c"
 #include "kengine_eddsa.c"
@@ -680,13 +685,15 @@ mainCRTStartup()
     Platform.AllocateMemory = Win32AllocateMemory;
     Platform.DeallocateMemory = Win32DeallocateMemory;
     
+    Platform.GetSystemTimestamp = Win32GetSystemTimestamp;
+    Platform.GetDateTimeFromTimestamp = Win32GetDateTimeFromTimestamp;
+    Platform.ConsoleOut = Win32ConsoleOut;
+    
     GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
     GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
     
     memory_arena Arena;
     ZeroStruct(Arena);
-    
-    void *Foo = Win32VirtualAlloc(0, Megabytes(4), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     
     b32 Result = RunAllTests(&Arena);
     Win32ConsoleOut("Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);

@@ -26,8 +26,6 @@ typedef enum
 
 typedef struct app_input
 {
-    f32 dtForFrame;
-    
     app_button_state MouseButtons[MouseButton_Count];
     f32 MouseX;
     f32 MouseY;
@@ -64,12 +62,23 @@ typedef struct platform_memory_block
 
 typedef void platform_work_queue_callback(void *Data);
 
-typedef struct platform_work_queue platform_work_queue;
+typedef struct platform_work_queue_entry
+{
+    platform_work_queue_callback *Callback;
+    void *Data;
+} platform_work_queue_entry;
+
+typedef struct platform_work_queue 
+{
+    platform_work_queue_entry Entries[256];
+} platform_work_queue;
+
+typedef platform_work_queue *platform_make_work_queue(struct memory_arena *Arena, u32 ThreadCount);
 typedef void platform_add_work_entry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data);
 typedef void platform_complete_all_work(platform_work_queue *Queue);
 
 #if KENGINE_CONSOLE
-typedef void platform_init_console_command_loop();
+typedef void platform_init_console_command_loop(platform_work_queue *Queue);
 #endif
 
 typedef platform_memory_block *platform_allocate_memory(umm Size, u64 Flags);
@@ -108,14 +117,11 @@ typedef string platform_get_username(struct memory_arena *Arena);
 typedef u32 platform_get_process_id();
 typedef u64 platform_get_system_timestamp();
 typedef date_time platform_get_date_time_for_timestamp(u64 Timestamp);
-typedef void platform_sleep(u32 Milliseconds);
 typedef void platform_console_out(char *Format, ...);
 
 typedef struct platform_api
 {
-    struct platform_work_queue *HighPriorityQueue;
-    struct platform_work_queue *LowPriorityQueue;
-    
+    platform_make_work_queue *MakeWorkQueue;
     platform_add_work_entry *AddWorkEntry;
     platform_complete_all_work *CompleteAllWork;
     
@@ -139,7 +145,6 @@ typedef struct platform_api
     platform_get_process_id *GetProcessId;
     platform_get_system_timestamp *GetSystemTimestamp;
     platform_get_date_time_for_timestamp *GetDateTimeFromTimestamp;
-    platform_sleep *Sleep;
     platform_console_out *ConsoleOut;
     
 } platform_api;
@@ -163,11 +168,11 @@ typedef struct app_memory
 } app_memory;
 
 #if KENGINE_CONSOLE
-typedef void app_loop(app_memory *Memory);
+typedef void app_loop(app_memory *Memory, f32 dtForFrame);
 typedef void app_handle_command(app_memory *Memory, string Command);
 #else
 typedef struct render_commands render_commands;
-typedef void app_loop(app_memory *Memory, render_commands *Commands, struct memory_arena *Arena, app_input *Input);
+typedef void app_loop(app_memory *Memory, render_commands *Commands, struct memory_arena *Arena, app_input *Input, f32 dtForFrame);
 #endif
 
 // TODO(kstandbridge): This should be in the platform layer?

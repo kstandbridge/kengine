@@ -32,6 +32,7 @@ global app_memory GlobalAppMemory;
 
 #if KENGINE_INTERNAL
 #include "kengine_sort.c"
+#include "kengine_telemetry.c"
 #else
 #include "kengine.h"
 #include "kengine.c"
@@ -232,9 +233,9 @@ Win32ConsoleCommandLoopThread(void *Data)
 }
 
 internal void
-Win32InitConsoleCommandLoop()
+Win32InitConsoleCommandLoop(platform_work_queue *Queue)
 {
-    Win32AddWorkEntry(Platform.LowPriorityQueue, Win32ConsoleCommandLoopThread, 0);
+    Win32AddWorkEntry(Queue, Win32ConsoleCommandLoopThread, 0);
 }
 #endif
 
@@ -572,23 +573,12 @@ WinMainCRTStartup()
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = Instance;
     WindowClass.lpszClassName = "KengineWindowClass";
+#endif
     
     LARGE_INTEGER PerfCountFrequencyResult;
     Win32QueryPerformanceFrequency(&PerfCountFrequencyResult);
     GlobalWin32State.PerfCountFrequency = (s64)PerfCountFrequencyResult.QuadPart;
-#endif
-    SYSTEM_INFO SystemInfo;
-    Win32GetSystemInfo(&SystemInfo);
-    u32 ProcessorCount = SystemInfo.dwNumberOfProcessors;
-    
-    platform_work_queue HighPriorityQueue;
-    Win32MakeQueue(&HighPriorityQueue, RoundF32ToU32((f32)ProcessorCount*1.5f));
-    GlobalAppMemory.PlatformAPI.HighPriorityQueue = &HighPriorityQueue;
-    
-    platform_work_queue LowPriorityQueue;
-    Win32MakeQueue(&LowPriorityQueue, RoundF32ToU32((f32)ProcessorCount/2.0f));
-    GlobalAppMemory.PlatformAPI.LowPriorityQueue= &LowPriorityQueue;
-    
+    GlobalAppMemory.PlatformAPI.MakeWorkQueue = Win32MakeWorkQueue;
     GlobalAppMemory.PlatformAPI.AddWorkEntry = Win32AddWorkEntry;
     GlobalAppMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
     
@@ -611,7 +601,6 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.GetProcessId = Win32GetProcessId;
     GlobalAppMemory.PlatformAPI.GetSystemTimestamp = Win32GetSystemTimestamp;
     GlobalAppMemory.PlatformAPI.GetDateTimeFromTimestamp = Win32GetDateTimeFromTimestamp;
-    GlobalAppMemory.PlatformAPI.Sleep = Win32SleepFor;
     GlobalAppMemory.PlatformAPI.ConsoleOut = Win32ConsoleOut;
     
     
@@ -697,21 +686,10 @@ WinMainCRTStartup()
     }
 #endif
     
-    // NOTE(kstandbridge): Remove this
-#if 0            
-    s32 MonitorRefreshHz = 60;
-    s32 Win32RefreshRate = Win32GetDeviceCaps(OpenGLDC, VREFRESH);
-    if(Win32RefreshRate > 1)
-    {
-        MonitorRefreshHz = Win32RefreshRate;
-    }
-    
-    f32 TargetSecondsPerFrame = 1.0f / MonitorRefreshHz;
-#else // 0
-    f32 TargetSecondsPerFrame = 1.0f / 20.0f;
-#endif // 0
-    
-#ifndef KENGINE_CONSOLE
+#if KENGINE_CONSOLE      
+    // NOTE(kstandbridge): 2 ticks per second
+    f32 TargetSecondsPerFrame = 1.0f / 2.0f;
+#else KENGINE_CONSOLE
     
     b32 WindowClassIsRegistered = Win32RegisterClassExA(&WindowClass);
     Assert(WindowClassIsRegistered);
@@ -747,7 +725,16 @@ WinMainCRTStartup()
     
     v2i WindowDimensions = V2i((ClientRect.right - ClientRect.left),
                                (ClientRect.bottom - ClientRect.top));
-#endif // KENGINE_CONSOLE
+    
+    s32 MonitorRefreshHz = 60;
+    s32 Win32RefreshRate = Win32GetDeviceCaps(OpenGLDC, VREFRESH);
+    if(Win32RefreshRate > 1)
+    {
+        MonitorRefreshHz = Win32RefreshRate;
+    }
+    
+    f32 TargetSecondsPerFrame = 1.0f / MonitorRefreshHz;
+#endif KENGINE_CONSOLE
     
     LARGE_INTEGER LastCounter = Win32GetWallClock();
     
@@ -775,7 +762,6 @@ WinMainCRTStartup()
 #ifndef KENGINE_CONSOLE
         
         BEGIN_BLOCK("ProcessPendingMessages");
-        NewInput->dtForFrame = TargetSecondsPerFrame;
         NewInput->MouseZ = 0;
         ZeroStruct(NewInput->FKeyPressed);
         Win32ProcessPendingMessages(NewInput);
@@ -825,15 +811,14 @@ WinMainCRTStartup()
         if(GlobalWin32State.AppLoop)
         {
 #if KENGINE_CONSOLE
-            GlobalWin32State.AppLoop(&GlobalAppMemory);
+            GlobalWin32State.AppLoop(&GlobalAppMemory, TargetSecondsPerFrame);
 #else // KENGINE_CONSOLE
-            GlobalWin32State.AppLoop(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, NewInput);
+            GlobalWin32State.AppLoop(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, NewInput, TargetSecondsPerFrame);
 #endif // KENGINE_CONSOLE
         }
         END_BLOCK();
         if(DllNeedsToBeReloaded)
         {
-            Win32CompleteAllWork(Platform.HighPriorityQueue);
             SetDebugEventRecording(false);
         }
         
@@ -900,9 +885,9 @@ WinMainCRTStartup()
         
 #else // KENGINE_INTERNAL
 #if KENGINE_CONSOLE
-        AppLoop(&GlobalAppMemory)
+        AppLoop(&GlobalAppMemory, TargetSecondsPerFrame)
 #else // KENGINE_CONSOLE
-        AppLoop(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, Input)
+        AppLoop(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, Input, TargetSecondsPerFrame)
 #endif // KENGINE_CONSOLE
 #endif // KENGINE_INTERNAL
         
