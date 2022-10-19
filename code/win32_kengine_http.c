@@ -88,10 +88,10 @@ Win32AllocateHttpIoRequest(win32_http_state *HttpState)
     Result->IoContext.HttpState = HttpState;
     Result->IoContext.CompletionFunction = Win32ReceiveCompletionCallback;
     Result->MemoryFlush = BeginTemporaryMemory(&Result->Arena);
-    Result->Buffer = BeginPushSize(Result->MemoryFlush.Arena);
+    Result->Buffer = Result->MemoryFlush.Arena->CurrentBlock->Base + Result->MemoryFlush.Arena->CurrentBlock->Used;
     Result->HttpRequest = (HTTP_REQUEST *)Result->Buffer;
     
-    Assert(Result->Arena.TempCount == 2);
+    Assert(Result->Arena.TempCount == 1);
     
     return Result;
 }
@@ -241,7 +241,7 @@ Win32CreateMessageResponse(win32_http_state *HttpState, u16 StatusCode, string R
 internal void
 Win32ProcessReceiveAndPostResponse(win32_http_io_request *IoRequest, PTP_IO IoThreadpool, u32 IoResult)
 {
-    Assert(IoRequest->Arena.TempCount == 2);
+    Assert(IoRequest->Arena.TempCount == 1);
     win32_http_state *HttpState = IoRequest->IoContext.HttpState;
     win32_http_io_response *IoResponse = 0;
     
@@ -290,12 +290,8 @@ Win32ProcessReceiveAndPostResponse(win32_http_io_request *IoRequest, PTP_IO IoTh
                 HTTP_REQUEST_INFO *RequestInfo = Request->pRequestInfo + RequestInfoIndex;
                 TotalSize += RequestInfo->InfoLength;
             }
-            EndPushSize(IoRequest->MemoryFlush.Arena, TotalSize);
+            IoRequest->MemoryFlush.Arena->CurrentBlock->Used += TotalSize;
             Assert(IoRequest->Arena.TempCount == 1);
-            
-            
-            
-            
             
             platform_http_request PlatformRequest;
             PlatformRequest.Endpoint = String_(Request->RawUrlLength,
@@ -329,14 +325,12 @@ Win32ProcessReceiveAndPostResponse(win32_http_io_request *IoRequest, PTP_IO IoTh
         
         case ERROR_MORE_DATA:
         {
-            EndPushSize(IoRequest->MemoryFlush.Arena, 0);
             IoResponse = Win32CreateMessageResponse(HttpState, 413, String("Payload Too Large"), 
                                                     String("{ \"Error\": \"The request is larger than the server is willing or able to process\" }"));
         } break;
         
         default:
         {
-            EndPushSize(IoRequest->MemoryFlush.Arena, 0);
             LogError("HttpReceiveHttpRequest call failed asynchronously with error code %u", IoResult);
         } break;
     }
@@ -362,7 +356,7 @@ internal void
 Win32PostNewReceive(win32_http_state *HttpState, PTP_IO IoThreadpool)
 {
     win32_http_io_request *IoRequest = Win32AllocateHttpIoRequest(HttpState);
-    Assert(IoRequest->Arena.TempCount == 2);
+    Assert(IoRequest->Arena.TempCount == 1);
     
     if(IoRequest != 0)
     {
@@ -385,8 +379,6 @@ Win32PostNewReceive(win32_http_state *HttpState, PTP_IO IoThreadpool)
                 Win32ProcessReceiveAndPostResponse(IoRequest, IoThreadpool, ERROR_MORE_DATA);
             }
             
-            EndPushSize(&IoRequest->Arena, 0);
-            Assert(IoRequest->Arena.TempCount == 1);
             EndTemporaryMemory(IoRequest->MemoryFlush);
             Assert(IoRequest->Arena.TempCount == 0);
             CheckArena(&IoRequest->Arena);
@@ -404,7 +396,7 @@ internal void
 Win32ReceiveCompletionCallback(win32_http_io_context *pIoContext, PTP_IO IoThreadpool, u32 IoResult)
 {
     win32_http_io_request *IoRequest = CONTAINING_RECORD(pIoContext, win32_http_io_request, IoContext);
-    Assert(IoRequest->Arena.TempCount == 2);
+    Assert(IoRequest->Arena.TempCount == 1);
     
     win32_http_state *HttpState = IoRequest->IoContext.HttpState;
     
@@ -413,10 +405,6 @@ Win32ReceiveCompletionCallback(win32_http_io_context *pIoContext, PTP_IO IoThrea
         Win32ProcessReceiveAndPostResponse(IoRequest, IoThreadpool, IoResult);
         
         Win32PostNewReceive(HttpState, IoThreadpool);
-    }
-    else
-    {
-        EndPushSize(&IoRequest->Arena, 0);
     }
     
     Assert(IoRequest->Arena.TempCount == 1);
@@ -440,7 +428,7 @@ Win32StartHttpServer(win32_http_state *HttpState)
         win32_http_io_request *IoRequest = Win32AllocateHttpIoRequest(HttpState);
         if(IoRequest)
         {
-            Assert(IoRequest->Arena.TempCount == 2);
+            Assert(IoRequest->Arena.TempCount == 1);
             Win32StartThreadpoolIo(HttpState->IoThreadpool);
             
             umm BufferMaxSize = (IoRequest->Arena.CurrentBlock->Size - IoRequest->Arena.CurrentBlock->Used);

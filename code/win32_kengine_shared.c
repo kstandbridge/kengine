@@ -1327,6 +1327,7 @@ Win32WriteTextToFile(string Text, string FilePath)
     char CFilePath[MAX_PATH];
     StringToCString(FilePath, MAX_PATH, CFilePath);
     HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    Assert(FileHandle != INVALID_HANDLE_VALUE);
     
     DWORD BytesWritten = 0;
     Win32WriteFile(FileHandle, Text.Data, (DWORD)Text.Size, &BytesWritten, 0);
@@ -1425,21 +1426,94 @@ WebSessionInit()
     
 }
 
-inline umm
-Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
+internal string
+Win32ReadEntireFile(memory_arena *Arena, string FilePath)
 {
-    umm Result = 0;
+    string Result;
+    ZeroStruct(Result);
+    
+    char CFilePath[MAX_PATH];
+    StringToCString(FilePath, MAX_PATH, CFilePath);
+    
+    HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    Assert(FileHandle != INVALID_HANDLE_VALUE);
+    
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER FileSize;
+        b32 ReadResult = Win32GetFileSizeEx(FileHandle, &FileSize);
+        Assert(ReadResult);
+        if(ReadResult)
+        {    
+            Result.Size = FileSize.QuadPart;
+            Result.Data = PushSize(Arena, Result.Size);
+            Assert(Result.Data);
+            
+            if(Result.Data)
+            {
+                u32 BytesRead;
+                ReadResult = Win32ReadFile(FileHandle, Result.Data, (u32)Result.Size, (LPDWORD)&BytesRead, 0);
+                Assert(ReadResult);
+                Assert(BytesRead == Result.Size);
+            }
+        }
+        
+        Win32CloseHandle(FileHandle);
+    }
+    
+    return Result;
+}
+
+inline string
+Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
+{
+    string Result;
+    ZeroStruct(Result);
+    
+    DWORD TotalBytesRead = 0;
+    DWORD ContentLength = 0;
+    DWORD ContentLengthSize = sizeof(ContentLengthSize);
+    
+    char *TempFilePath = "temp.dat";
+    u8 SaveBuffer_[4096];
+    b32 SaveToHandle = false;
+    HANDLE SaveHandle = 0;
+    u8 *SaveBuffer = SaveBuffer_;
+    
+    if(!Win32HttpQueryInfoA(FileHandle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
+    {
+        DWORD ErrorCode = Win32GetLastError();
+        if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
+        {
+            LogError("Win32HttpQueryInfo failed with error code %u", ErrorCode);
+        }
+    }
+    
+    
+    
+    if(ContentLength == 0)
+    {
+        SaveToHandle = true;
+        SaveHandle = Win32CreateFileA(TempFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+        Assert(SaveHandle != INVALID_HANDLE_VALUE);
+    }
+    else
+    {
+        Result.Size = ContentLength;
+        Result.Data = PushSize_(Arena, ContentLength, DefaultArenaPushParams());
+        SaveBuffer = Result.Data;
+    }
     
     DWORD CurrentBytesRead;
     do
     {
-        if (Win32InternetReadFile(FileHandle, Buffer + Result, BufferMaxSize - Result, &CurrentBytesRead))
+        if(Win32InternetReadFile(FileHandle, SaveBuffer, sizeof(SaveBuffer_), &CurrentBytesRead))
         {
             if (CurrentBytesRead == 0)
             {
                 break;
             }
-            Result += CurrentBytesRead;
+            TotalBytesRead += CurrentBytesRead;
         }
         else
         {
@@ -1454,8 +1528,33 @@ Win32ReadInternetResponse(HINTERNET FileHandle, u8 *Buffer, umm BufferMaxSize)
             }
             break;
         }
+        
+        if(SaveToHandle)
+        {
+            DWORD BytesWritten;
+            Win32WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
+            Assert(CurrentBytesRead == BytesWritten);
+        }
+        else
+        {
+            SaveBuffer += TotalBytesRead;
+        }
     }
     while (true);
+    
+    if(SaveToHandle)
+    {
+        Win32CloseHandle(SaveHandle);
+        Result = Win32ReadEntireFile(Arena, String("temp.dat"));
+        Win32DeleteFileA(TempFilePath); 
+    }
+    else
+    {
+        if(TotalBytesRead != ContentLength)
+        {
+            LogError("Was expecting to read %u bytes but got back %u", ContentLength, TotalBytesRead);
+        }
+    }
     
     return Result;
 }
@@ -1555,11 +1654,7 @@ Win32SendHttpRequest(memory_arena *Arena, string Host, u32 Port, string Endpoint
             Win32HttpQueryInfoA(WebRequest, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&Status, &StatusSize, 0);
 #endif
             
-            u8 *Buffer = BeginPushSize(Arena);
-            umm BufferMaxSize = Arena->CurrentBlock->Size - Arena->CurrentBlock->Used;
-            umm BufferSize = Win32ReadInternetResponse(WebRequest, Buffer, BufferMaxSize);
-            EndPushSize(Arena, BufferSize);
-            Result = String_(BufferSize, Buffer);
+            Result = Win32ReadInternetResponse(Arena, WebRequest);
         }
         else
         {
@@ -1608,11 +1703,11 @@ Win32GetInternetData(u8 *Buffer, umm BufferMaxSize, string Url)
 }
 #endif
 
-internal umm
-Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, char *Verb, string File, u8 *ResponseBuffer, umm ResponseBuferMaxSize, 
-                          char *Username, char *Password)
+internal string
+Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, char *Verb, string File, char *Username, char *Password)
 {
-    umm Result = 0;
+    string Result;
+    ZeroStruct(Result);
     
     char CFile[MAX_PATH];
     StringToCString(File, MAX_PATH, CFile);
@@ -1711,7 +1806,7 @@ Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, cha
                     
                     Win32HttpEndRequestA(WebRequest, 0, 0, 0);
                     
-                    Result = Win32ReadInternetResponse(WebRequest, ResponseBuffer, ResponseBuferMaxSize);
+                    Result = Win32ReadInternetResponse(Arena, WebRequest);
                 }
                 else
                 {
@@ -1729,44 +1824,6 @@ Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, cha
     else
     {
         Assert(!"Unable to open file");
-    }
-    
-    return Result;
-}
-
-internal string
-Win32ReadEntireFile(memory_arena *Arena, string FilePath)
-{
-    string Result;
-    ZeroStruct(Result);
-    
-    char CFilePath[MAX_PATH];
-    StringToCString(FilePath, MAX_PATH, CFilePath);
-    
-    HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
-    Assert(FileHandle != INVALID_HANDLE_VALUE);
-    
-    if(FileHandle != INVALID_HANDLE_VALUE)
-    {
-        LARGE_INTEGER FileSize;
-        b32 ReadResult = Win32GetFileSizeEx(FileHandle, &FileSize);
-        Assert(ReadResult);
-        if(ReadResult)
-        {    
-            Result.Size = FileSize.QuadPart;
-            Result.Data = PushSize(Arena, Result.Size);
-            Assert(Result.Data);
-            
-            if(Result.Data)
-            {
-                u32 BytesRead;
-                ReadResult = Win32ReadFile(FileHandle, Result.Data, (u32)Result.Size, (LPDWORD)&BytesRead, 0);
-                Assert(ReadResult);
-                Assert(BytesRead == Result.Size);
-            }
-        }
-        
-        Win32CloseHandle(FileHandle);
     }
     
     return Result;

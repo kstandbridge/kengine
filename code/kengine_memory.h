@@ -160,40 +160,6 @@ BootsrapPushsize_(umm StructSize, umm OffsetToArena, arena_push_params Params)
     return Result;
 }
 
-inline u8 *
-BeginPushSize(memory_arena *Arena)
-{
-    // TODO(kstandbridge): Lots of copy/pasta from PushSize_ here, also setting alignment to 4?
-    if(!Arena->CurrentBlock)
-    {
-        if(!Arena->MinimumBlockSize)
-        {
-            // NOTE(kstandbridge): Raymond Chen on page sizes https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200
-            Arena->MinimumBlockSize = Megabytes(2);
-        }
-        
-        umm BlockSize = Arena->MinimumBlockSize;
-        
-        platform_memory_block *NewBlock = Platform.AllocateMemory(BlockSize, Arena->AllocationFlags);
-        NewBlock->Prev = Arena->CurrentBlock;
-        Arena->CurrentBlock = NewBlock;
-    }
-    
-    umm AlignmentOffset = GetAlignmentOffset(Arena, 4);
-    
-    u8 *Result = Arena->CurrentBlock->Base + Arena->CurrentBlock->Used + AlignmentOffset;
-    ++Arena->TempCount;
-    
-    return Result;
-}
-
-inline void
-EndPushSize(memory_arena *Arena, umm Size)
-{
-    --Arena->TempCount;
-    PushSize_(Arena, Size, NoClearArenaPushParams());
-}
-
 inline temporary_memory
 BeginTemporaryMemory(memory_arena *Arena)
 {

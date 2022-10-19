@@ -31,7 +31,7 @@ GetNextHtmlToken(html_tokenizer *Tokenizer)
     // NOTE(kstandbridge): Eat all whitespace
     for(;;)
     {
-        if(Tokenizer->Index > Tokenizer->Html.Size)
+        if(Tokenizer->Index >= Tokenizer->Html.Size)
         {
             break;
         }
@@ -53,7 +53,7 @@ GetNextHtmlToken(html_tokenizer *Tokenizer)
     Result.Value.Size = 1;
     Result.Value.Data = At;
     
-    if(Tokenizer->Index > Tokenizer->Html.Size)
+    if(Tokenizer->Index >= Tokenizer->Html.Size)
     {
         Result.Type = HtmlToken_EndOfStream;
     }
