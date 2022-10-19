@@ -14,8 +14,6 @@ typedef struct win32_state
     
     HWND Window;
     
-    memory_arena Arena;
-    
     s64 PerfCountFrequency;
     
 #if KENGINE_INTERNAL    

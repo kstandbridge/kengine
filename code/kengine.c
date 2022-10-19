@@ -53,7 +53,7 @@ extern void
 #if KENGINE_CONSOLE
 AppLoop(app_memory *AppMemory, f32 dtForFrame)
 #else // KENGINE_CONSOLE
-AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, app_input *Input, f32 dtForFrame)
+AppLoop(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32 dtForFrame)
 #endif // KENGINE_CONSOLE
 {
 #if KENGINE_INTERNAL
@@ -120,7 +120,7 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, a
     render_group *RenderGroup = &RenderGroup_;
     RenderGroup->Commands = Commands;
     RenderGroup->CurrentClipRectIndex = PushRenderCommandClipRectangle(RenderGroup, Rectangle2i(0, Commands->Width, 0, Commands->Height));
-    RenderGroup->Arena = Arena;
+    RenderGroup->Arena = &AppState->Arena;
     RenderGroup->Glyphs = UIState->Glyphs;
     RenderGroup->Colors = &Colors;
     
@@ -160,7 +160,7 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, a
 #if KENGINE_INTERNAL
     DEBUG_IF(ShowDebugTab)
     {
-        DrawDebugGrid(DebugState, UIState, RenderGroup, Arena, TempMem.Arena, Input, Bounds);
+        DrawDebugGrid(DebugState, UIState, RenderGroup, &AppState->Arena, TempMem.Arena, Input, Bounds);
     }
     else
     {
@@ -184,7 +184,7 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, memory_arena *Arena, a
     
     EndTemporaryMemory(TempMem);
     CheckArena(&UIState->TranArena);
-    CheckArena(Arena);
+    CheckArena(&AppState->Arena);
     
 #endif // KENGINE_CONSOLE
 }

@@ -172,7 +172,7 @@ typedef void app_loop(app_memory *Memory, f32 dtForFrame);
 typedef void app_handle_command(app_memory *Memory, string Command);
 #else
 typedef struct render_commands render_commands;
-typedef void app_loop(app_memory *Memory, render_commands *Commands, struct memory_arena *Arena, app_input *Input, f32 dtForFrame);
+typedef void app_loop(app_memory *Memory, render_commands *Commands, app_input *Input, f32 dtForFrame);
 #endif
 
 // TODO(kstandbridge): This should be in the platform layer?

@@ -705,8 +705,8 @@ WinMainCRTStartup()
     HDC OpenGLDC = Win32GetDC(GlobalWin32State.Window);
     HGLRC OpenGLRC = Win32InitOpenGL(OpenGLDC);
     
-    u32 PushBufferSize = Megabytes(64);
-    void *PushBuffer = Win32VirtualAlloc(0, PushBufferSize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+    u8 PushBuffer[65536];
+    umm PushBufferSize = sizeof(PushBuffer);
     
     u32 CurrentSortMemorySize = Kilobytes(64);
     void *SortMemory = Win32VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
@@ -813,7 +813,7 @@ WinMainCRTStartup()
 #if KENGINE_CONSOLE
             GlobalWin32State.AppLoop(&GlobalAppMemory, TargetSecondsPerFrame);
 #else // KENGINE_CONSOLE
-            GlobalWin32State.AppLoop(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, NewInput, TargetSecondsPerFrame);
+            GlobalWin32State.AppLoop(&GlobalAppMemory, Commands, NewInput, TargetSecondsPerFrame);
 #endif // KENGINE_CONSOLE
         }
         END_BLOCK();
@@ -888,7 +888,7 @@ WinMainCRTStartup()
 #if KENGINE_CONSOLE
         AppLoop(&GlobalAppMemory, TargetSecondsPerFrame)
 #else // KENGINE_CONSOLE
-        AppLoop(&GlobalAppMemory, Commands, &GlobalWin32State.Arena, Input, TargetSecondsPerFrame)
+        AppLoop(&GlobalAppMemory, Commands, Input, TargetSecondsPerFrame)
 #endif // KENGINE_CONSOLE
 #endif // KENGINE_INTERNAL
         
