@@ -64,23 +64,22 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                 break;
             }
             
-            temporary_memory TempMem = BeginTemporaryMemory(TempArena);
+            u8 Buffer[4096];
+            umm BufferMaxSize = sizeof(Buffer);
             char *LineStart = 0;
-            string Response = BeginPushString(TempMem.Arena);
-            umm ResponseSize = Win32RecieveDecryptedMessage(Client->Socket, &Client->SSPICredHandle, &Client->SSPICtxtHandle, Response.Data, TempMem.Arena->Size - TempMem.Arena->Used);
-            EndPushString(&Response, TempMem.Arena, ResponseSize);
+            umm BufferSize = Win32RecieveDecryptedMessage(Client->Socket, &Client->SSPICredHandle, &Client->SSPICtxtHandle, BufferSize, BufferMaxSize);
             
-            if(ResponseSize == 0)
+            if(BufferSize == 0)
             {
                 break;
             }
             
             if(ParsingHeader)
             {
-                LineStart = (char *)Response.Data;
-                char *LineEnd = (char *)Response.Data;
+                LineStart = (char *)Buffer;
+                char *LineEnd = (char *)Buffer;
                 u32 Index = 0;
-                while(Index < ResponseSize)
+                while(Index < BufferSize)
                 {
                     if((*(LineEnd - 1) == '\r') &&
                        (*LineEnd  == '\n'))
@@ -91,9 +90,9 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                         {
                             HeaderSize += 2;
                             ParsingHeader = false;
-                            Response.Size -= (LineEnd - (char *)Response.Data) + 1;
-                            Response.Data = (u8 *)LineEnd + 1;
-                            BodyStringState = BeginFormatString(PermArena);
+                            BufferSize -= (LineEnd - (char *)Buffer) + 1;
+                            Buffer = (u8 *)LineEnd + 1;
+                            BodyStringState = BeginFormatString();
                             break;
                         }
                         else if(StringBeginsWith(String("HTTP/"), Line))
@@ -157,25 +156,25 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
             
             if(!ParsingHeader)
             {
-                ContentRemaining -= Response.Size;
+                ContentRemaining -= BufferSize;
             }
             
             if(Result.TransferEncoding == HttpTransferEncoding_Chunked)
             {            
                 if(ChunkRemaing > 0)
                 {
-                    Assert(Response.Size > ChunkRemaing);
+                    Assert(BufferSize > ChunkRemaing);
                     
-                    string Chunk = String_(ChunkRemaing, Response.Data);
+                    string Chunk = String_(ChunkRemaing, Buffer);
                     
                     AppendStringFormat(&BodyStringState, "%S", Chunk);
                     // NOTE(kstandbridge): \r\n
-                    Response.Data += ChunkRemaing + 2; 
-                    Response.Size -= ChunkRemaing - 2;
+                    Buffer += ChunkRemaing + 2; 
+                    BufferSize -= ChunkRemaing - 2;
                     ChunkRemaing = 0;
                 }
                 
-                while(Response.Size > 6)
+                while(BufferSize > 6)
                 {
                     char Hex[4];
                     Hex[0] = '0';
@@ -184,7 +183,7 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                     Hex[3] = '0';
                     
                     u32 HexLength = 0;
-                    char *Parse = (char *)Response.Data;
+                    char *Parse = (char *)Buffer;
                     while((Parse[0] != '\r') &&
                           (Parse[1] != '\n'))
                     {
@@ -210,24 +209,24 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                                      (GetHex(Hex[2]) << 4) |
                                      (GetHex(Hex[3]) << 0));
                     
-                    Response.Data += HexLength + 2;
-                    Response.Size -= HexLength - 2;
+                    Buffer += HexLength + 2;
+                    BufferSize -= HexLength - 2;
                     
-                    if(ChunkSize > Response.Size)
+                    if(ChunkSize > BufferSize)
                     {
                         // NOTE(kstandbridge): Ditch null terminators
-                        while(Response.Data[Response.Size] == '\0')
+                        while(Response.Data[BufferSize] == '\0')
                         {
-                            --Response.Size;
+                            --BufferSize;
                         }
                         
-                        ChunkRemaing = ChunkSize - Response.Size;
+                        ChunkRemaing = ChunkSize - BufferSize;
                         ChunkSize -= ChunkRemaing; 
                         ++ChunkSize; // NOTE(kstandbridge): I don't know why
                         --ChunkRemaing; // NOTE(kstandbridge): I don't know why
                     }
                     
-                    string Chunk = String_(ChunkSize, Response.Data);
+                    string Chunk = String_(ChunkSize, Buffer);
                     AppendStringFormat(&BodyStringState, "%S", Chunk);
                     
                     if(StringContains(String("</HTML>"), Chunk) ||
@@ -239,8 +238,8 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                     
                     
                     // NOTE(kstandbridge): additional 2 for \r\n
-                    Response.Data += ChunkSize + 2;
-                    Response.Size -= ChunkSize - 2;
+                    Buffer += ChunkSize + 2;
+                    BufferSize -= ChunkSize - 2;
                 }
                 
             }
@@ -249,15 +248,15 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                 if(DownloadResponse)
                 {
                     DWORD BytesWritten = 0;
-                    Win32WriteFile(FileHandle, Response.Data, (DWORD)Response.Size, &BytesWritten, 0);
-                    Assert(Response.Size == BytesWritten);
+                    Win32WriteFile(FileHandle, Buffer, (DWORD)BufferSize, &BytesWritten, 0);
+                    Assert(BufferSize == BytesWritten);
                 }
                 else
                 {                    
-                    AppendStringFormat(&BodyStringState, "%S", Response);
+                    AppendStringFormat(&BodyStringState, "%S", String_(BufferSize, Buffer));
                     
-                    if(StringContains(String("</HTML>"), Response) ||
-                       StringContains(String("</html>"), Response))
+                    if(StringContains(String("</HTML>"), Buffer) ||
+                       StringContains(String("</html>"), Buffer))
                     {
                         Parsing = false;
                         break;
@@ -265,8 +264,6 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
                 }
                 
             }
-            
-            EndTemporaryMemory(TempMem);
         }
         
         if(DownloadResponse)
@@ -287,13 +284,13 @@ GetSslHttpResponse(http_client *Client, memory_arena *PermArena, memory_arena *T
 inline string
 GenerateHttpMessage_(http_request *Request, memory_arena *Arena)
 {
-    format_string_state StringState = BeginFormatString(Arena);
+    format_string_state StringState = BeginFormatString();
     AppendStringFormat(&StringState, "%S %S HTTP/1.1\r\n", HttpMethodToString(Request->Method), Request->Endpoint);
     AppendStringFormat(&StringState, "Host: %S\r\n", Request->Client->Hostname);
     AppendStringFormat(&StringState, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n");
     AppendStringFormat(&StringState, "Accept: %S\r\n\r\n", HttpAcceptToString(Request->Accept));
     
-    string Result = EndFormatString(&StringState);
+    string Result = EndFormatString(&StringState, Arena);
     
     return Result;
 }

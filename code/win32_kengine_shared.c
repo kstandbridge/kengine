@@ -175,14 +175,14 @@ Win32ConsoleOut(char *Format, ...)
 {
     u8 Buffer[4096];
     umm BufferSize = sizeof(Buffer);
-    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
+    format_string_state StringState = BeginFormatString();
     
     va_list ArgList;
     va_start(ArgList, Format);
     AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
     
-    string Text = EndFormatStringToBuffer(&StringState, BufferSize);
+    string Text = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
     
 #if KENGINE_CONSOLE
     HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);

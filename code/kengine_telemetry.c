@@ -115,7 +115,7 @@ PostTelemetryThread(void *Data)
                                                                DateTime.Milliseconds);
                         
                         u8 CPayload[4096];
-                        format_string_state StringState = BeginFormatStringToBuffer(CPayload);
+                        format_string_state StringState = BeginFormatString();
                         
                         AppendStringFormat(&StringState, "{\n    \"@timestamp\": \"%d-%02d-%02dT%02d:%02d:%02d.%03dZ\"",
                                            DateTime.Year, DateTime.Month, DateTime.Day,
@@ -152,7 +152,7 @@ PostTelemetryThread(void *Data)
                         
                         AppendStringFormat(&StringState, "\n}");
                         
-                        string Payload = EndFormatStringToBuffer(&StringState, sizeof(CPayload));
+                        string Payload = EndFormatStringToBuffer(&StringState, CPayload, sizeof(CPayload));
                         string Response = Platform.SendHttpRequest(&Queue->Arena, Host->Hostname, 0, Endpoint, HttpVerb_Post, Payload,
                                                                    String("Content-Type: application/json;\r\n"), String(""), String(""));
                     }
@@ -449,14 +449,14 @@ SendLogTelemetry____(string FileLine, string Level, char *Format, ...)
 {
     u8 Buffer[4096];
     umm BufferSize = sizeof(Buffer);
-    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
+    format_string_state StringState = BeginFormatString();
     
     va_list ArgList;
     va_start(ArgList, Format);
     AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
     
-    string Message = EndFormatStringToBuffer(&StringState, BufferSize);
+    string Message = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
     
     SendLogTelemetry_____(FileLine, Level, Message);
 }

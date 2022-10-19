@@ -409,8 +409,8 @@ typedef struct
 
 typedef struct
 {
-    memory_arena *Arena;
-    string Result;
+    u8 Buffer[65536];
+    umm BufferSize;
     char *Tail;
     char *At;
 } format_string_state;
@@ -576,6 +576,11 @@ FormatStringParseF64(format_string_state *State, f64 Value, u32 Width, u32 Preci
 internal void
 AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
 {
+    if(State->Tail == 0)
+    {
+        State->Tail = (char *)State->Buffer;
+    }
+    
     State->At = Format;
     b32 Parsing = true;
     while(Parsing)
@@ -752,7 +757,7 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
     }
     va_end(ArgList);
     
-    State->Result.Size = State->Tail - (char *)State->Result.Data;
+    State->BufferSize = State->Tail - (char *)State->Buffer;
 }
 
 // TODO(kstandbridge): Rename to AppendFormatString
@@ -768,26 +773,34 @@ AppendStringFormat(format_string_state *State, char *Format, ...)
 }
 
 internal format_string_state
-BeginFormatString(memory_arena *Arena)
+BeginFormatString()
 {
     format_string_state Result;
-    Result.Arena = Arena;
-    ++Arena->TempCount;
-    
-    Result.Result.Size = 0;
-    Result.Result.Data = (u8 *)PushSize(Arena, Result.Result.Size);
-    Result.Tail = (char *)Result.Result.Data;
+    ZeroStruct(Result);
     
     return Result;
 }
 
 internal string
-EndFormatString(format_string_state *State)
+EndFormatString(format_string_state *State, memory_arena *Arena)
 {
-    string Result = State->Result;
+    Assert(State->BufferSize > 0);
     
-    State->Arena->CurrentBlock->Used += Result.Size;
-    --State->Arena->TempCount;
+    string Result = PushString_(Arena, State->BufferSize, State->Buffer);
+    
+    return Result;
+}
+
+internal string
+EndFormatStringToBuffer(format_string_state *State, u8 *Buffer, umm BufferSize)
+{
+    Assert(State->BufferSize > 0);
+    Assert(State->BufferSize <= BufferSize);
+    
+    string Result;
+    Result.Size = State->BufferSize;
+    Result.Data = Buffer;
+    Copy(Result.Size, State->Buffer, Result.Data);
     
     return Result;
 }
@@ -795,54 +808,30 @@ EndFormatString(format_string_state *State)
 internal string
 FormatString(memory_arena *Arena, char *Format, ...)
 {
-    format_string_state StringState = BeginFormatString(Arena);
+    format_string_state StringState = BeginFormatString();
     
     va_list ArgList;
     va_start(ArgList, Format);
     AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
     
-    string Result = EndFormatString(&StringState);
+    string Result = EndFormatString(&StringState, Arena);
     
     return Result;
 }
 
-
-internal format_string_state
-BeginFormatStringToBuffer(u8 *Buffer)
-{
-    format_string_state Result;
-    Result.Arena = 0;
-    
-    Result.Result.Size = 0;
-    Result.Result.Data = Buffer;
-    Result.Tail = (char *)Buffer;
-    
-    return Result;
-}
-
-internal string
-EndFormatStringToBuffer(format_string_state *State, umm BufferSize)
-{
-    string Result = State->Result;
-    
-    Assert(Result.Size <= BufferSize);
-    
-    return Result;
-}
 
 internal string
 FormatStringToBuffer(u8 *Buffer, umm BufferSize, char *Format, ...)
 {
-    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
+    format_string_state StringState = BeginFormatString();
     
     va_list ArgList;
     va_start(ArgList, Format);
     AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
     
-    string Result = EndFormatStringToBuffer(&StringState, BufferSize);
-    
+    string Result = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
     return Result;
 }
 

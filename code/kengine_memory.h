@@ -94,6 +94,10 @@ PushSize_(memory_arena *Arena, umm SizeInit, arena_push_params Params)
     Assert(Params.Alignment <= 128);
     Assert(IsPow2(Params.Alignment));
     
+#if 0
+    Arena->AllocationFlags = PlatformMemoryBlockFlag_OverflowCheck;
+#endif
+    
     umm Size = 0;
     if(Arena->CurrentBlock)
     {
@@ -194,31 +198,6 @@ EndTemporaryMemory(temporary_memory TempMem)
     }
     
     Assert(Arena->TempCount > 0);
-    --Arena->TempCount;
-}
-
-inline string
-BeginPushString(memory_arena *Arena)
-{
-    string Result;
-    
-    umm AlignmentOffset = GetAlignmentOffset(Arena, 4);
-    Result.Data = Arena->CurrentBlock->Base + Arena->CurrentBlock->Used + AlignmentOffset;
-    Result.Size = 1;
-    
-    ++Arena->TempCount;
-    
-    return Result;
-}
-
-inline void
-EndPushString(string *Text, memory_arena *Arena, umm Size)
-{
-    Assert((Arena->CurrentBlock->Used + Size) <= Arena->CurrentBlock->Size);
-    
-    Text->Size = Size;
-    Arena->CurrentBlock->Used += Size;
-    
     --Arena->TempCount;
 }
 

@@ -156,14 +156,14 @@ internal b32
 Win32PrintOutput(char *Format, ...)
 {
     u8 Buffer[4096];
-    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
+    format_string_state StringState = BeginFormatString();
     
     va_list ArgList;
     va_start(ArgList, Format);
     AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
     
-    string Text = EndFormatStringToBuffer(&StringState, sizeof(Buffer));
+    string Text = EndFormatStringToBuffer(&StringState, Buffer, sizeof(Buffer));
     
     u32 Result = 0;
     
@@ -321,7 +321,7 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
     char *Start = Tokenizer->At;
     
     u8 Buffer[4096];
-    format_string_state StringState = BeginFormatStringToBuffer(Buffer);
+    format_string_state StringState = BeginFormatString();
     
     b32 FirstParam = true;
     c_token Token;
@@ -403,7 +403,7 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
         }
     }
     
-    string Types = EndFormatStringToBuffer(&StringState, sizeof(Buffer));
+    string Types = EndFormatStringToBuffer(&StringState, Buffer, sizeof(Buffer));
     string SnakeStruct = Token.Str;
     u8 UpperCamelStructBuffer[256];
     string UpperCamelStruct = FormatStringToBuffer(UpperCamelStructBuffer, sizeof(UpperCamelStructBuffer), "%S", Token.Str);
@@ -710,7 +710,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     else
     {
         u8 Buffer[4096];
-        format_string_state StringState = BeginFormatStringToBuffer(Buffer);
+        format_string_state StringState = BeginFormatString();
         while(Token.Type != CToken_CloseParen)
         {
             if(Token.Type == CToken_Identifier)
@@ -771,7 +771,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
             }
             Token = GetNextCToken(Tokenizer);
         }
-        ParametersWithoutTypes = EndFormatStringToBuffer(&StringState, sizeof(Buffer));
+        ParametersWithoutTypes = EndFormatStringToBuffer(&StringState, Buffer, sizeof(Buffer));
     }
     
     b32 HasResult = !StringsAreEqual(String("void"), ReturnType);
