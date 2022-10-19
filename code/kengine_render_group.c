@@ -25,8 +25,7 @@ PushRenderCommand(render_group *Group, render_group_command_type Type, u32 Size,
     }
     else
     {
-        // TODO(kstandbridge): Error ran out of buffer space
-        InvalidCodePath;
+        LogError("Ran out of buffer space");
     }
     
     return Result;
@@ -73,8 +72,7 @@ PushRenderCommandClear(render_group *Group, f32 SortKey, v4 Color)
     }
     else
     {
-        // TODO(kstandbridge): Error pushing clear command
-        InvalidCodePath;
+        LogError("Pushing clear command failed");
     }
 }
 
@@ -89,8 +87,7 @@ PushRenderCommandRectangle(render_group *Group, v4 Color, rectangle2 Bounds, f32
     }
     else
     {
-        // TODO(kstandbridge): Error pushing rectangle command
-        InvalidCodePath;
+        LogError("Pushing rectangle command failed");
     }
 }
 
@@ -134,7 +131,6 @@ PushRenderCommandBitmap(render_group *Group, loaded_bitmap *Bitmap, f32 Height, 
     }
     else
     {
-        // TODO(kstandbridge): Error pushing bitmap command
-        InvalidCodePath;
+        LogError("Pushing bitmap command failed");
     }
 }

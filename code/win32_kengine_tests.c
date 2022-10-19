@@ -318,7 +318,7 @@ RunFormatStringWithoutArenaTests(memory_arena *Arena)
         AssertEqualU32(256, BufferSize);
         
         format_string_state State = BeginFormatString();
-        AppendStringFormat(&State, "before %d after", 42);
+        AppendFormatString(&State, "before %d after", 42);
         string Actual = EndFormatStringToBuffer(&State, Buffer, BufferSize);
         
         AssertEqualString(String("before 42 after"), Actual);

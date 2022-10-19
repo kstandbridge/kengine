@@ -831,8 +831,8 @@ WinMainCRTStartup()
         {
             if(GlobalWin32State.AppLibrary && !Win32FreeLibrary(GlobalWin32State.AppLibrary))
             {
-                // TODO(kstandbridge): Error freeing app library
-                InvalidCodePath;
+                DWORD ErrorCode = Win32GetLastError();
+                LogError("FreeLibrary failed with error code %u", ErrorCode);
             }
             GlobalWin32State.AppLibrary = 0;
             GlobalWin32State.AppLoop = 0;
@@ -846,6 +846,7 @@ WinMainCRTStartup()
             
             if(Win32CopyFileA(GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath, false))
             {
+                LogVerbose("App code reloaded!");
                 GlobalWin32State.AppLibrary = Win32LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
                 if(GlobalWin32State.AppLibrary)
                 {
@@ -871,14 +872,14 @@ WinMainCRTStartup()
                 }
                 else
                 {
-                    // TODO(kstandbridge): Error loading library
-                    InvalidCodePath;
+                    DWORD ErrorCode = Win32GetLastError();
+                    LogError("LoadLibrary failed with error code %u", ErrorCode);
                 }
             }
             else
             {
-                // TODO(kstandbridge): Error copying temp dll
-                InvalidCodePath;
+                DWORD ErrorCode = Win32GetLastError();
+                LogError("CopyFile failed with error code %u", ErrorCode);
             }
             SetDebugEventRecording(true);
         }

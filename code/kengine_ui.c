@@ -343,18 +343,12 @@ Interact(ui_state *UIState, app_input *Input, f32 dtForFrame)
 inline void
 PushRenderCommandText(render_group *RenderGroup, f32 Scale, v2 P, v4 Color, string Text)
 {
-    // TODO(kstandbridge): NAMING Internally this is calling PushRenderCommandBitmap for each of the glyphs,
-    // nothing is being drawn now, its a push call so shouldn't be DrawText
-    
     TextOp_(RenderGroup, TextOpText_Draw, Scale, P, Color, ToEditableString(Text));
 }
 
 inline void
 PushRenderCommandEditableText(render_group *RenderGroup, f32 Scale, v2 P, v4 Color, editable_string Text)
 {
-    // TODO(kstandbridge): NAMING Internally this is calling PushRenderCommandBitmap for each of the glyphs,
-    // nothing is being drawn now, its a push call so shouldn't be DrawText
-    
     TextOp_(RenderGroup, TextOpText_Draw, Scale, P, Color, Text);
 }
 

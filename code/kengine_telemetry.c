@@ -117,7 +117,7 @@ PostTelemetryThread(void *Data)
                         u8 CPayload[4096];
                         format_string_state StringState = BeginFormatString();
                         
-                        AppendStringFormat(&StringState, "{\n    \"@timestamp\": \"%d-%02d-%02dT%02d:%02d:%02d.%03dZ\"",
+                        AppendFormatString(&StringState, "{\n    \"@timestamp\": \"%d-%02d-%02dT%02d:%02d:%02d.%03dZ\"",
                                            DateTime.Year, DateTime.Month, DateTime.Day,
                                            DateTime.Hour, DateTime.Minute, DateTime.Second,
                                            DateTime.Milliseconds);
@@ -131,12 +131,12 @@ PostTelemetryThread(void *Data)
                             {
                                 if(Field->Type == TelemetryField_Number)
                                 {
-                                    AppendStringFormat(&StringState, ",\n    \"%S\": %.03f", Field->Key, Field->NumberValue);
+                                    AppendFormatString(&StringState, ",\n    \"%S\": %.03f", Field->Key, Field->NumberValue);
                                 }
                                 else
                                 {
                                     Assert(Field->Type == TelemetryField_String);
-                                    AppendStringFormat(&StringState, ",\n    \"%S\": \"%S\"", Field->Key, Field->StringValue);
+                                    AppendFormatString(&StringState, ",\n    \"%S\": \"%S\"", Field->Key, Field->StringValue);
                                 }
                             }
                             else
@@ -145,12 +145,12 @@ PostTelemetryThread(void *Data)
                             }
                         }
                         
-                        AppendStringFormat(&StringState, ",\n    \"product_name\": \"%S\"", GlobalTelemetryState_.ProductName);
-                        AppendStringFormat(&StringState, ",\n    \"machine_name\": \"%S\"", GlobalTelemetryState_.MachineName);
-                        AppendStringFormat(&StringState, ",\n    \"user_name\": \"%S\"", GlobalTelemetryState_.Username);
-                        AppendStringFormat(&StringState, ",\n    \"pid\": %.03f", GlobalTelemetryState_.ProcessId);
+                        AppendFormatString(&StringState, ",\n    \"product_name\": \"%S\"", GlobalTelemetryState_.ProductName);
+                        AppendFormatString(&StringState, ",\n    \"machine_name\": \"%S\"", GlobalTelemetryState_.MachineName);
+                        AppendFormatString(&StringState, ",\n    \"user_name\": \"%S\"", GlobalTelemetryState_.Username);
+                        AppendFormatString(&StringState, ",\n    \"pid\": %.03f", GlobalTelemetryState_.ProcessId);
                         
-                        AppendStringFormat(&StringState, "\n}");
+                        AppendFormatString(&StringState, "\n}");
                         
                         string Payload = EndFormatStringToBuffer(&StringState, CPayload, sizeof(CPayload));
                         string Response = Platform.SendHttpRequest(&Queue->Arena, Host->Hostname, 0, Endpoint, HttpVerb_Post, Payload,

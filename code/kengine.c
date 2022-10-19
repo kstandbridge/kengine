@@ -38,9 +38,9 @@ global debug_event_table *GlobalDebugEventTable;
 #endif
 
 #include "kengine_sort.c"
+#include "kengine_telemetry.c"
 #include "kengine_render_group.c"
 #include "kengine_ui.c"
-#include "kengine_telemetry.c"
 #include "kengine_html_parser.c"
 
 #if KENGINE_INTERNAL

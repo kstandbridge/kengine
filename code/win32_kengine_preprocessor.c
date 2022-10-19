@@ -357,18 +357,18 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
                 {
                     if(!FirstParam)
                     {
-                        AppendStringFormat(&StringState, ", ");
+                        AppendFormatString(&StringState, ", ");
                     }
                     FirstParam = false;
                     if(IsPointer)
                     {
                         if(PrefixStruct)
                         {
-                            AppendStringFormat(&StringState, "struct %S *%S", Type, Token.Str);
+                            AppendFormatString(&StringState, "struct %S *%S", Type, Token.Str);
                         }
                         else
                         {
-                            AppendStringFormat(&StringState, "%S *%S", Type, Token.Str);
+                            AppendFormatString(&StringState, "%S *%S", Type, Token.Str);
                         }
                     }
                     
@@ -376,11 +376,11 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
                     {
                         if(PrefixStruct)
                         {
-                            AppendStringFormat(&StringState, "struct %S %S", Type, Token.Str);
+                            AppendFormatString(&StringState, "struct %S %S", Type, Token.Str);
                         }
                         else
                         {
-                            AppendStringFormat(&StringState, "%S %S", Type, Token.Str);
+                            AppendFormatString(&StringState, "%S %S", Type, Token.Str);
                         }
                     }
                 } break;
@@ -389,7 +389,7 @@ GenerateMethod(c_tokenizer *Tokenizer, generate_method_op Op)
                     if(FirstParam)
                     {
                         FirstParam = false;
-                        AppendStringFormat(&StringState, "%S Value", Type);
+                        AppendFormatString(&StringState, "%S Value", Type);
                     }
                 } break;
                 case GenerateMethod_MathAdd:
@@ -752,7 +752,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
                 if(FirstParamFound)
                 {
                     Win32PrintOutput(", ");
-                    AppendStringFormat(&StringState, ", ");
+                    AppendFormatString(&StringState, ", ");
                 }
                 else
                 {
@@ -766,7 +766,7 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
                                  IsPointer ? (IsPointerToPointer ? "**" : "*") : "", 
                                  Name);
                 
-                AppendStringFormat(&StringState, "%S", Token.Str);
+                AppendFormatString(&StringState, "%S", Token.Str);
                 
             }
             Token = GetNextCToken(Tokenizer);
@@ -1011,13 +1011,14 @@ ParseIntrospectable_(c_tokenizer *Tokenizer)
             }
             else
             {
-                // TODO(kstandbridge): Error missing open brace on introspect
+                Assert(!"Missing open brace on introspect");
+                
             }
         }
     }
     else
     {
-        // TODO(kstandbridge): Error missing paren on introspect
+        Assert(!"Missing paren on introspect");
     }
 }
 

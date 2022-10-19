@@ -202,7 +202,7 @@ Win32ConsoleOut(char *Format, ...)
 internal FILETIME
 Win32GetLastWriteTime(char *Filename)
 {
-    // TODO(kstandbridge): Switch this accept string?
+    // TODO(kstandbridge): Change param to string?
     
     FILETIME LastWriteTime;
     ZeroStruct(LastWriteTime);
@@ -214,8 +214,8 @@ Win32GetLastWriteTime(char *Filename)
     }
     else
     {
-        // TODO(kstandbridge): Error failed to GetFileAttributesExA
-        InvalidCodePath;
+        DWORD ErrorCode = Win32GetLastError();
+        LogError("GetFileAttributesEx failed with error code %u", ErrorCode);
     }
     
     return LastWriteTime;
