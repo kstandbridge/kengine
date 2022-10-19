@@ -794,7 +794,6 @@ EndFormatString(format_string_state *State, memory_arena *Arena)
 internal string
 EndFormatStringToBuffer(format_string_state *State, u8 *Buffer, umm BufferSize)
 {
-    Assert(State->BufferSize > 0);
     Assert(State->BufferSize <= BufferSize);
     
     string Result;
