@@ -68,6 +68,24 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32 
         GlobalDebugEventTable->Settings.ShowDebugTab = true;
 #endif
         AppInit(AppMemory);
+        
+        u32 ArgCount = AppMemory->ArgCount;
+        string *Args = AppMemory->Args;
+        
+        if(ArgCount > 1)
+        {
+            string Command = Args[1];
+            if(ArgCount == 2)
+            {
+                Args = 0;
+            }
+            else
+            {
+                Args += 2;
+            }
+            ArgCount -= 2;
+            AppHandleCommand(AppMemory, Command, ArgCount, Args);
+        }
     }
     
 #if KENGINE_CONSOLE
