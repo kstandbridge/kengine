@@ -85,6 +85,10 @@ introspect(win32, Kernel32) typedef HANDLE get_current_process();
 introspect(win32, Kernel32) typedef BOOL get_process_affinity_mask(HANDLE     hProcess,
                                                                    PDWORD_PTR lpProcessAffinityMask,
                                                                    PDWORD_PTR lpSystemAffinityMask);
+introspect(win32, Kernel32) typedef DWORD get_module_file_name_a(HMODULE hModule,
+                                                                 LPSTR   lpFilename,
+                                                                 DWORD   nSize);
+
 
 introspect(win32, Gdi32) typedef int add_font_resource_ex_a(LPCSTR name, DWORD fl, PVOID res);
 introspect(win32, Gdi32) typedef HDC create_compatible_d_c(HDC hdc);

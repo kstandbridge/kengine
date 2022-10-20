@@ -15,8 +15,8 @@
 #include "win32_kengine_kernel.c"
 #include "win32_kengine_generated.c"
 
-#if KENGINE_INTERNAL
 #include "kengine_debug_shared.h"
+#if KENGINE_INTERNAL
 #include "kengine_debug.h"
 global debug_event_table GlobalDebugEventTable_;
 debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
@@ -125,86 +125,6 @@ Win32ProcessPendingMessages(app_input *Input)
     }
 }
 
-internal void
-Win32ParseCommandLingArgs()
-{
-    char *CommandLingArgs = Win32GetCommandLineA();
-    Assert(CommandLingArgs);
-    
-    char *At = CommandLingArgs;
-    char *ParamStart = At;
-    u32 ParamLength = 0;
-    b32 Parsing = true;
-    b32 ExeNameFound = false;
-    while(Parsing)
-    {
-        if((*At == '\0') || IsWhitespace(*At))
-        {
-            if(*At != '\0')
-            {
-                while(IsWhitespace(*At))
-                {
-                    ++At;
-                }
-            }
-            else
-            {
-                Parsing = false;
-            }
-            
-            if(ExeNameFound)
-            {            
-                string Parameter;
-                Parameter.Size = ParamLength;
-                Parameter.Data = (u8 *)ParamStart;
-                Parameter;
-                // TODO(kstandbridge): Handle parameter
-            }
-            else
-            {
-                ExeNameFound = true;
-                
-#if KENGINE_INTERNAL
-                if(*ParamStart == '\"')
-                {
-                    ++ParamStart;
-                    ParamLength -= 2;
-                }
-                char *LastSlash = At - 1;
-                while(*LastSlash != '\\')
-                {
-                    --ParamLength;
-                    --LastSlash;
-                }
-                ++ParamLength;
-                Copy(ParamLength, ParamStart, GlobalWin32State.ExeFilePath);
-                GlobalWin32State.ExeFilePath[ParamLength] = '\0';
-                
-                Copy(ParamLength, GlobalWin32State.ExeFilePath, GlobalWin32State.DllFullFilePath);
-                AppendCString(GlobalWin32State.DllFullFilePath + ParamLength, "\\kengine.dll");
-                
-                Copy(ParamLength, GlobalWin32State.ExeFilePath, GlobalWin32State.TempDllFullFilePath);
-                AppendCString(GlobalWin32State.TempDllFullFilePath + ParamLength, "\\kengine_temp.dll");
-                
-                Copy(ParamLength, GlobalWin32State.ExeFilePath, GlobalWin32State.LockFullFilePath);
-                AppendCString(GlobalWin32State.LockFullFilePath + ParamLength, "\\lock.tmp");
-#endif
-                
-            }
-            
-            ParamStart = At;
-            ParamLength = 1;
-            ++At;
-        }
-        else
-        {
-            ++ParamLength;
-            ++At;
-        }
-        
-    }
-}
-
 #if KENGINE_CONSOLE
 inline void
 Win32ConsoleCommandLoopThread(void *Data)
@@ -219,17 +139,19 @@ Win32ConsoleCommandLoopThread(void *Data)
         Win32ReadFile(InputHandle, Buffer, (DWORD)sizeof(Buffer), (LPDWORD)&BytesRead, 0);
         string Command = String_(BytesRead - 2, Buffer);
         
+        // TODO(kstandbridge): Seperate command and arguments
+        
 #if KENGINE_INTERNAL
         if(GlobalWin32State.AppHandleCommand)
         {
-            GlobalWin32State.AppHandleCommand(&GlobalAppMemory, Command);
+            GlobalWin32State.AppHandleCommand(&GlobalAppMemory, Command, 0, 0);
         }
         else
         {
             LogWarning("Ignoring '%S' as no command handler setup", Command);
         }
 #else // KENGINE_INTERNAL
-        AppHandleCommand(&GlobalAppMemory, Command);
+        AppHandleCommand(&GlobalAppMemory, Command, 0, 0);
 #endif // KENGINE_INTERNAL
     }
 }
@@ -612,10 +534,108 @@ WinMainCRTStartup()
     
     Platform = GlobalAppMemory.PlatformAPI;
     
-    Win32ParseCommandLingArgs();
+#if KENGINE_INTERNAL
+    {    
+        char Filename[MAX_PATH];
+        Win32GetModuleFileNameA(0, Filename, MAX_PATH);
+        u32 Length = GetNullTerminiatedStringLength(Filename);
+        
+        char *At = Filename;
+        if(*At == '\"')
+        {
+            ++At;
+            Length -= 2;
+        }
+        char *lastSlash = At + Length;
+        while(*lastSlash != '\\')
+        {
+            --Length;
+            --lastSlash;
+        }
+        Copy(Length, At, GlobalWin32State.ExeFilePath);
+        GlobalWin32State.ExeFilePath[Length] = '\0';
+        
+        Copy(Length, GlobalWin32State.ExeFilePath, GlobalWin32State.DllFullFilePath);
+        AppendCString(GlobalWin32State.DllFullFilePath + Length, "\\kengine.dll");
+        
+        Copy(Length, GlobalWin32State.ExeFilePath, GlobalWin32State.TempDllFullFilePath);
+        AppendCString(GlobalWin32State.TempDllFullFilePath + Length, "\\kengine_temp.dll");
+        
+        Copy(Length, GlobalWin32State.ExeFilePath, GlobalWin32State.LockFullFilePath);
+        AppendCString(GlobalWin32State.LockFullFilePath + Length, "\\lock.tmp");
+    }
+#endif
+    
+    GlobalAppMemory.ArgCount = 1;
+    char *CommandLingArgs = Win32GetCommandLineA();
+    // NOTE(kstandbridge): Parse command line args
+    {    
+        Assert(CommandLingArgs);
+        
+        {
+            char *At = CommandLingArgs;
+            while(*At)
+            {
+                if(At[0] == ' ')
+                {
+                    ++GlobalAppMemory.ArgCount;
+                }
+                ++At;
+            }
+        }
+        
+        GlobalAppMemory.Args = PushArray(&GlobalWin32State.Arena, GlobalAppMemory.ArgCount, string);
+        u32 CurrentArg = 0;
+        {    
+            char *At = CommandLingArgs;
+            char *ParamStart = At;
+            u32 ParamLength = 0;
+            b32 Parsing = true;
+            b32 ExeNameFound = false;
+            while(Parsing)
+            {
+                if((*At == '\0') || IsWhitespace(*At))
+                {
+                    if(*At != '\0')
+                    {
+                        while(IsWhitespace(*At))
+                        {
+                            ++At;
+                        }
+                    }
+                    else
+                    {
+                        Parsing = false;
+                    }
+                    
+                    if(*ParamStart == '\"')
+                    {
+                        ++ParamStart;
+                        ParamLength -= 2;
+                    }
+                    
+                    
+                    string *Parameter = GlobalAppMemory.Args + CurrentArg++;
+                    Parameter->Size = ParamLength;
+                    Parameter->Data = (u8 *)ParamStart;
+                    
+                    ParamStart = At;
+                    ParamLength = 1;
+                    ++At;
+                }
+                else
+                {
+                    ++ParamLength;
+                    ++At;
+                }
+                
+            }
+        }
+        
+    }
     
 #if KENGINE_HTTP
-    win32_http_state *HttpState = BootstrapPushStruct(win32_http_state, Arena);
+    win32_http_state *HttpState = PushStruct(GlobalWin32State.Arena, win32_http_state);
     
 #define OUTSTANDING_REQUESTS 16
 #define REQUESTS_PER_PROCESSOR 4

@@ -153,8 +153,13 @@ PostTelemetryThread(void *Data)
                         AppendFormatString(&StringState, "\n}");
                         
                         string Payload = EndFormatStringToBuffer(&StringState, CPayload, sizeof(CPayload));
+                        
+#if KENGINE_INTERNAL     
                         string Response = Platform.SendHttpRequest(&Queue->Arena, Host->Hostname, 0, Endpoint, HttpVerb_Post, Payload,
                                                                    String("Content-Type: application/json;\r\n"), String(""), String(""));
+                        b32 BreakHere = true;
+#endif
+                        
                     }
                 }
             }

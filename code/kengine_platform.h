@@ -161,7 +161,8 @@ typedef struct app_memory
     struct debug_state *DebugState;
     struct debug_event_table *DebugEventTable;
 #endif
-    
+    u32 ArgCount;
+    string *Args;
     b32 IsRunning;
     
     platform_api PlatformAPI;
@@ -169,7 +170,7 @@ typedef struct app_memory
 
 #if KENGINE_CONSOLE
 typedef void app_loop(app_memory *Memory, f32 dtForFrame);
-typedef void app_handle_command(app_memory *Memory, string Command);
+typedef void app_handle_command(app_memory *Memory, string Command, u32 ArgCount, string *Args);
 #else
 typedef struct render_commands render_commands;
 typedef void app_loop(app_memory *Memory, render_commands *Commands, app_input *Input, f32 dtForFrame);

@@ -12,6 +12,8 @@ typedef struct win32_state
     ticket_mutex MemoryMutex;
     win32_memory_block MemorySentinel;
     
+    memory_arena Arena;
+    
     HWND Window;
     
     s64 PerfCountFrequency;
@@ -91,8 +93,6 @@ Win32AllocateMemory(umm Size, u64 Flags)
     Win32Block->Next->Prev = Win32Block;
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
     
-    LogVerbose("Allocated %u bytes", Size);
-    
     platform_memory_block *Result = &Win32Block->PlatformBlock;
     return Result;
 }
@@ -101,8 +101,6 @@ internal void
 Win32DeallocateMemory(platform_memory_block *Block)
 {
     win32_memory_block *Win32Block = (win32_memory_block *)Block;
-    
-    LogVerbose("Deallocated block %u / %u used.", Block->Used, Block->Size);
     
     BeginTicketMutex(&GlobalWin32State.MemoryMutex);
     Win32Block->Prev->Next = Win32Block->Next;
