@@ -50,11 +50,11 @@ global debug_event_table *GlobalDebugEventTable;
 #include "main.c"
 
 extern void
-#if KENGINE_CONSOLE
+#if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
 AppLoop(app_memory *AppMemory, f32 dtForFrame)
-#else // KENGINE_CONSOLE
+#else 
 AppLoop(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32 dtForFrame)
-#endif // KENGINE_CONSOLE
+#endif 
 {
 #if KENGINE_INTERNAL
     Platform = AppMemory->PlatformAPI;
@@ -88,9 +88,9 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32 
         }
     }
     
-#if KENGINE_CONSOLE
+#if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
     AppTick(AppMemory, dtForFrame);
-#else // KENGINE_CONSOLE
+#else
     
     ui_state *UIState = AppMemory->UIState;
     if(!UIState)
@@ -204,5 +204,5 @@ AppLoop(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32 
     CheckArena(&UIState->TranArena);
     CheckArena(&AppState->Arena);
     
-#endif // KENGINE_CONSOLE
+#endif // defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
 }

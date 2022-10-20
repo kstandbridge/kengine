@@ -488,7 +488,7 @@ WinMainCRTStartup()
     GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
     GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
     
-#ifndef KENGINE_CONSOLE
+#if !defined(KENGINE_CONSOLE) && !defined(KENGINE_HEADLESS)
     HINSTANCE Instance = Win32GetModuleHandleA(0);
     
     WNDCLASSEXA WindowClass;
@@ -497,7 +497,7 @@ WinMainCRTStartup()
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = Instance;
     WindowClass.lpszClassName = "KengineWindowClass";
-#endif
+#endif // !defined(KENGINE_CONSOLE) && !defined(KENGINE_HEADLESS)
     
     LARGE_INTEGER PerfCountFrequencyResult;
     Win32QueryPerformanceFrequency(&PerfCountFrequencyResult);
@@ -706,10 +706,13 @@ WinMainCRTStartup()
     }
 #endif
     
-#if KENGINE_CONSOLE      
+#if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
+    
     // NOTE(kstandbridge): 2 ticks per second
     f32 TargetSecondsPerFrame = 1.0f / 2.0f;
-#else KENGINE_CONSOLE
+    
+#else 
+    
     
     b32 WindowClassIsRegistered = Win32RegisterClassExA(&WindowClass);
     Assert(WindowClassIsRegistered);
@@ -754,7 +757,7 @@ WinMainCRTStartup()
     }
     
     f32 TargetSecondsPerFrame = 1.0f / MonitorRefreshHz;
-#endif KENGINE_CONSOLE
+#endif // defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
     
     LARGE_INTEGER LastCounter = Win32GetWallClock();
     
@@ -779,7 +782,7 @@ WinMainCRTStartup()
         }
 #endif // KENGINE_INTERNAL
         
-#ifndef KENGINE_CONSOLE
+#if !defined(KENGINE_CONSOLE) && !defined(KENGINE_HEADLESS)
         
         BEGIN_BLOCK("ProcessPendingMessages");
         NewInput->MouseZ = 0;
@@ -824,17 +827,17 @@ WinMainCRTStartup()
         render_commands Commands_ = BeginRenderCommands(PushBufferSize, PushBuffer, WindowDimensions.X, WindowDimensions.Y);
         render_commands *Commands = &Commands_;
         
-#endif // KENGINE_CONSOLE
+#endif // !defined(KENGINE_CONSOLE) && !defined(KENGINE_HEADLESS)
         
 #if KENGINE_INTERNAL
         BEGIN_BLOCK("AppLoop");
         if(GlobalWin32State.AppLoop)
         {
-#if KENGINE_CONSOLE
+#if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
             GlobalWin32State.AppLoop(&GlobalAppMemory, TargetSecondsPerFrame);
-#else // KENGINE_CONSOLE
+#else
             GlobalWin32State.AppLoop(&GlobalAppMemory, Commands, NewInput, TargetSecondsPerFrame);
-#endif // KENGINE_CONSOLE
+#endif
         }
         END_BLOCK();
         if(DllNeedsToBeReloaded)
@@ -871,11 +874,8 @@ WinMainCRTStartup()
                     GlobalWin32State.AppLoop = (app_loop *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppLoop");
                     Assert(GlobalWin32State.AppLoop);
 #if KENGINE_CONSOLE
+                    // NOTE(kstandbridge): Command handler is optional
                     GlobalWin32State.AppHandleCommand = (app_handle_command *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleCommand");
-                    if(!GlobalWin32State.AppHandleCommand)
-                    {
-                        LogWarning("AppHandleCommand not found");
-                    }
 #endif // KENGINE_CONSOLE
                     
 #if KENGINE_HTTP
@@ -900,14 +900,16 @@ WinMainCRTStartup()
         }
         
 #else // KENGINE_INTERNAL
-#if KENGINE_CONSOLE
+        
+#if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
         AppLoop(&GlobalAppMemory, TargetSecondsPerFrame)
-#else // KENGINE_CONSOLE
+#else
         AppLoop(&GlobalAppMemory, Commands, Input, TargetSecondsPerFrame)
-#endif // KENGINE_CONSOLE
+#endif
+        
 #endif // KENGINE_INTERNAL
         
-#ifndef KENGINE_CONSOLE
+#if !defined(KENGINE_CONSOLE) && !defined(KENGINE_HEADLESS)
         BEGIN_BLOCK("ExpandRenderStorage");
         u32 NeededSortMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
         if(CurrentSortMemorySize < NeededSortMemorySize)
@@ -951,7 +953,7 @@ WinMainCRTStartup()
         app_input *Temp = NewInput;
         NewInput = OldInput;
         OldInput = Temp;
-#endif // KENGINE_CONSOLE
+#endif // !defined(KENGINE_CONSOLE) && !defined(KENGINE_HEADLESS)
         
         BEGIN_BLOCK("FrameWait");
         f32 FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
