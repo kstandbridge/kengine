@@ -33,6 +33,8 @@ typedef struct win32_http_io_response
 
 typedef struct win32_http_state
 {
+    memory_arena Arena;
+    
     HTTPAPI_VERSION Version;
     HTTP_SERVER_SESSION_ID SessionId;
     HTTP_URL_GROUP_ID UrlGroupId;

@@ -760,7 +760,6 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
     State->BufferSize = State->Tail - (char *)State->Buffer;
 }
 
-// TODO(kstandbridge): Rename to AppendFormatString
 internal void
 AppendFormatString(format_string_state *State, char *Format, ...)
 {

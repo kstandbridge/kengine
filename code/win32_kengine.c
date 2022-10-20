@@ -615,9 +615,7 @@ WinMainCRTStartup()
     Win32ParseCommandLingArgs();
     
 #if KENGINE_HTTP
-    win32_http_state HttpState_;
-    ZeroStruct(HttpState_);
-    win32_http_state *HttpState = &HttpState_;
+    win32_http_state *HttpState = BootstrapPushStruct(win32_http_state, Arena);
     
 #define OUTSTANDING_REQUESTS 16
 #define REQUESTS_PER_PROCESSOR 4
@@ -652,11 +650,11 @@ WinMainCRTStartup()
     
     HttpState->ResponseCount = RequestCount;
     HttpState->NextResponseIndex = 0;
-    HttpState->Responses = PushArray(&GlobalWin32State.Arena, RequestCount, win32_http_io_response);
+    HttpState->Responses = PushArray(&HttpState->Arena, RequestCount, win32_http_io_response);
     
     HttpState->RequestCount = RequestCount;
     HttpState->NextRequestIndex = 0;
-    HttpState->Requests = PushArray(&GlobalWin32State.Arena, RequestCount, win32_http_io_request *);
+    HttpState->Requests = PushArray(&HttpState->Arena, RequestCount, win32_http_io_request *);
     
     for(u32 RequestIndex = 0;
         RequestIndex < RequestCount;
