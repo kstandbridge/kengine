@@ -109,11 +109,46 @@ typedef enum http_verb_type
     HttpVerb_Delete,
 } http_verb_type;
 
-typedef string platform_send_http_request(struct memory_arena *Arena, string Host, u32 Port, string Endpoint, http_verb_type Verb, string Payload, 
-                                          string Headers, string Username, string Password);
+typedef struct platform_http_client
+{
+    void *Handle;
+    
+    b32 NoErrors;
+} platform_http_client;
 
-typedef string platform_get_hostname(struct memory_arena *Arena);
-typedef string platform_get_username(struct memory_arena *Arena);
+typedef void platform_end_http_client(platform_http_client *PlatformClient);
+typedef platform_http_client platform_begin_http_client_with_creds(string Hostname, u32 Port, string Username, string Password);
+typedef platform_http_client platform_begin_http_client(string Hostname, u32 Port);
+
+typedef struct platform_http_request
+{
+    void *Handle;
+    b32 NoErrors;
+    
+    string Endpoint;
+    string Payload;
+    
+} platform_http_request;
+
+typedef void platform_end_http_request(platform_http_request *PlatformRequest);
+typedef platform_http_request platform_begin_http_request(platform_http_client *PlatformClient,  http_verb_type Verb, char *Format, ...);
+
+typedef struct platform_http_response
+{
+    u16 StatusCode;
+    string Payload;
+} platform_http_response;
+
+typedef platform_http_response platform_send_http_request(platform_http_request *PlatformRequest);
+
+#define PlatformNoErrors(Handle) ((Handle).NoErrors)
+
+typedef b32 platform_file_exists(string Path);
+typedef b32 platform_kill_process_by_name(string Name);
+typedef void platform_execute_process(string Path, string Args, string WorkingDirectory);
+typedef umm platform_get_hostname(u8 *Buffer, umm BufferMaxSize);
+typedef umm platform_get_username(u8 *Buffer, umm BufferMaxSize);
+typedef umm platform_get_home_directory(u8 *Buffer, umm BufferMaxSize);
 typedef u32 platform_get_process_id();
 typedef u64 platform_get_system_timestamp();
 typedef date_time platform_get_date_time_for_timestamp(u64 Timestamp);
@@ -138,10 +173,19 @@ typedef struct platform_api
     get_horizontal_advance *GetHorizontalAdvance;
     get_verticle_advance *GetVerticleAdvance;
     
+    platform_end_http_client *EndHttpClient;
+    platform_begin_http_client_with_creds *BeginHttpClientWithCreds;
+    platform_begin_http_client *BeginHttpClient;
+    platform_end_http_request *EndHttpRequest;
+    platform_begin_http_request *BeginHttpRequest;
     platform_send_http_request *SendHttpRequest;
     
+    platform_file_exists *FileExists;
+    platform_kill_process_by_name *KillProcessByName;
+    platform_execute_process *ExecuteProcess;
     platform_get_hostname *GetHostname;
     platform_get_username *GetUsername;
+    platform_get_home_directory *GetHomeDirectory;
     platform_get_process_id *GetProcessId;
     platform_get_system_timestamp *GetSystemTimestamp;
     platform_get_date_time_for_timestamp *GetDateTimeFromTimestamp;

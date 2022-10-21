@@ -27,7 +27,7 @@ StringToHashValue(string Text)
 }
 
 internal u32
-U32FromString_(char **Text)
+U32FromCString_(char **Text)
 {
     u32 Result = 0;
     
@@ -46,10 +46,40 @@ U32FromString_(char **Text)
 }
 
 inline u32
-U32FromString(char *Text)
+U32FromCString(char *Text)
 {
     char *Ignored = Text;
+    u32 Result = U32FromCString_(&Ignored);
+    return Result;
+}
+
+internal u32
+U32FromString_(string *Text)
+{
+    u32 Result = 0;
+    
+    while((Text->Size > 0) &&
+          (Text->Data[0] >= '0') &&
+          (Text->Data[0] <= '9'))
+    {
+        Result *= 10;
+        Result += (Text->Data[0] - '0');
+        ++Text->Data;
+        --Text->Size;
+    }
+    
+    return Result;
+}
+
+inline u32
+U32FromString(string *Text)
+{
+    string Ignored;
+    Ignored.Size = Text->Size;
+    Ignored.Data = Text->Data;
+    
     u32 Result = U32FromString_(&Ignored);
+    
     return Result;
 }
 
@@ -618,11 +648,11 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                             case FormatStringToken_PadWithZeros:
                             {
                                 PadWithZeros = true;
-                                Width = U32FromString((char *)ParamToken.Str.Data);
+                                Width = U32FromString(&ParamToken.Str);
                             } break;
                             case FormatStringToken_WidthSpecifier:
                             {
-                                Width = U32FromString((char *)ParamToken.Str.Data);
+                                Width = U32FromString(&ParamToken.Str);
                             } break;
                             
                             case FormatStringToken_PrecisionArgSpecifier:
@@ -845,10 +875,13 @@ StringToCString(string Text, u32 BufferSize, char *Buffer)
 internal void
 ParseFromString_(string Text, char *Format, va_list ArgList)
 {
-    char *Source = (char *)Text.Data;
+    string Source;
+    Source.Size = Text.Size;
+    Source.Data = Text.Data;
+    
     char *At = Format;
     u32 Index = 0;
-    while(At[0])
+    while(At[0] && Source.Size)
     {
         if(*At == '%')
         {
@@ -858,9 +891,9 @@ ParseFromString_(string Text, char *Format, va_list ArgList)
                 case 'd':
                 {
                     s32 *Value = va_arg(ArgList, s32 *);
-                    char *PosBefore = Source;
+                    u8 *PosBefore = Source.Data;
                     *Value = U32FromString_(&Source);
-                    char *PosAfter = Source;
+                    u8 *PosAfter = Source.Data;
                     Index+= PosAfter - PosBefore;
                     
                 } break;
@@ -868,17 +901,25 @@ ParseFromString_(string Text, char *Format, va_list ArgList)
                 case 'S':
                 {
                     string *SubStr = va_arg(ArgList, string *);
-                    SubStr->Data = (u8 *)Source;
+                    SubStr->Data = (u8 *)Source.Data;
                     ++At;
                     char End = *At;
                     // TODO(kstandbridge): This check only works when the str is at end, make a more robust solution
-                    while((End != *Source) &&
+                    while((End != Source.Data[0]) &&
                           (Index < Text.Size))
                     {
-                        ++Source;
+                        ++Source.Data;
+                        if(Source.Size == 0)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            --Source.Size;
+                        }
                         ++Index;
                     }
-                    SubStr->Size = Source - (char *)SubStr->Data;
+                    SubStr->Size = Source.Data - SubStr->Data;
                     --At;
                 } break;
                 
@@ -888,7 +929,15 @@ ParseFromString_(string Text, char *Format, va_list ArgList)
         }
         else
         {
-            ++Source;
+            ++Source.Data;
+            if(Source.Size == 0)
+            {
+                break;
+            }
+            else
+            {
+                --Source.Size;
+            }
             ++Index;
         }
         ++At;

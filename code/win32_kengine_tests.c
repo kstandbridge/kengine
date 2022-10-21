@@ -428,8 +428,8 @@ RunParseFromStringTests(memory_arena *Arena)
         s32 First = 0;
         s32 Second = 0;
         ParseFromString(String("42-24"), "%d-%d", &First, &Second);
-        ASSERT(First == 42);
-        ASSERT(Second == 24);
+        AssertEqualU32(42, First);
+        AssertEqualU32(24, Second);
     }
     {
         string Input = String("27-Nov-2020 17:52  2.13 MB");
@@ -444,10 +444,10 @@ RunParseFromStringTests(memory_arena *Arena)
         ParseFromString(Input, Format,
                         &Day, &Month, &Year, &Hour, &Minute);
         ASSERT(Day == 27);
-        ASSERT(StringsAreEqual(Month, String("Nov")));
-        ASSERT(Year == 2020);
-        ASSERT(Hour == 17);
-        ASSERT(Minute == 52);
+        AssertEqualString(String("Nov"), Month);
+        AssertEqualU32(2020, Year);
+        AssertEqualU32(17, Hour);
+        AssertEqualU32(52, Minute);
     }
 }
 

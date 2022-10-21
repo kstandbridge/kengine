@@ -155,9 +155,13 @@ PostTelemetryThread(void *Data)
                         string Payload = EndFormatStringToBuffer(&StringState, CPayload, sizeof(CPayload));
                         
 #if KENGINE_INTERNAL     
+                        // TODO(kstandbridge): Send telemetry
+#if 0
                         string Response = Platform.SendHttpRequest(&Queue->Arena, Host->Hostname, 0, Endpoint, HttpVerb_Post, Payload,
                                                                    String("Content-Type: application/json;\r\n"), String(""), String(""));
                         b32 BreakHere = true;
+#endif
+                        
 #endif
                         
                     }
@@ -184,27 +188,22 @@ BeginTelemetryMessage()
 {
     for(;;)
     {
-        f32 PercentFree = ((f32)GlobalTelemetryState_.AddingQueue->Arena.CurrentBlock->Used / (f32)GlobalTelemetryState_.AddingQueue->Arena.CurrentBlock->Size);
-        
-        if(PercentFree < 0.9f)
+        u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState_.CurrentState, TelemetryState_AddingToQueue, TelemetryState_Idle);
+        if(StateType == TelemetryState_Idle)
         {
-            u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState_.CurrentState, TelemetryState_AddingToQueue, TelemetryState_Idle);
-            if(StateType == TelemetryState_Idle)
+            telemetry_message *Message = GlobalTelemetryState_.AddingQueue->Messages;
+            if(Message != 0)
             {
-                telemetry_message *Message = GlobalTelemetryState_.AddingQueue->Messages;
-                if(Message != 0)
-                {
-                    Message = PushStruct(&GlobalTelemetryState_.AddingQueue->Arena, telemetry_message);
-                    Message->Next = GlobalTelemetryState_.AddingQueue->Messages;
-                }
-                else
-                {
-                    Message = PushStruct(&GlobalTelemetryState_.AddingQueue->Arena, telemetry_message);
-                }
-                GlobalTelemetryState_.AddingQueue->Messages = Message;
-                
-                break;
+                Message = PushStruct(&GlobalTelemetryState_.AddingQueue->Arena, telemetry_message);
+                Message->Next = GlobalTelemetryState_.AddingQueue->Messages;
             }
+            else
+            {
+                Message = PushStruct(&GlobalTelemetryState_.AddingQueue->Arena, telemetry_message);
+            }
+            GlobalTelemetryState_.AddingQueue->Messages = Message;
+            
+            break;
         }
         else
         {
@@ -352,7 +351,7 @@ AddTelemetryHost(memory_arena *Arena, string Hostname)
 }
 
 internal void
-InitializeTelemetry(memory_arena *Arena, umm QueueSize, string TeamId, string ProductName, string MachineName, string Username, u32 ProcessId)
+InitializeTelemetry(memory_arena *Arena, string TeamId, string ProductName, string MachineName, string Username, u32 ProcessId)
 {
     if(GlobalTelemetryState_.CurrentState == TelemetryState_Uninitialized)
     {

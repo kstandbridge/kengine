@@ -93,6 +93,8 @@ Win32AllocateMemory(umm Size, u64 Flags)
     Win32Block->Next->Prev = Win32Block;
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
     
+    LogVerbose("Allocated %u bytes", Size);
+    
     platform_memory_block *Result = &Win32Block->PlatformBlock;
     return Result;
 }
@@ -106,6 +108,8 @@ Win32DeallocateMemory(platform_memory_block *Block)
     Win32Block->Prev->Next = Win32Block->Next;
     Win32Block->Next->Prev = Win32Block->Prev;
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
+    
+    LogVerbose("Deallocated %u bytes", Block->Size);
     
     b32 IsFreed = Win32VirtualFree(Win32Block, 0, MEM_RELEASE);
     Assert(IsFreed);
@@ -1071,7 +1075,7 @@ typedef enum iterate_processes_by_name_op
 } iterate_processes_by_name_op;
 
 internal b32
-Win32IterateProcessesByName_(string FileName, iterate_processes_by_name_op Op)
+Win32IterateProcessesByName_(string Name, iterate_processes_by_name_op Op)
 {
     b32 Result = false;
     
@@ -1082,8 +1086,7 @@ Win32IterateProcessesByName_(string FileName, iterate_processes_by_name_op Op)
     b32 ProcessFound = Win32Process32First(Snapshot, &Entry);
     while(ProcessFound)
     {
-        if(StringsAreEqual(CStringToString(Entry.szExeFile),
-                           FileName))
+        if(StringsAreEqual(CStringToString(Entry.szExeFile), Name))
         {
             HANDLE Process = Win32OpenProcess(PROCESS_TERMINATE, false, Entry.th32ProcessID);
             if(Process != 0)
@@ -1113,16 +1116,16 @@ Win32IterateProcessesByName_(string FileName, iterate_processes_by_name_op Op)
 }
 
 internal b32
-Win32KillProcessByName(string FileName)
+Win32KillProcessByName(string Name)
 {
-    b32 Result = Win32IterateProcessesByName_(FileName, IterateProcessesByName_Terminate);
+    b32 Result = Win32IterateProcessesByName_(Name, IterateProcessesByName_Terminate);
     return Result;
 }
 
 internal b32
-Win32CheckForProcessByName(string FileName)
+Win32CheckForProcessByName(string Name)
 {
-    b32 Result = Win32IterateProcessesByName_(FileName, IterateProcessesByName_None);
+    b32 Result = Win32IterateProcessesByName_(Name, IterateProcessesByName_None);
     return Result;
 }
 
@@ -1554,6 +1557,7 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
     return Result;
 }
 
+#if 0
 internal string
 Win32SendHttpRequest(memory_arena *Arena, string Host, u32 Port, string Endpoint, http_verb_type Verb, string Payload, 
                      string Headers, string Username, string Password)
@@ -1668,6 +1672,7 @@ Win32SendHttpRequest(memory_arena *Arena, string Host, u32 Port, string Endpoint
     
     return Result;
 }
+#endif
 
 #if 0
 internal umm

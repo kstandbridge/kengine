@@ -85,7 +85,7 @@ DebugParseName(char *GUID)
             {
                 u32 FileNameEndsAt = (u32)(Scan - Result.GUID.Data);
                 Result.FileName = String_(FileNameEndsAt, (u8 *)(Result.GUID.Data));
-                Result.LineNumber = U32FromString((char *)Scan + 1);
+                Result.LineNumber = U32FromCString((char *)Scan + 1);
             }
             else if(PipeCount == 1)
             {

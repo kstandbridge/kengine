@@ -94,8 +94,13 @@ PushSize_(memory_arena *Arena, umm SizeInit, arena_push_params Params)
     Assert(Params.Alignment <= 128);
     Assert(IsPow2(Params.Alignment));
     
+    // NOTE(kstandbridge): Only one can be enabled at a time
 #if 0
     Arena->AllocationFlags = PlatformMemoryBlockFlag_OverflowCheck;
+#endif
+    
+#if 0
+    Arena->AllocationFlags = PlatformMemoryBlockFlag_UnderflowCheck;
 #endif
     
     umm Size = 0;
@@ -179,15 +184,21 @@ BeginTemporaryMemory(memory_arena *Arena)
 }
 
 inline void
+FreeLastArenaBlock(memory_arena *Arena)
+{
+    platform_memory_block *Free = Arena->CurrentBlock;
+    // TODO(kstandbridge): Debug event block free
+    Arena->CurrentBlock = Free->Prev;
+    Platform.DeallocateMemory(Free);
+}
+
+inline void
 EndTemporaryMemory(temporary_memory TempMem)
 {
     memory_arena *Arena = TempMem.Arena;
     while(Arena->CurrentBlock != TempMem.Block)
     {
-        platform_memory_block *Free = Arena->CurrentBlock;
-        // TODO(kstandbridge): Debug event block free
-        Arena->CurrentBlock = Free->Prev;
-        Platform.DeallocateMemory(Free);
+        FreeLastArenaBlock(Arena);
     }
     
     if(Arena->CurrentBlock)
@@ -205,6 +216,21 @@ inline void
 CheckArena(memory_arena *Arena)
 {
     Assert(Arena->TempCount == 0);
+}
+
+inline void
+ClearArena(memory_arena *Arena)
+{
+    while(Arena->CurrentBlock)
+    {
+        // NOTE(kstandbridge): Can't look at ArenaBlock properies after freeing
+        b32 IsFinalBlock = (Arena->CurrentBlock->Prev == 0);
+        FreeLastArenaBlock(Arena);
+        if(IsFinalBlock)
+        {
+            break;
+        }
+    }
 }
 
 #define KENGINE_MEMORY_H

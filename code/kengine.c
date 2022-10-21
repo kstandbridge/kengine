@@ -42,6 +42,9 @@ global debug_event_table *GlobalDebugEventTable;
 #include "kengine_render_group.c"
 #include "kengine_ui.c"
 #include "kengine_html_parser.c"
+#include "kengine_json_parser.c"
+#include "kengine_sha512.c"
+#include "kengine_eddsa.c"
 
 #if KENGINE_INTERNAL
 #include "kengine_debug_ui.c"

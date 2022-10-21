@@ -414,19 +414,12 @@ Win32GetVerticleAdvance()
     return Result;
 }
 
-internal string
-Win32GetHostname(memory_arena *Arena)
+internal umm
+Win32GetHostname(u8 *Buffer, umm BufferMaxSize)
 {
-    string Result = String("unknown");
+    DWORD Result = BufferMaxSize;
     
-    DWORD MachineNameSize = 256;
-    char CMachineName[256];
-    if(Win32GetComputerNameA(CMachineName, &MachineNameSize))
-    {
-        Result = PushString_(Arena, MachineNameSize, (u8 *)CMachineName);
-        StringToLowercase(Result);
-    }
-    else
+    if(!Win32GetComputerNameA((char *)Buffer, &Result))
     {
         DWORD ErrorCode = Win32GetLastError();
         LogError("GetComputerNameA failed with error code %u", ErrorCode);
@@ -435,19 +428,31 @@ Win32GetHostname(memory_arena *Arena)
     return Result;
 }
 
-internal string
-Win32GetUsername(memory_arena *Arena)
+internal umm
+Win32GetHomeDirectory(u8 *Buffer, umm BufferMaxSize)
 {
-    string Result = String("unknown");
+    DWORD Result = Win32ExpandEnvironmentStringsA("%UserProfile%", (char *)Buffer, BufferMaxSize);
     
-    DWORD UsernameSize = 256;
-    char CUsername[256];
-    DWORD UsernameLength = Win32GetEnvironmentVariableA("Username", CUsername, UsernameSize);
-    if(CUsername[0] != '\0')
+    if(Result == 0)
     {
-        Result = PushString_(Arena, UsernameLength, (u8 *)CUsername);
+        DWORD ErrorCode = Win32GetLastError();
+        LogError("ExpandEnvironmentStringsA failed with error code %u", ErrorCode);
     }
     else
+    {
+        // NOTE(kstandbridge): Remove the null terminator
+        --Result;
+    }
+    
+    return Result;
+}
+
+internal umm
+Win32GetUsername(u8 *Buffer, umm BufferMaxSize)
+{
+    umm Result = Win32GetEnvironmentVariableA("Username", (char *)Buffer, BufferMaxSize);
+    
+    if(Result == 0)
     {
         DWORD ErrorCode = Win32GetLastError();
         LogError("GetEnvironmentVariableA failed with error code %u", ErrorCode);
@@ -472,6 +477,286 @@ ProcessInputMessage(app_button_state *NewState, b32 IsDown)
         NewState->EndedDown = IsDown;
         ++NewState->HalfTransitionCount;
     }
+}
+
+typedef struct win32_http_client
+{
+    HINTERNET Handle;
+    
+    memory_arena Arena;
+    DWORD Flags;
+} win32_http_client;
+
+internal void
+Win32EndHttpClient(platform_http_client *PlatformClient)
+{
+    if(PlatformClient->Handle)
+    {
+        win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
+        Win32InternetCloseHandle(Win32Client->Handle);
+        ClearArena(&Win32Client->Arena);
+    }
+    else
+    {
+        LogError("No http client handle to close");
+    }
+}
+
+internal platform_http_client
+Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPassword)
+{
+    platform_http_client Result;
+    
+    win32_http_client *Win32Client = BootstrapPushStruct(win32_http_client, Arena);
+    Result.Handle = Win32Client;
+    
+    local_persist HINTERNET WebSession = 0;
+    if(WebSession == 0)
+    {
+        WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
+    }
+    
+    char CHost_[2048];
+    StringToCString(Hostname, sizeof(CHost_), CHost_);
+    
+    INTERNET_PORT InternetPort = 0;
+    if(Port == 0)
+    {
+        InternetPort = INTERNET_DEFAULT_HTTP_PORT;
+    }
+    
+    char *CHost = CHost_;
+    if(StringBeginsWith(String("https"), Hostname))
+    {
+        CHost += 8;
+        if(Port == 0)
+        {
+            Port = INTERNET_DEFAULT_HTTPS_PORT;
+        }
+        Win32Client->Flags = INTERNET_FLAG_SECURE;
+    }
+    else if(StringBeginsWith(String("http"), Hostname))
+    {
+        CHost += 7;
+    }
+    
+    Win32Client->Handle = Win32InternetConnectA(WebSession, CHost, Port, CUsername, CPassword,
+                                                INTERNET_SERVICE_HTTP, 0, 0);
+    
+    if(Win32Client->Handle)
+    {
+        Result.NoErrors = true;
+    }
+    else
+    {
+        Result.NoErrors = false;
+        DWORD ErrorCode = Win32GetLastError();
+        LogError("InternetConnectA failed due to error code %u", ErrorCode);
+    }
+    
+    return Result;
+}
+
+internal platform_http_client
+Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string Password)
+{
+    char CUsername_[256];
+    char *CUsername = 0;
+    if(Username.Data && Username.Data[0] != '\0')
+    {
+        StringToCString(Username, sizeof(CUsername_), CUsername_);
+        CUsername = CUsername_;
+    }
+    
+    char CPassword_[256];
+    char *CPassword = 0;
+    if(Password.Data && Password.Data[0] != '\0')
+    {
+        StringToCString(Password, sizeof(CPassword_), CPassword_);
+        CPassword = CPassword_;
+    }
+    
+    platform_http_client Result = Win32BeginHttpClient_(Hostname, Port, CUsername, CPassword);
+    return Result;
+}
+
+internal platform_http_client
+Win32BeginHttpClient(string Hostname, u32 Port)
+{
+    platform_http_client Result = Win32BeginHttpClient_(Hostname, Port, 0, 0);
+    return Result;
+}
+
+typedef struct win32_http_request
+{
+    win32_http_client *Win32Client;
+    HINTERNET Handle;
+} win32_http_request;
+
+
+internal void
+Win32EndHttpRequest(platform_http_request *PlatformRequest)
+{
+    if(PlatformRequest->Handle)
+    {
+        win32_http_request *Win32Request = (win32_http_request *)PlatformRequest->Handle;
+        Win32HttpEndRequestA(Win32Request->Handle, 0, 0, 0);
+    }
+    else
+    {
+        LogError("No http request handle to close");
+    }
+}
+
+internal platform_http_request
+Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb, char *Format, ...)
+{
+    platform_http_request Result;
+    ZeroStruct(Result);
+    
+    if(PlatformClient->Handle)
+    {
+        win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
+        memory_arena *Arena = &Win32Client->Arena;
+        win32_http_request *Win32Request = PushStruct(Arena, win32_http_request);
+        Win32Request->Win32Client = Win32Client;
+        Result.Handle = Win32Request;
+        
+        char *CVerb = 0;
+        switch(Verb)
+        {
+            case HttpVerb_Post:   { CVerb = "POST"; } break;
+            case HttpVerb_Get:    { CVerb = "GET"; } break;
+            case HttpVerb_Put:    { CVerb = "PUT"; } break;
+            case HttpVerb_Patch:  { CVerb = "PATCH"; } break;
+            case HttpVerb_Delete: { CVerb = "DELETE"; } break;
+            
+            InvalidDefaultCase;
+        }
+        
+        format_string_state StringState = BeginFormatString();
+        
+        va_list ArgList;
+        va_start(ArgList, Format);
+        AppendFormatString_(&StringState, Format, ArgList);
+        va_end(ArgList);
+        
+        Result.Endpoint = EndFormatString(&StringState, Arena);
+        
+        char CEndpoint[MAX_URL];
+        StringToCString(Result.Endpoint, sizeof(CEndpoint), CEndpoint);
+        
+        Win32Request->Handle = Win32HttpOpenRequestA(Win32Client->Handle, CVerb, CEndpoint, 0, 0, 0, Win32Client->Flags, 0);
+        if(Win32Request->Handle)
+        {
+            Result.NoErrors = true;
+        }
+        else
+        {
+            Result.NoErrors = false;
+            DWORD ErrorCode = Win32GetLastError();
+            LogError("HttpOpenRequestA failed with error code %u", ErrorCode);
+        }
+    }
+    else
+    {
+        Result.NoErrors = false;
+        LogError("No http client handle to close");
+    }
+    
+    return Result;
+}
+
+internal platform_http_response
+Win32SendHttpRequest(platform_http_request *PlatformRequest)
+{
+    platform_http_response Result;
+    ZeroStruct(Result);
+    
+    win32_http_request *Win32Request = PlatformRequest->Handle;
+    win32_http_client *Win32Client = Win32Request->Win32Client;
+    memory_arena *Arena = &Win32Client->Arena;
+    
+    if(Win32HttpSendRequestA(Win32Request->Handle, 0, 0, PlatformRequest->Payload.Data, PlatformRequest->Payload.Size))
+    {
+        DWORD StatusCode = 400;
+        DWORD StatusCodeSize = sizeof(StatusCodeSize);
+        if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
+        {
+            Result.StatusCode = StatusCode;
+            
+            DWORD ContentLength = 0;
+            DWORD ContentLengthSize = sizeof(ContentLengthSize);
+            
+            if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
+            {
+                DWORD ErrorCode = Win32GetLastError();
+                if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
+                {
+                    PlatformRequest->NoErrors = false;
+                    LogError("HttpQueryInfo failed with error code %u", ErrorCode);
+                }
+            }
+            
+            if(PlatformRequest->NoErrors)
+            {
+                if(ContentLength == 0)
+                {
+                    ContentLength = Kilobytes(64);
+                }
+                
+                Result.Payload.Size = ContentLength;
+                Result.Payload.Data = PushSize_(Arena, ContentLength, DefaultArenaPushParams());
+                
+                u8 *SaveBuffer = Result.Payload.Data;
+                
+                DWORD TotalBytesRead = 0;
+                DWORD CurrentBytesRead;
+                for(;;)
+                {
+                    if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer + TotalBytesRead, ContentLength, &CurrentBytesRead))
+                    {
+                        if(CurrentBytesRead == 0)
+                        {
+                            break;
+                        }
+                        TotalBytesRead += CurrentBytesRead;
+                        if(TotalBytesRead == ContentLength)
+                        {
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        DWORD ErrorCode = Win32GetLastError();
+                        if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
+                        {
+                            LogError("InternetReadFile failed with error code %u", ErrorCode);
+                        }
+                        else
+                        {
+                            LogError("InternetReadFile failed due to insufficent buffer size");
+                        }
+                        PlatformRequest->NoErrors = false;
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            PlatformRequest->NoErrors = false;
+            DWORD ErrorCode = Win32GetLastError();
+            LogError("HttpQueryInfoA failed with error code %u", ErrorCode);
+        }
+    }
+    else
+    {
+        PlatformRequest->NoErrors = false;
+        DWORD ErrorCode = Win32GetLastError();
+        LogError("HttpSendRequestA failed with error code %u", ErrorCode);
+    }
+    return Result;
 }
 
 #if KENGINE_CONSOLE
@@ -519,8 +804,18 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.GetVerticleAdvance = Win32GetVerticleAdvance;
     
     GlobalAppMemory.PlatformAPI.SendHttpRequest = Win32SendHttpRequest;
+    GlobalAppMemory.PlatformAPI.EndHttpClient = Win32EndHttpClient;
+    GlobalAppMemory.PlatformAPI.BeginHttpClientWithCreds = Win32BeginHttpClientWithCreds;
+    GlobalAppMemory.PlatformAPI.BeginHttpClient = Win32BeginHttpClient;
+    GlobalAppMemory.PlatformAPI.EndHttpRequest = Win32EndHttpRequest;
+    GlobalAppMemory.PlatformAPI.BeginHttpRequest = Win32BeginHttpRequest;
+    GlobalAppMemory.PlatformAPI.SendHttpRequest = Win32SendHttpRequest;
     
+    GlobalAppMemory.PlatformAPI.FileExists = Win32FileExists;
+    GlobalAppMemory.PlatformAPI.KillProcessByName = Win32KillProcessByName;
+    GlobalAppMemory.PlatformAPI.ExecuteProcess = Win32ExecuteProcess;
     GlobalAppMemory.PlatformAPI.GetHostname = Win32GetHostname;
+    GlobalAppMemory.PlatformAPI.GetHomeDirectory = Win32GetHomeDirectory;
     GlobalAppMemory.PlatformAPI.GetUsername = Win32GetUsername;
     GlobalAppMemory.PlatformAPI.GetProcessId = Win32GetProcessId;
     GlobalAppMemory.PlatformAPI.GetSystemTimestamp = Win32GetSystemTimestamp;

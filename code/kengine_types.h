@@ -38,6 +38,7 @@ typedef unsigned __int64 umm;
 #define Tau32 6.28318530717958647692f
 
 #define MAX_URL 2048
+#define MAX_PATH 260
 
 #define Kilobytes(Value) ((Value)*1024LL)
 #define Megabytes(Value) (Kilobytes(Value)*1024LL)

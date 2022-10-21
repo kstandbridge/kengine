@@ -1,4 +1,118 @@
-// TODO(kstandbridge): there should be NO win32 in this file, replace with platform invocations
+
+typedef struct http_client
+{
+    string Hostname;
+    
+    u32 Socket;
+    CredHandle SSPICredHandle;
+    CtxtHandle SSPICtxtHandle;
+} http_client;
+
+typedef enum http_method_type
+{
+    HttpMethod_Unknown,
+    
+    HttpMethod_GET,
+} http_method_type;
+
+inline string
+HttpMethodToString(http_method_type Method)
+{
+    string Result;
+    ZeroStruct(Result);
+    
+    switch(Method)
+    {
+        case HttpMethod_GET: { Result = String("GET"); } break;
+        
+        case HttpMethod_Unknown:
+        InvalidDefaultCase;
+    }
+    
+    return Result;
+}
+
+typedef enum http_accept_type
+{
+    HttpAccept_Unknown, 
+    
+    HttpAccept_Any
+} http_accept_type;
+
+inline string
+HttpAcceptToString(http_accept_type Accept)
+{
+    string Result;
+    ZeroStruct(Result);
+    
+    switch(Accept)
+    {
+        case HttpAccept_Any: { Result = String("*/*"); } break;
+        
+        case HttpAccept_Unknown:
+        InvalidDefaultCase;
+    }
+    
+    return Result;
+}
+
+typedef struct http_request
+{
+    http_client *Client;
+    http_method_type Method;
+    string Endpoint;
+    http_accept_type Accept;
+    
+    string Raw;
+    string DownloadPath;
+    
+} http_request;
+
+inline void
+HttpRequestDownloadResponseToFile(http_request *Request, string DownloadPath)
+{
+    Request->DownloadPath = DownloadPath;
+}
+
+typedef enum http_response_code_type
+{
+    HttpResponseCode_SocketError = -1,
+    
+    HttpResponseCode_NotFound = 404,
+} http_response_code_type;
+
+typedef enum http_response_content_type
+{
+    HttpResponseContent_Unknown,
+    
+    HttpResponseContent_TextHTML,
+    HttpResponseContent_ApplicatonZip,
+    HttpResponseContent_ApplicatonOctetStream,
+} http_response_content_type;
+
+typedef enum http_transfer_encoding_type
+{
+    HttpTransferEncoding_Unknown,
+    
+    HttpTransferEncoding_Chunked,
+} http_transfer_encoding_type;
+
+typedef struct http_response
+{
+    u8 Major;
+    u8 Minor;
+    
+    // TODO(kstandbridge): Make this u16?
+    http_response_code_type Code;
+    string Message;
+    
+    http_transfer_encoding_type TransferEncoding;
+    
+    http_response_content_type ContentType;
+    u32 ContentLength;
+    string Content;
+    
+} http_response;
 
 inline http_client
 BeginHttpClient(string Hostname, string Port)
@@ -19,7 +133,7 @@ EndHttpClient(http_client *Client)
 }
 
 inline http_request
-BeginHttpRequest(http_client *Client, http_method_type Method, http_accept_type Accept, string Endpoint)
+BeginHttpRequestRaw(http_client *Client, http_method_type Method, http_accept_type Accept, string Endpoint)
 {
     http_request Result;
     ZeroStruct(Result);
@@ -296,7 +410,7 @@ GenerateHttpMessage_(http_request *Request, memory_arena *Arena)
 }
 
 inline http_response
-EndHttpRequest(http_request *Request, memory_arena *Arena, memory_arena *TempArena)
+EndHttpRequestRaw(http_request *Request, memory_arena *Arena, memory_arena *TempArena)
 {
     http_client *Client = Request->Client;
     
