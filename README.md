@@ -1,5 +1,10 @@
-# kengine
+## This repository cannot be used alone, and would require some setup!
+I will later create git templates to handle this once its more final but for now take a look at some example projects that are using this framework:
 
+* [krest](https://github.com/kstandbridge/krest) This is an example of an HTTP REST server running in console mode.
+* [http_spammer](https://github.com/kstandbridge/http_spammer) This is a console app that will spam tons of http requests in parallel
+
+# kengine 
 This is mainly for educational and fun purposes. The main goal was to create an immediate mode GUI library from scratch.
 
 Some additional challanges that I would like to include are as follows:
