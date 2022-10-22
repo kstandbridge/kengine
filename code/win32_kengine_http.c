@@ -317,7 +317,7 @@ Win32ProcessReceiveAndPostResponse(win32_http_io_request *IoRequest, PTP_IO IoTh
 #else
             platform_http_response PlatformResponse =  AppHandleHttpRequest(&GlobalAppMemory, &IoRequest->Arena, PlatformRequest);
             IoResponse = Win32CreateMessageResponse(HttpState, 
-                                                    PlatformResponse.Code, 
+                                                    PlatformResponse.StatusCode, 
                                                     String("OK"),  // TODO(kstandbridge): Code to string?
                                                     PlatformResponse.Payload);
 #endif
