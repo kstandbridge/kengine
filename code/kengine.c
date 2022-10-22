@@ -54,9 +54,9 @@ global debug_event_table *GlobalDebugEventTable;
 
 extern void
 #if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
-AppLoop(app_memory *AppMemory, f32 dtForFrame)
+AppTick_(app_memory *AppMemory, f32 dtForFrame)
 #else 
-AppLoop(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32 dtForFrame)
+AppTick_(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32 dtForFrame)
 #endif 
 {
 #if KENGINE_INTERNAL

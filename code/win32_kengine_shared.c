@@ -26,7 +26,7 @@ typedef struct win32_state
     FILETIME LastDLLWriteTime;
     HMODULE AppLibrary;
     
-    app_loop *AppLoop;
+    app_tick_ *AppTick_;
     
 #if KENGINE_CONSOLE
     app_handle_command *AppHandleCommand;
@@ -1672,7 +1672,7 @@ Win32SendHttpRequest(memory_arena *Arena, string Host, u32 Port, string Endpoint
     
     return Result;
 }
-#endif
+#endif
 
 #if 0
 internal umm

@@ -668,7 +668,7 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
 }
 
 internal platform_http_response
-Win32SendHttpRequest(platform_http_request *PlatformRequest)
+Win32GetHttpResonse(platform_http_request *PlatformRequest)
 {
     platform_http_response Result;
     ZeroStruct(Result);
@@ -803,13 +803,12 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.GetHorizontalAdvance = Win32GetHorizontalAdvance;
     GlobalAppMemory.PlatformAPI.GetVerticleAdvance = Win32GetVerticleAdvance;
     
-    GlobalAppMemory.PlatformAPI.SendHttpRequest = Win32SendHttpRequest;
     GlobalAppMemory.PlatformAPI.EndHttpClient = Win32EndHttpClient;
     GlobalAppMemory.PlatformAPI.BeginHttpClientWithCreds = Win32BeginHttpClientWithCreds;
     GlobalAppMemory.PlatformAPI.BeginHttpClient = Win32BeginHttpClient;
     GlobalAppMemory.PlatformAPI.EndHttpRequest = Win32EndHttpRequest;
     GlobalAppMemory.PlatformAPI.BeginHttpRequest = Win32BeginHttpRequest;
-    GlobalAppMemory.PlatformAPI.SendHttpRequest = Win32SendHttpRequest;
+    GlobalAppMemory.PlatformAPI.GetHttpResonse = Win32GetHttpResonse;
     
     GlobalAppMemory.PlatformAPI.FileExists = Win32FileExists;
     GlobalAppMemory.PlatformAPI.KillProcessByName = Win32KillProcessByName;
@@ -930,7 +929,7 @@ WinMainCRTStartup()
     }
     
 #if KENGINE_HTTP
-    win32_http_state *HttpState = PushStruct(GlobalWin32State.Arena, win32_http_state);
+    win32_http_state *HttpState = PushStruct(&GlobalWin32State.Arena, win32_http_state);
     
 #define OUTSTANDING_REQUESTS 16
 #define REQUESTS_PER_PROCESSOR 4
@@ -965,11 +964,11 @@ WinMainCRTStartup()
     
     HttpState->ResponseCount = RequestCount;
     HttpState->NextResponseIndex = 0;
-    HttpState->Responses = PushArray(&HttpState->Arena, RequestCount, win32_http_io_response);
+    HttpState->Responses = PushArray(&GlobalWin32State.Arena, RequestCount, win32_http_io_response);
     
     HttpState->RequestCount = RequestCount;
     HttpState->NextRequestIndex = 0;
-    HttpState->Requests = PushArray(&HttpState->Arena, RequestCount, win32_http_io_request *);
+    HttpState->Requests = PushArray(&GlobalWin32State.Arena, RequestCount, win32_http_io_request *);
     
     for(u32 RequestIndex = 0;
         RequestIndex < RequestCount;
@@ -1126,12 +1125,12 @@ WinMainCRTStartup()
         
 #if KENGINE_INTERNAL
         BEGIN_BLOCK("AppLoop");
-        if(GlobalWin32State.AppLoop)
+        if(GlobalWin32State.AppTick_)
         {
 #if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
-            GlobalWin32State.AppLoop(&GlobalAppMemory, TargetSecondsPerFrame);
+            GlobalWin32State.AppTick_(&GlobalAppMemory, TargetSecondsPerFrame);
 #else
-            GlobalWin32State.AppLoop(&GlobalAppMemory, Commands, NewInput, TargetSecondsPerFrame);
+            GlobalWin32State.AppTick_(&GlobalAppMemory, Commands, NewInput, TargetSecondsPerFrame);
 #endif
         }
         END_BLOCK();
@@ -1152,7 +1151,7 @@ WinMainCRTStartup()
                 LogError("FreeLibrary failed with error code %u", ErrorCode);
             }
             GlobalWin32State.AppLibrary = 0;
-            GlobalWin32State.AppLoop = 0;
+            GlobalWin32State.AppTick_ = 0;
 #if KENGINE_CONSOLE
             GlobalWin32State.AppHandleCommand = 0;
 #endif
@@ -1166,8 +1165,8 @@ WinMainCRTStartup()
                 GlobalWin32State.AppLibrary = Win32LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
                 if(GlobalWin32State.AppLibrary)
                 {
-                    GlobalWin32State.AppLoop = (app_loop *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppLoop");
-                    Assert(GlobalWin32State.AppLoop);
+                    GlobalWin32State.AppTick_ = (app_tick_ *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppTick_");
+                    Assert(GlobalWin32State.AppTick_);
 #if KENGINE_CONSOLE
                     // NOTE(kstandbridge): Command handler is optional
                     GlobalWin32State.AppHandleCommand = (app_handle_command *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleCommand");
@@ -1197,9 +1196,9 @@ WinMainCRTStartup()
 #else // KENGINE_INTERNAL
         
 #if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
-        AppLoop(&GlobalAppMemory, TargetSecondsPerFrame)
+        AppTick_(&GlobalAppMemory, TargetSecondsPerFrame)
 #else
-        AppLoop(&GlobalAppMemory, Commands, Input, TargetSecondsPerFrame)
+        AppTick_(&GlobalAppMemory, Commands, Input, TargetSecondsPerFrame)
 #endif
         
 #endif // KENGINE_INTERNAL

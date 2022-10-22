@@ -139,7 +139,7 @@ typedef struct platform_http_response
     string Payload;
 } platform_http_response;
 
-typedef platform_http_response platform_send_http_request(platform_http_request *PlatformRequest);
+typedef platform_http_response platform_get_http_response(platform_http_request *PlatformRequest);
 
 #define PlatformNoErrors(Handle) ((Handle).NoErrors)
 
@@ -178,7 +178,7 @@ typedef struct platform_api
     platform_begin_http_client *BeginHttpClient;
     platform_end_http_request *EndHttpRequest;
     platform_begin_http_request *BeginHttpRequest;
-    platform_send_http_request *SendHttpRequest;
+    platform_get_http_response *GetHttpResonse;
     
     platform_file_exists *FileExists;
     platform_kill_process_by_name *KillProcessByName;
@@ -215,25 +215,13 @@ typedef struct app_memory
 typedef void app_handle_command(app_memory *Memory, string Command, u32 ArgCount, string *Args);
 
 #if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
-typedef void app_loop(app_memory *Memory, f32 dtForFrame);
+typedef void app_tick_(app_memory *Memory, f32 dtForFrame);
 #else
 typedef struct render_commands render_commands;
-typedef void app_loop(app_memory *Memory, render_commands *Commands, app_input *Input, f32 dtForFrame);
+typedef void app_tick_(app_memory *Memory, render_commands *Commands, app_input *Input, f32 dtForFrame);
 #endif
 
 #if KENGINE_HTTP
-typedef struct platform_http_request
-{
-    string Endpoint;
-    string Payload;
-} platform_http_request;
-
-typedef struct platform_http_response
-{
-    u16 Code;
-    string Payload;
-} platform_http_response;
-
 typedef platform_http_response app_handle_http_request(app_memory *Memory, struct memory_arena *Arena, platform_http_request Request);
 #endif
 
