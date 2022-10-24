@@ -93,7 +93,7 @@ Win32AllocateMemory(umm Size, u64 Flags)
     Win32Block->Next->Prev = Win32Block;
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
     
-    LogVerbose("Allocated %u bytes", Size);
+    LogDebug("Allocated %u bytes", Size);
     
     platform_memory_block *Result = &Win32Block->PlatformBlock;
     return Result;
@@ -109,7 +109,7 @@ Win32DeallocateMemory(platform_memory_block *Block)
     Win32Block->Next->Prev = Win32Block->Prev;
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
     
-    LogVerbose("Deallocated %u bytes", Block->Size);
+    LogDebug("Deallocated %u bytes", Block->Size);
     
     b32 IsFreed = Win32VirtualFree(Win32Block, 0, MEM_RELEASE);
     Assert(IsFreed);

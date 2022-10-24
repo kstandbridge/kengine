@@ -417,16 +417,29 @@ SendHeartbeatTelemetry()
     EndTelemetryMessage();
 }
 
+// TODO(kstandbridge): Perhaps move these to a general logger that calls into ConsoleLog/FilesystemLog/TelemetryLog
+
 #define SendLogTelemetry___(SourceFilePlusLine, Level, Format, ...) SendLogTelemetry____(String(SourceFilePlusLine), Level, Format, __VA_ARGS__)
 #define SendLogTelemetry__(File, Line, Level, Format, ...) SendLogTelemetry___(File "(" #Line ")", Level, Format, __VA_ARGS__)
 #define SendLogTelemetry_(File, Line, Level, Format, ...) SendLogTelemetry__(File, Line, Level, Format, __VA_ARGS__)
-#define LogVerbose(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("verbose"), Format, __VA_ARGS__)
-#define LogInfo(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("info"), Format, __VA_ARGS__)
-#define LogWarning(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("waring"), Format, __VA_ARGS__)
+
+typedef enum log_level_type
+{
+    LogLevel_Debug,
+    LogLevel_Verbose,
+    LogLevel_Info,
+    LogLevel_Warning,
+    LogLevel_Error
+} log_level_type;
+
+#define LogDebug(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Debug, Format, __VA_ARGS__)
+#define LogVerbose(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Verbose, Format, __VA_ARGS__)
+#define LogInfo(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Info, Format, __VA_ARGS__)
+#define LogWarning(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Warning, Format, __VA_ARGS__)
 #if KENGINE_INTERNAL
-#define LogError(Format, ...) __debugbreak(); SendLogTelemetry_(__FILE__, __LINE__, String("error"), Format, __VA_ARGS__);
+#define LogError(Format, ...) __debugbreak(); SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Error, Format, __VA_ARGS__);
 #else
-#define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, String("error"), Format, __VA_ARGS__);
+#define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Error, Format, __VA_ARGS__);
 #endif
 
 inline date_time
@@ -438,37 +451,51 @@ Win32GetDateTime()
     return Result;
 }
 internal void
-SendLogTelemetry_____(string SourceFilePlusLine, string Level, string Message)
+SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string Message)
 {
+    string Level = String("info");
+    switch(LogLevel)
+    {
+        case LogLevel_Debug: { Level = String("debug"); } break;
+        case LogLevel_Verbose: { Level = String("verbose"); } break;
+        case LogLevel_Info: { Level = String("info"); } break;
+        case LogLevel_Warning: { Level = String("warning"); } break;
+        case LogLevel_Error: { Level = String("error"); } break;
+        InvalidDefaultCase;
+    }
+    
     date_time Date = Win32GetDateTime();
     u32 ThreadId = GetThreadID();
     Platform.ConsoleOut("[%02d/%02d/%04d %02d:%02d:%02d] <%5u> (%S)\t%S\n", 
                         Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
                         ThreadId, Level, Message);
     
-    SourceFilePlusLine.Data += SourceFilePlusLine.Size;
-    SourceFilePlusLine.Size = 0;
-    while(SourceFilePlusLine.Data[-1] != '\\')
+    if(LogLevel > LogLevel_Debug)
     {
-        ++SourceFilePlusLine.Size;
-        --SourceFilePlusLine.Data;
-    }
-    
-    if((GlobalTelemetryState_.CurrentState != TelemetryState_Uninitialized) &&
-       (GlobalTelemetryState_.CurrentState != TelemetryState_Initializing))
-    {
-        BeginTelemetryMessage();
-        AppendTelemetryMessageNumberField(String("cl"), VERSION);
-        AppendTelemetryMessageStringField(String("source_file_plus_line"), SourceFilePlusLine);
-        AppendTelemetryMessageStringField(String("category"), String("/log"));
-        AppendTelemetryMessageStringField(String("log_level"), Level);
-        AppendTelemetryMessageStringField(String("message"), Message);
-        EndTelemetryMessage();
+        SourceFilePlusLine.Data += SourceFilePlusLine.Size;
+        SourceFilePlusLine.Size = 0;
+        while(SourceFilePlusLine.Data[-1] != '\\')
+        {
+            ++SourceFilePlusLine.Size;
+            --SourceFilePlusLine.Data;
+        }
+        
+        if((GlobalTelemetryState_.CurrentState != TelemetryState_Uninitialized) &&
+           (GlobalTelemetryState_.CurrentState != TelemetryState_Initializing))
+        {
+            BeginTelemetryMessage();
+            AppendTelemetryMessageNumberField(String("cl"), VERSION);
+            AppendTelemetryMessageStringField(String("source_file_plus_line"), SourceFilePlusLine);
+            AppendTelemetryMessageStringField(String("category"), String("/log"));
+            AppendTelemetryMessageStringField(String("log_level"), Level);
+            AppendTelemetryMessageStringField(String("message"), Message);
+            EndTelemetryMessage();
+        }
     }
 }
 
 internal void
-SendLogTelemetry____(string FileLine, string Level, char *Format, ...)
+SendLogTelemetry____(string FileLine, log_level_type LogLevel, char *Format, ...)
 {
     u8 Buffer[4096];
     umm BufferSize = sizeof(Buffer);
@@ -481,5 +508,5 @@ SendLogTelemetry____(string FileLine, string Level, char *Format, ...)
     
     string Message = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
     
-    SendLogTelemetry_____(FileLine, Level, Message);
+    SendLogTelemetry_____(FileLine, LogLevel, Message);
 }

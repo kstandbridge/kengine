@@ -1298,7 +1298,7 @@ WinMainCRTStartup()
             
             if(Win32CopyFileA(GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath, false))
             {
-                LogVerbose("App code reloaded!");
+                LogDebug("App code reloaded!");
                 GlobalWin32State.AppLibrary = Win32LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
                 if(GlobalWin32State.AppLibrary)
                 {
