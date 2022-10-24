@@ -686,6 +686,24 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
     return Result;
 }
 
+internal void
+Win32SetHttpRequestHeaders(platform_http_request *PlatformRequest, string Headers)
+{
+    win32_http_request *Win32Request = PlatformRequest->Handle;
+    
+    // TODO(kstandbridge): Max header size?
+    char CHeaders[MAX_URL];
+    StringToCString(Headers, sizeof(CHeaders), CHeaders);
+    
+    if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, CHeaders, (DWORD) -1, HTTP_ADDREQ_FLAG_ADD))
+    {
+        PlatformRequest->NoErrors = false;
+        DWORD ErrorCode = Win32GetLastError();
+        LogError("HttpAddRequestHeadersA failed with error code %u", ErrorCode);
+    }
+    
+}
+
 internal platform_http_response
 Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
 {
@@ -919,8 +937,9 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.BeginHttpClient = Win32BeginHttpClient;
     GlobalAppMemory.PlatformAPI.EndHttpRequest = Win32EndHttpRequest;
     GlobalAppMemory.PlatformAPI.BeginHttpRequest = Win32BeginHttpRequest;
-    GlobalAppMemory.PlatformAPI.GetHttpResonse = Win32GetHttpResonse;
+    GlobalAppMemory.PlatformAPI.SetHttpRequestHeaders = Win32SetHttpRequestHeaders;
     GlobalAppMemory.PlatformAPI.GetHttpResponseToFile = Win32GetHttpResonseToFile;
+    GlobalAppMemory.PlatformAPI.GetHttpResonse = Win32GetHttpResonse;
     
     GlobalAppMemory.PlatformAPI.WriteTextToFile = Win32WriteTextToFile;
     GlobalAppMemory.PlatformAPI.UnzipToDirectory = Win32UnzipToDirectory;

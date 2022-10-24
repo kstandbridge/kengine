@@ -139,8 +139,9 @@ typedef struct platform_http_response
     string Payload;
 } platform_http_response;
 
-typedef platform_http_response platform_get_http_response(platform_http_request *PlatformRequest);
+typedef void platform_set_http_request_headers(platform_http_request *Request, string Headers);
 typedef platform_http_response platform_get_http_response_to_file(platform_http_request *PlatformRequest, string Path);
+typedef platform_http_response platform_get_http_response(platform_http_request *PlatformRequest);
 
 #define PlatformNoErrors(Handle) ((Handle).NoErrors)
 
@@ -185,8 +186,9 @@ typedef struct platform_api
     platform_begin_http_client *BeginHttpClient;
     platform_end_http_request *EndHttpRequest;
     platform_begin_http_request *BeginHttpRequest;
-    platform_get_http_response *GetHttpResonse;
+    platform_set_http_request_headers *SetHttpRequestHeaders;
     platform_get_http_response_to_file *GetHttpResponseToFile;
+    platform_get_http_response *GetHttpResonse;
     
     platform_write_text_to_file *WriteTextToFile;
     platform_unzip_to_directory *UnzipToDirectory;
