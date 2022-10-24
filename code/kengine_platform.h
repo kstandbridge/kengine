@@ -140,15 +140,22 @@ typedef struct platform_http_response
 } platform_http_response;
 
 typedef platform_http_response platform_get_http_response(platform_http_request *PlatformRequest);
+typedef platform_http_response platform_get_http_response_to_file(platform_http_request *PlatformRequest, string Path);
 
 #define PlatformNoErrors(Handle) ((Handle).NoErrors)
 
+typedef b32 platform_write_text_to_file(string Text, string FilePath);
+typedef void platform_unzip_to_directory(string SourceZip, string DestFolder);
 typedef b32 platform_file_exists(string Path);
+typedef b32 platform_permanent_delete_file(string Path);
+typedef b32 platform_directory_exists(string Path);
+typedef b32 platform_create_directory(string Path);
 typedef b32 platform_kill_process_by_name(string Name);
 typedef void platform_execute_process(string Path, string Args, string WorkingDirectory);
 typedef umm platform_get_hostname(u8 *Buffer, umm BufferMaxSize);
 typedef umm platform_get_username(u8 *Buffer, umm BufferMaxSize);
 typedef umm platform_get_home_directory(u8 *Buffer, umm BufferMaxSize);
+typedef umm platform_get_app_config_directory(u8 *Buffer, umm BufferMaxSize);
 typedef u32 platform_get_process_id();
 typedef u64 platform_get_system_timestamp();
 typedef date_time platform_get_date_time_for_timestamp(u64 Timestamp);
@@ -179,13 +186,20 @@ typedef struct platform_api
     platform_end_http_request *EndHttpRequest;
     platform_begin_http_request *BeginHttpRequest;
     platform_get_http_response *GetHttpResonse;
+    platform_get_http_response_to_file *GetHttpResponseToFile;
     
+    platform_write_text_to_file *WriteTextToFile;
+    platform_unzip_to_directory *UnzipToDirectory;
     platform_file_exists *FileExists;
+    platform_permanent_delete_file *PermanentDeleteFile;
+    platform_directory_exists *DirectoryExists;
+    platform_create_directory *CreateDirectory;
     platform_kill_process_by_name *KillProcessByName;
     platform_execute_process *ExecuteProcess;
     platform_get_hostname *GetHostname;
     platform_get_username *GetUsername;
     platform_get_home_directory *GetHomeDirectory;
+    platform_get_app_config_directory *GetAppConfigDirectory;
     platform_get_process_id *GetProcessId;
     platform_get_system_timestamp *GetSystemTimestamp;
     platform_get_date_time_for_timestamp *GetDateTimeFromTimestamp;

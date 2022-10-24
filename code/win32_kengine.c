@@ -448,6 +448,25 @@ Win32GetHomeDirectory(u8 *Buffer, umm BufferMaxSize)
 }
 
 internal umm
+Win32GetAppConfigDirectory(u8 *Buffer, umm BufferMaxSize)
+{
+    DWORD Result = Win32ExpandEnvironmentStringsA("%AppData%", (char *)Buffer, BufferMaxSize);
+    
+    if(Result == 0)
+    {
+        DWORD ErrorCode = Win32GetLastError();
+        LogError("ExpandEnvironmentStringsA failed with error code %u", ErrorCode);
+    }
+    else
+    {
+        // NOTE(kstandbridge): Remove the null terminator
+        --Result;
+    }
+    
+    return Result;
+}
+
+internal umm
 Win32GetUsername(u8 *Buffer, umm BufferMaxSize)
 {
     umm Result = Win32GetEnvironmentVariableA("Username", (char *)Buffer, BufferMaxSize);
@@ -668,6 +687,98 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
 }
 
 internal platform_http_response
+Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
+{
+    platform_http_response Result;
+    ZeroStruct(Result);
+    
+    win32_http_request *Win32Request = PlatformRequest->Handle;
+    win32_http_client *Win32Client = Win32Request->Win32Client;
+    memory_arena *Arena = &Win32Client->Arena;
+    
+    if(Win32HttpSendRequestA(Win32Request->Handle, 0, 0, PlatformRequest->Payload.Data, PlatformRequest->Payload.Size))
+    {
+        DWORD StatusCode = 400;
+        DWORD StatusCodeSize = sizeof(StatusCodeSize);
+        if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
+        {
+            Result.StatusCode = StatusCode;
+            
+            DWORD ContentLength = 0;
+            DWORD ContentLengthSize = sizeof(ContentLengthSize);
+            
+            if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
+            {
+                DWORD ErrorCode = Win32GetLastError();
+                if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
+                {
+                    PlatformRequest->NoErrors = false;
+                    LogError("HttpQueryInfo failed with error code %u", ErrorCode);
+                }
+            }
+            
+            if(PlatformRequest->NoErrors)
+            {
+                u8 CPath[MAX_PATH];
+                StringToCString(Path, sizeof(CPath), (char *)CPath);
+                HANDLE SaveHandle = Win32CreateFileA((char *)CPath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
+                u8 SaveBuffer[4096];
+                
+                DWORD TotalBytesRead = 0;
+                DWORD CurrentBytesRead;
+                for(;;)
+                {
+                    if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer, sizeof(SaveBuffer), &CurrentBytesRead))
+                    {
+                        if(CurrentBytesRead == 0)
+                        {
+                            break;
+                        }
+                        TotalBytesRead += CurrentBytesRead;
+                        if(TotalBytesRead == ContentLength)
+                        {
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        DWORD ErrorCode = Win32GetLastError();
+                        if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
+                        {
+                            LogError("InternetReadFile failed with error code %u", ErrorCode);
+                        }
+                        else
+                        {
+                            LogError("InternetReadFile failed due to insufficent buffer size");
+                        }
+                        PlatformRequest->NoErrors = false;
+                        break;
+                    }
+                    DWORD BytesWritten;
+                    Win32WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
+                }
+                
+                Win32CloseHandle(SaveHandle);
+                
+            }
+        }
+        else
+        {
+            PlatformRequest->NoErrors = false;
+            DWORD ErrorCode = Win32GetLastError();
+            LogError("HttpQueryInfoA failed with error code %u", ErrorCode);
+        }
+    }
+    else
+    {
+        PlatformRequest->NoErrors = false;
+        DWORD ErrorCode = Win32GetLastError();
+        LogError("HttpSendRequestA failed with error code %u", ErrorCode);
+    }
+    return Result;
+}
+
+internal platform_http_response
 Win32GetHttpResonse(platform_http_request *PlatformRequest)
 {
     platform_http_response Result;
@@ -809,12 +920,19 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.EndHttpRequest = Win32EndHttpRequest;
     GlobalAppMemory.PlatformAPI.BeginHttpRequest = Win32BeginHttpRequest;
     GlobalAppMemory.PlatformAPI.GetHttpResonse = Win32GetHttpResonse;
+    GlobalAppMemory.PlatformAPI.GetHttpResponseToFile = Win32GetHttpResonseToFile;
     
+    GlobalAppMemory.PlatformAPI.WriteTextToFile = Win32WriteTextToFile;
+    GlobalAppMemory.PlatformAPI.UnzipToDirectory = Win32UnzipToDirectory;
     GlobalAppMemory.PlatformAPI.FileExists = Win32FileExists;
+    GlobalAppMemory.PlatformAPI.PermanentDeleteFile = Win32PermanentDeleteFile;
+    GlobalAppMemory.PlatformAPI.DirectoryExists = Win32DirectoryExists;
+    GlobalAppMemory.PlatformAPI.CreateDirectory = Win32CreateDirectory;
     GlobalAppMemory.PlatformAPI.KillProcessByName = Win32KillProcessByName;
     GlobalAppMemory.PlatformAPI.ExecuteProcess = Win32ExecuteProcess;
     GlobalAppMemory.PlatformAPI.GetHostname = Win32GetHostname;
     GlobalAppMemory.PlatformAPI.GetHomeDirectory = Win32GetHomeDirectory;
+    GlobalAppMemory.PlatformAPI.GetAppConfigDirectory = Win32GetAppConfigDirectory;
     GlobalAppMemory.PlatformAPI.GetUsername = Win32GetUsername;
     GlobalAppMemory.PlatformAPI.GetProcessId = Win32GetProcessId;
     GlobalAppMemory.PlatformAPI.GetSystemTimestamp = Win32GetSystemTimestamp;

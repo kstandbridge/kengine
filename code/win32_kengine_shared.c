@@ -169,6 +169,19 @@ Win32FileExists(string Path)
     return Result;
 }
 
+internal b32
+Win32PermanentDeleteFile(string Path)
+{
+    b32 Result;
+    
+    char CPath[MAX_PATH];
+    StringToCString(Path, MAX_PATH, CPath);
+    
+    Result = Win32DeleteFileA(CPath);
+    
+    return Result;
+}
+
 internal void
 Win32ConsoleOut(char *Format, ...)
 {
@@ -1255,7 +1268,7 @@ Win32ExecuteProcess(string Path, string Args, string WorkingDirectory)
 }
 
 internal void
-Win32UnzipToFolder(string SourceZip, string DestFolder)
+Win32UnzipToDirectory(string SourceZip, string DestFolder)
 {
     if(!Win32DirectoryExists(DestFolder))
     {

@@ -16,6 +16,14 @@
 
 #include <gl/gl.h>
 
+#ifdef CreateDirectory
+#undef CreateDirectory
+#endif
+
+#ifdef DeleteFile
+#undef DeleteFile
+#endif
+
 introspect(win32, Kernel32) typedef BOOL close_handle(HANDLE hObject);
 introspect(win32, Kernel32) typedef LONG compare_file_time(const FILETIME *lpFileTime1, const FILETIME *lpFileTime2);
 introspect(win32, Kernel32) typedef BOOL copy_file_a(LPCSTR lpExistingFileName, LPCSTR lpNewFileName, BOOL bFailIfExists);
