@@ -181,14 +181,6 @@ PostTelemetryThread(void *Data)
                                 }
                             }
                             Platform.EndHttpRequest(&Request);
-#if 0     
-                            
-                            string Response = Platform.SendHttpRequest(&Queue->Arena, Host->Hostname, 0, Endpoint, HttpVerb_Post, Payload,
-                                                                       String("Content-Type: application/json;\r\n"), String(""), String(""));
-                            
-                            b32 BreakHere = true;
-#endif
-                            
                         }
                     }
                     Platform.EndHttpClient(&Client);
