@@ -532,6 +532,7 @@ Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPasswor
     local_persist HINTERNET WebSession = 0;
     if(WebSession == 0)
     {
+        LogDebug("Opening internet session");
         WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
     }
     
@@ -559,6 +560,7 @@ Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPasswor
         CHost += 7;
     }
     
+    LogDebug("Opening connection to %s:%u", CHost, Port);
     Win32Client->Handle = Win32InternetConnectA(WebSession, CHost, Port, CUsername, CPassword,
                                                 INTERNET_SERVICE_HTTP, 0, 0);
     
@@ -618,6 +620,7 @@ Win32EndHttpRequest(platform_http_request *PlatformRequest)
 {
     if(PlatformRequest->Handle)
     {
+        LogDebug("Ending http request");
         win32_http_request *Win32Request = (win32_http_request *)PlatformRequest->Handle;
         Win32HttpEndRequestA(Win32Request->Handle, 0, 0, 0);
     }
@@ -665,6 +668,7 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
         char CEndpoint[MAX_URL];
         StringToCString(Result.Endpoint, sizeof(CEndpoint), CEndpoint);
         
+        LogDebug("Opening internet %s request to %s", CVerb, CEndpoint);
         Win32Request->Handle = Win32HttpOpenRequestA(Win32Client->Handle, CVerb, CEndpoint, 0, 0, 0, Win32Client->Flags, 0);
         if(Win32Request->Handle)
         {
@@ -695,6 +699,7 @@ Win32SetHttpRequestHeaders(platform_http_request *PlatformRequest, string Header
     char CHeaders[MAX_URL];
     StringToCString(Headers, sizeof(CHeaders), CHeaders);
     
+    LogDebug("Adding http request headers %s", CHeaders);
     if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, CHeaders, (DWORD) -1, HTTP_ADDREQ_FLAG_ADD))
     {
         PlatformRequest->NoErrors = false;
@@ -719,6 +724,7 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
         DWORD StatusCodeSize = sizeof(StatusCodeSize);
         if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
         {
+            LogDebug("Received status code %u on http request", StatusCode);
             Result = StatusCode;
         }
         else
@@ -767,13 +773,13 @@ Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
         HANDLE SaveHandle = Win32CreateFileA((char *)CPath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
         u8 SaveBuffer[4096];
         
+        LogDebug("Downloading http response to file %s", CPath);
         DWORD TotalBytesRead = 0;
         DWORD CurrentBytesRead;
         for(;;)
         {
             if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer, sizeof(SaveBuffer), &CurrentBytesRead))
             {
-                
                 TotalBytesRead += CurrentBytesRead;
             }
             else
@@ -793,6 +799,7 @@ Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
             DWORD BytesWritten;
             Win32WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
             
+            LogDebug("Downloaded %u / %u bytes", TotalBytesRead, ContentLength);
             if((TotalBytesRead == ContentLength) ||
                (CurrentBytesRead == 0))
             {
@@ -802,6 +809,7 @@ Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
         
         Win32CloseHandle(SaveHandle);
         
+        LogDebug("Finished downloading %u / %u bytes", TotalBytesRead, ContentLength);
         Result = TotalBytesRead;
     }
     
@@ -836,6 +844,7 @@ Win32GetHttpResonse(platform_http_request *PlatformRequest)
         if(ContentLength == 0)
         {
             ContentLength = Kilobytes(64);
+            LogDebug("Contenxt length not specified so setting to %u", ContentLength);
         }
         
         Result.Size = ContentLength;
@@ -843,6 +852,7 @@ Win32GetHttpResonse(platform_http_request *PlatformRequest)
         
         u8 *SaveBuffer = Result.Data;
         
+        LogDebug("Downloading http response to buffer");
         DWORD TotalBytesRead = 0;
         DWORD CurrentBytesRead;
         for(;;)
@@ -873,8 +883,10 @@ Win32GetHttpResonse(platform_http_request *PlatformRequest)
                 PlatformRequest->NoErrors = false;
                 break;
             }
+            LogDebug("Downloaded %u / %u bytes", TotalBytesRead, ContentLength);
         }
         
+        LogDebug("Finished downloading %u / %u bytes", TotalBytesRead, ContentLength);
         Result.Size = TotalBytesRead;
     }
     
@@ -1055,8 +1067,13 @@ WinMainCRTStartup()
                     ++ParamLength;
                     ++At;
                 }
-                
             }
+        }
+        
+        // NOTE(kstandbridge): Trim last argument if whitespace
+        if(!GlobalAppMemory.Args[GlobalAppMemory.ArgCount - 1].Data)
+        {
+            --GlobalAppMemory.ArgCount;
         }
         
     }
