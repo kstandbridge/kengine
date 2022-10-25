@@ -704,11 +704,10 @@ Win32SetHttpRequestHeaders(platform_http_request *PlatformRequest, string Header
     
 }
 
-internal platform_http_response
-Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
+internal u32
+Win32SendHttpRequest(platform_http_request *PlatformRequest)
 {
-    platform_http_response Result;
-    ZeroStruct(Result);
+    u32 Result = 400;
     
     win32_http_request *Win32Request = PlatformRequest->Handle;
     win32_http_client *Win32Client = Win32Request->Win32Client;
@@ -720,65 +719,7 @@ Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
         DWORD StatusCodeSize = sizeof(StatusCodeSize);
         if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
         {
-            Result.StatusCode = StatusCode;
-            
-            DWORD ContentLength = 0;
-            DWORD ContentLengthSize = sizeof(ContentLengthSize);
-            
-            if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
-            {
-                DWORD ErrorCode = Win32GetLastError();
-                if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
-                {
-                    PlatformRequest->NoErrors = false;
-                    LogError("HttpQueryInfo failed with error code %u", ErrorCode);
-                }
-            }
-            
-            if(PlatformRequest->NoErrors)
-            {
-                u8 CPath[MAX_PATH];
-                StringToCString(Path, sizeof(CPath), (char *)CPath);
-                HANDLE SaveHandle = Win32CreateFileA((char *)CPath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
-                u8 SaveBuffer[4096];
-                
-                DWORD TotalBytesRead = 0;
-                DWORD CurrentBytesRead;
-                for(;;)
-                {
-                    if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer, sizeof(SaveBuffer), &CurrentBytesRead))
-                    {
-                        if(CurrentBytesRead == 0)
-                        {
-                            break;
-                        }
-                        TotalBytesRead += CurrentBytesRead;
-                        if(TotalBytesRead == ContentLength)
-                        {
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        DWORD ErrorCode = Win32GetLastError();
-                        if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
-                        {
-                            LogError("InternetReadFile failed with error code %u", ErrorCode);
-                        }
-                        else
-                        {
-                            LogError("InternetReadFile failed due to insufficent buffer size");
-                        }
-                        PlatformRequest->NoErrors = false;
-                        break;
-                    }
-                    DWORD BytesWritten;
-                    Win32WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
-                }
-                
-                Win32CloseHandle(SaveHandle);
-                
-            }
+            Result = StatusCode;
         }
         else
         {
@@ -793,98 +734,151 @@ Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
         DWORD ErrorCode = Win32GetLastError();
         LogError("HttpSendRequestA failed with error code %u", ErrorCode);
     }
+    
     return Result;
 }
 
-internal platform_http_response
+internal umm
+Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
+{
+    umm Result = 0;
+    
+    win32_http_request *Win32Request = PlatformRequest->Handle;
+    win32_http_client *Win32Client = Win32Request->Win32Client;
+    memory_arena *Arena = &Win32Client->Arena;
+    
+    DWORD ContentLength = 0;
+    DWORD ContentLengthSize = sizeof(ContentLengthSize);
+    
+    if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
+    {
+        DWORD ErrorCode = Win32GetLastError();
+        if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
+        {
+            PlatformRequest->NoErrors = false;
+            LogError("HttpQueryInfo failed with error code %u", ErrorCode);
+        }
+    }
+    
+    if(PlatformRequest->NoErrors)
+    {
+        u8 CPath[MAX_PATH];
+        StringToCString(Path, sizeof(CPath), (char *)CPath);
+        HANDLE SaveHandle = Win32CreateFileA((char *)CPath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
+        u8 SaveBuffer[4096];
+        
+        DWORD TotalBytesRead = 0;
+        DWORD CurrentBytesRead;
+        for(;;)
+        {
+            if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer, sizeof(SaveBuffer), &CurrentBytesRead))
+            {
+                if(CurrentBytesRead == 0)
+                {
+                    break;
+                }
+                TotalBytesRead += CurrentBytesRead;
+                if(TotalBytesRead == ContentLength)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                DWORD ErrorCode = Win32GetLastError();
+                if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
+                {
+                    LogError("InternetReadFile failed with error code %u", ErrorCode);
+                }
+                else
+                {
+                    LogError("InternetReadFile failed due to insufficent buffer size");
+                }
+                PlatformRequest->NoErrors = false;
+                break;
+            }
+            DWORD BytesWritten;
+            Win32WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
+        }
+        
+        Win32CloseHandle(SaveHandle);
+        
+        Result = TotalBytesRead;
+    }
+    
+    return Result;
+}
+
+internal string
 Win32GetHttpResonse(platform_http_request *PlatformRequest)
 {
-    platform_http_response Result;
+    string Result;
     ZeroStruct(Result);
     
     win32_http_request *Win32Request = PlatformRequest->Handle;
     win32_http_client *Win32Client = Win32Request->Win32Client;
     memory_arena *Arena = &Win32Client->Arena;
     
-    if(Win32HttpSendRequestA(Win32Request->Handle, 0, 0, PlatformRequest->Payload.Data, PlatformRequest->Payload.Size))
+    DWORD ContentLength = 0;
+    DWORD ContentLengthSize = sizeof(ContentLengthSize);
+    
+    if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
     {
-        DWORD StatusCode = 400;
-        DWORD StatusCodeSize = sizeof(StatusCodeSize);
-        if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
-        {
-            Result.StatusCode = StatusCode;
-            
-            DWORD ContentLength = 0;
-            DWORD ContentLengthSize = sizeof(ContentLengthSize);
-            
-            if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
-            {
-                DWORD ErrorCode = Win32GetLastError();
-                if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
-                {
-                    PlatformRequest->NoErrors = false;
-                    LogError("HttpQueryInfo failed with error code %u", ErrorCode);
-                }
-            }
-            
-            if(PlatformRequest->NoErrors)
-            {
-                if(ContentLength == 0)
-                {
-                    ContentLength = Kilobytes(64);
-                }
-                
-                Result.Payload.Size = ContentLength;
-                Result.Payload.Data = PushSize_(Arena, ContentLength, DefaultArenaPushParams());
-                
-                u8 *SaveBuffer = Result.Payload.Data;
-                
-                DWORD TotalBytesRead = 0;
-                DWORD CurrentBytesRead;
-                for(;;)
-                {
-                    if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer + TotalBytesRead, ContentLength, &CurrentBytesRead))
-                    {
-                        if(CurrentBytesRead == 0)
-                        {
-                            break;
-                        }
-                        TotalBytesRead += CurrentBytesRead;
-                        if(TotalBytesRead == ContentLength)
-                        {
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        DWORD ErrorCode = Win32GetLastError();
-                        if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
-                        {
-                            LogError("InternetReadFile failed with error code %u", ErrorCode);
-                        }
-                        else
-                        {
-                            LogError("InternetReadFile failed due to insufficent buffer size");
-                        }
-                        PlatformRequest->NoErrors = false;
-                        break;
-                    }
-                }
-            }
-        }
-        else
+        DWORD ErrorCode = Win32GetLastError();
+        if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
             PlatformRequest->NoErrors = false;
-            DWORD ErrorCode = Win32GetLastError();
-            LogError("HttpQueryInfoA failed with error code %u", ErrorCode);
+            LogError("HttpQueryInfo failed with error code %u", ErrorCode);
         }
     }
-    else
+    
+    if(PlatformRequest->NoErrors)
     {
-        PlatformRequest->NoErrors = false;
-        DWORD ErrorCode = Win32GetLastError();
-        LogError("HttpSendRequestA failed with error code %u", ErrorCode);
+        if(ContentLength == 0)
+        {
+            ContentLength = Kilobytes(64);
+        }
+        
+        Result.Size = ContentLength;
+        Result.Data = PushSize_(Arena, ContentLength, DefaultArenaPushParams());
+        
+        u8 *SaveBuffer = Result.Data;
+        
+        DWORD TotalBytesRead = 0;
+        DWORD CurrentBytesRead;
+        for(;;)
+        {
+            if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer + TotalBytesRead, ContentLength, &CurrentBytesRead))
+            {
+                if(CurrentBytesRead == 0)
+                {
+                    break;
+                }
+                TotalBytesRead += CurrentBytesRead;
+                if(TotalBytesRead == ContentLength)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                DWORD ErrorCode = Win32GetLastError();
+                if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
+                {
+                    LogError("InternetReadFile failed with error code %u", ErrorCode);
+                }
+                else
+                {
+                    LogError("InternetReadFile failed due to insufficent buffer size");
+                }
+                PlatformRequest->NoErrors = false;
+                break;
+            }
+        }
+        
+        Result.Size = TotalBytesRead;
     }
+    
     return Result;
 }
 
@@ -938,6 +932,7 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.EndHttpRequest = Win32EndHttpRequest;
     GlobalAppMemory.PlatformAPI.BeginHttpRequest = Win32BeginHttpRequest;
     GlobalAppMemory.PlatformAPI.SetHttpRequestHeaders = Win32SetHttpRequestHeaders;
+    GlobalAppMemory.PlatformAPI.SendHttpRequest = Win32SendHttpRequest;
     GlobalAppMemory.PlatformAPI.GetHttpResponseToFile = Win32GetHttpResonseToFile;
     GlobalAppMemory.PlatformAPI.GetHttpResonse = Win32GetHttpResonse;
     

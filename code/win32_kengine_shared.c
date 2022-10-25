@@ -1572,8 +1572,8 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
 
 #if 0
 internal string
-Win32SendHttpRequest(memory_arena *Arena, string Host, u32 Port, string Endpoint, http_verb_type Verb, string Payload, 
-                     string Headers, string Username, string Password)
+Win32SendHttpRequest____(memory_arena *Arena, string Host, u32 Port, string Endpoint, http_verb_type Verb, string Payload, 
+                         string Headers, string Username, string Password)
 {
     string Result;
     ZeroStruct(Result);

@@ -174,7 +174,8 @@ PostTelemetryThread(void *Data)
                                     
                                     Request.Payload = EndFormatStringToBuffer(&StringState, CPayload, sizeof(CPayload));
                                     
-                                    platform_http_response Response = Platform.GetHttpResonse(&Request);
+                                    u32 StatusCode = Platform.SendHttpRequest(&Request);
+                                    string Response = Platform.GetHttpResonse(&Request);
 #if KENGINE_INTERNAL
                                     b32 BreakHere = true;
 #endif

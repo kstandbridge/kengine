@@ -140,8 +140,11 @@ typedef struct platform_http_response
 } platform_http_response;
 
 typedef void platform_set_http_request_headers(platform_http_request *Request, string Headers);
-typedef platform_http_response platform_get_http_response_to_file(platform_http_request *PlatformRequest, string Path);
-typedef platform_http_response platform_get_http_response(platform_http_request *PlatformRequest);
+
+typedef u32 platform_send_http_request(platform_http_request *Request);
+
+typedef umm platform_get_http_response_to_file(platform_http_request *PlatformRequest, string Path);
+typedef string platform_get_http_response(platform_http_request *PlatformRequest);
 
 #define PlatformNoErrors(Handle) ((Handle).NoErrors)
 
@@ -187,6 +190,7 @@ typedef struct platform_api
     platform_end_http_request *EndHttpRequest;
     platform_begin_http_request *BeginHttpRequest;
     platform_set_http_request_headers *SetHttpRequestHeaders;
+    platform_send_http_request *SendHttpRequest;
     platform_get_http_response_to_file *GetHttpResponseToFile;
     platform_get_http_response *GetHttpResonse;
     
