@@ -1081,14 +1081,15 @@ Win32GetTimestamp(s16 Year, s16 Month, s16 Day, s16 Hour, s16 Minute, s16 Second
     return Result;
 }
 
-typedef enum iterate_processes_by_name_op
+typedef enum iterate_processes_op
 {
-    IterateProcessesByName_None,
-    IterateProcessesByName_Terminate
-} iterate_processes_by_name_op;
+    IterateProcesses_None,
+    IterateProcesses_Terminate,
+    IterateProcesses_RequestClose
+} iterate_processes_op;
 
 internal b32
-Win32IterateProcessesByName_(string Name, iterate_processes_by_name_op Op)
+Win32IterateProcesses_(string Name, iterate_processes_op Op)
 {
     b32 Result = false;
     
@@ -1105,15 +1106,29 @@ Win32IterateProcessesByName_(string Name, iterate_processes_by_name_op Op)
             if(Process != 0)
             {
                 Result = true;
-                if(Op == IterateProcessesByName_Terminate)
+                if(Op == IterateProcesses_RequestClose)
+                {
+                    u8 CPipe[MAX_PATH];
+                    string Pipe = FormatStringToBuffer(CPipe, sizeof(CPipe),  "\\\\.\\pipe\\close-request-pipe-%d", Entry.th32ProcessID);
+                    CPipe[Pipe.Size] = '\0';
+                    HANDLE PipeHandle = Win32CreateFileA((char *)CPipe, 0, 0, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
+                    
+                    // NOTE(kstandbridge): Give it 3 seconds to close
+                    Win32Sleep(3000); 
+                    Win32CloseHandle(PipeHandle);
+                    
+                    // NOTE(kstandbridge): Kill it anyway
+                    Win32TerminateProcess(Process, 0);
+                }
+                else if(Op == IterateProcesses_Terminate)
                 {                    
                     Win32TerminateProcess(Process, 0);
-                    Win32CloseHandle(Process);
                 }
                 else
                 {
-                    Assert(Op == IterateProcessesByName_None);
+                    Assert(Op == IterateProcesses_None);
                 }
+                Win32CloseHandle(Process);
                 break;
             }
             else
@@ -1129,16 +1144,23 @@ Win32IterateProcessesByName_(string Name, iterate_processes_by_name_op Op)
 }
 
 internal b32
-Win32KillProcessByName(string Name)
+Win32RequestCloseProcess(string FileName)
 {
-    b32 Result = Win32IterateProcessesByName_(Name, IterateProcessesByName_Terminate);
+    b32 Result = Win32IterateProcesses_(FileName, IterateProcesses_RequestClose);
     return Result;
 }
 
 internal b32
-Win32CheckForProcessByName(string Name)
+Win32KillProcess(string Name)
 {
-    b32 Result = Win32IterateProcessesByName_(Name, IterateProcessesByName_None);
+    b32 Result = Win32IterateProcesses_(Name, IterateProcesses_Terminate);
+    return Result;
+}
+
+internal b32
+Win32CheckForProcess(string Name)
+{
+    b32 Result = Win32IterateProcesses_(Name, IterateProcesses_None);
     return Result;
 }
 

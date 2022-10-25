@@ -773,15 +773,8 @@ Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
         {
             if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer, sizeof(SaveBuffer), &CurrentBytesRead))
             {
-                if(CurrentBytesRead == 0)
-                {
-                    break;
-                }
+                
                 TotalBytesRead += CurrentBytesRead;
-                if(TotalBytesRead == ContentLength)
-                {
-                    break;
-                }
             }
             else
             {
@@ -799,6 +792,12 @@ Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
             }
             DWORD BytesWritten;
             Win32WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
+            
+            if((TotalBytesRead == ContentLength) ||
+               (CurrentBytesRead == 0))
+            {
+                break;
+            }
         }
         
         Win32CloseHandle(SaveHandle);
@@ -942,7 +941,9 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.PermanentDeleteFile = Win32PermanentDeleteFile;
     GlobalAppMemory.PlatformAPI.DirectoryExists = Win32DirectoryExists;
     GlobalAppMemory.PlatformAPI.CreateDirectory = Win32CreateDirectory;
-    GlobalAppMemory.PlatformAPI.KillProcessByName = Win32KillProcessByName;
+    GlobalAppMemory.PlatformAPI.RequestCloseProcess = Win32RequestCloseProcess;
+    GlobalAppMemory.PlatformAPI.KillProcess = Win32KillProcess;
+    GlobalAppMemory.PlatformAPI.CheckForProcess = Win32CheckForProcess;
     GlobalAppMemory.PlatformAPI.ExecuteProcess = Win32ExecuteProcess;
     GlobalAppMemory.PlatformAPI.GetHostname = Win32GetHostname;
     GlobalAppMemory.PlatformAPI.GetHomeDirectory = Win32GetHomeDirectory;
