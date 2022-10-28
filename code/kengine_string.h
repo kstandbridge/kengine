@@ -888,6 +888,7 @@ ParseFromString_(string Text, char *Format, va_list ArgList)
             ++At;
             switch(*At)
             {
+                case 'u':
                 case 'd':
                 {
                     s32 *Value = va_arg(ArgList, s32 *);
