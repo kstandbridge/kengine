@@ -118,6 +118,7 @@ typedef struct platform_http_client
     u32 Port;
     b32 IsHttps;
     b32 NoErrors;
+    b32 RequiresAuth;
 } platform_http_client;
 
 typedef void platform_end_http_client(platform_http_client *PlatformClient);
@@ -146,13 +147,15 @@ typedef struct platform_http_response
 typedef void platform_set_http_request_headers(platform_http_request *Request, string Headers);
 
 typedef u32 platform_send_http_request(platform_http_request *Request);
+typedef u32 platform_send_http_request_from_file(platform_http_request *PlatformRequest, string File);
 
-typedef umm platform_get_http_response_to_file(platform_http_request *PlatformRequest, string Path);
+typedef umm platform_get_http_response_to_file(platform_http_request *PlatformRequest, string File);
 typedef string platform_get_http_response(platform_http_request *PlatformRequest);
 
 #define PlatformNoErrors(Handle) ((Handle).NoErrors)
 
 typedef b32 platform_write_text_to_file(string Text, string FilePath);
+typedef void platform_zip_directory(string SourceDirectory, string DestinationZip);
 typedef void platform_unzip_to_directory(string SourceZip, string DestFolder);
 typedef b32 platform_file_exists(string Path);
 typedef b32 platform_permanent_delete_file(string Path);
@@ -198,10 +201,12 @@ typedef struct platform_api
     platform_begin_http_request *BeginHttpRequest;
     platform_set_http_request_headers *SetHttpRequestHeaders;
     platform_send_http_request *SendHttpRequest;
+    platform_send_http_request_from_file *SendHttpRequestFromFile;
     platform_get_http_response_to_file *GetHttpResponseToFile;
     platform_get_http_response *GetHttpResponse;
     
     platform_write_text_to_file *WriteTextToFile;
+    platform_zip_directory *ZipDirectory;
     platform_unzip_to_directory *UnzipToDirectory;
     platform_file_exists *FileExists;
     platform_permanent_delete_file *PermanentDeleteFile;

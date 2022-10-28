@@ -622,6 +622,7 @@ Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string
     }
     
     platform_http_client Result = Win32BeginHttpClient_(Hostname, Port, CUsername, CPassword);
+    Result.RequiresAuth = true;
     return Result;
 }
 
@@ -697,6 +698,29 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
         if(Win32Request->Handle)
         {
             Result.NoErrors = true;
+            if(PlatformClient->RequiresAuth)
+            {
+                // NOTE(kstandbridge): HttpSendRequestEx will return 401 initially asking for creds, so just EndRequest and start again
+                if(Win32HttpSendRequestExA(Win32Request->Handle, 0, 0, 0, 0))
+                {
+                    Win32HttpEndRequestA(Win32Request->Handle, 0, 0, 0);
+                    DWORD StatusCode = 0;
+                    DWORD StatusCodeLength = sizeof(StatusCode);
+                    Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &StatusCode, &StatusCodeLength, 0);
+                    if(StatusCode == 401)
+                    {
+                        PlatformClient->RequiresAuth = false;
+                    }
+                    else
+                    {
+                        LogError("Was expecting 401 challange but received %u from %s", StatusCode, CEndpoint);
+                    }
+                }
+                else
+                {
+                    Win32LogError(String("HttpSendRequestExA"));
+                }
+            }
         }
         else
         {
@@ -729,6 +753,97 @@ Win32SetHttpRequestHeaders(platform_http_request *PlatformRequest, string Header
         Win32LogError(String("HttpAddRequestHeadersA"));
     }
     
+}
+
+internal u32
+Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File)
+{
+    u32 Result = 0;
+    
+    win32_http_request *Win32Request = PlatformRequest->Handle;
+    win32_http_client *Win32Client = Win32Request->Win32Client;
+    memory_arena *Arena = &Win32Client->Arena;
+    
+    char CFile[MAX_PATH];
+    StringToCString(File, MAX_PATH, CFile);
+    
+    HANDLE FileHandle = Win32CreateFileA(CFile, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER LFileSize;
+        Win32GetFileSizeEx(FileHandle, &LFileSize);
+        umm FileSize = LFileSize.QuadPart;
+        
+        u8 HeaderBuffer[256];
+        string Header = FormatStringToBuffer(HeaderBuffer, sizeof(HeaderBuffer), "Content-Length: %u\r\n", FileSize);
+        HeaderBuffer[Header.Size] = '\0';
+        Win32HttpAddRequestHeadersA(Win32Request->Handle, (char *)HeaderBuffer, 
+                                    (DWORD)-1, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE);
+        
+        
+        if(Win32HttpSendRequestExA(Win32Request->Handle, 0, 0, HSR_INITIATE, 0))
+        {                
+            umm Offset = 0;
+            OVERLAPPED Overlapped;
+            ZeroStruct(Overlapped);
+            u8 Buffer[1024];
+            umm BufferSize = 1024;
+            do
+            {
+                Overlapped.Offset = (u32)((Offset >> 0) & 0xFFFFFFFF);
+                Overlapped.OffsetHigh = (u32)((Offset >> 32) & 0xFFFFFFFF);
+                
+                DWORD BytesRead = 0;
+                if(Win32ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
+                {
+                    DWORD BytesSent = 0;
+                    DWORD TotalBytesSend = 0;
+                    do
+                    {
+                        if(!Win32InternetWriteFile(Win32Request->Handle, Buffer + TotalBytesSend, BytesRead, &BytesSent))
+                        {
+                            FileSize = 0;
+                            break;
+                        }
+                        TotalBytesSend += BytesSent;
+                    } while(TotalBytesSend < BytesRead);
+                    
+                    Offset += BytesRead;
+                }
+                else
+                {
+                    Assert(!"Error reading file!");
+                }
+            } while(Offset < FileSize);
+            
+            Win32HttpEndRequestA(Win32Request->Handle, 0, 0, 0);
+            
+            DWORD StatusCode = 0;
+            DWORD StatusCodeSize = sizeof(StatusCodeSize);
+            if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
+            {
+                LogDebug("Received status code %u on http request", StatusCode);
+                Result = StatusCode;
+            }
+            else
+            {
+                PlatformRequest->NoErrors = false;
+                Win32LogError(String("HttpQueryInfoA"));
+            }
+        }
+        else
+        {
+            PlatformRequest->NoErrors = false;
+            Win32LogError(String("HttpSendRequestA"));
+        }
+        
+    }
+    else
+    {
+        LogError("Unable to open file %S", File);
+    }
+    
+    return Result;
 }
 
 internal u32
@@ -765,7 +880,7 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
 }
 
 internal umm
-Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string Path)
+Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
 {
     umm Result = 0;
     
@@ -788,12 +903,12 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string Path)
     
     if(PlatformRequest->NoErrors)
     {
-        u8 CPath[MAX_PATH];
-        StringToCString(Path, sizeof(CPath), (char *)CPath);
-        HANDLE SaveHandle = Win32CreateFileA((char *)CPath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
+        u8 CFile[MAX_PATH];
+        StringToCString(File, sizeof(CFile), (char *)CFile);
+        HANDLE SaveHandle = Win32CreateFileA((char *)CFile, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
         u8 SaveBuffer[4096];
         
-        LogDebug("Downloading http response to file %s", CPath);
+        LogDebug("Downloading http response to file %s", CFile);
         DWORD TotalBytesRead = 0;
         DWORD CurrentBytesRead;
         for(;;)
@@ -964,11 +1079,13 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.EndHttpRequest = Win32EndHttpRequest;
     GlobalAppMemory.PlatformAPI.BeginHttpRequest = Win32BeginHttpRequest;
     GlobalAppMemory.PlatformAPI.SetHttpRequestHeaders = Win32SetHttpRequestHeaders;
+    GlobalAppMemory.PlatformAPI.SendHttpRequestFromFile = Win32SendHttpRequestFromFile;
     GlobalAppMemory.PlatformAPI.SendHttpRequest = Win32SendHttpRequest;
     GlobalAppMemory.PlatformAPI.GetHttpResponseToFile = Win32GetHttpResponseToFile;
     GlobalAppMemory.PlatformAPI.GetHttpResponse = Win32GetHttpResponse;
     
     GlobalAppMemory.PlatformAPI.WriteTextToFile = Win32WriteTextToFile;
+    GlobalAppMemory.PlatformAPI.ZipDirectory = Win32ZipDirectory;
     GlobalAppMemory.PlatformAPI.UnzipToDirectory = Win32UnzipToDirectory;
     GlobalAppMemory.PlatformAPI.FileExists = Win32FileExists;
     GlobalAppMemory.PlatformAPI.PermanentDeleteFile = Win32PermanentDeleteFile;

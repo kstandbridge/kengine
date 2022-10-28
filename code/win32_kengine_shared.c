@@ -1,4 +1,5 @@
 
+// TODO(kstandbridge): not really needed to take string here
 inline void
 Win32LogError_(string Function, DWORD ErrorCode)
 {
@@ -22,6 +23,7 @@ Win32LogError_(string Function, DWORD ErrorCode)
     }
 }
 
+// TODO(kstandbridge): not really needed to take string here
 inline void
 Win32LogError(string Function)
 {
@@ -1400,24 +1402,24 @@ Win32WriteTextToFile(string Text, string FilePath)
 }
 
 internal void
-Win32ZipFolder(string SourceFolderPath, string DestPath)
+Win32ZipDirectory(string SourceDirectory, string DestinationZip)
 {
     // NOTE(kstandbridge): No Win32 API to create zip file, so lets build our own!!!
     {
         u8 Buffer[] = {80, 75, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
         umm BufferSize = sizeof(Buffer);
-        Win32WriteTextToFile(String_(BufferSize, Buffer), DestPath);
+        Win32WriteTextToFile(String_(BufferSize, Buffer), DestinationZip);
     }
     
     wchar_t CDestZip[MAX_PATH];
-    Win32MultiByteToWideChar(CP_ACP, 0, (char *)DestPath.Data, DestPath.Size, CDestZip, MAX_PATH);
-    CDestZip[DestPath.Size + 0] = '\0';
-    CDestZip[DestPath.Size + 1] = '\0';
+    Win32MultiByteToWideChar(CP_ACP, 0, (char *)DestinationZip.Data, DestinationZip.Size, CDestZip, MAX_PATH);
+    CDestZip[DestinationZip.Size + 0] = '\0';
+    CDestZip[DestinationZip.Size + 1] = '\0';
     
     wchar_t CSourceFolder[MAX_PATH];
-    Win32MultiByteToWideChar(CP_ACP, 0, (char *)SourceFolderPath.Data, SourceFolderPath.Size, CSourceFolder, MAX_PATH);
-    CSourceFolder[SourceFolderPath.Size + 0] = '\0';
-    CSourceFolder[SourceFolderPath.Size + 1] = '\0';
+    Win32MultiByteToWideChar(CP_ACP, 0, (char *)SourceDirectory.Data, SourceDirectory.Size, CSourceFolder, MAX_PATH);
+    CSourceFolder[SourceDirectory.Size + 0] = '\0';
+    CSourceFolder[SourceDirectory.Size + 1] = '\0';
     
     HRESULT HResult;
     IShellDispatch *ShellDispatch;
