@@ -100,6 +100,7 @@ typedef f32 get_verticle_advance();
 
 
 // TODO(kstandbridge): move this somewhere?
+typedef void platform_delete_http_cache_entry(char *Format, ...);
 typedef enum http_verb_type
 {
     HttpVerb_Post,
@@ -189,6 +190,7 @@ typedef struct platform_api
     get_horizontal_advance *GetHorizontalAdvance;
     get_verticle_advance *GetVerticleAdvance;
     
+    platform_delete_http_cache_entry *DeleteHttpCache;
     platform_end_http_client *EndHttpClient;
     platform_begin_http_client_with_creds *BeginHttpClientWithCreds;
     platform_begin_http_client *BeginHttpClient;

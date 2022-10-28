@@ -494,6 +494,31 @@ ProcessInputMessage(app_button_state *NewState, b32 IsDown)
     }
 }
 
+internal void
+Win32DeleteHttpCache(char *Format, ...)
+{
+    format_string_state StringState = BeginFormatString();
+    
+    va_list ArgList;
+    va_start(ArgList, Format);
+    AppendFormatString_(&StringState, Format, ArgList);
+    va_end(ArgList);
+    
+    u8 CUrlName[MAX_URL];
+    string UrlName = EndFormatStringToBuffer(&StringState, CUrlName, sizeof(CUrlName));
+    CUrlName[UrlName.Size] = 0;
+    
+    b32 Success = Win32DeleteUrlCacheEntryA((char *)CUrlName);
+    if(Success)
+    {
+        LogDebug("Deleted Url cache entry for %S", UrlName);
+    }
+    else
+    {
+        LogDebug("Url cache entry not found %S", UrlName);
+    }
+}
+
 typedef struct win32_http_client
 {
     HINTERNET Handle;
@@ -839,7 +864,7 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
         if(ContentLength == 0)
         {
             ContentLength = Kilobytes(64);
-            LogDebug("Contenxt length not specified so setting to %u", ContentLength);
+            LogDebug("Content length not specified so setting to %u", ContentLength);
         }
         
         Result.Size = ContentLength;
@@ -932,6 +957,7 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.GetHorizontalAdvance = Win32GetHorizontalAdvance;
     GlobalAppMemory.PlatformAPI.GetVerticleAdvance = Win32GetVerticleAdvance;
     
+    GlobalAppMemory.PlatformAPI.DeleteHttpCache = Win32DeleteHttpCache;
     GlobalAppMemory.PlatformAPI.EndHttpClient = Win32EndHttpClient;
     GlobalAppMemory.PlatformAPI.BeginHttpClientWithCreds = Win32BeginHttpClientWithCreds;
     GlobalAppMemory.PlatformAPI.BeginHttpClient = Win32BeginHttpClient;

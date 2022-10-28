@@ -209,6 +209,8 @@ introspect(win32, Advapi32) typedef BOOL crypt_acquire_context_a(HCRYPTPROV *phP
 introspect(win32, Advapi32) typedef BOOL crypt_gen_random(HCRYPTPROV hProv, DWORD dwLen, BYTE *pbBuffer);
 introspect(win32, Advapi32) typedef BOOL crypt_release_context(HCRYPTPROV hProv, DWORD dwFlags);
 
+introspect(win32, Wininet) typedef BOOL delete_url_cache_entry_a(LPCSTR lpszUrlName);
+
 introspect(win32, Wininet) typedef BOOL internet_read_file(HINTERNET hFile, LPVOID lpBuffer, DWORD dwNumberOfBytesToRead, LPDWORD lpdwNumberOfBytesRead);
 introspect(win32, Wininet) typedef HINTERNET internet_open_a(LPCSTR lpszAgent, DWORD dwAccessType, LPCSTR lpszProxy, LPCSTR lpszProxyBypass, DWORD dwFlags);
 introspect(win32, Wininet) typedef HINTERNET internet_open_url_a(HINTERNET hInternet, LPCSTR lpszUrl, LPCSTR lpszHeaders, 
