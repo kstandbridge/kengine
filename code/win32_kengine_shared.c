@@ -1,4 +1,34 @@
 
+inline void
+Win32LogError_(string Function, DWORD ErrorCode)
+{
+    LPTSTR ErrorBuffer = 0;
+    DWORD ErrorLength = Win32FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, 
+                                            0, ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL), (LPTSTR)&ErrorBuffer, 0, 0);
+    
+    if(ErrorLength)
+    {
+        string Error = String_(ErrorLength, (u8 *)ErrorBuffer);
+        LogError("%S failed due to %S", Function, Error);
+    }
+    else
+    {
+        LogError("%S failed due to error code %u", Function, ErrorCode);
+    }
+    
+    if(ErrorBuffer)
+    {
+        Win32LocalFree(ErrorBuffer);
+    }
+}
+
+inline void
+Win32LogError(string Function)
+{
+    DWORD ErrorCode = Win32GetLastError();
+    Win32LogError_(Function, ErrorCode);
+}
+
 typedef struct win32_memory_block
 {
     platform_memory_block PlatformBlock;
@@ -226,8 +256,7 @@ Win32GetLastWriteTime(char *Filename)
     }
     else
     {
-        DWORD ErrorCode = Win32GetLastError();
-        LogError("GetFileAttributesEx failed with error code %u", ErrorCode);
+        Win32LogError(String("GetFileAttributesEx"));
     }
     
     return LastWriteTime;
@@ -1250,8 +1279,7 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory)
             else
             {
                 // TODO(kstandbridge): Return the exit code?
-                DWORD ErrorCode = Win32GetLastError();
-                Assert(!"Failed to create process");
+                Win32LogError(String("CreateProcessA"));
             }
             
             Win32CloseHandle(OutPipeRead);
@@ -1261,16 +1289,14 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory)
         }
         else
         {
-            DWORD ErrorCode = Win32GetLastError();
-            Assert(!"Failed to create out pipe");
+            Win32LogError(String("CreatePipe"));
         }
         
         Win32CloseHandle(InPipeWrite);
     }
     else
     {
-        DWORD ErrorCode = Win32GetLastError();
-        Assert(!"Failed to create in pipe");
+        Win32LogError(String("CreatePipe"));
     }
 }
 
@@ -1518,7 +1544,7 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
         DWORD ErrorCode = Win32GetLastError();
         if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
-            LogError("Win32HttpQueryInfo failed with error code %u", ErrorCode);
+            Win32LogError_(String("HttpQueryInfoA"), ErrorCode);
         }
     }
     
@@ -1550,14 +1576,14 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
         }
         else
         {
-            DWORD LastError = Win32GetLastError();
-            if (LastError != ERROR_INSUFFICIENT_BUFFER)
+            DWORD ErrorCode = Win32GetLastError();
+            if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
             {
-                Assert(!"Read error");
+                Win32LogError_(String("InternetReadFile"), ErrorCode);
             }
             else
             {
-                Assert(!"Insufficient buffer");
+                LogError("InternetReadFile failed due to insufficient buffer");
             }
             break;
         }

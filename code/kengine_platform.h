@@ -113,6 +113,9 @@ typedef struct platform_http_client
 {
     void *Handle;
     
+    string Hostname;
+    u32 Port;
+    b32 IsHttps;
     b32 NoErrors;
 } platform_http_client;
 
@@ -194,7 +197,7 @@ typedef struct platform_api
     platform_set_http_request_headers *SetHttpRequestHeaders;
     platform_send_http_request *SendHttpRequest;
     platform_get_http_response_to_file *GetHttpResponseToFile;
-    platform_get_http_response *GetHttpResonse;
+    platform_get_http_response *GetHttpResponse;
     
     platform_write_text_to_file *WriteTextToFile;
     platform_unzip_to_directory *UnzipToDirectory;

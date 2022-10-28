@@ -175,7 +175,7 @@ PostTelemetryThread(void *Data)
                                     Request.Payload = EndFormatStringToBuffer(&StringState, CPayload, sizeof(CPayload));
                                     
                                     u32 StatusCode = Platform.SendHttpRequest(&Request);
-                                    string Response = Platform.GetHttpResonse(&Request);
+                                    string Response = Platform.GetHttpResponse(&Request);
 #if KENGINE_INTERNAL
                                     b32 BreakHere = true;
 #endif
@@ -433,7 +433,11 @@ typedef enum log_level_type
     LogLevel_Error
 } log_level_type;
 
+#if KENGINE_INTERNAL
 #define LogDebug(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Debug, Format, __VA_ARGS__)
+#else
+#define LogDebug(...)
+#endif
 #define LogVerbose(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Verbose, Format, __VA_ARGS__)
 #define LogInfo(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Info, Format, __VA_ARGS__)
 #define LogWarning(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Warning, Format, __VA_ARGS__)

@@ -421,8 +421,7 @@ Win32GetHostname(u8 *Buffer, umm BufferMaxSize)
     
     if(!Win32GetComputerNameA((char *)Buffer, &Result))
     {
-        DWORD ErrorCode = Win32GetLastError();
-        LogError("GetComputerNameA failed with error code %u", ErrorCode);
+        Win32LogError(String("GetComputerNameA"));
     }
     
     return Result;
@@ -435,8 +434,7 @@ Win32GetHomeDirectory(u8 *Buffer, umm BufferMaxSize)
     
     if(Result == 0)
     {
-        DWORD ErrorCode = Win32GetLastError();
-        LogError("ExpandEnvironmentStringsA failed with error code %u", ErrorCode);
+        Win32LogError(String("ExpandEnvironmentStringsA"));
     }
     else
     {
@@ -454,8 +452,7 @@ Win32GetAppConfigDirectory(u8 *Buffer, umm BufferMaxSize)
     
     if(Result == 0)
     {
-        DWORD ErrorCode = Win32GetLastError();
-        LogError("ExpandEnvironmentStringsA failed with error code %u", ErrorCode);
+        Win32LogError(String("ExpandEnvironmentStringsA"));
     }
     else
     {
@@ -473,8 +470,7 @@ Win32GetUsername(u8 *Buffer, umm BufferMaxSize)
     
     if(Result == 0)
     {
-        DWORD ErrorCode = Win32GetLastError();
-        LogError("GetEnvironmentVariableA failed with error code %u", ErrorCode);
+        Win32LogError(String("GetEnvironmentVariableA"));
     }
     
     return Result;
@@ -548,6 +544,7 @@ Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPasswor
     char *CHost = CHost_;
     if(StringBeginsWith(String("https"), Hostname))
     {
+        Result.IsHttps = true;
         CHost += 8;
         if(Port == 0)
         {
@@ -557,9 +554,12 @@ Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPasswor
     }
     else if(StringBeginsWith(String("http"), Hostname))
     {
+        Result.IsHttps = false;
         CHost += 7;
     }
     
+    Result.Hostname = PushString_(&Win32Client->Arena, GetNullTerminiatedStringLength(CHost), (u8 *)CHost);
+    Result.Port = Port;
     LogDebug("Opening connection to %s:%u", CHost, Port);
     Win32Client->Handle = Win32InternetConnectA(WebSession, CHost, Port, CUsername, CPassword,
                                                 INTERNET_SERVICE_HTTP, 0, 0);
@@ -571,8 +571,7 @@ Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPasswor
     else
     {
         Result.NoErrors = false;
-        DWORD ErrorCode = Win32GetLastError();
-        LogError("InternetConnectA failed due to error code %u", ErrorCode);
+        Win32LogError(String("InternetConnectA"));
     }
     
     return Result;
@@ -677,8 +676,7 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
         else
         {
             Result.NoErrors = false;
-            DWORD ErrorCode = Win32GetLastError();
-            LogError("HttpOpenRequestA failed with error code %u", ErrorCode);
+            Win32LogError(String("HttpOpenRequestA"));
         }
     }
     else
@@ -703,8 +701,7 @@ Win32SetHttpRequestHeaders(platform_http_request *PlatformRequest, string Header
     if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, CHeaders, (DWORD) -1, HTTP_ADDREQ_FLAG_ADD))
     {
         PlatformRequest->NoErrors = false;
-        DWORD ErrorCode = Win32GetLastError();
-        LogError("HttpAddRequestHeadersA failed with error code %u", ErrorCode);
+        Win32LogError(String("HttpAddRequestHeadersA"));
     }
     
 }
@@ -712,7 +709,7 @@ Win32SetHttpRequestHeaders(platform_http_request *PlatformRequest, string Header
 internal u32
 Win32SendHttpRequest(platform_http_request *PlatformRequest)
 {
-    u32 Result = 400;
+    u32 Result = 0;
     
     win32_http_request *Win32Request = PlatformRequest->Handle;
     win32_http_client *Win32Client = Win32Request->Win32Client;
@@ -720,7 +717,7 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
     
     if(Win32HttpSendRequestA(Win32Request->Handle, 0, 0, PlatformRequest->Payload.Data, PlatformRequest->Payload.Size))
     {
-        DWORD StatusCode = 400;
+        DWORD StatusCode = 0;
         DWORD StatusCodeSize = sizeof(StatusCodeSize);
         if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
         {
@@ -730,22 +727,20 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
         else
         {
             PlatformRequest->NoErrors = false;
-            DWORD ErrorCode = Win32GetLastError();
-            LogError("HttpQueryInfoA failed with error code %u", ErrorCode);
+            Win32LogError(String("HttpQueryInfoA"));
         }
     }
     else
     {
         PlatformRequest->NoErrors = false;
-        DWORD ErrorCode = Win32GetLastError();
-        LogError("HttpSendRequestA failed with error code %u", ErrorCode);
+        Win32LogError(String("HttpSendRequestA"));
     }
     
     return Result;
 }
 
 internal umm
-Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
+Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string Path)
 {
     umm Result = 0;
     
@@ -762,7 +757,7 @@ Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
         if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
             PlatformRequest->NoErrors = false;
-            LogError("HttpQueryInfo failed with error code %u", ErrorCode);
+            Win32LogError_(String("HttpQueryInfo"), ErrorCode);
         }
     }
     
@@ -787,7 +782,7 @@ Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
                 DWORD ErrorCode = Win32GetLastError();
                 if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
                 {
-                    LogError("InternetReadFile failed with error code %u", ErrorCode);
+                    Win32LogError_(String("InternetReadFile"), ErrorCode);
                 }
                 else
                 {
@@ -817,7 +812,7 @@ Win32GetHttpResonseToFile(platform_http_request *PlatformRequest, string Path)
 }
 
 internal string
-Win32GetHttpResonse(platform_http_request *PlatformRequest)
+Win32GetHttpResponse(platform_http_request *PlatformRequest)
 {
     string Result;
     ZeroStruct(Result);
@@ -835,7 +830,7 @@ Win32GetHttpResonse(platform_http_request *PlatformRequest)
         if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
             PlatformRequest->NoErrors = false;
-            LogError("HttpQueryInfo failed with error code %u", ErrorCode);
+            Win32LogError_(String("HttpQueryInfoA"), ErrorCode);
         }
     }
     
@@ -874,7 +869,7 @@ Win32GetHttpResonse(platform_http_request *PlatformRequest)
                 DWORD ErrorCode = Win32GetLastError();
                 if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
                 {
-                    LogError("InternetReadFile failed with error code %u", ErrorCode);
+                    Win32LogError_(String("InternetReadFile"), ErrorCode);
                 }
                 else
                 {
@@ -944,8 +939,8 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.BeginHttpRequest = Win32BeginHttpRequest;
     GlobalAppMemory.PlatformAPI.SetHttpRequestHeaders = Win32SetHttpRequestHeaders;
     GlobalAppMemory.PlatformAPI.SendHttpRequest = Win32SendHttpRequest;
-    GlobalAppMemory.PlatformAPI.GetHttpResponseToFile = Win32GetHttpResonseToFile;
-    GlobalAppMemory.PlatformAPI.GetHttpResonse = Win32GetHttpResonse;
+    GlobalAppMemory.PlatformAPI.GetHttpResponseToFile = Win32GetHttpResponseToFile;
+    GlobalAppMemory.PlatformAPI.GetHttpResponse = Win32GetHttpResponse;
     
     GlobalAppMemory.PlatformAPI.WriteTextToFile = Win32WriteTextToFile;
     GlobalAppMemory.PlatformAPI.UnzipToDirectory = Win32UnzipToDirectory;
@@ -1297,8 +1292,7 @@ WinMainCRTStartup()
         {
             if(GlobalWin32State.AppLibrary && !Win32FreeLibrary(GlobalWin32State.AppLibrary))
             {
-                DWORD ErrorCode = Win32GetLastError();
-                LogError("FreeLibrary failed with error code %u", ErrorCode);
+                Win32LogError(String("FreeLibrary"));
             }
             GlobalWin32State.AppLibrary = 0;
             GlobalWin32State.AppTick_ = 0;
@@ -1331,14 +1325,12 @@ WinMainCRTStartup()
                 }
                 else
                 {
-                    DWORD ErrorCode = Win32GetLastError();
-                    LogError("LoadLibrary failed with error code %u", ErrorCode);
+                    Win32LogError(String("LoadLibraryA"));
                 }
             }
             else
             {
-                DWORD ErrorCode = Win32GetLastError();
-                LogError("CopyFile failed with error code %u", ErrorCode);
+                Win32LogError(String("CopyFileA"));
             }
             SetDebugEventRecording(true);
         }
