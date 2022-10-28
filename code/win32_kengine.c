@@ -546,6 +546,7 @@ internal platform_http_client
 Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPassword)
 {
     platform_http_client Result;
+    ZeroStruct(Result);
     
     win32_http_client *Win32Client = BootstrapPushStruct(win32_http_client, Arena);
     Result.Handle = Win32Client;
