@@ -259,5 +259,14 @@ typedef void app_tick_(app_memory *Memory, render_commands *Commands, app_input 
 typedef platform_http_response app_handle_http_request(app_memory *Memory, struct memory_arena *Arena, platform_http_request Request);
 #endif
 
+inline date_time
+GetDateTime()
+{
+    u64 Timestamp = Platform.GetSystemTimestamp();
+    date_time Result = Platform.GetDateTimeFromTimestamp(Timestamp);
+    
+    return Result;
+}
+
 #define KENGINE_PLATFORM_H
 #endif //KENGINE_PLATFORM_H

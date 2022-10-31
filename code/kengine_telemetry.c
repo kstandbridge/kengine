@@ -447,14 +447,6 @@ typedef enum log_level_type
 #define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Error, Format, __VA_ARGS__);
 #endif
 
-inline date_time
-Win32GetDateTime()
-{
-    u64 Timestamp = Platform.GetSystemTimestamp();
-    date_time Result = Platform.GetDateTimeFromTimestamp(Timestamp);
-    
-    return Result;
-}
 internal void
 SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string Message)
 {
@@ -469,7 +461,7 @@ SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string
         InvalidDefaultCase;
     }
     
-    date_time Date = Win32GetDateTime();
+    date_time Date = GetDateTime();
     u32 ThreadId = GetThreadID();
     Platform.ConsoleOut("[%02d/%02d/%04d %02d:%02d:%02d] <%5u> (%S)\t%S\n", 
                         Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
