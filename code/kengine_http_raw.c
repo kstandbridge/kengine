@@ -115,7 +115,7 @@ typedef struct http_response
 } http_response;
 
 inline http_client
-BeginHttpClient(string Hostname, string Port)
+BeginHttpClientRaw(string Hostname, string Port)
 {
     http_client Result;
     ZeroStruct(Result);
@@ -127,7 +127,7 @@ BeginHttpClient(string Hostname, string Port)
 }
 
 inline void
-EndHttpClient(http_client *Client)
+EndHttpClientRaw(http_client *Client)
 {
     Win32SocketClose(Client->Socket);
 }

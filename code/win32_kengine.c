@@ -623,7 +623,6 @@ Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string
     }
     
     platform_http_client Result = Win32BeginHttpClient_(Hostname, Port, CUsername, CPassword);
-    Result.RequiresAuth = true;
     return Result;
 }
 
@@ -699,29 +698,6 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
         if(Win32Request->Handle)
         {
             Result.NoErrors = true;
-            if(PlatformClient->RequiresAuth)
-            {
-                // NOTE(kstandbridge): HttpSendRequestEx will return 401 initially asking for creds, so just EndRequest and start again
-                if(Win32HttpSendRequestExA(Win32Request->Handle, 0, 0, 0, 0))
-                {
-                    Win32HttpEndRequestA(Win32Request->Handle, 0, 0, 0);
-                    DWORD StatusCode = 0;
-                    DWORD StatusCodeLength = sizeof(StatusCode);
-                    Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &StatusCode, &StatusCodeLength, 0);
-                    if(StatusCode == 401)
-                    {
-                        PlatformClient->RequiresAuth = false;
-                    }
-                    else
-                    {
-                        LogError("Was expecting 401 challange but received %u from %s", StatusCode, CEndpoint);
-                    }
-                }
-                else
-                {
-                    Win32LogError(String("HttpSendRequestExA"));
-                }
-            }
         }
         else
         {
@@ -781,61 +757,77 @@ Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File
         Win32HttpAddRequestHeadersA(Win32Request->Handle, (char *)HeaderBuffer, 
                                     (DWORD)-1, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE);
         
-        
-        if(Win32HttpSendRequestExA(Win32Request->Handle, 0, 0, HSR_INITIATE, 0))
-        {                
-            umm Offset = 0;
-            OVERLAPPED Overlapped;
-            ZeroStruct(Overlapped);
-            u8 Buffer[1024];
-            umm BufferSize = 1024;
-            do
-            {
-                Overlapped.Offset = (u32)((Offset >> 0) & 0xFFFFFFFF);
-                Overlapped.OffsetHigh = (u32)((Offset >> 32) & 0xFFFFFFFF);
-                
-                DWORD BytesRead = 0;
-                if(Win32ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
+        b32 RetryOn401 = true;
+        for(;;)
+        {
+            if(Win32HttpSendRequestExA(Win32Request->Handle, 0, 0, HSR_INITIATE, 0))
+            {                
+                umm Offset = 0;
+                OVERLAPPED Overlapped;
+                ZeroStruct(Overlapped);
+                u8 Buffer[1024];
+                umm BufferSize = 1024;
+                do
                 {
-                    DWORD BytesSent = 0;
-                    DWORD TotalBytesSend = 0;
-                    do
-                    {
-                        if(!Win32InternetWriteFile(Win32Request->Handle, Buffer + TotalBytesSend, BytesRead, &BytesSent))
-                        {
-                            FileSize = 0;
-                            break;
-                        }
-                        TotalBytesSend += BytesSent;
-                    } while(TotalBytesSend < BytesRead);
+                    Overlapped.Offset = (u32)((Offset >> 0) & 0xFFFFFFFF);
+                    Overlapped.OffsetHigh = (u32)((Offset >> 32) & 0xFFFFFFFF);
                     
-                    Offset += BytesRead;
+                    DWORD BytesRead = 0;
+                    if(Win32ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
+                    {
+                        DWORD BytesSent = 0;
+                        DWORD TotalBytesSend = 0;
+                        do
+                        {
+                            if(!Win32InternetWriteFile(Win32Request->Handle, Buffer + TotalBytesSend, BytesRead, &BytesSent))
+                            {
+                                FileSize = 0;
+                                break;
+                            }
+                            TotalBytesSend += BytesSent;
+                        } while(TotalBytesSend < BytesRead);
+                        
+                        Offset += BytesRead;
+                    }
+                    else
+                    {
+                        Assert(!"Error reading file!");
+                    }
+                } while(Offset < FileSize);
+                
+                Win32HttpEndRequestA(Win32Request->Handle, 0, 0, 0);
+                
+                DWORD StatusCode = 0;
+                DWORD StatusCodeSize = sizeof(StatusCodeSize);
+                if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
+                {
+                    LogDebug("Received status code %u on http request", StatusCode);
+                    
+                    // NOTE(kstandbridge): HttpSendRequestEx will return 401 initially asking for creds, so try send the request again
+                    if((StatusCode == 401) 
+                       && RetryOn401)
+                    {
+                        RetryOn401 = false;
+                    }
+                    else
+                    {
+                        Result = StatusCode;
+                        break;
+                    }
                 }
                 else
                 {
-                    Assert(!"Error reading file!");
+                    PlatformRequest->NoErrors = false;
+                    Win32LogError(String("HttpQueryInfoA"));
+                    break;
                 }
-            } while(Offset < FileSize);
-            
-            Win32HttpEndRequestA(Win32Request->Handle, 0, 0, 0);
-            
-            DWORD StatusCode = 0;
-            DWORD StatusCodeSize = sizeof(StatusCodeSize);
-            if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
-            {
-                LogDebug("Received status code %u on http request", StatusCode);
-                Result = StatusCode;
             }
             else
             {
                 PlatformRequest->NoErrors = false;
-                Win32LogError(String("HttpQueryInfoA"));
+                Win32LogError(String("HttpSendRequestA"));
+                break;
             }
-        }
-        else
-        {
-            PlatformRequest->NoErrors = false;
-            Win32LogError(String("HttpSendRequestA"));
         }
         
     }
@@ -1085,6 +1077,7 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.GetHttpResponseToFile = Win32GetHttpResponseToFile;
     GlobalAppMemory.PlatformAPI.GetHttpResponse = Win32GetHttpResponse;
     
+    GlobalAppMemory.PlatformAPI.ReadEntireFile = Win32ReadEntireFile;
     GlobalAppMemory.PlatformAPI.WriteTextToFile = Win32WriteTextToFile;
     GlobalAppMemory.PlatformAPI.ZipDirectory = Win32ZipDirectory;
     GlobalAppMemory.PlatformAPI.UnzipToDirectory = Win32UnzipToDirectory;

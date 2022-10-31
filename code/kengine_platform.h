@@ -118,7 +118,6 @@ typedef struct platform_http_client
     u32 Port;
     b32 IsHttps;
     b32 NoErrors;
-    b32 RequiresAuth;
 } platform_http_client;
 
 typedef void platform_end_http_client(platform_http_client *PlatformClient);
@@ -154,6 +153,7 @@ typedef string platform_get_http_response(platform_http_request *PlatformRequest
 
 #define PlatformNoErrors(Handle) ((Handle).NoErrors)
 
+typedef string platform_read_entire_file(struct memory_arena *Arena, string FilePath);
 typedef b32 platform_write_text_to_file(string Text, string FilePath);
 typedef void platform_zip_directory(string SourceDirectory, string DestinationZip);
 typedef void platform_unzip_to_directory(string SourceZip, string DestFolder);
@@ -205,6 +205,7 @@ typedef struct platform_api
     platform_get_http_response_to_file *GetHttpResponseToFile;
     platform_get_http_response *GetHttpResponse;
     
+    platform_read_entire_file *ReadEntireFile;
     platform_write_text_to_file *WriteTextToFile;
     platform_zip_directory *ZipDirectory;
     platform_unzip_to_directory *UnzipToDirectory;
