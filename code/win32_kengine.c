@@ -556,6 +556,19 @@ Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPasswor
     {
         LogDebug("Opening internet session");
         WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
+        DWORD Timeout = 3000;
+        if(!Win32InternetSetOptionA(WebSession, INTERNET_OPTION_RECEIVE_TIMEOUT, &Timeout, sizeof(Timeout)))
+        {
+            LogWarning("Failed to set internet option receive timeout");
+        }
+        if(!Win32InternetSetOptionA(WebSession, INTERNET_OPTION_SEND_TIMEOUT, &Timeout, sizeof(Timeout)))
+        {
+            LogWarning("Failed to set internet option send timeout");
+        }
+        if(!Win32InternetSetOptionA(WebSession, INTERNET_OPTION_CONNECT_TIMEOUT, &Timeout, sizeof(Timeout)))
+        {
+            LogWarning("Failed to set internet option connect timeout");
+        }
     }
     
     char CHost_[2048];
@@ -597,7 +610,6 @@ Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPasswor
     else
     {
         Result.NoErrors = false;
-        Win32LogError(String("InternetConnectA"));
     }
     
     return Result;
@@ -702,7 +714,6 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
         else
         {
             Result.NoErrors = false;
-            Win32LogError(String("HttpOpenRequestA"));
         }
     }
     else
@@ -727,7 +738,6 @@ Win32SetHttpRequestHeaders(platform_http_request *PlatformRequest, string Header
     if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, CHeaders, (DWORD) -1, HTTP_ADDREQ_FLAG_ADD))
     {
         PlatformRequest->NoErrors = false;
-        Win32LogError(String("HttpAddRequestHeadersA"));
     }
     
 }
@@ -818,14 +828,12 @@ Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File
                 else
                 {
                     PlatformRequest->NoErrors = false;
-                    Win32LogError(String("HttpQueryInfoA"));
                     break;
                 }
             }
             else
             {
                 PlatformRequest->NoErrors = false;
-                Win32LogError(String("HttpSendRequestA"));
                 break;
             }
         }
@@ -860,13 +868,19 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
         else
         {
             PlatformRequest->NoErrors = false;
-            Win32LogError(String("HttpQueryInfoA"));
         }
     }
     else
     {
-        PlatformRequest->NoErrors = false;
-        Win32LogError(String("HttpSendRequestA"));
+        DWORD ErrorCode = Win32GetLastError();
+        if(ErrorCode == ERROR_INTERNET_TIMEOUT)
+        {
+            Result = 408; // TODO(kstandbridge): status code enum?
+        }
+        else
+        {
+            PlatformRequest->NoErrors = false;
+        }
     }
     
     return Result;
@@ -890,7 +904,6 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
         if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
             PlatformRequest->NoErrors = false;
-            Win32LogError_(String("HttpQueryInfo"), ErrorCode);
         }
     }
     
@@ -913,11 +926,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
             else
             {
                 DWORD ErrorCode = Win32GetLastError();
-                if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
-                {
-                    Win32LogError_(String("InternetReadFile"), ErrorCode);
-                }
-                else
+                if(ErrorCode == ERROR_INSUFFICIENT_BUFFER)
                 {
                     LogError("InternetReadFile failed due to insufficent buffer size");
                 }
@@ -963,7 +972,6 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
         if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
             PlatformRequest->NoErrors = false;
-            Win32LogError_(String("HttpQueryInfoA"), ErrorCode);
         }
     }
     
@@ -1000,11 +1008,7 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
             else
             {
                 DWORD ErrorCode = Win32GetLastError();
-                if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
-                {
-                    Win32LogError_(String("InternetReadFile"), ErrorCode);
-                }
-                else
+                if (ErrorCode == ERROR_INSUFFICIENT_BUFFER)
                 {
                     LogError("InternetReadFile failed due to insufficent buffer size");
                 }

@@ -213,6 +213,10 @@ introspect(win32, Wininet) typedef BOOL delete_url_cache_entry_a(LPCSTR lpszUrlN
 
 introspect(win32, Wininet) typedef BOOL internet_read_file(HINTERNET hFile, LPVOID lpBuffer, DWORD dwNumberOfBytesToRead, LPDWORD lpdwNumberOfBytesRead);
 introspect(win32, Wininet) typedef HINTERNET internet_open_a(LPCSTR lpszAgent, DWORD dwAccessType, LPCSTR lpszProxy, LPCSTR lpszProxyBypass, DWORD dwFlags);
+introspect(win32, Wininet) typedef BOOL internet_set_option_a(HINTERNET hInternet,
+                                                              DWORD     dwOption,
+                                                              LPVOID    lpBuffer,
+                                                              DWORD     dwBufferLength);
 introspect(win32, Wininet) typedef HINTERNET internet_open_url_a(HINTERNET hInternet, LPCSTR lpszUrl, LPCSTR lpszHeaders, 
                                                                  DWORD dwHeadersLength, DWORD dwFlags, DWORD_PTR dwContext);
 introspect(win32, Wininet) typedef BOOL internet_close_handle(HINTERNET hInternet);
