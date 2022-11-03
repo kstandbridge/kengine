@@ -151,6 +151,9 @@ typedef struct string
     u8 *Data;
 } string;
 
+#define NullString() String_(0, 0)
+#define IsNullString(Text) ((Text.Data == 0) || (Text.Size == 0))
+
 typedef struct editable_string
 {
     umm Size;

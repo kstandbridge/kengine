@@ -528,7 +528,7 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("            Result = Result->Next;\n");
     Win32PrintOutput("        }\n");
     Win32PrintOutput("    }\n\n");
-    Win32PrintOutput("    return Result;");
+    Win32PrintOutput("    return Result;\n");
     Win32PrintOutput("}\n");
     
     Win32PrintOutput("\ninline %S *\n%SPush(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
@@ -536,7 +536,7 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
     Win32PrintOutput("    Result->Next = *HeadRef;\n");
     Win32PrintOutput("    *HeadRef = Result;\n\n");
-    Win32PrintOutput("    return Result;");
+    Win32PrintOutput("    return Result;\n");
     Win32PrintOutput("}\n");
     
     Win32PrintOutput("\ninline %S *\n%SPushBack(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
@@ -552,7 +552,7 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("        %S *Tail = Get%STail(*HeadRef);\n", Type, FunctionName);
     Win32PrintOutput("        Tail->Next = Result;\n");
     Win32PrintOutput("    }\n\n");
-    Win32PrintOutput("    return Result;");
+    Win32PrintOutput("    return Result;\n");
     Win32PrintOutput("}\n");
     
     Win32PrintOutput("\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);

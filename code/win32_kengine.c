@@ -521,10 +521,13 @@ Win32DeleteHttpCache(char *Format, ...)
 
 typedef struct win32_http_client
 {
+    HINTERNET Session;
     HINTERNET Handle;
     
     memory_arena Arena;
     DWORD Flags;
+    string Username;
+    string Password;
 } win32_http_client;
 
 internal void
@@ -534,6 +537,7 @@ Win32EndHttpClient(platform_http_client *PlatformClient)
     {
         win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
         Win32InternetCloseHandle(Win32Client->Handle);
+        Win32InternetCloseHandle(Win32Client->Session);
         ClearArena(&Win32Client->Arena);
     }
     else
@@ -543,33 +547,50 @@ Win32EndHttpClient(platform_http_client *PlatformClient)
 }
 
 internal platform_http_client
-Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPassword)
+Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string Password)
 {
     platform_http_client Result;
     ZeroStruct(Result);
     
+    char CUsername_[256];
+    char *CUsername = 0;
+    if(!IsNullString(Username))
+    {
+        StringToCString(Username, sizeof(CUsername_), CUsername_);
+        CUsername = CUsername_;
+    }
+    
+    char CPassword_[256];
+    char *CPassword = 0;
+    if(!IsNullString(Password))
+    {
+        StringToCString(Password, sizeof(CPassword_), CPassword_);
+        CPassword = CPassword_;
+    }
+    
     win32_http_client *Win32Client = BootstrapPushStruct(win32_http_client, Arena);
     Result.Handle = Win32Client;
+    Win32Client->Username = Username;
+    Win32Client->Password = Password;
+    Win32Client->Session = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
     
-    local_persist HINTERNET WebSession = 0;
-    if(WebSession == 0)
+#if 1 
+    // TODO(kstandbridge): Pass timeout?
+    DWORD Timeout = 30000;
+    if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_RECEIVE_TIMEOUT, &Timeout, sizeof(Timeout)))
     {
-        LogDebug("Opening internet session");
-        WebSession = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
-        DWORD Timeout = 3000;
-        if(!Win32InternetSetOptionA(WebSession, INTERNET_OPTION_RECEIVE_TIMEOUT, &Timeout, sizeof(Timeout)))
-        {
-            LogWarning("Failed to set internet option receive timeout");
-        }
-        if(!Win32InternetSetOptionA(WebSession, INTERNET_OPTION_SEND_TIMEOUT, &Timeout, sizeof(Timeout)))
-        {
-            LogWarning("Failed to set internet option send timeout");
-        }
-        if(!Win32InternetSetOptionA(WebSession, INTERNET_OPTION_CONNECT_TIMEOUT, &Timeout, sizeof(Timeout)))
-        {
-            LogWarning("Failed to set internet option connect timeout");
-        }
+        Win32LogError(String("InternetSetOptionA"));
     }
+    if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_SEND_TIMEOUT, &Timeout, sizeof(Timeout)))
+    {
+        Win32LogError(String("InternetSetOptionA"));
+    }
+    if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_CONNECT_TIMEOUT, &Timeout, sizeof(Timeout)))
+    {
+        Win32LogError(String("InternetSetOptionA"));
+    }
+#endif
+    
     
     char CHost_[2048];
     StringToCString(Hostname, sizeof(CHost_), CHost_);
@@ -600,7 +621,9 @@ Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPasswor
     Result.Hostname = PushString_(&Win32Client->Arena, GetNullTerminiatedStringLength(CHost), (u8 *)CHost);
     Result.Port = Port;
     LogDebug("Opening connection to %s:%u", CHost, Port);
-    Win32Client->Handle = Win32InternetConnectA(WebSession, CHost, Port, CUsername, CPassword,
+    // TODO(kstandbridge): Can I ditch CUsername and CPassword since they are specified as options above?
+    // Then we can pass a string instead as the option takes a length
+    Win32Client->Handle = Win32InternetConnectA(Win32Client->Session, CHost, Port, CUsername, CPassword,
                                                 INTERNET_SERVICE_HTTP, 0, 0);
     
     if(Win32Client->Handle)
@@ -616,32 +639,9 @@ Win32BeginHttpClient_(string Hostname, u32 Port, char *CUsername, char *CPasswor
 }
 
 internal platform_http_client
-Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string Password)
-{
-    char CUsername_[256];
-    char *CUsername = 0;
-    if(Username.Data && Username.Data[0] != '\0')
-    {
-        StringToCString(Username, sizeof(CUsername_), CUsername_);
-        CUsername = CUsername_;
-    }
-    
-    char CPassword_[256];
-    char *CPassword = 0;
-    if(Password.Data && Password.Data[0] != '\0')
-    {
-        StringToCString(Password, sizeof(CPassword_), CPassword_);
-        CPassword = CPassword_;
-    }
-    
-    platform_http_client Result = Win32BeginHttpClient_(Hostname, Port, CUsername, CPassword);
-    return Result;
-}
-
-internal platform_http_client
 Win32BeginHttpClient(string Hostname, u32 Port)
 {
-    platform_http_client Result = Win32BeginHttpClient_(Hostname, Port, 0, 0);
+    platform_http_client Result = Win32BeginHttpClientWithCreds(Hostname, Port, NullString(), NullString());
     return Result;
 }
 
@@ -710,6 +710,7 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
         if(Win32Request->Handle)
         {
             Result.NoErrors = true;
+            
         }
         else
         {
@@ -856,6 +857,32 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
     win32_http_client *Win32Client = Win32Request->Win32Client;
     memory_arena *Arena = &Win32Client->Arena;
     
+    if(!IsNullString(Win32Client->Username) &&
+       !IsNullString(Win32Client->Password))
+    {
+        u8 UserPassBuffer[MAX_URL];
+        string UserPass = FormatStringToBuffer(UserPassBuffer, sizeof(UserPassBuffer),
+                                               "%S:%S", Win32Client->Username, Win32Client->Password);
+        u8 AuthTokenBuffer[MAX_URL];
+        string AuthToken = String_(sizeof(AuthTokenBuffer), AuthTokenBuffer);
+        if(Win32CryptBinaryToStringA(UserPass.Data, UserPass.Size, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF,
+                                     (LPSTR)AuthToken.Data, (DWORD *)&AuthToken.Size))
+        {
+            u8 AuthHeaderBuffer[MAX_URL];
+            string AuthHeader = FormatStringToBuffer(AuthHeaderBuffer, sizeof(AuthHeaderBuffer),
+                                                     "Authorization: Basic %S\r\n", AuthToken);
+            if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, (LPCSTR)AuthHeader.Data, AuthHeader.Size, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE))
+            {
+                Win32LogError(String("HttpAddRequestHeadersA"));
+            }
+        }
+        else
+        {
+            Win32LogError(String("CryptBinaryToStringA"));
+        }
+    }
+    
+    
     if(Win32HttpSendRequestA(Win32Request->Handle, 0, 0, PlatformRequest->Payload.Data, PlatformRequest->Payload.Size))
     {
         DWORD StatusCode = 0;
@@ -912,7 +939,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
         u8 CFile[MAX_PATH];
         StringToCString(File, sizeof(CFile), (char *)CFile);
         HANDLE SaveHandle = Win32CreateFileA((char *)CFile, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
-        u8 SaveBuffer[4096];
+        u8 SaveBuffer[65535];
         
         LogDebug("Downloading http response to file %s", CFile);
         DWORD TotalBytesRead = 0;
@@ -979,7 +1006,11 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
     {
         if(ContentLength == 0)
         {
-            ContentLength = Kilobytes(64);
+            ContentLength = Arena->CurrentBlock->Size - Arena->CurrentBlock->Used;
+            if(ContentLength < Kilobytes(1536))
+            {
+                ContentLength = Kilobytes(1536);
+            }
             LogDebug("Content length not specified so setting to %u", ContentLength);
         }
         
@@ -1019,6 +1050,10 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
         }
         
         LogDebug("Finished downloading %u / %u bytes", TotalBytesRead, ContentLength);
+        if(TotalBytesRead > ContentLength)
+        {
+            LogError("Buffer overflow during download!");
+        }
         Result.Size = TotalBytesRead;
     }
     

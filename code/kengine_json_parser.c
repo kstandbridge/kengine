@@ -86,7 +86,17 @@ GetNextJsonToken(json_tokenizer *Tokenizer)
                 
             } break;
             
-            InvalidDefaultCase;
+            default:
+            {
+                Result.Type = JsonToken_String;
+                do
+                {
+                    At = Tokenizer->Json.Data + ++Tokenizer->Index;
+                    ++Result.Value.Size;
+                } while((Tokenizer->Index < Tokenizer->Json.Size) &&
+                        (At[0] != '\\') && !IsEndOfLine(At[0]));
+                --Result.Value.Size;
+            } break;
         }
     }
     
