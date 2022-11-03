@@ -574,7 +574,7 @@ Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string
     Win32Client->Password = Password;
     Win32Client->Session = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
     
-#if 1 
+#if 0
     // TODO(kstandbridge): Pass timeout?
     DWORD Timeout = 30000;
     if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_RECEIVE_TIMEOUT, &Timeout, sizeof(Timeout)))
