@@ -125,8 +125,6 @@ Win32AllocateMemory(umm Size, u64 Flags)
     Win32Block->Next->Prev = Win32Block;
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
     
-    LogDebug("Allocated %u bytes", Size);
-    
     platform_memory_block *Result = &Win32Block->PlatformBlock;
     return Result;
 }
@@ -140,8 +138,6 @@ Win32DeallocateMemory(platform_memory_block *Block)
     Win32Block->Prev->Next = Win32Block->Next;
     Win32Block->Next->Prev = Win32Block->Prev;
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
-    
-    LogDebug("Deallocated %u bytes", Block->Size);
     
     b32 IsFreed = Win32VirtualFree(Win32Block, 0, MEM_RELEASE);
     Assert(IsFreed);
@@ -205,6 +201,8 @@ internal b32
 Win32PermanentDeleteFile(string Path)
 {
     b32 Result;
+    
+    LogVerbose("Deleting %S", Path);
     
     char CPath[MAX_PATH];
     StringToCString(Path, MAX_PATH, CPath);
@@ -398,6 +396,8 @@ internal b32
 Win32CreateDirectory(string Path)
 {
     b32 Result = false;
+    
+    LogVerbose("Creating directory %S", Path);
     
     char CPath[MAX_PATH];
     StringToCString(Path, MAX_PATH, CPath);
@@ -1325,6 +1325,8 @@ Win32UnzipToDirectory(string SourceZip, string DestFolder)
         Win32CreateDirectory(DestFolder);
     }
     
+    LogVerbose("Unzipping %S to %S", SourceZip, DestFolder);
+    
     wchar_t CSourceZip[MAX_PATH];
     Win32MultiByteToWideChar(CP_UTF8, 0, (char *)SourceZip.Data, SourceZip.Size, CSourceZip, MAX_PATH);
     CSourceZip[SourceZip.Size + 0] = '\0';
@@ -1385,6 +1387,8 @@ Win32UnzipToDirectory(string SourceZip, string DestFolder)
 internal b32
 Win32WriteTextToFile(string Text, string FilePath)
 {
+    LogVerbose("Writing to %S", FilePath);
+    
     char CFilePath[MAX_PATH];
     StringToCString(FilePath, MAX_PATH, CFilePath);
     HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);

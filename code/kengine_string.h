@@ -355,17 +355,19 @@ StringComparison(string A, string B)
     u32 IndexB = 0;
     while(A.Data[IndexA] == B.Data[IndexB])
     {
-        if(IndexA == A.Size)
+        if((IndexA == A.Size - 1) ||
+           (IndexB == B.Size - 1))
         {
             break;
         }
-        IndexA++;
-        IndexB++;
+        ++IndexA;
+        ++IndexB;
     }
     
     s32 Result = A.Data[IndexA] - B.Data[IndexB];
     
     return Result;
+    
 }
 
 #define PushString(Arena, Str) PushString_(Arena, sizeof(Str) - 1, (u8 *)Str)

@@ -123,6 +123,7 @@ typedef struct platform_http_client
 typedef void platform_end_http_client(platform_http_client *PlatformClient);
 typedef platform_http_client platform_begin_http_client_with_creds(string Hostname, u32 Port, string Username, string Password);
 typedef platform_http_client platform_begin_http_client(string Hostname, u32 Port);
+typedef void platform_set_http_client_timeout(platform_http_client *PlatformClient, u32 TimeoutMs);
 
 typedef struct platform_http_request
 {
@@ -197,6 +198,7 @@ typedef struct platform_api
     platform_end_http_client *EndHttpClient;
     platform_begin_http_client_with_creds *BeginHttpClientWithCreds;
     platform_begin_http_client *BeginHttpClient;
+    platform_set_http_client_timeout *SetHttpClientTimeout;
     platform_end_http_request *EndHttpRequest;
     platform_begin_http_request *BeginHttpRequest;
     platform_set_http_request_headers *SetHttpRequestHeaders;

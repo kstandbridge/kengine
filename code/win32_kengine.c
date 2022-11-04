@@ -526,6 +526,7 @@ typedef struct win32_http_client
     
     memory_arena Arena;
     DWORD Flags;
+    string Hostname;
     string Username;
     string Password;
 } win32_http_client;
@@ -574,24 +575,6 @@ Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string
     Win32Client->Password = Password;
     Win32Client->Session = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
     
-#if 0
-    // TODO(kstandbridge): Pass timeout?
-    DWORD Timeout = 30000;
-    if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_RECEIVE_TIMEOUT, &Timeout, sizeof(Timeout)))
-    {
-        Win32LogError(String("InternetSetOptionA"));
-    }
-    if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_SEND_TIMEOUT, &Timeout, sizeof(Timeout)))
-    {
-        Win32LogError(String("InternetSetOptionA"));
-    }
-    if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_CONNECT_TIMEOUT, &Timeout, sizeof(Timeout)))
-    {
-        Win32LogError(String("InternetSetOptionA"));
-    }
-#endif
-    
-    
     char CHost_[2048];
     StringToCString(Hostname, sizeof(CHost_), CHost_);
     
@@ -599,6 +582,11 @@ Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string
     if(Port == 0)
     {
         InternetPort = INTERNET_DEFAULT_HTTP_PORT;
+        Win32Client->Hostname = FormatString(&Win32Client->Arena, "%S", Hostname);
+    }
+    else
+    {
+        Win32Client->Hostname = FormatString(&Win32Client->Arena, "%S:%u", Hostname, Port);
     }
     
     char *CHost = CHost_;
@@ -643,6 +631,34 @@ Win32BeginHttpClient(string Hostname, u32 Port)
 {
     platform_http_client Result = Win32BeginHttpClientWithCreds(Hostname, Port, NullString(), NullString());
     return Result;
+}
+
+internal void
+Win32SetHttpClientTimeout(platform_http_client *PlatformClient, u32 TimeoutMs)
+{
+    if(PlatformClient->Handle)
+    {
+        win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
+        if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_RECEIVE_TIMEOUT, &TimeoutMs, sizeof(TimeoutMs)))
+        {
+            Win32LogError(String("InternetSetOptionA"));
+            PlatformClient->NoErrors = false;
+        }
+        if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_SEND_TIMEOUT, &TimeoutMs, sizeof(TimeoutMs)))
+        {
+            Win32LogError(String("InternetSetOptionA"));
+            PlatformClient->NoErrors = false;
+        }
+        if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_CONNECT_TIMEOUT, &TimeoutMs, sizeof(TimeoutMs)))
+        {
+            Win32LogError(String("InternetSetOptionA"));
+            PlatformClient->NoErrors = false;
+        }
+    }
+    else
+    {
+        LogError("No http client handle to set timeout on");
+    }
 }
 
 typedef struct win32_http_request
@@ -705,7 +721,7 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
         char CEndpoint[MAX_URL];
         StringToCString(Result.Endpoint, sizeof(CEndpoint), CEndpoint);
         
-        LogDebug("Opening internet %s request to %s", CVerb, CEndpoint);
+        LogDebug("Opening %s request to %S%s", CVerb, Win32Client->Hostname, CEndpoint);
         Win32Request->Handle = Win32HttpOpenRequestA(Win32Client->Handle, CVerb, CEndpoint, 0, 0, 0, Win32Client->Flags, 0);
         if(Win32Request->Handle)
         {
@@ -735,7 +751,6 @@ Win32SetHttpRequestHeaders(platform_http_request *PlatformRequest, string Header
     char CHeaders[MAX_URL];
     StringToCString(Headers, sizeof(CHeaders), CHeaders);
     
-    LogDebug("Adding http request headers %s", CHeaders);
     if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, CHeaders, (DWORD) -1, HTTP_ADDREQ_FLAG_ADD))
     {
         PlatformRequest->NoErrors = false;
@@ -902,10 +917,8 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
         DWORD ErrorCode = Win32GetLastError();
         if(ErrorCode == ERROR_INTERNET_TIMEOUT)
         {
+            LogVerbose("Client timeout on http request");
             Result = 408; // TODO(kstandbridge): status code enum?
-        }
-        else
-        {
             PlatformRequest->NoErrors = false;
         }
     }
@@ -939,11 +952,13 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
         u8 CFile[MAX_PATH];
         StringToCString(File, sizeof(CFile), (char *)CFile);
         HANDLE SaveHandle = Win32CreateFileA((char *)CFile, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
-        u8 SaveBuffer[65535];
+        u8 SaveBuffer[4096];
         
-        LogDebug("Downloading http response to file %s", CFile);
+        LogVerbose("Downloading http response to file %s", CFile);
         DWORD TotalBytesRead = 0;
         DWORD CurrentBytesRead;
+        LARGE_INTEGER LastCounter = Win32GetWallClock();
+        f32 SecondsSinceLastReport = 0.0f;
         for(;;)
         {
             if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer, sizeof(SaveBuffer), &CurrentBytesRead))
@@ -963,17 +978,43 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
             DWORD BytesWritten;
             Win32WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
             
-            LogDebug("Downloaded %u / %u bytes", TotalBytesRead, ContentLength);
+            LARGE_INTEGER ThisCounter = Win32GetWallClock();
+            f32 SecondsElapsed = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
+            SecondsSinceLastReport += SecondsElapsed;
+            if(SecondsSinceLastReport > 2.0f)
+            {
+                if(ContentLength)
+                {
+                    LogVerbose("Downloaded (%.02f%%) %u / %u kilobytes", 
+                               ((f32)TotalBytesRead / (f32)ContentLength)*100.0f,
+                               TotalBytesRead / Kilobytes(1), ContentLength / Kilobytes(1));
+                }
+                else
+                {
+                    LogVerbose("Downloaded %u kilobytes", TotalBytesRead / Kilobytes(1));
+                }
+                SecondsSinceLastReport = 0.0f;
+            }
             if((TotalBytesRead == ContentLength) ||
                (CurrentBytesRead == 0))
             {
                 break;
             }
+            LastCounter = ThisCounter;
         }
         
         Win32CloseHandle(SaveHandle);
         
-        LogDebug("Finished downloading %u / %u bytes", TotalBytesRead, ContentLength);
+        if(ContentLength)
+        {
+            LogVerbose("Finished downloading %u / %u kilobytes", 
+                       TotalBytesRead / Kilobytes(1), ContentLength / Kilobytes(1));
+        }
+        else
+        {
+            LogVerbose("Finished downloading %u kilobytes", 
+                       TotalBytesRead / Kilobytes(1));
+        }
         Result = TotalBytesRead;
     }
     
@@ -1011,7 +1052,7 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
             {
                 ContentLength = Kilobytes(1536);
             }
-            LogDebug("Content length not specified so setting to %u", ContentLength);
+            LogVerbose("Content-Length not specified so setting to %u", ContentLength);
         }
         
         Result.Size = ContentLength;
@@ -1019,12 +1060,14 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
         
         u8 *SaveBuffer = Result.Data;
         
-        LogDebug("Downloading http response to buffer");
+        LogVerbose("Downloading http response to buffer");
         DWORD TotalBytesRead = 0;
         DWORD CurrentBytesRead;
+        LARGE_INTEGER LastCounter = Win32GetWallClock();
+        f32 SecondsSinceLastReport = 0.0f;
         for(;;)
         {
-            if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer + TotalBytesRead, ContentLength, &CurrentBytesRead))
+            if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer + TotalBytesRead, 4096, &CurrentBytesRead))
             {
                 if(CurrentBytesRead == 0)
                 {
@@ -1046,7 +1089,14 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
                 PlatformRequest->NoErrors = false;
                 break;
             }
-            LogDebug("Downloaded %u / %u bytes", TotalBytesRead, ContentLength);
+            LARGE_INTEGER ThisCounter = Win32GetWallClock();
+            f32 SecondsElapsed = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
+            SecondsSinceLastReport += SecondsElapsed;
+            if(SecondsSinceLastReport > 3.0f)
+            {
+                LogVerbose("Downloaded %u / %u bytes", TotalBytesRead, ContentLength);
+                SecondsSinceLastReport = 0.0f;
+            }
         }
         
         LogDebug("Finished downloading %u / %u bytes", TotalBytesRead, ContentLength);
@@ -1108,6 +1158,7 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.EndHttpClient = Win32EndHttpClient;
     GlobalAppMemory.PlatformAPI.BeginHttpClientWithCreds = Win32BeginHttpClientWithCreds;
     GlobalAppMemory.PlatformAPI.BeginHttpClient = Win32BeginHttpClient;
+    GlobalAppMemory.PlatformAPI.SetHttpClientTimeout = Win32SetHttpClientTimeout;
     GlobalAppMemory.PlatformAPI.EndHttpRequest = Win32EndHttpRequest;
     GlobalAppMemory.PlatformAPI.BeginHttpRequest = Win32BeginHttpRequest;
     GlobalAppMemory.PlatformAPI.SetHttpRequestHeaders = Win32SetHttpRequestHeaders;
