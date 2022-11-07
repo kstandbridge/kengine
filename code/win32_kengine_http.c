@@ -514,7 +514,7 @@ Win32InitializeHttpServer(win32_http_state *HttpState)
             if(Result == NO_ERROR)
             {
                 LogVerbose("Adding url to url group");
-                Result = Win32HttpAddUrlToUrlGroup(HttpState->UrlGroupId, L"http://localhost:8090/", 0, 0);
+                Result = Win32HttpAddUrlToUrlGroup(HttpState->UrlGroupId, L"http://*:9050/", 0, 0);
                 if(Result != NO_ERROR)
                 {
                     LogError("HttpAddUrlToUrlGroup failed with error code %u", Result);
