@@ -96,7 +96,6 @@ PostTelemetryThread(void *Data)
                     Host;
                     Host = Host->Next)
                 {
-                    
                     platform_http_client Client = Platform.BeginHttpClient(Host->Hostname, 0);
                     Platform.SetHttpClientTimeout(&Client, 3000);
                     
@@ -127,63 +126,59 @@ PostTelemetryThread(void *Data)
                                                                                   DateTime.Year, DateTime.Month, DateTime.Day,
                                                                                   DateTime.Hour, DateTime.Minute, DateTime.Second,
                                                                                   DateTime.Milliseconds);
+                        Platform.SetHttpRequestHeaders(&Request, String("Content-Type: application/json;\r\n"));
                         if(PlatformNoErrors(Request))
-                        {
-                            Platform.SetHttpRequestHeaders(&Request, String("Content-Type: application/json;\r\n"));
-                            if(PlatformNoErrors(Request))
-                                
-                            {                                
-                                u8 CPayload[4096];
-                                format_string_state StringState = BeginFormatString();
-                                
-                                AppendFormatString(&StringState, "{\n    \"@timestamp\": \"%d-%02d-%02dT%02d:%02d:%02d.%03dZ\"",
-                                                   DateTime.Year, DateTime.Month, DateTime.Day,
-                                                   DateTime.Hour, DateTime.Minute, DateTime.Second,
-                                                   DateTime.Milliseconds);
-                                
-                                for(telemetry_field *Field = Message->Fields;
-                                    Field;
-                                    Field = Field->Next)
+                        {                                
+                            u8 CPayload[4096];
+                            format_string_state StringState = BeginFormatString();
+                            
+                            AppendFormatString(&StringState, "{\n    \"@timestamp\": \"%d-%02d-%02dT%02d:%02d:%02d.%03dZ\"",
+                                               DateTime.Year, DateTime.Month, DateTime.Day,
+                                               DateTime.Hour, DateTime.Minute, DateTime.Second,
+                                               DateTime.Milliseconds);
+                            
+                            for(telemetry_field *Field = Message->Fields;
+                                Field;
+                                Field = Field->Next)
+                            {
+                                if((Field->Key.Data) && 
+                                   (Field->Key.Data != '\0'))
                                 {
-                                    if((Field->Key.Data) && 
-                                       (Field->Key.Data != '\0'))
+                                    if(Field->Type == TelemetryField_Number)
                                     {
-                                        if(Field->Type == TelemetryField_Number)
-                                        {
-                                            AppendFormatString(&StringState, ",\n    \"%S\": %.03f", Field->Key, Field->NumberValue);
-                                        }
-                                        else
-                                        {
-                                            Assert(Field->Type == TelemetryField_String);
-                                            AppendFormatString(&StringState, ",\n    \"%S\": \"%S\"", Field->Key, Field->StringValue);
-                                        }
+                                        AppendFormatString(&StringState, ",\n    \"%S\": %.03f", Field->Key, Field->NumberValue);
                                     }
                                     else
                                     {
-                                        Assert(!"Blank key");
+                                        Assert(Field->Type == TelemetryField_String);
+                                        AppendFormatString(&StringState, ",\n    \"%S\": \"%S\"", Field->Key, Field->StringValue);
                                     }
                                 }
-                                
-                                AppendFormatString(&StringState, ",\n    \"product_name\": \"%S\"", GlobalTelemetryState_.ProductName);
-                                AppendFormatString(&StringState, ",\n    \"machine_name\": \"%S\"", GlobalTelemetryState_.MachineName);
-                                AppendFormatString(&StringState, ",\n    \"user_name\": \"%S\"", GlobalTelemetryState_.Username);
-                                AppendFormatString(&StringState, ",\n    \"pid\": %.03f", GlobalTelemetryState_.ProcessId);
-                                
-                                AppendFormatString(&StringState, "\n}");
-                                
-                                Request.Payload = EndFormatStringToBuffer(&StringState, CPayload, sizeof(CPayload));
-                                
-                                u32 StatusCode = Platform.SendHttpRequest(&Request);
-                                if(StatusCode == 0)
+                                else
                                 {
-                                    // NOTE(kstandbridge): Likely offline host so skip rest of messages
-                                    break;
+                                    Assert(!"Blank key");
                                 }
-#if KENGINE_INTERNAL
-                                string Response = Platform.GetHttpResponse(&Request);
-                                b32 BreakHere = true;
-#endif
                             }
+                            
+                            AppendFormatString(&StringState, ",\n    \"product_name\": \"%S\"", GlobalTelemetryState_.ProductName);
+                            AppendFormatString(&StringState, ",\n    \"machine_name\": \"%S\"", GlobalTelemetryState_.MachineName);
+                            AppendFormatString(&StringState, ",\n    \"user_name\": \"%S\"", GlobalTelemetryState_.Username);
+                            AppendFormatString(&StringState, ",\n    \"pid\": %.03f", GlobalTelemetryState_.ProcessId);
+                            
+                            AppendFormatString(&StringState, "\n}");
+                            
+                            Request.Payload = EndFormatStringToBuffer(&StringState, CPayload, sizeof(CPayload));
+                            
+                            u32 StatusCode = Platform.SendHttpRequest(&Request);
+                            if(StatusCode != 201)
+                            {
+                                // NOTE(kstandbridge): Any problems with the host we skip.
+                                break;
+                            }
+#if KENGINE_INTERNAL
+                            string Response = Platform.GetHttpResponse(&Request);
+                            b32 BreakHere = true;
+#endif
                         }
                         Platform.EndHttpRequest(&Request);
                     }
