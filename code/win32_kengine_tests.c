@@ -51,6 +51,15 @@ Win32ConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%u'\n\t\t\tAct
 __FILE__, __LINE__, Expected, Actual);        \
 }
 
+#define AssertEqualU64(Expected, Actual) \
+++TotalTests; \
+if(Expected != Actual) \
+{ \
+++FailedTests; \
+Win32ConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%lu'\n\t\t\tActual:      '%lu'\n", \
+__FILE__, __LINE__, Expected, Actual);        \
+}
+
 inline void
 RunStringsAreEqualTests(memory_arena *Arena)
 {
@@ -432,6 +441,13 @@ RunParseFromStringTests(memory_arena *Arena)
         AssertEqualU32(24, Second);
     }
     {
+        u64 First = 0;
+        s32 Second = 0;
+        ParseFromString(String("8527741705-24"), "%ld-%d", &First, &Second);
+        AssertEqualU64(8527741705, First);
+        AssertEqualU32(24, Second);
+    }
+    {
         string Input = String("27-Nov-2020 17:52  2.13 MB");
         char *Format = "%d-%S-%d %d:%d";
         s32 Day = 0;
@@ -443,7 +459,7 @@ RunParseFromStringTests(memory_arena *Arena)
         s32 Minute = 0;
         ParseFromString(Input, Format,
                         &Day, &Month, &Year, &Hour, &Minute);
-        ASSERT(Day == 27);
+        AssertEqualU32(27, Day);
         AssertEqualString(String("Nov"), Month);
         AssertEqualU32(2020, Year);
         AssertEqualU32(17, Hour);

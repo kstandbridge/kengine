@@ -83,6 +83,36 @@ U32FromString(string *Text)
     return Result;
 }
 
+internal u64
+U64FromString_(string *Text)
+{
+    u64 Result = 0;
+    
+    while((Text->Size > 0) &&
+          (Text->Data[0] >= '0') &&
+          (Text->Data[0] <= '9'))
+    {
+        Result *= 10;
+        Result += (Text->Data[0] - '0');
+        ++Text->Data;
+        --Text->Size;
+    }
+    
+    return Result;
+}
+
+inline u64
+U64FromString(string *Text)
+{
+    string Ignored;
+    Ignored.Size = Text->Size;
+    Ignored.Data = Text->Data;
+    
+    u64 Result = U64FromString_(&Ignored);
+    
+    return Result;
+}
+
 inline b32
 IsEndOfLine(char C)
 {
@@ -883,6 +913,7 @@ ParseFromString_(string Text, char *Format, va_list ArgList)
     
     char *At = Format;
     u32 Index = 0;
+    b32 LongSpecified = false;
     while(At[0] && Source.Size)
     {
         if(*At == '%')
@@ -890,15 +921,33 @@ ParseFromString_(string Text, char *Format, va_list ArgList)
             ++At;
             switch(*At)
             {
+                case 'l':
+                {
+                    LongSpecified = true;
+                    ++At;
+                } // NOTE(kstandbridge): Intentionall fall through
                 case 'u':
                 case 'd':
                 {
-                    s32 *Value = va_arg(ArgList, s32 *);
-                    u8 *PosBefore = Source.Data;
-                    *Value = U32FromString_(&Source);
-                    u8 *PosAfter = Source.Data;
-                    Index+= PosAfter - PosBefore;
+                    if(LongSpecified)
+                    {
+                        u64 *Value = va_arg(ArgList, u64 *);
+                        u8 *PosBefore = Source.Data;
+                        *Value = U64FromString_(&Source);
+                        u8 *PosAfter = Source.Data;
+                        Index += PosAfter - PosBefore;
+                    }
+                    else
+                    {
+                        u32 *Value = va_arg(ArgList, u32 *);
+                        u8 *PosBefore = Source.Data;
+                        *Value = U32FromString_(&Source);
+                        u8 *PosAfter = Source.Data;
+                        Index += PosAfter - PosBefore;
+                    }
                     
+                    
+                    LongSpecified = false;
                 } break;
                 
                 case 'S':

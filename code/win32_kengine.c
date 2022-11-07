@@ -935,16 +935,24 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
     win32_http_client *Win32Client = Win32Request->Win32Client;
     memory_arena *Arena = &Win32Client->Arena;
     
-    DWORD ContentLength = 0;
-    DWORD ContentLengthSize = sizeof(ContentLengthSize);
+    u64 ContentLength = 0;
+    u8 ContentLengthBuffer[MAX_URL];
+    DWORD ContentLengthSize = sizeof(ContentLengthBuffer);
+    char *Query = "Content-Length";
+    Copy(GetNullTerminiatedStringLength(Query) + 1, Query, ContentLengthBuffer);
     
-    if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
+    if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CUSTOM, (LPVOID)&ContentLengthBuffer, (LPDWORD)&ContentLengthSize, 0))
     {
         DWORD ErrorCode = Win32GetLastError();
         if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
             PlatformRequest->NoErrors = false;
         }
+    }
+    else
+    {
+        string ContentLengthText = String_(ContentLengthSize, ContentLengthBuffer);
+        ParseFromString(ContentLengthText, "%lu", &ContentLength);
     }
     
     if(PlatformRequest->NoErrors)
@@ -954,7 +962,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
         HANDLE SaveHandle = Win32CreateFileA((char *)CFile, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
         u8 SaveBuffer[4096];
         
-        LogVerbose("Downloading http response to file %s", CFile);
+        LogVerbose("Downloading to file %s", CFile);
         DWORD TotalBytesRead = 0;
         DWORD CurrentBytesRead;
         LARGE_INTEGER LastCounter = Win32GetWallClock();
@@ -981,7 +989,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
             LARGE_INTEGER ThisCounter = Win32GetWallClock();
             f32 SecondsElapsed = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
             SecondsSinceLastReport += SecondsElapsed;
-            if(SecondsSinceLastReport > 2.0f)
+            if(SecondsSinceLastReport > 3.0f)
             {
                 if(ContentLength)
                 {
@@ -1052,7 +1060,7 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
             {
                 ContentLength = Kilobytes(1536);
             }
-            LogVerbose("Content-Length not specified so setting to %u", ContentLength);
+            LogDebug("Content-Length not specified so setting to %u", ContentLength);
         }
         
         Result.Size = ContentLength;
@@ -1060,7 +1068,6 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
         
         u8 *SaveBuffer = Result.Data;
         
-        LogVerbose("Downloading http response to buffer");
         DWORD TotalBytesRead = 0;
         DWORD CurrentBytesRead;
         LARGE_INTEGER LastCounter = Win32GetWallClock();
@@ -1097,6 +1104,7 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
                 LogVerbose("Downloaded %u / %u bytes", TotalBytesRead, ContentLength);
                 SecondsSinceLastReport = 0.0f;
             }
+            LastCounter = ThisCounter;
         }
         
         LogDebug("Finished downloading %u / %u bytes", TotalBytesRead, ContentLength);
