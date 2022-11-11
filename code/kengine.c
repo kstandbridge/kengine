@@ -178,10 +178,10 @@ AppTick_(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32
     
     temporary_memory TempMem = BeginTemporaryMemory(&UIState->TranArena);
     
-    rectangle2 Bounds = Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height));
 #if KENGINE_INTERNAL
     DEBUG_IF(ShowDebugTab)
     {
+        rectangle2 Bounds = Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height));
         DrawDebugGrid(DebugState, UIState, RenderGroup, &AppState->Arena, TempMem.Arena, Input, Bounds);
     }
     else

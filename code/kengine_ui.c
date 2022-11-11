@@ -769,7 +769,8 @@ BeginClipRect(render_group *RenderGroup, rectangle2 BoundsInit)
 {
     Assert(RenderGroup->OldClipRectIndex == 0);
     RenderGroup->OldClipRectIndex = RenderGroup->CurrentClipRectIndex;
-    rectangle2i Bounds = Rectangle2i(BoundsInit.Min.X, BoundsInit.Max.X, BoundsInit.Min.Y, BoundsInit.Max.Y);
+    rectangle2i Bounds = Rectangle2i((s32)BoundsInit.Min.X, (s32)BoundsInit.Max.X, 
+                                     (s32)BoundsInit.Min.Y, (s32)BoundsInit.Max.Y);
     RenderGroup->CurrentClipRectIndex = PushRenderCommandClipRectangle(RenderGroup, Bounds);
 }
 
@@ -817,7 +818,6 @@ Textbox(ui_grid *Grid, render_group *RenderGroup, app_input *Input, u16 ColumnIn
     BEGIN_BLOCK("Textbox");
     
     ui_state *UIState = Grid->UIState;
-    memory_arena *Arena = &UIState->TranArena;
     colors *Colors = RenderGroup->Colors;
     
     rectangle2 CellBounds = GetCellBounds(Grid, ColumnIndex, RowIndex);
@@ -1086,10 +1086,8 @@ Checkbox(ui_grid *Grid, render_group *RenderGroup, u16 ColumnIndex, u16 RowIndex
     
     rectangle2 CheckBounds = Rectangle2(RemainingBounds.Min, V2(RemainingBounds.Min.X + UIState->LineAdvance, RemainingBounds.Max.Y));
     string CheckText = String("\\2713");
-    rectangle2 CheckTextBounds = GetTextSize(RenderGroup, Grid->Scale, CheckText);
     v2 CheckOffset = GetTextOffset(RenderGroup, CheckBounds, Grid->Scale, UIState->LineAdvance, CheckText, TextPosition_MiddleMiddle);
-    rectangle2 CheckBorder = Rectangle2(V2Subtract(CheckOffset, V2Set1(2.5f)), 
-                                        V2Add(CheckOffset, V2Set1(15.0f)));
+    
     v4 CheckColor = RGBColor(0, 0, 0, 255);
     v4 CheckBorderColor = RGBColor(51, 51, 51, 255);
     if(InteractionIsHot(UIState, Interaction))

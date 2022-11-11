@@ -230,7 +230,7 @@ StringDeleteCharactersAt(string *Text, umm At, umm Count)
         Current < Count;
         ++Current)
     {
-        for(u32 Index = At;
+        for(umm Index = At;
             Index < Text->Size;
             ++Index)
         {
@@ -556,8 +556,7 @@ FormatStringParseU64(format_string_state *State, u64 Value, u32 Width, b32 PadWi
     
     u32 Base = 10;
     
-    u32 PowersOfBase = 0;
-    u32 ValueLeft = Value;
+    u64 ValueLeft = Value;
     while((ValueLeft > 0) && 
           (Width > 0))
     {
@@ -668,7 +667,6 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                     u32 IntegerLength = 4;
                     u32 FloatLength = 8;
                     s32 Precision = 6;
-                    b32 WidthSpecified = false;
                     b32 PadWithZeros = false;
                     s32 Width = 0;
                     b32 PrecisionSpecified = false;
@@ -912,7 +910,7 @@ ParseFromString_(string Text, char *Format, va_list ArgList)
     Source.Data = Text.Data;
     
     char *At = Format;
-    u32 Index = 0;
+    umm Index = 0;
     b32 LongSpecified = false;
     while(At[0] && Source.Size)
     {

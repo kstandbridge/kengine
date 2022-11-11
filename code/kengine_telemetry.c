@@ -175,8 +175,9 @@ PostTelemetryThread(void *Data)
                                 // NOTE(kstandbridge): Any problems with the host we skip.
                                 break;
                             }
-#if KENGINE_INTERNAL
+#if 1
                             string Response = Platform.GetHttpResponse(&Request);
+                            Response;
                             b32 BreakHere = true;
 #endif
                         }

@@ -225,7 +225,7 @@ Win32ConsoleOut(char *Format, ...)
     va_end(ArgList);
     
     string Text = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
-    
+    Text;
 #if KENGINE_CONSOLE
     HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);
     Assert(OutputHandle != INVALID_HANDLE_VALUE);

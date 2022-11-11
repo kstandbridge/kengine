@@ -313,8 +313,6 @@ DrawDebugGrid(debug_state *DebugState, ui_state *UIState, render_group *RenderGr
 {
     if(DebugState)
     {
-        v2 MouseP = V2(Input->MouseX, Input->MouseY);
-        
         string DebugViewTexts[DebugView_Count];
         DebugViewTexts[DebugView_Console] = String("Console");
         DebugViewTexts[DebugView_Settings] = String("Settings");
