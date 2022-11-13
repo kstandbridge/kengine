@@ -300,248 +300,267 @@ WinMainCRTStartup()
                         Win32LogError_(HResult, "Failed to create D3D11 swap chain for window handle");
                     }
                 }
+                IDXGIFactory2_Release(DXGIFactory);
             }
             
-            if(D3D11SwapChain)
+            
+            LogDebug("Creating D3D11 framebuffer render target");
+            ID3D11RenderTargetView *D3D11RenderTargetView = 0;
             {
-                LogDebug("Creating D3D11 framebuffer rendet target");
-                ID3D11RenderTargetView *D3D11RenderTargetView = 0;
+                ID3D11Texture2D *D3D11FrameBuffer;
+                if(SUCCEEDED(HResult = IDXGISwapChain1_GetBuffer(D3D11SwapChain, 0, &IID_ID3D11Texture2D, &D3D11FrameBuffer)))
                 {
-                    ID3D11Texture2D *D3D11FrameBuffer;
-                    if(SUCCEEDED(HResult = IDXGISwapChain1_GetBuffer(D3D11SwapChain, 0, &IID_ID3D11Texture2D, &D3D11FrameBuffer)))
+                    if(FAILED(HResult = ID3D11Device1_CreateRenderTargetView(D3D11Device, (ID3D11Resource *)D3D11FrameBuffer, 0, &D3D11RenderTargetView)))
                     {
-                        if(FAILED(HResult = ID3D11Device1_CreateRenderTargetView(D3D11Device, (ID3D11Resource *)D3D11FrameBuffer, 0, &D3D11RenderTargetView)))
+                        Win32LogError_(HResult, "Failed to create D3D11 render target view");
+                    }
+                }
+                else
+                {
+                    Win32LogError_(HResult, "Failed to get D3D11 framebuffer");
+                }
+                ID3D11Texture2D_Release(D3D11FrameBuffer);
+            }
+            
+            ID3D11VertexShader *D3D11VertexShader = 0;
+            ID3D11InputLayout *D3D11InputLayout = 0;
+            LogDebug("Creating D3D11 vertex shader");
+            {
+                ID3DBlob *VertexShaderBlob;
+                ID3DBlob *ShaderCompileErrorsBlob;
+                if(SUCCEEDED(HResult = Win32D3DCompileFromFile(L"..\\lib\\kengine\\code\\shaders.hlsl", 0, 0, "vs_main", "vs_5_0", 0, 0, 
+                                                               &VertexShaderBlob, &ShaderCompileErrorsBlob)))
+                {
+                    if(SUCCEEDED(HResult = ID3D11Device1_CreateVertexShader(D3D11Device,
+                                                                            ID3D10Blob_GetBufferPointer(VertexShaderBlob),
+                                                                            ID3D10Blob_GetBufferSize(VertexShaderBlob),
+                                                                            0, &D3D11VertexShader)))
+                    {
+                        LogDebug("Creating D3D11 input layout");
+                        
+                        D3D11_INPUT_ELEMENT_DESC InputElementDesc[1];
+                        
+                        InputElementDesc[0].SemanticName = "POS";
+                        InputElementDesc[0].SemanticIndex = 0;
+                        InputElementDesc[0].Format = DXGI_FORMAT_R32G32_FLOAT;
+                        InputElementDesc[0].InputSlot = 0;
+                        InputElementDesc[0].AlignedByteOffset = 0;
+                        InputElementDesc[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+                        InputElementDesc[0].InstanceDataStepRate = 0;
+                        
+                        if(FAILED(HResult = ID3D11Device1_CreateInputLayout(D3D11Device, InputElementDesc, ArrayCount(InputElementDesc),
+                                                                            ID3D10Blob_GetBufferPointer(VertexShaderBlob),
+                                                                            ID3D10Blob_GetBufferSize(VertexShaderBlob),
+                                                                            &D3D11InputLayout)))
                         {
-                            Win32LogError_(HResult, "Failed to create D3D11 render target view");
+                            Win32LogError_(HResult, "Failed to create D3D11 input layout");
                         }
                     }
                     else
                     {
-                        Win32LogError_(HResult, "Failed to get D3D11 framebuffer");
+                        Win32LogError_(HResult, "Failed to create D3D11 vertex shader");
                     }
-                    ID3D11Texture2D_Release(D3D11FrameBuffer);
+                }
+                else
+                {
+                    if(HResult == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
+                    {
+                        LogError("Failed to compile D3D11 vertex shader, file not found");
+                    }
+                    else
+                    {
+                        string ErrorMessage = String_(ID3D10Blob_GetBufferSize(ShaderCompileErrorsBlob), 
+                                                      ID3D10Blob_GetBufferPointer(ShaderCompileErrorsBlob));
+                        LogError("Failed to compile D3D11 vertex shader, %S", ErrorMessage);
+                        ID3D10Blob_Release(ShaderCompileErrorsBlob);
+                    }
+                }
+                ID3D10Blob_Release(VertexShaderBlob);
+            }
+            
+            ID3D11PixelShader *D3D11PixelShader = 0;
+            LogDebug("Creating D3D11 pixel shader");
+            {
+                ID3DBlob *PixelShaderBlob;
+                ID3DBlob *ShaderCompileErrorsBlob;
+                if(SUCCEEDED(HResult = Win32D3DCompileFromFile(L"..\\lib\\kengine\\code\\shaders.hlsl", 0, 0, "ps_main", "ps_5_0", 0, 0, 
+                                                               &PixelShaderBlob, &ShaderCompileErrorsBlob)))
+                {
+                    if(FAILED(HResult = ID3D11Device1_CreatePixelShader(D3D11Device,
+                                                                        ID3D10Blob_GetBufferPointer(PixelShaderBlob),
+                                                                        ID3D10Blob_GetBufferSize(PixelShaderBlob),
+                                                                        0, &D3D11PixelShader)))
+                    {
+                        Win32LogError_(HResult, "Failed to create D3D11 pixel shader");
+                    }
+                    ID3D10Blob_Release(PixelShaderBlob);
+                }
+                else
+                {
+                    if(HResult == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
+                    {
+                        LogError("Failed to compile D3D11 pixel shader, file not found");
+                    }
+                    else
+                    {
+                        string ErrorMessage = String_(ID3D10Blob_GetBufferSize(ShaderCompileErrorsBlob), 
+                                                      ID3D10Blob_GetBufferPointer(ShaderCompileErrorsBlob));
+                        LogError("Failed to compile D3D11 pixel shader, %S", ErrorMessage);
+                        ID3D10Blob_Release(ShaderCompileErrorsBlob);
+                    }
+                }
+            }
+            
+            LogDebug("Creating D3D11 vertex buffer");
+            ID3D11Buffer *VertexBuffer;
+            u32 VertexCount = 0;
+            u32 Stride;
+            u32 Offset;
+            // NOTE(kstandbridge): x, y
+            f32 VertexData[] = 
+            {
+                -0.5f,  0.5f,
+                0.5f, -0.5f, 
+                -0.5f, -0.5f,
+                -0.5f,  0.5f,
+                0.5f,  0.5f, 
+                0.5f, -0.5f
+            };
+            Stride = 2 * sizeof(f32);
+            VertexCount = sizeof(VertexData) / Stride;
+            Offset = 0;
+            
+            D3D11_BUFFER_DESC VertexBufferDesc;
+            ZeroStruct(VertexBufferDesc);
+            VertexBufferDesc.ByteWidth = sizeof(VertexData);
+            VertexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+            VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+            
+            D3D11_SUBRESOURCE_DATA VertexSubresourceData;
+            ZeroStruct(VertexSubresourceData);
+            VertexSubresourceData.pSysMem = VertexData;
+            
+            if(FAILED(HResult = ID3D11Device1_CreateBuffer(D3D11Device, &VertexBufferDesc, &VertexSubresourceData, &VertexBuffer)))
+            {
+                Win32LogError_(HResult, "Failed to create D3D11 buffer");
+            }
+            else
+            {
+                
+                typedef struct constants
+                {
+                    v2 Position;
+                    v2 Padding; // NOTE(kstandbridge): Needs to align to 16-byte
+                    v4 Color;
+                } constants;
+                
+                ID3D11Buffer *D3D11ConstantBuffer;
+                LogDebug("Creating D3D11 constant buffer");
+                {
+                    D3D11_BUFFER_DESC ConstantBufferDesc;
+                    ZeroStruct(ConstantBufferDesc);
+                    // NOTE(kstandbridge): Must be 16 byte aligned
+                    ConstantBufferDesc.ByteWidth = sizeof(constants) + 0xf & 0xfffffff0;
+                    ConstantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+                    ConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+                    ConstantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+                    
+                    if(FAILED(HResult = ID3D11Device1_CreateBuffer(D3D11Device, &ConstantBufferDesc, 0, &D3D11ConstantBuffer)))
+                    {
+                        Win32LogError_(HResult, "Failed to create D3D11 constant buffer");
+                    }
                 }
                 
-                ID3D11VertexShader *D3D11VertexShader = 0;
-                ID3D11InputLayout *D3D11InputLayout = 0;
-                LogDebug("Creating D3D11 vertex shader");
+                b32 IsRunning = true;
+                while(IsRunning)
                 {
-                    ID3DBlob *VertexShaderBlob;
-                    ID3DBlob *ShaderCompileErrorsBlob;
-                    if(SUCCEEDED(HResult = Win32D3DCompileFromFile(L"..\\lib\\kengine\\code\\shaders.hlsl", 0, 0, "vs_main", "vs_5_0", 0, 0, 
-                                                                   &VertexShaderBlob, &ShaderCompileErrorsBlob)))
+                    MSG Message;
+                    ZeroStruct(Message);
+                    while(Win32PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
                     {
-                        if(SUCCEEDED(HResult = ID3D11Device1_CreateVertexShader(D3D11Device,
-                                                                                ID3D10Blob_GetBufferPointer(VertexShaderBlob),
-                                                                                ID3D10Blob_GetBufferSize(VertexShaderBlob),
-                                                                                0, &D3D11VertexShader)))
+                        if(Message.message == WM_QUIT)
                         {
-                            LogDebug("Creating D3D11 input layout");
-                            
-                            D3D11_INPUT_ELEMENT_DESC InputElementDesc[2];
-                            
-                            InputElementDesc[0].SemanticName = "POS";
-                            InputElementDesc[0].SemanticIndex = 0;
-                            InputElementDesc[0].Format = DXGI_FORMAT_R32G32_FLOAT;
-                            InputElementDesc[0].InputSlot = 0;
-                            InputElementDesc[0].AlignedByteOffset = 0;
-                            InputElementDesc[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-                            InputElementDesc[0].InstanceDataStepRate = 0;
-                            
-                            InputElementDesc[1].SemanticName = "COL";
-                            InputElementDesc[1].SemanticIndex = 0;
-                            InputElementDesc[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-                            InputElementDesc[1].InputSlot = 0;
-                            InputElementDesc[1].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
-                            InputElementDesc[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-                            InputElementDesc[1].InstanceDataStepRate = 0;
-                            
-                            if(FAILED(HResult = ID3D11Device1_CreateInputLayout(D3D11Device, InputElementDesc, ArrayCount(InputElementDesc),
-                                                                                ID3D10Blob_GetBufferPointer(VertexShaderBlob),
-                                                                                ID3D10Blob_GetBufferSize(VertexShaderBlob),
-                                                                                &D3D11InputLayout)))
+                            IsRunning = false;
+                        }
+                        
+                        Win32TranslateMessage(&Message);
+                        Win32DispatchMessageA(&Message);
+                    }
+                    
+                    if(GlobalWindowResize)
+                    {
+                        ID3D11DeviceContext1_OMSetRenderTargets(D3D11DeviceContext, 0, 0, 0);
+                        
+                        ID3D11RenderTargetView_Release(D3D11RenderTargetView);
+                        
+                        if(SUCCEEDED(HResult = IDXGISwapChain1_ResizeBuffers(D3D11SwapChain, 0, 0, 0, DXGI_FORMAT_UNKNOWN, 0)))
+                        {
+                            ID3D11Texture2D *D3D11FrameBuffer;
+                            if(SUCCEEDED(HResult = IDXGISwapChain1_GetBuffer(D3D11SwapChain, 0, &IID_ID3D11Texture2D, &D3D11FrameBuffer)))
                             {
-                                Win32LogError_(HResult, "Failed to create D3D11 input layout");
+                                if(FAILED(HResult = ID3D11Device1_CreateRenderTargetView(D3D11Device, (ID3D11Resource *)D3D11FrameBuffer, 
+                                                                                         0, &D3D11RenderTargetView)))
+                                {
+                                    Win32LogError_(HResult, "Failed to create D3D11 render target view");
+                                    IsRunning = false;
+                                }
                             }
-                        }
-                        else
-                        {
-                            Win32LogError_(HResult, "Failed to create D3D11 vertex shader");
-                        }
-                    }
-                    else
-                    {
-                        if(HResult == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
-                        {
-                            LogError("Failed to compile D3D11 vertex shader, file not found");
-                        }
-                        else
-                        {
-                            string ErrorMessage = String_(ID3D10Blob_GetBufferSize(ShaderCompileErrorsBlob), 
-                                                          ID3D10Blob_GetBufferPointer(ShaderCompileErrorsBlob));
-                            LogError("Failed to compile D3D11 vertex shader, %S", ErrorMessage);
-                            ID3D10Blob_Release(ShaderCompileErrorsBlob);
-                        }
-                    }
-                    ID3D10Blob_Release(VertexShaderBlob);
-                }
-                
-                ID3D11PixelShader *D3D11PixelShader = 0;
-                LogDebug("Creating D3D11 pixel shader");
-                {
-                    ID3DBlob *PixelShaderBlob;
-                    ID3DBlob *ShaderCompileErrorsBlob;
-                    if(SUCCEEDED(HResult = Win32D3DCompileFromFile(L"..\\lib\\kengine\\code\\shaders.hlsl", 0, 0, "ps_main", "ps_5_0", 0, 0, 
-                                                                   &PixelShaderBlob, &ShaderCompileErrorsBlob)))
-                    {
-                        if(FAILED(HResult = ID3D11Device1_CreatePixelShader(D3D11Device,
-                                                                            ID3D10Blob_GetBufferPointer(PixelShaderBlob),
-                                                                            ID3D10Blob_GetBufferSize(PixelShaderBlob),
-                                                                            0, &D3D11PixelShader)))
-                        {
-                            Win32LogError_(HResult, "Failed to create D3D11 pixel shader");
-                        }
-                        ID3D10Blob_Release(PixelShaderBlob);
-                    }
-                    else
-                    {
-                        if(HResult == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
-                        {
-                            LogError("Failed to compile D3D11 pixel shader, file not found");
-                        }
-                        else
-                        {
-                            string ErrorMessage = String_(ID3D10Blob_GetBufferSize(ShaderCompileErrorsBlob), 
-                                                          ID3D10Blob_GetBufferPointer(ShaderCompileErrorsBlob));
-                            LogError("Failed to compile D3D11 pixel shader, %S", ErrorMessage);
-                            ID3D10Blob_Release(ShaderCompileErrorsBlob);
-                        }
-                    }
-                }
-                
-                if(D3D11VertexShader &&
-                   D3D11InputLayout &&
-                   D3D11PixelShader)
-                {
-                    
-                    ID3D11Buffer *VertexBuffer;
-                    u32 VertexCount = 0;
-                    u32 Stride;
-                    u32 Offset;
-                    {
-                        // NOTE(kstandbridge): x, y, r, g, b, a
-                        f32 VertexData[] = 
-                        {
-                            0.0f,  0.5f, 0.f, 1.f, 0.f, 1.f,
-                            0.5f, -0.5f, 1.f, 0.f, 0.f, 1.f,
-                            -0.5f, -0.5f, 0.f, 0.f, 1.f, 1.f
-                        };
-                        Stride = 6 * sizeof(f32);
-                        VertexCount = sizeof(VertexData) / Stride;
-                        Offset = 0;
-                        
-                        D3D11_BUFFER_DESC VertexBufferDesc;
-                        ZeroStruct(VertexBufferDesc);
-                        VertexBufferDesc.ByteWidth = sizeof(VertexData);
-                        VertexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-                        VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-                        
-                        D3D11_SUBRESOURCE_DATA VertexSubresourceData;
-                        ZeroStruct(VertexSubresourceData);
-                        VertexSubresourceData.pSysMem = VertexData;
-                        
-                        if(FAILED(HResult = ID3D11Device1_CreateBuffer(D3D11Device, &VertexBufferDesc, &VertexSubresourceData, &VertexBuffer)))
-                        {
-                            Win32LogError_(HResult, "Failed to create D3D11 buffer");
-                        }
-                        else
-                        {
-                            b32 IsRunning = true;
-                            while(IsRunning)
+                            else
                             {
-                                MSG Message;
-                                ZeroStruct(Message);
-                                while(Win32PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
-                                {
-                                    if(Message.message == WM_QUIT)
-                                    {
-                                        IsRunning = false;
-                                    }
-                                    
-                                    Win32TranslateMessage(&Message);
-                                    Win32DispatchMessageA(&Message);
-                                }
-                                
-                                if(GlobalWindowResize)
-                                {
-                                    ID3D11DeviceContext1_OMSetRenderTargets(D3D11DeviceContext, 0, 0, 0);
-                                    
-                                    ID3D11RenderTargetView_Release(D3D11RenderTargetView);
-                                    
-                                    if(SUCCEEDED(HResult = IDXGISwapChain1_ResizeBuffers(D3D11SwapChain, 0, 0, 0, DXGI_FORMAT_UNKNOWN, 0)))
-                                    {
-                                        ID3D11Texture2D *D3D11FrameBuffer;
-                                        if(SUCCEEDED(HResult = IDXGISwapChain1_GetBuffer(D3D11SwapChain, 0, &IID_ID3D11Texture2D, &D3D11FrameBuffer)))
-                                        {
-                                            if(FAILED(HResult = ID3D11Device1_CreateRenderTargetView(D3D11Device, (ID3D11Resource *)D3D11FrameBuffer, 
-                                                                                                     0, &D3D11RenderTargetView)))
-                                            {
-                                                Win32LogError_(HResult, "Failed to create D3D11 render target view");
-                                                IsRunning = false;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            Win32LogError_(HResult, "Failed to get D3D11 buffer");
-                                            IsRunning = false;
-                                        }
-                                        
-                                        ID3D11Texture2D_Release(D3D11FrameBuffer);
-                                    }
-                                    else
-                                    {
-                                        Win32LogError_(HResult, "Failed to resize D3D11 buffers");
-                                        IsRunning = false;
-                                    }
-                                    
-                                    GlobalWindowResize = false;
-                                }
-                                
-                                f32 BackgroundColor[4] = { 0.1f, 0.2f, 0.6f, 1.0f };
-                                ID3D11DeviceContext1_ClearRenderTargetView(D3D11DeviceContext, D3D11RenderTargetView, BackgroundColor);
-                                
-                                RECT WindowRect;
-                                Win32GetClientRect(Window, &WindowRect);
-                                D3D11_VIEWPORT ViewPort;
-                                ZeroStruct(ViewPort);
-                                ViewPort.TopLeftX = 0.0f;
-                                ViewPort.TopLeftY = 0.0f;
-                                ViewPort.Width = WindowRect.right - WindowRect.left;
-                                ViewPort.Height = WindowRect.bottom - WindowRect.top;
-                                ViewPort.MinDepth = 0.0f;
-                                ViewPort.MaxDepth = 1.0f;
-                                ID3D11DeviceContext1_RSSetViewports(D3D11DeviceContext, 1, &ViewPort);
-                                
-                                ID3D11DeviceContext1_OMSetRenderTargets(D3D11DeviceContext, 1, &D3D11RenderTargetView, 0);
-                                
-                                ID3D11DeviceContext1_IASetPrimitiveTopology(D3D11DeviceContext, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-                                ID3D11DeviceContext1_IASetInputLayout(D3D11DeviceContext, D3D11InputLayout);
-                                
-                                ID3D11DeviceContext1_VSSetShader(D3D11DeviceContext, D3D11VertexShader, 0, 0);
-                                ID3D11DeviceContext1_PSSetShader(D3D11DeviceContext, D3D11PixelShader, 0, 0);
-                                
-                                ID3D11DeviceContext1_IASetVertexBuffers(D3D11DeviceContext, 0, 1, &VertexBuffer, &Stride, &Offset);
-                                
-                                ID3D11DeviceContext1_Draw(D3D11DeviceContext, VertexCount, 0);
-                                
-                                IDXGISwapChain1_Present(D3D11SwapChain, 1, 0);
+                                Win32LogError_(HResult, "Failed to get D3D11 buffer");
+                                IsRunning = false;
                             }
+                            
+                            ID3D11Texture2D_Release(D3D11FrameBuffer);
                         }
+                        else
+                        {
+                            Win32LogError_(HResult, "Failed to resize D3D11 buffers");
+                            IsRunning = false;
+                        }
+                        
+                        GlobalWindowResize = false;
                     }
                     
+                    D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+                    ID3D11DeviceContext1_Map(D3D11DeviceContext, (ID3D11Resource *)D3D11ConstantBuffer, 
+                                             0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+                    constants *Constants = (constants *)MappedSubresource.pData;
+                    Constants->Position = V2(0.25f, 0.3f);
+                    Constants->Color = V4(0.7f, 0.65f, 0.9f, 1.0f);
+                    ID3D11DeviceContext1_Unmap(D3D11DeviceContext, (ID3D11Resource *)D3D11ConstantBuffer, 0);
                     
+                    f32 BackgroundColor[4] = { 0.1f, 0.2f, 0.6f, 1.0f };
+                    ID3D11DeviceContext1_ClearRenderTargetView(D3D11DeviceContext, D3D11RenderTargetView, BackgroundColor);
+                    
+                    RECT WindowRect;
+                    Win32GetClientRect(Window, &WindowRect);
+                    D3D11_VIEWPORT ViewPort;
+                    ZeroStruct(ViewPort);
+                    ViewPort.TopLeftX = 0.0f;
+                    ViewPort.TopLeftY = 0.0f;
+                    ViewPort.Width = WindowRect.right - WindowRect.left;
+                    ViewPort.Height = WindowRect.bottom - WindowRect.top;
+                    ViewPort.MinDepth = 0.0f;
+                    ViewPort.MaxDepth = 1.0f;
+                    ID3D11DeviceContext1_RSSetViewports(D3D11DeviceContext, 1, &ViewPort);
+                    
+                    ID3D11DeviceContext1_OMSetRenderTargets(D3D11DeviceContext, 1, &D3D11RenderTargetView, 0);
+                    
+                    ID3D11DeviceContext1_IASetPrimitiveTopology(D3D11DeviceContext, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+                    ID3D11DeviceContext1_IASetInputLayout(D3D11DeviceContext, D3D11InputLayout);
+                    
+                    ID3D11DeviceContext1_VSSetShader(D3D11DeviceContext, D3D11VertexShader, 0, 0);
+                    ID3D11DeviceContext1_PSSetShader(D3D11DeviceContext, D3D11PixelShader, 0, 0);
+                    
+                    ID3D11DeviceContext1_VSSetConstantBuffers(D3D11DeviceContext, 0, 1, &D3D11ConstantBuffer);
+                    
+                    ID3D11DeviceContext1_IASetVertexBuffers(D3D11DeviceContext, 0, 1, &VertexBuffer, &Stride, &Offset);
+                    
+                    ID3D11DeviceContext1_Draw(D3D11DeviceContext, VertexCount, 0);
+                    
+                    IDXGISwapChain1_Present(D3D11SwapChain, 1, 0);
                 }
-                
             }
         }
         else
