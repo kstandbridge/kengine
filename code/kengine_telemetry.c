@@ -443,7 +443,7 @@ typedef enum log_level_type
 #define LogInfo(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Info, Format, __VA_ARGS__)
 #define LogWarning(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Warning, Format, __VA_ARGS__)
 #if KENGINE_INTERNAL
-#define LogError(Format, ...) __debugbreak(); SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Error, Format, __VA_ARGS__);
+#define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Error, Format, __VA_ARGS__); __debugbreak();
 #else
 #define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Error, Format, __VA_ARGS__);
 #endif
@@ -500,7 +500,7 @@ SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string
 internal void
 SendLogTelemetry____(string FileLine, log_level_type LogLevel, char *Format, ...)
 {
-    u8 Buffer[4096];
+    u8 Buffer[512];
     umm BufferSize = sizeof(Buffer);
     format_string_state StringState = BeginFormatString();
     

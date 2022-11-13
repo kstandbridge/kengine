@@ -2,6 +2,7 @@
 
 #define SECURITY_WIN32
 
+#define COBJMACROS
 #include <WS2tcpip.h>
 #include <Windows.h>
 #include <http.h>
@@ -14,7 +15,8 @@
 #include <Schnlsp.h>
 #include <tlhelp32.h>
 
-#include <gl/gl.h>
+#include <d3d11_1.h>
+#include <d3dcompiler.h>
 
 #ifdef CreateDirectory
 #undef CreateDirectory
@@ -143,42 +145,16 @@ introspect(win32, User32) typedef BOOL get_cursor_pos(LPPOINT lpPoint);
 introspect(win32, User32) typedef BOOL screen_to_client(HWND hWnd, LPPOINT lpPoint);
 introspect(win32, User32) typedef BOOL get_client_rect(HWND hWnd, LPRECT lpRect);
 introspect(win32, User32) typedef BOOL destroy_window(HWND hWnd);
+introspect(win32, User32) typedef HICON load_icon_a(HINSTANCE hInstance, LPCSTR lpIconName);
+introspect(win32, User32) typedef HCURSOR load_cursor_a(HINSTANCE hInstance, LPCSTR lpCursorName);
+introspect(win32, User32) typedef BOOL adjust_window_rect_ex(LPRECT lpRect, DWORD dwStyle, BOOL bMenu, DWORD dwExStyle);
+introspect(win32, User32) typedef void post_quit_message(int nExitCode);
 
 introspect(win32, Ole32) typedef HRESULT co_initialize(LPVOID pvReserved);
 introspect(win32, Ole32) typedef HRESULT co_create_instance(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID *ppv);
 introspect(win32, Ole32) typedef void co_uninitialize();
 
 introspect(win32, OleAut32) typedef void variant_init(VARIANTARG *pvarg);
-
-introspect(win32, Opengl32, lowerCamelCase) typedef HGLRC wgl_create_context(HDC unnamedParam1);
-introspect(win32, Opengl32, lowerCamelCase) typedef BOOL wgl_make_current(HDC unnamedParam1, HGLRC unnamedParam2);
-introspect(win32, Opengl32, lowerCamelCase) typedef PROC wgl_get_proc_address(LPCSTR unnamedParam1);
-introspect(win32, Opengl32, lowerCamelCase) typedef BOOL wgl_delete_context(HGLRC unnamedParam1);
-
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_enable(GLenum cap);
-introspect(win32, Opengl32, lowerCamelCase) typedef GLubyte* gl_get_string(GLenum name);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_begin(GLenum mode);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_color_4f(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_tex_coord_2f(GLfloat s, GLfloat t);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_vertex_2f(GLfloat x, GLfloat y);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_viewport(GLint x, GLint y, GLsizei width, GLsizei height);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_bind_texture(GLenum target, GLuint texture);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_tex_image_2_d(GLenum target, GLint level, GLint internalformat, 
-                                                                                 GLsizei width, GLsizei height, GLint border, GLint format, 
-                                                                                 GLenum type, const GLvoid *pixels);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_tex_parameteri(GLenum target, GLenum pname, GLint param);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_tex_envi(GLenum target, GLenum pname, GLint param);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_clear_color(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_clear(GLbitfield mask);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_matrix_mode(GLenum mode);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_load_identity();
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_gen_textures(GLsizei n, GLuint *textures);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_delete_textures(GLsizei n, const GLuint *textures);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_blend_func(GLenum sfactor, GLenum dfactor);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_disable(GLenum cap);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_load_matrixf(const GLfloat *m);
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_end();
-introspect(win32, Opengl32, lowerCamelCase) typedef void WINAPI gl_scissor(GLint x, GLint y, GLsizei width, GLsizei height);
 
 introspect(win32, Secur32) typedef PSecurityFunctionTableA init_security_interface_a();
 
@@ -283,6 +259,29 @@ introspect(win32, Httpapi) typedef ULONG http_send_http_response(HANDLE         
                                                                  LPOVERLAPPED       Overlapped,
                                                                  PHTTP_LOG_DATA     LogData);
 introspect(win32, Httpapi) typedef ULONG http_shutdown_request_queue(HANDLE RequestQueueHandle);
+
+
+introspect(win32, D3DCompiler_47) typedef HRESULT d_3_d_compile_from_file(LPCWSTR                pFileName,
+                                                                          D3D_SHADER_MACRO *pDefines,
+                                                                          ID3DInclude            *pInclude,
+                                                                          LPCSTR                 pEntrypoint,
+                                                                          LPCSTR                 pTarget,
+                                                                          UINT                   Flags1,
+                                                                          UINT                   Flags2,
+                                                                          ID3DBlob               **ppCode,
+                                                                          ID3DBlob               **ppErrorMsgs);
+
+introspect(win32, D3D11) typedef HRESULT d_3_d_11_create_device(IDXGIAdapter            *pAdapter,
+                                                                D3D_DRIVER_TYPE         DriverType,
+                                                                HMODULE                 Software,
+                                                                UINT                    Flags,
+                                                                D3D_FEATURE_LEVEL *pFeatureLevels,
+                                                                UINT                    FeatureLevels,
+                                                                UINT                    SDKVersion,
+                                                                ID3D11Device            **ppDevice,
+                                                                D3D_FEATURE_LEVEL       *pFeatureLevel,
+                                                                ID3D11DeviceContext     **ppImmediateContext);
+
 
 #define WIN32_KENGINE_TYPES_H
 #endif //WIN32_KENGINE_TYPES_H

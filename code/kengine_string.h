@@ -449,6 +449,7 @@ typedef enum
     FormatStringToken_SignedDecimalInteger,
     FormatStringToken_UnsignedDecimalInteger,
     FormatStringToken_DecimalFloatingPoint,
+    FormatStringToken_LongStringOfCharacters,
     FormatStringToken_StringOfCharacters,
     FormatStringToken_StringType,
     
@@ -499,7 +500,18 @@ GetNextFormatStringToken(format_string_state *State)
         
         case '.':  { Result.Type = FormatStringToken_PrecisionSpecifier; } break;
         case '*':  { Result.Type = FormatStringToken_PrecisionArgSpecifier; } break;
-        case 'l':  { Result.Type = FormatStringToken_LongSpecifier; } break;
+        case 'l':  
+        { 
+            if(State->At[0] == 's')
+            {
+                Result.Type = FormatStringToken_LongStringOfCharacters; 
+                ++State->At;
+            }
+            else
+            {
+                Result.Type = FormatStringToken_LongSpecifier; 
+            }
+        } break;
         
         
         default:
@@ -763,6 +775,28 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                 {
                                     while(At[0] != '\0')
                                     {
+                                        *State->Tail++ = *At++;
+                                    }
+                                }
+                            } break;
+                            
+                            case FormatStringToken_LongStringOfCharacters:
+                            {
+                                ParsingParam = false;
+                                
+                                wchar_t *At = va_arg(ArgList, wchar_t *);
+                                if(PrecisionSpecified)
+                                {
+                                    while(At[0] != '\0' && Precision--)
+                                    {
+                                        *State->Tail++ = *At++;
+                                    }
+                                }
+                                else
+                                {
+                                    while(At[0] != '\0')
+                                    {
+                                        // TODO(kstandbridge): We should probably convert the wchar_t to char for this copy
                                         *State->Tail++ = *At++;
                                     }
                                 }

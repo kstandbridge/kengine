@@ -1,8 +1,19 @@
 
-// TODO(kstandbridge): not really needed to take string here
+#define Win32LogError(Format, ...) Win32LogError_(Win32GetLastError(), Format, __VA_ARGS__);
 inline void
-Win32LogError_(string Function, DWORD ErrorCode)
+Win32LogError_(DWORD ErrorCode, char *Format, ...)
 {
+    u8 Buffer[512];
+    umm BufferSize = sizeof(Buffer);
+    format_string_state StringState = BeginFormatString();
+    
+    va_list ArgList;
+    va_start(ArgList, Format);
+    AppendFormatString_(&StringState, Format, ArgList);
+    va_end(ArgList);
+    
+    string Message = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
+    
     LPTSTR ErrorBuffer = 0;
     DWORD ErrorLength = Win32FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, 
                                             0, ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL), (LPTSTR)&ErrorBuffer, 0, 0);
@@ -10,25 +21,17 @@ Win32LogError_(string Function, DWORD ErrorCode)
     if(ErrorLength)
     {
         string Error = String_(ErrorLength, (u8 *)ErrorBuffer);
-        LogError("%S failed due to %S", Function, Error);
+        LogError("%S. %S", Message, Error);
     }
     else
     {
-        LogError("%S failed due to error code %u", Function, ErrorCode);
+        LogError("%S. Error code: %u", Message, ErrorCode);
     }
     
     if(ErrorBuffer)
     {
         Win32LocalFree(ErrorBuffer);
     }
-}
-
-// TODO(kstandbridge): not really needed to take string here
-inline void
-Win32LogError(string Function)
-{
-    DWORD ErrorCode = Win32GetLastError();
-    Win32LogError_(Function, ErrorCode);
 }
 
 typedef struct win32_memory_block
@@ -256,7 +259,7 @@ Win32GetLastWriteTime(char *Filename)
     }
     else
     {
-        Win32LogError(String("GetFileAttributesEx"));
+        Win32LogError("Failed to get file attributes for %s", Filename);
     }
     
     return LastWriteTime;
@@ -1281,7 +1284,7 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory)
             else
             {
                 // TODO(kstandbridge): Return the exit code?
-                Win32LogError(String("CreateProcessA"));
+                Win32LogError("Failed to create process: %s %s", CPath, CArgs);
             }
             
             Win32CloseHandle(OutPipeRead);
@@ -1291,14 +1294,14 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory)
         }
         else
         {
-            Win32LogError(String("CreatePipe"));
+            Win32LogError("Failed to create pipe for process: %s %s", CPath, CArgs);
         }
         
         Win32CloseHandle(InPipeWrite);
     }
     else
     {
-        Win32LogError(String("CreatePipe"));
+        Win32LogError("Failed to create pipe for process: %s %s", CPath, CArgs);
     }
 }
 
@@ -1550,11 +1553,9 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
         DWORD ErrorCode = Win32GetLastError();
         if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
-            Win32LogError_(String("HttpQueryInfoA"), ErrorCode);
+            Win32LogError_(ErrorCode, "Failed to query http info");
         }
     }
-    
-    
     
     if(ContentLength == 0)
     {
@@ -1585,11 +1586,11 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
             DWORD ErrorCode = Win32GetLastError();
             if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
             {
-                Win32LogError_(String("InternetReadFile"), ErrorCode);
+                Win32LogError_(ErrorCode, "Failed to read response");
             }
             else
             {
-                LogError("InternetReadFile failed due to insufficient buffer");
+                LogError("Failed to read response due to insufficient buffer");
             }
             break;
         }

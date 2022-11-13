@@ -421,7 +421,7 @@ Win32GetHostname(u8 *Buffer, umm BufferMaxSize)
     
     if(!Win32GetComputerNameA((char *)Buffer, &Result))
     {
-        Win32LogError(String("GetComputerNameA"));
+        Win32LogError("Failed to get computer name");
     }
     
     return Result;
@@ -434,7 +434,7 @@ Win32GetHomeDirectory(u8 *Buffer, umm BufferMaxSize)
     
     if(Result == 0)
     {
-        Win32LogError(String("ExpandEnvironmentStringsA"));
+        Win32LogError("Failed to expand environment strings");
     }
     else
     {
@@ -452,7 +452,7 @@ Win32GetAppConfigDirectory(u8 *Buffer, umm BufferMaxSize)
     
     if(Result == 0)
     {
-        Win32LogError(String("ExpandEnvironmentStringsA"));
+        Win32LogError("Failed to expand environment strings");
     }
     else
     {
@@ -470,7 +470,7 @@ Win32GetUsername(u8 *Buffer, umm BufferMaxSize)
     
     if(Result == 0)
     {
-        Win32LogError(String("GetEnvironmentVariableA"));
+        Win32LogError("Failed to get environment variable");
     }
     
     return Result;
@@ -641,17 +641,17 @@ Win32SetHttpClientTimeout(platform_http_client *PlatformClient, u32 TimeoutMs)
         win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
         if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_RECEIVE_TIMEOUT, &TimeoutMs, sizeof(TimeoutMs)))
         {
-            Win32LogError(String("InternetSetOptionA"));
+            Win32LogError("Failed to set internet recieve timeout option");
             PlatformClient->NoErrors = false;
         }
         if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_SEND_TIMEOUT, &TimeoutMs, sizeof(TimeoutMs)))
         {
-            Win32LogError(String("InternetSetOptionA"));
+            Win32LogError("Failed to set internet send timeout option");
             PlatformClient->NoErrors = false;
         }
         if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_CONNECT_TIMEOUT, &TimeoutMs, sizeof(TimeoutMs)))
         {
-            Win32LogError(String("InternetSetOptionA"));
+            Win32LogError("Failed to set internet connect timeout option");
             PlatformClient->NoErrors = false;
         }
     }
@@ -888,12 +888,12 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
                                                      "Authorization: Basic %S\r\n", AuthToken);
             if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, (LPCSTR)AuthHeader.Data, AuthHeader.Size, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE))
             {
-                Win32LogError(String("HttpAddRequestHeadersA"));
+                Win32LogError("Failed to add basic authorization header");
             }
         }
         else
         {
-            Win32LogError(String("CryptBinaryToStringA"));
+            Win32LogError("Failed to generate auth token");
         }
     }
     
@@ -1527,7 +1527,7 @@ WinMainCRTStartup()
         {
             if(GlobalWin32State.AppLibrary && !Win32FreeLibrary(GlobalWin32State.AppLibrary))
             {
-                Win32LogError(String("FreeLibrary"));
+                Win32LogError("Failed to free app library");
             }
             GlobalWin32State.AppLibrary = 0;
             GlobalWin32State.AppTick_ = 0;
@@ -1560,12 +1560,12 @@ WinMainCRTStartup()
                 }
                 else
                 {
-                    Win32LogError(String("LoadLibraryA"));
+                    Win32LogError("Failed to load app library");
                 }
             }
             else
             {
-                Win32LogError(String("CopyFileA"));
+                Win32LogError("Failed to copy %S to %S", GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath);
             }
             SetDebugEventRecording(true);
         }

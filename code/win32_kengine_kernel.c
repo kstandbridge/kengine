@@ -66,6 +66,8 @@ global HMODULE Winmm;
 global HMODULE Ws2_32;
 global HMODULE Wininet;
 global HMODULE Httpapi;
+global HMODULE D3DCompiler_47;
+global HMODULE D3D11;
 
 global SecurityFunctionTableA *Win32SecurityFunctionTable;
 
