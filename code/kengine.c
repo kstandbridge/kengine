@@ -62,6 +62,7 @@ AppTick_(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32
 {
 #if KENGINE_INTERNAL
     Platform = AppMemory->PlatformAPI;
+    GlobalTelemetryState = AppMemory->TelemetryState;
     GlobalDebugEventTable = AppMemory->DebugEventTable;
 #endif
     app_state *AppState = AppMemory->AppState;

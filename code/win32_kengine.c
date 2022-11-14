@@ -15,6 +15,8 @@
 #include "win32_kengine_kernel.c"
 #include "win32_kengine_generated.c"
 
+global app_memory GlobalAppMemory;
+
 #include "kengine_debug_shared.h"
 #if KENGINE_INTERNAL
 #include "kengine_debug.h"
@@ -22,15 +24,6 @@ global debug_event_table GlobalDebugEventTable_;
 debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
 #include "kengine_debug.c"
 #endif
-
-global GLuint GlobalBlitTextureHandle;
-global wgl_create_context_attribs_arb *wglCreateContextAttribsARB;
-global wgl_choose_pixel_format_arb *wglChoosePixelFormatARB;
-global wgl_swap_interval_ext *wglSwapIntervalEXT;
-global wgl_get_extensions_string_ext *wglGetExtensionsStringEXT;
-global b32 OpenGLSupportsSRGBFramebuffer;
-global GLuint OpenGLDefaultInternalTextureFormat;
-global app_memory GlobalAppMemory;
 
 #if KENGINE_INTERNAL
 #include "kengine_sort.c"
@@ -40,7 +33,6 @@ global app_memory GlobalAppMemory;
 #include "kengine.c"
 #endif
 #include "kengine_renderer.c"
-#include "win32_kengine_opengl.c"
 #include "win32_kengine_shared.c"
 #if KENGINE_HTTP
 #include "win32_kengine_http.c"
@@ -523,6 +515,7 @@ typedef struct win32_http_client
 {
     HINTERNET Session;
     HINTERNET Handle;
+    b32 SkipMetrics;
     
     memory_arena Arena;
     DWORD Flags;
@@ -634,6 +627,20 @@ Win32BeginHttpClient(string Hostname, u32 Port)
 }
 
 internal void
+Win32SkipHttpMetrics(platform_http_client *PlatformClient)
+{
+    if(PlatformClient->Handle)
+    {
+        win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
+        Win32Client->SkipMetrics = true;
+    }
+    else
+    {
+        LogError("No http client handle to set skip metrics on");
+    }
+}
+
+internal void
 Win32SetHttpClientTimeout(platform_http_client *PlatformClient, u32 TimeoutMs)
 {
     if(PlatformClient->Handle)
@@ -665,6 +672,7 @@ typedef struct win32_http_request
 {
     win32_http_client *Win32Client;
     HINTERNET Handle;
+    LARGE_INTEGER BeginCounter;
 } win32_http_request;
 
 
@@ -676,6 +684,16 @@ Win32EndHttpRequest(platform_http_request *PlatformRequest)
         LogDebug("Ending http request");
         win32_http_request *Win32Request = (win32_http_request *)PlatformRequest->Handle;
         Win32HttpEndRequestA(Win32Request->Handle, 0, 0, 0);
+        
+        if(!Win32Request->Win32Client->SkipMetrics)
+        {            
+            LARGE_INTEGER EndCounter = Win32GetWallClock();
+            f32 MeasuredSeconds = Win32GetSecondsElapsed(Win32Request->BeginCounter, EndCounter, 
+                                                         GlobalWin32State.PerfCountFrequency);
+            SendTimedHttpTelemetry(PlatformRequest->Hostname, PlatformRequest->Port, PlatformRequest->Verb, PlatformRequest->Template, PlatformRequest->Endpoint, PlatformRequest->RequestLength, PlatformRequest->ResponseLength, PlatformRequest->StatusCode,
+                                   MeasuredSeconds);
+        }
+        
     }
     else
     {
@@ -688,6 +706,8 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
 {
     platform_http_request Result;
     ZeroStruct(Result);
+    Result.Hostname = PlatformClient->Hostname;
+    Result.Port = PlatformClient->Port;
     
     if(PlatformClient->Handle)
     {
@@ -695,6 +715,7 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
         memory_arena *Arena = &Win32Client->Arena;
         win32_http_request *Win32Request = PushStruct(Arena, win32_http_request);
         Win32Request->Win32Client = Win32Client;
+        Win32Request->BeginCounter = Win32GetWallClock();
         Result.Handle = Win32Request;
         
         char *CVerb = 0;
@@ -708,6 +729,9 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
             
             InvalidDefaultCase;
         }
+        
+        Result.Verb = PushString_(Arena, GetNullTerminiatedStringLength(CVerb), (u8 *)CVerb);
+        Result.Template = PushString_(Arena, GetNullTerminiatedStringLength(Format), (u8 *)Format);
         
         format_string_state StringState = BeginFormatString();
         
@@ -776,6 +800,7 @@ Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File
         LARGE_INTEGER LFileSize;
         Win32GetFileSizeEx(FileHandle, &LFileSize);
         umm FileSize = LFileSize.QuadPart;
+        PlatformRequest->RequestLength = FileSize;
         
         u8 HeaderBuffer[256];
         string Header = FormatStringToBuffer(HeaderBuffer, sizeof(HeaderBuffer), "Content-Length: %u\r\n", FileSize);
@@ -860,6 +885,7 @@ Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File
         LogError("Unable to open file %S", File);
     }
     
+    PlatformRequest->StatusCode = Result;
     return Result;
 }
 
@@ -897,7 +923,7 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
         }
     }
     
-    
+    PlatformRequest->RequestLength = PlatformRequest->Payload.Size;
     if(Win32HttpSendRequestA(Win32Request->Handle, 0, 0, PlatformRequest->Payload.Data, PlatformRequest->Payload.Size))
     {
         DWORD StatusCode = 0;
@@ -922,6 +948,8 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
             PlatformRequest->NoErrors = false;
         }
     }
+    
+    PlatformRequest->StatusCode = Result;
     
     return Result;
 }
@@ -1026,6 +1054,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
         Result = TotalBytesRead;
     }
     
+    PlatformRequest->ResponseLength = Result;
     return Result;
 }
 
@@ -1115,6 +1144,7 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
         Result.Size = TotalBytesRead;
     }
     
+    PlatformRequest->ResponseLength = Result.Size;
     return Result;
 }
 
@@ -1166,6 +1196,7 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.EndHttpClient = Win32EndHttpClient;
     GlobalAppMemory.PlatformAPI.BeginHttpClientWithCreds = Win32BeginHttpClientWithCreds;
     GlobalAppMemory.PlatformAPI.BeginHttpClient = Win32BeginHttpClient;
+    GlobalAppMemory.PlatformAPI.SkipHttpMetrics = Win32SkipHttpMetrics;
     GlobalAppMemory.PlatformAPI.SetHttpClientTimeout = Win32SetHttpClientTimeout;
     GlobalAppMemory.PlatformAPI.EndHttpRequest = Win32EndHttpRequest;
     GlobalAppMemory.PlatformAPI.BeginHttpRequest = Win32BeginHttpRequest;
@@ -1198,6 +1229,7 @@ WinMainCRTStartup()
     
     
 #if KENGINE_INTERNAL
+    GlobalAppMemory.TelemetryState = GlobalTelemetryState;
     GlobalAppMemory.DebugEventTable = GlobalDebugEventTable;
 #endif
     
@@ -1648,7 +1680,7 @@ WinMainCRTStartup()
         }
         END_BLOCK();
         
-        LARGE_INTEGER ThisCounter = Win32GetWallClock();                
+        LARGE_INTEGER ThisCounter = Win32GetWallClock();
         f32 MeasuredSecondsPerFrame = Win32GetSecondsElapsed(LastCounter, ThisCounter, GlobalWin32State.PerfCountFrequency);
         DEBUG_FRAME_END(MeasuredSecondsPerFrame);
         LastCounter = ThisCounter;
@@ -1659,6 +1691,10 @@ WinMainCRTStartup()
     Win32UnitializeHttpServer(HttpState);
     Win32UninitializeIoCompletionContext(HttpState);
 #endif
+    
+    LogInfo("Shutting down");
+    
+    PostTelemetryThread(0);
     
     Win32ExitProcess(0);
     

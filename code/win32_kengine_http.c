@@ -418,6 +418,8 @@ Win32ReceiveCompletionCallback(win32_http_io_context *pIoContext, PTP_IO IoThrea
 internal b32
 Win32StartHttpServer(win32_http_state *HttpState)
 {
+    LogInfo("Startung http server");
+    
     b32 Result = true;
     
     u32 RequestCount = 0.75f*HttpState->RequestCount;
@@ -473,7 +475,7 @@ Win32StartHttpServer(win32_http_state *HttpState)
 internal void
 Win32StopHttpServer(win32_http_state *HttpState)
 {
-    LogVerbose("Stopping http server");
+    LogInfo("Stopping http server");
     
     if(HttpState->RequestQueue != 0)
     {
@@ -496,7 +498,7 @@ Win32StopHttpServer(win32_http_state *HttpState)
 internal u32
 Win32InitializeHttpServer(win32_http_state *HttpState)
 {
-    LogVerbose("Initializing HTTP server");
+    LogDebug("Initializing HTTP server");
     
     HttpState->Version.HttpApiMajorVersion = 2;
     HttpState->Version.HttpApiMinorVersion = 0;
@@ -514,7 +516,7 @@ Win32InitializeHttpServer(win32_http_state *HttpState)
             if(Result == NO_ERROR)
             {
                 LogVerbose("Adding url to url group");
-                Result = Win32HttpAddUrlToUrlGroup(HttpState->UrlGroupId, L"http://*:9050/", 0, 0);
+                Result = Win32HttpAddUrlToUrlGroup(HttpState->UrlGroupId, L"http://*:8090/", 0, 0);
                 if(Result != NO_ERROR)
                 {
                     LogError("HttpAddUrlToUrlGroup failed with error code %u", Result);

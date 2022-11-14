@@ -69,7 +69,8 @@ typedef struct telemetry_state
     
 } telemetry_state;
 
-telemetry_state GlobalTelemetryState_;
+global telemetry_state GlobalTelemetryState__;
+telemetry_state *GlobalTelemetryState = &GlobalTelemetryState__;
 
 internal void
 PostTelemetryThread(void *Data)
@@ -77,128 +78,133 @@ PostTelemetryThread(void *Data)
     // NOTE(kstandbridge): Swap queues
     for(;;)
     {
-        u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState_.CurrentState, TelemetryState_SwappingQueues, TelemetryState_Idle);
-        if(StateType == TelemetryState_Idle)
-        {
-            telemetry_queue *Temp = GlobalTelemetryState_.AddingQueue;
-            GlobalTelemetryState_.AddingQueue = GlobalTelemetryState_.ProcessingQueue;
-            GlobalTelemetryState_.ProcessingQueue = Temp;
-            
-            CompletePreviousWritesBeforeFutureWrites;
-            GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
-            
-            telemetry_queue *Queue = GlobalTelemetryState_.ProcessingQueue;
-            
-            // NOTE(kstandbridge): Post all telemetry messages
-            if(GlobalTelemetryState_.ProcessingQueue->Messages)
+        if((GlobalTelemetryState->CurrentState != TelemetryState_Uninitialized) &&
+           (GlobalTelemetryState->CurrentState != TelemetryState_Initializing))
+        {        
+            u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState->CurrentState, TelemetryState_SwappingQueues, TelemetryState_Idle);
+            if(StateType == TelemetryState_Idle)
             {
-                for(telemetry_host *Host = GlobalTelemetryState_.Hosts;
-                    Host;
-                    Host = Host->Next)
+                telemetry_queue *Temp = GlobalTelemetryState->AddingQueue;
+                GlobalTelemetryState->AddingQueue = GlobalTelemetryState->ProcessingQueue;
+                GlobalTelemetryState->ProcessingQueue = Temp;
+                
+                CompletePreviousWritesBeforeFutureWrites;
+                GlobalTelemetryState->CurrentState = TelemetryState_Idle;
+                
+                telemetry_queue *Queue = GlobalTelemetryState->ProcessingQueue;
+                
+                // NOTE(kstandbridge): Post all telemetry messages
+                if(GlobalTelemetryState->ProcessingQueue->Messages)
                 {
-                    platform_http_client Client = Platform.BeginHttpClient(Host->Hostname, 0);
-                    Platform.SetHttpClientTimeout(&Client, 3000);
-                    
-                    u64 LastTimeStamp = U64Max;
-                    for(telemetry_message *Message = Queue->Messages;
-                        Message;
-                        Message = Message->Next)
-                        
+                    for(telemetry_host *Host = GlobalTelemetryState->Hosts;
+                        Host;
+                        Host = Host->Next)
                     {
-                        // NOTE(kstandbridge): We don't want two telemtry messages to have the same timestamp as the index will be the same
-                        // Linked list adds messages to the head so they are technically in reserve, so we subtract time not add
-                        u64 NewTimeStamp = Message->TimeStamp;
-                        while(NewTimeStamp >= LastTimeStamp)
-                        {
-                            NewTimeStamp -= 1000;
-                        }
-                        LastTimeStamp = NewTimeStamp;
-                        date_time DateTime = Platform.GetDateTimeFromTimestamp(LastTimeStamp);
+                        platform_http_client Client = Platform.BeginHttpClient(Host->Hostname, 0);
+                        Platform.SkipHttpMetrics(&Client);
+                        Platform.SetHttpClientTimeout(&Client, 3000);
                         
-                        platform_http_request Request = Platform.BeginHttpRequest(&Client, HttpVerb_Post, 
-                                                                                  "/%S_%S_%d-%02d/_doc/%S_%S_%d_%d%02d%02d%02d%02d%02d%03d?pretty",
-                                                                                  GlobalTelemetryState_.TeamId,
-                                                                                  GlobalTelemetryState_.ProductName,
-                                                                                  DateTime.Year, DateTime.Month,
-                                                                                  GlobalTelemetryState_.ProductName,
-                                                                                  GlobalTelemetryState_.MachineName,
-                                                                                  GlobalTelemetryState_.ProcessId,
-                                                                                  DateTime.Year, DateTime.Month, DateTime.Day,
-                                                                                  DateTime.Hour, DateTime.Minute, DateTime.Second,
-                                                                                  DateTime.Milliseconds);
-                        Platform.SetHttpRequestHeaders(&Request, String("Content-Type: application/json;\r\n"));
-                        if(PlatformNoErrors(Request))
-                        {                                
-                            u8 CPayload[4096];
-                            format_string_state StringState = BeginFormatString();
+                        u64 LastTimeStamp = U64Max;
+                        for(telemetry_message *Message = Queue->Messages;
+                            Message;
+                            Message = Message->Next)
                             
-                            AppendFormatString(&StringState, "{\n    \"@timestamp\": \"%d-%02d-%02dT%02d:%02d:%02d.%03dZ\"",
-                                               DateTime.Year, DateTime.Month, DateTime.Day,
-                                               DateTime.Hour, DateTime.Minute, DateTime.Second,
-                                               DateTime.Milliseconds);
-                            
-                            for(telemetry_field *Field = Message->Fields;
-                                Field;
-                                Field = Field->Next)
+                        {
+                            // NOTE(kstandbridge): We don't want two telemtry messages to have the same timestamp as the index will be the same
+                            // Linked list adds messages to the head so they are technically in reserve, so we subtract time not add
+                            u64 NewTimeStamp = Message->TimeStamp;
+                            while(NewTimeStamp >= LastTimeStamp)
                             {
-                                if((Field->Key.Data) && 
-                                   (Field->Key.Data != '\0'))
+                                NewTimeStamp -= 1000;
+                            }
+                            LastTimeStamp = NewTimeStamp;
+                            date_time DateTime = Platform.GetDateTimeFromTimestamp(LastTimeStamp);
+                            
+                            platform_http_request Request = Platform.BeginHttpRequest(&Client, HttpVerb_Post, 
+                                                                                      "/%S_%S_%d-%02d/_doc/%S_%S_%d_%d%02d%02d%02d%02d%02d%03d?pretty",
+                                                                                      GlobalTelemetryState->TeamId,
+                                                                                      GlobalTelemetryState->ProductName,
+                                                                                      DateTime.Year, DateTime.Month,
+                                                                                      GlobalTelemetryState->ProductName,
+                                                                                      GlobalTelemetryState->MachineName,
+                                                                                      GlobalTelemetryState->ProcessId,
+                                                                                      DateTime.Year, DateTime.Month, DateTime.Day,
+                                                                                      DateTime.Hour, DateTime.Minute, DateTime.Second,
+                                                                                      DateTime.Milliseconds);
+                            Platform.SetHttpRequestHeaders(&Request, String("Content-Type: application/json;\r\n"));
+                            if(PlatformNoErrors(Request))
+                            {                                
+                                u8 CPayload[4096];
+                                format_string_state StringState = BeginFormatString();
+                                
+                                AppendFormatString(&StringState, "{\n    \"@timestamp\": \"%d-%02d-%02dT%02d:%02d:%02d.%03dZ\"",
+                                                   DateTime.Year, DateTime.Month, DateTime.Day,
+                                                   DateTime.Hour, DateTime.Minute, DateTime.Second,
+                                                   DateTime.Milliseconds);
+                                
+                                for(telemetry_field *Field = Message->Fields;
+                                    Field;
+                                    Field = Field->Next)
                                 {
-                                    if(Field->Type == TelemetryField_Number)
+                                    if((Field->Key.Data) && 
+                                       (Field->Key.Data != '\0'))
                                     {
-                                        AppendFormatString(&StringState, ",\n    \"%S\": %.03f", Field->Key, Field->NumberValue);
+                                        if(Field->Type == TelemetryField_Number)
+                                        {
+                                            AppendFormatString(&StringState, ",\n    \"%S\": %.03f", Field->Key, Field->NumberValue);
+                                        }
+                                        else
+                                        {
+                                            Assert(Field->Type == TelemetryField_String);
+                                            AppendFormatString(&StringState, ",\n    \"%S\": \"%S\"", Field->Key, Field->StringValue);
+                                        }
                                     }
                                     else
                                     {
-                                        Assert(Field->Type == TelemetryField_String);
-                                        AppendFormatString(&StringState, ",\n    \"%S\": \"%S\"", Field->Key, Field->StringValue);
+                                        Assert(!"Blank key");
                                     }
                                 }
-                                else
+                                
+                                AppendFormatString(&StringState, ",\n    \"product_name\": \"%S\"", GlobalTelemetryState->ProductName);
+                                AppendFormatString(&StringState, ",\n    \"machine_name\": \"%S\"", GlobalTelemetryState->MachineName);
+                                AppendFormatString(&StringState, ",\n    \"user_name\": \"%S\"", GlobalTelemetryState->Username);
+                                AppendFormatString(&StringState, ",\n    \"pid\": %.03f", GlobalTelemetryState->ProcessId);
+                                
+                                AppendFormatString(&StringState, "\n}");
+                                
+                                Request.Payload = EndFormatStringToBuffer(&StringState, CPayload, sizeof(CPayload));
+                                
+                                u32 StatusCode = Platform.SendHttpRequest(&Request);
+                                if(StatusCode != 201)
                                 {
-                                    Assert(!"Blank key");
+                                    // NOTE(kstandbridge): Any problems with the host we skip.
+                                    break;
                                 }
-                            }
-                            
-                            AppendFormatString(&StringState, ",\n    \"product_name\": \"%S\"", GlobalTelemetryState_.ProductName);
-                            AppendFormatString(&StringState, ",\n    \"machine_name\": \"%S\"", GlobalTelemetryState_.MachineName);
-                            AppendFormatString(&StringState, ",\n    \"user_name\": \"%S\"", GlobalTelemetryState_.Username);
-                            AppendFormatString(&StringState, ",\n    \"pid\": %.03f", GlobalTelemetryState_.ProcessId);
-                            
-                            AppendFormatString(&StringState, "\n}");
-                            
-                            Request.Payload = EndFormatStringToBuffer(&StringState, CPayload, sizeof(CPayload));
-                            
-                            u32 StatusCode = Platform.SendHttpRequest(&Request);
-                            if(StatusCode != 201)
-                            {
-                                // NOTE(kstandbridge): Any problems with the host we skip.
-                                break;
-                            }
 #if 1
-                            string Response = Platform.GetHttpResponse(&Request);
-                            Response;
-                            b32 BreakHere = true;
+                                string Response = Platform.GetHttpResponse(&Request);
+                                Response;
+                                b32 BreakHere = true;
 #endif
+                            }
+                            Platform.EndHttpRequest(&Request);
                         }
-                        Platform.EndHttpRequest(&Request);
+                        
+                        
+                        Platform.EndHttpClient(&Client);
                     }
-                    
-                    
-                    Platform.EndHttpClient(&Client);
                 }
+                
+                EndTemporaryMemory(Queue->MemoryFlush);
+                CheckArena(&Queue->Arena);
+                
+                Queue->MemoryFlush = BeginTemporaryMemory(&Queue->Arena);
+                Queue->Messages = 0;
+                break;
             }
-            
-            EndTemporaryMemory(Queue->MemoryFlush);
-            CheckArena(&Queue->Arena);
-            
-            Queue->MemoryFlush = BeginTemporaryMemory(&Queue->Arena);
-            Queue->Messages = 0;
-            break;
-        }
-        else
-        {
-            _mm_pause();
+            else
+            {
+                _mm_pause();
+            }
         }
     }
     
@@ -209,20 +215,20 @@ BeginTelemetryMessage()
 {
     for(;;)
     {
-        u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState_.CurrentState, TelemetryState_AddingToQueue, TelemetryState_Idle);
+        u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState->CurrentState, TelemetryState_AddingToQueue, TelemetryState_Idle);
         if(StateType == TelemetryState_Idle)
         {
-            telemetry_message *Message = GlobalTelemetryState_.AddingQueue->Messages;
+            telemetry_message *Message = GlobalTelemetryState->AddingQueue->Messages;
             if(Message != 0)
             {
-                Message = PushStruct(&GlobalTelemetryState_.AddingQueue->Arena, telemetry_message);
-                Message->Next = GlobalTelemetryState_.AddingQueue->Messages;
+                Message = PushStruct(&GlobalTelemetryState->AddingQueue->Arena, telemetry_message);
+                Message->Next = GlobalTelemetryState->AddingQueue->Messages;
             }
             else
             {
-                Message = PushStruct(&GlobalTelemetryState_.AddingQueue->Arena, telemetry_message);
+                Message = PushStruct(&GlobalTelemetryState->AddingQueue->Arena, telemetry_message);
             }
-            GlobalTelemetryState_.AddingQueue->Messages = Message;
+            GlobalTelemetryState->AddingQueue->Messages = Message;
             
             break;
         }
@@ -236,10 +242,10 @@ BeginTelemetryMessage()
 internal void
 AppendTelemetryMessageNumberField(string Key, f32 Value)
 {
-    Assert(GlobalTelemetryState_.CurrentState == TelemetryState_AddingToQueue);
+    Assert(GlobalTelemetryState->CurrentState == TelemetryState_AddingToQueue);
     Assert(Key.Data);
     
-    telemetry_queue *Queue = GlobalTelemetryState_.AddingQueue;
+    telemetry_queue *Queue = GlobalTelemetryState->AddingQueue;
     
     telemetry_message *Message = Queue->Messages;
     
@@ -264,11 +270,11 @@ AppendTelemetryMessageNumberField(string Key, f32 Value)
 internal void
 AppendTelemetryMessageStringField(string Key, string Value)
 {
-    Assert(GlobalTelemetryState_.CurrentState == TelemetryState_AddingToQueue);
+    Assert(GlobalTelemetryState->CurrentState == TelemetryState_AddingToQueue);
     Assert(Key.Data);
     Assert(Value.Data);
     
-    telemetry_queue *Queue = GlobalTelemetryState_.AddingQueue;
+    telemetry_queue *Queue = GlobalTelemetryState->AddingQueue;
     
     telemetry_message *Message = Queue->Messages;
     
@@ -328,13 +334,13 @@ AppendTelemetryMessageStringField(string Key, string Value)
 internal void
 EndTelemetryMessage()
 {
-    Assert(GlobalTelemetryState_.CurrentState == TelemetryState_AddingToQueue);
+    Assert(GlobalTelemetryState->CurrentState == TelemetryState_AddingToQueue);
     
-    telemetry_message *Message = GlobalTelemetryState_.AddingQueue->Messages;
+    telemetry_message *Message = GlobalTelemetryState->AddingQueue->Messages;
     Message->TimeStamp = Platform.GetSystemTimestamp();
     
     CompletePreviousWritesBeforeFutureWrites;
-    GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
+    GlobalTelemetryState->CurrentState = TelemetryState_Idle;
 }
 
 internal void
@@ -343,25 +349,25 @@ AddTelemetryHost(memory_arena *Arena, string Hostname)
     
     for(;;)
     {
-        u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState_.CurrentState, TelemetryState_AddingHost, TelemetryState_Idle);
+        u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState->CurrentState, TelemetryState_AddingHost, TelemetryState_Idle);
         if(StateType == TelemetryState_Idle)
         {
             
-            telemetry_host *Host = GlobalTelemetryState_.Hosts;
+            telemetry_host *Host = GlobalTelemetryState->Hosts;
             if(Host != 0)
             {
                 Host = PushStruct(Arena, telemetry_host);
-                Host->Next = GlobalTelemetryState_.Hosts;
+                Host->Next = GlobalTelemetryState->Hosts;
             }
             else
             {
                 Host = PushStruct(Arena, telemetry_host);
             }
-            GlobalTelemetryState_.Hosts = Host;
+            GlobalTelemetryState->Hosts = Host;
             Host->Hostname = PushString_(Arena, Hostname.Size, Hostname.Data);
             
             CompletePreviousWritesBeforeFutureWrites;
-            GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
+            GlobalTelemetryState->CurrentState = TelemetryState_Idle;
             break;
         }
         else
@@ -374,26 +380,26 @@ AddTelemetryHost(memory_arena *Arena, string Hostname)
 internal void
 InitializeTelemetry(memory_arena *Arena, string TeamId, string ProductName, string MachineName, string Username, u32 ProcessId)
 {
-    if(GlobalTelemetryState_.CurrentState == TelemetryState_Uninitialized)
+    if(GlobalTelemetryState->CurrentState == TelemetryState_Uninitialized)
     {
         for(;;)
         {
-            u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState_.CurrentState, TelemetryState_Initializing, TelemetryState_Uninitialized);
+            u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState->CurrentState, TelemetryState_Initializing, TelemetryState_Uninitialized);
             if(StateType == TelemetryState_Uninitialized)
             {
-                GlobalTelemetryState_.AddingQueue = BootstrapPushStruct(telemetry_queue, Arena);
-                GlobalTelemetryState_.AddingQueue->MemoryFlush = BeginTemporaryMemory(&GlobalTelemetryState_.AddingQueue->Arena);
+                GlobalTelemetryState->AddingQueue = BootstrapPushStruct(telemetry_queue, Arena);
+                GlobalTelemetryState->AddingQueue->MemoryFlush = BeginTemporaryMemory(&GlobalTelemetryState->AddingQueue->Arena);
                 
-                GlobalTelemetryState_.ProcessingQueue = BootstrapPushStruct(telemetry_queue, Arena);
-                GlobalTelemetryState_.ProcessingQueue->MemoryFlush = BeginTemporaryMemory(&GlobalTelemetryState_.ProcessingQueue->Arena);
+                GlobalTelemetryState->ProcessingQueue = BootstrapPushStruct(telemetry_queue, Arena);
+                GlobalTelemetryState->ProcessingQueue->MemoryFlush = BeginTemporaryMemory(&GlobalTelemetryState->ProcessingQueue->Arena);
                 
-                GlobalTelemetryState_.TeamId = PushString_(Arena, TeamId.Size, TeamId.Data);
-                GlobalTelemetryState_.ProductName = PushString_(Arena, ProductName.Size, ProductName.Data);
-                GlobalTelemetryState_.MachineName = PushString_(Arena, MachineName.Size, MachineName.Data);
-                GlobalTelemetryState_.Username = PushString_(Arena, Username.Size, Username.Data);
-                GlobalTelemetryState_.ProcessId = ProcessId;
+                GlobalTelemetryState->TeamId = PushString_(Arena, TeamId.Size, TeamId.Data);
+                GlobalTelemetryState->ProductName = PushString_(Arena, ProductName.Size, ProductName.Data);
+                GlobalTelemetryState->MachineName = PushString_(Arena, MachineName.Size, MachineName.Data);
+                GlobalTelemetryState->Username = PushString_(Arena, Username.Size, Username.Data);
+                GlobalTelemetryState->ProcessId = ProcessId;
                 
-                GlobalTelemetryState_.CurrentState = TelemetryState_Idle;
+                GlobalTelemetryState->CurrentState = TelemetryState_Idle;
                 
                 break;
             }
@@ -412,11 +418,41 @@ InitializeTelemetry(memory_arena *Arena, string TeamId, string ProductName, stri
 inline void
 SendHeartbeatTelemetry()
 {
-    BeginTelemetryMessage();
-    AppendTelemetryMessageNumberField(String("cl"), VERSION);
-    AppendTelemetryMessageStringField(String("category"), String("/heartbeat"));
-    AppendTelemetryMessageStringField(String("message"), String("heartbeat"));
-    EndTelemetryMessage();
+    if((GlobalTelemetryState->CurrentState != TelemetryState_Uninitialized) &&
+       (GlobalTelemetryState->CurrentState != TelemetryState_Initializing))
+    {
+        BeginTelemetryMessage();
+        AppendTelemetryMessageNumberField(String("cl"), VERSION);
+        AppendTelemetryMessageStringField(String("category"), String("/heartbeat"));
+        AppendTelemetryMessageStringField(String("message"), String("heartbeat"));
+        EndTelemetryMessage();
+    }
+}
+
+inline void
+SendTimedHttpTelemetry(string Hostname, u32 Port, string Verb, string Template, string Endpoint, 
+                       umm RequestLength, umm ResponseLength, u32 StatusCode, f32 DurationInSeconds)
+{
+    if((GlobalTelemetryState->CurrentState != TelemetryState_Uninitialized) &&
+       (GlobalTelemetryState->CurrentState != TelemetryState_Initializing))
+    {
+        BeginTelemetryMessage();
+        AppendTelemetryMessageNumberField(String("cl"), VERSION);
+        AppendTelemetryMessageStringField(String("category"), String("/timed_http"));
+        AppendTelemetryMessageStringField(String("message"), String("timed_http"));
+        AppendTelemetryMessageStringField(String("hostname"), Hostname);
+        AppendTelemetryMessageNumberField(String("port"), Port);
+        AppendTelemetryMessageStringField(String("template"), Template);
+        AppendTelemetryMessageStringField(String("endpoint"), Endpoint);
+        AppendTelemetryMessageStringField(String("verb"), Verb);
+        AppendTelemetryMessageNumberField(String("request_length"), RequestLength);
+        AppendTelemetryMessageNumberField(String("response_length"), ResponseLength);
+        AppendTelemetryMessageNumberField(String("status_code"), StatusCode);
+        AppendTelemetryMessageNumberField(String("duration_in_seconds"), DurationInSeconds);
+        AppendTelemetryMessageNumberField(String("duration_in_milliseconds"), (u32)(DurationInSeconds * 1000.0f));
+        EndTelemetryMessage();
+    }
+    
 }
 
 // TODO(kstandbridge): Perhaps move these to a general logger that calls into ConsoleLog/FilesystemLog/TelemetryLog
@@ -483,8 +519,8 @@ SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string
             --SourceFilePlusLine.Data;
         }
         
-        if((GlobalTelemetryState_.CurrentState != TelemetryState_Uninitialized) &&
-           (GlobalTelemetryState_.CurrentState != TelemetryState_Initializing))
+        if((GlobalTelemetryState->CurrentState != TelemetryState_Uninitialized) &&
+           (GlobalTelemetryState->CurrentState != TelemetryState_Initializing))
         {
             BeginTelemetryMessage();
             AppendTelemetryMessageNumberField(String("cl"), VERSION);
