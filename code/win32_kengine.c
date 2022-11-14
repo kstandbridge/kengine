@@ -745,7 +745,10 @@ Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb,
         char CEndpoint[MAX_URL];
         StringToCString(Result.Endpoint, sizeof(CEndpoint), CEndpoint);
         
-        LogDebug("Opening %s request to %S%s", CVerb, Win32Client->Hostname, CEndpoint);
+        if(!Win32Client->SkipMetrics)
+        {
+            LogVerbose("Http %s request to %S:%u%s", CVerb, Win32Client->Hostname, PlatformClient->Port, CEndpoint);
+        }
         Win32Request->Handle = Win32HttpOpenRequestA(Win32Client->Handle, CVerb, CEndpoint, 0, 0, 0, Win32Client->Flags, 0);
         if(Win32Request->Handle)
         {
@@ -1019,7 +1022,10 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
             SecondsSinceLastReport += SecondsElapsed;
             if(SecondsSinceLastReport > 3.0f)
             {
-                LogDownloadProgress(TotalBytesRead, ContentLength);
+                if(!Win32Client->SkipMetrics)
+                {
+                    LogDownloadProgress(TotalBytesRead, ContentLength);
+                }
                 SecondsSinceLastReport = 0.0f;
             }
             if((TotalBytesRead == ContentLength) ||
@@ -1032,7 +1038,10 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
         
         Win32CloseHandle(SaveHandle);
         
-        LogDownloadProgress(TotalBytesRead, ContentLength);
+        if(!Win32Client->SkipMetrics)
+        {
+            LogDownloadProgress(TotalBytesRead, ContentLength);
+        }
         
         Result = TotalBytesRead;
     }
@@ -1113,13 +1122,19 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
             SecondsSinceLastReport += SecondsElapsed;
             if(SecondsSinceLastReport > 3.0f)
             {
-                LogDownloadProgress(TotalBytesRead, ContentLength);
+                if(!Win32Client->SkipMetrics)
+                {
+                    LogDownloadProgress(TotalBytesRead, ContentLength);
+                }
                 SecondsSinceLastReport = 0.0f;
             }
             LastCounter = ThisCounter;
         }
         
-        LogDownloadProgress(TotalBytesRead, ContentLength);
+        if(!Win32Client->SkipMetrics)
+        {
+            LogDownloadProgress(TotalBytesRead, ContentLength);
+        }
         if(TotalBytesRead > ContentLength)
         {
             LogError("Buffer overflow during download!");
