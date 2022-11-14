@@ -1218,6 +1218,7 @@ WinMainCRTStartup()
     GlobalAppMemory.PlatformAPI.KillProcess = Win32KillProcess;
     GlobalAppMemory.PlatformAPI.CheckForProcess = Win32CheckForProcess;
     GlobalAppMemory.PlatformAPI.ExecuteProcess = Win32ExecuteProcess;
+    GlobalAppMemory.PlatformAPI.ExecuteProcessWithOutput = Win32ExecuteProcessWithOutput;
     GlobalAppMemory.PlatformAPI.GetHostname = Win32GetHostname;
     GlobalAppMemory.PlatformAPI.GetHomeDirectory = Win32GetHomeDirectory;
     GlobalAppMemory.PlatformAPI.GetAppConfigDirectory = Win32GetAppConfigDirectory;

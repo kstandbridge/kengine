@@ -174,6 +174,10 @@ typedef b32 platform_request_close_process(string Name);
 typedef b32 platform_kill_process(string Name);
 typedef b32 platform_check_for_process(string Name);
 typedef void platform_execute_process(string Path, string Args, string WorkingDirectory);
+
+typedef void platform_execute_process_callback(string Message);
+typedef u32 platform_execute_process_with_output(string Path, string Args, string WorkingDirectory, platform_execute_process_callback *Output);
+
 typedef umm platform_get_hostname(u8 *Buffer, umm BufferMaxSize);
 typedef umm platform_get_username(u8 *Buffer, umm BufferMaxSize);
 typedef umm platform_get_home_directory(u8 *Buffer, umm BufferMaxSize);
@@ -228,6 +232,7 @@ typedef struct platform_api
     platform_kill_process *KillProcess;
     platform_check_for_process *CheckForProcess;
     platform_execute_process *ExecuteProcess;
+    platform_execute_process_with_output *ExecuteProcessWithOutput;
     platform_get_hostname *GetHostname;
     platform_get_username *GetUsername;
     platform_get_home_directory *GetHomeDirectory;

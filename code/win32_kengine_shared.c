@@ -1198,10 +1198,11 @@ Win32CheckForProcess(string Name)
     return Result;
 }
 
-// TODO(kstandbridge): Pipe outpack to callback?
-internal void
-Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory)
+internal u32
+Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory, platform_execute_process_callback *Callback)
 {
+    u32 Result = 0;
+    
     char CPath[MAX_PATH];
     StringToCString(Path, MAX_PATH, CPath);
     
@@ -1265,11 +1266,11 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory)
                         if(ReadingBuffer[Index] == '\n')
                         {
                             OutputBuffer[OutputIndex] = '\0';
+                            
                             if(OutputIndex > 0)
                             {
-                                // TODO(kstandbridge): Pass string to callback?
-                                Win32OutputDebugStringA(OutputBuffer);
-                                Win32OutputDebugStringA("\n");
+                                string Output = String_(OutputIndex, (u8 *)OutputBuffer);
+                                Callback(Output);
                             }
                             OutputIndex = 0;
                         }
@@ -1291,6 +1292,7 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory)
             
             DWORD ExitCode = 0;
             Win32GetExitCodeProcess(ProcessInformation.hProcess, &ExitCode);
+            Result = ExitCode;
         }
         else
         {
@@ -1303,6 +1305,8 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory)
     {
         Win32LogError("Failed to create pipe for process: %s %s", CPath, CArgs);
     }
+    
+    return Result;
 }
 
 internal void
