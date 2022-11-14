@@ -549,3 +549,60 @@ SendLogTelemetry____(string FileLine, log_level_type LogLevel, char *Format, ...
     
     SendLogTelemetry_____(FileLine, LogLevel, Message);
 }
+
+inline void
+LogDownloadProgress(u64 CurrentBytes, u64 TotalBytes)
+{
+    f32 Current = 0;
+    f32 Total = 0;
+    
+    if(TotalBytes > Gigabytes(1))
+    {
+        Total = TotalBytes / 1024.0 / 1024.0f / 1024.0f;
+        Current = CurrentBytes / 1024.0 / 1024.0f / 1024.0f;
+        LogVerbose("Downloaded (%.02f%%) %.02f / %.02f GB", 
+                   (Current / Total)*100.0f, Current, Total);
+    }
+    else if(TotalBytes > Megabytes(1))
+    {
+        Total = TotalBytes / 1024.0 / 1024.0f;
+        Current = CurrentBytes / 1024.0 / 1024.0f;
+        LogVerbose("Downloaded (%.02f%%) %.02f / %.02f MB", 
+                   (Current / Total)*100.0f, Current, Total);
+    }
+    else if(TotalBytes > Kilobytes(1))
+    {
+        Total = TotalBytes / 1024.0;
+        Current = CurrentBytes / 1024.0;
+        LogVerbose("Downloaded (%.02f%%) %u / %u KB", 
+                   (Current / Total)*100.0f, (u32)Current, (u32)Total);
+    }
+    else if(TotalBytes > 0)
+    {
+        Total = TotalBytes;
+        Current = CurrentBytes;
+        LogVerbose("Downloaded (%.02f%%) %u / %u Bytes", 
+                   (Current / Total)*100.0f, (u32)Current, (u32)Total);
+    }
+    else
+    {
+        // NOTE(kstandbridge): Unknown remaining
+        
+        if(CurrentBytes > Gigabytes(1))
+        {
+            LogVerbose("Downloaded %.02f GB", CurrentBytes / 1024.0 / 1024.0f / 1024.0f);
+        }
+        else if(CurrentBytes > Megabytes(1))
+        {
+            LogVerbose("Downloaded %.02f MB", CurrentBytes / 1024.0 / 1024.0f);
+        }
+        else if(CurrentBytes > Kilobytes(1))
+        {
+            LogVerbose("Downloaded %u KB", CurrentBytes / 1024);
+        }
+        else if(CurrentBytes > 0)
+        {
+            LogVerbose("Downloaded %u Bytes", CurrentBytes);
+        }
+    }
+}

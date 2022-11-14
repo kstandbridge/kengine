@@ -991,7 +991,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
         u8 SaveBuffer[4096];
         
         LogVerbose("Downloading to file %s", CFile);
-        DWORD TotalBytesRead = 0;
+        u64 TotalBytesRead = 0;
         DWORD CurrentBytesRead;
         LARGE_INTEGER LastCounter = Win32GetWallClock();
         f32 SecondsSinceLastReport = 0.0f;
@@ -1019,16 +1019,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
             SecondsSinceLastReport += SecondsElapsed;
             if(SecondsSinceLastReport > 3.0f)
             {
-                if(ContentLength)
-                {
-                    LogVerbose("Downloaded (%.02f%%) %u / %u kilobytes", 
-                               ((f32)TotalBytesRead / (f32)ContentLength)*100.0f,
-                               TotalBytesRead / Kilobytes(1), ContentLength / Kilobytes(1));
-                }
-                else
-                {
-                    LogVerbose("Downloaded %u kilobytes", TotalBytesRead / Kilobytes(1));
-                }
+                LogDownloadProgress(TotalBytesRead, ContentLength);
                 SecondsSinceLastReport = 0.0f;
             }
             if((TotalBytesRead == ContentLength) ||
@@ -1041,16 +1032,8 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
         
         Win32CloseHandle(SaveHandle);
         
-        if(ContentLength)
-        {
-            LogVerbose("Finished downloading %u / %u kilobytes", 
-                       TotalBytesRead / Kilobytes(1), ContentLength / Kilobytes(1));
-        }
-        else
-        {
-            LogVerbose("Finished downloading %u kilobytes", 
-                       TotalBytesRead / Kilobytes(1));
-        }
+        LogDownloadProgress(TotalBytesRead, ContentLength);
+        
         Result = TotalBytesRead;
     }
     
@@ -1130,13 +1113,13 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
             SecondsSinceLastReport += SecondsElapsed;
             if(SecondsSinceLastReport > 3.0f)
             {
-                LogVerbose("Downloaded %u / %u bytes", TotalBytesRead, ContentLength);
+                LogDownloadProgress(TotalBytesRead, ContentLength);
                 SecondsSinceLastReport = 0.0f;
             }
             LastCounter = ThisCounter;
         }
         
-        LogDebug("Finished downloading %u / %u bytes", TotalBytesRead, ContentLength);
+        LogDownloadProgress(TotalBytesRead, ContentLength);
         if(TotalBytesRead > ContentLength)
         {
             LogError("Buffer overflow during download!");
@@ -1693,7 +1676,7 @@ WinMainCRTStartup()
     Win32UninitializeIoCompletionContext(HttpState);
 #endif
     
-    LogInfo("Shutting down");
+    LogInfo("Exiting process...");
     
     PostTelemetryThread(0);
     
