@@ -1038,12 +1038,13 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
         
         Win32CloseHandle(SaveHandle);
         
+        Result = TotalBytesRead;
+        
         if(!Win32Client->SkipMetrics)
         {
-            LogDownloadProgress(TotalBytesRead, ContentLength);
+            LogDownloadProgress(TotalBytesRead, TotalBytesRead);
         }
         
-        Result = TotalBytesRead;
     }
     
     PlatformRequest->ResponseLength = Result;
@@ -1131,15 +1132,16 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
             LastCounter = ThisCounter;
         }
         
-        if(!Win32Client->SkipMetrics)
-        {
-            LogDownloadProgress(TotalBytesRead, ContentLength);
-        }
         if(TotalBytesRead > ContentLength)
         {
             LogError("Buffer overflow during download!");
         }
         Result.Size = TotalBytesRead;
+        
+        if(!Win32Client->SkipMetrics)
+        {
+            LogDownloadProgress(TotalBytesRead, TotalBytesRead);
+        }
     }
     
     PlatformRequest->ResponseLength = Result.Size;

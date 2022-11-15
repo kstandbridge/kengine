@@ -1203,6 +1203,9 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory,
 {
     u32 Result = 0;
     
+    LogVerbose("Working directory set to %S", WorkingDirectory);
+    LogVerbose("Executing %S", Args);
+    
     char CPath[MAX_PATH];
     StringToCString(Path, MAX_PATH, CPath);
     
@@ -1251,19 +1254,12 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory,
                     u32 OutputIndex = 0;
                     char OutputBuffer[BUFFER_SIZE];
                     for(u32 Index = 0;
-                        Index < ReadIndex;
+                        Index <= ReadIndex;
                         ++Index)
                     {
-                        if(ReadingBuffer[Index] == '\0')
-                        {
-                            OutputBuffer[OutputIndex] = '\0';
-                            break;
-                        }
-                        if(ReadingBuffer[Index] == '\r')
-                        {
-                            continue;
-                        }
-                        if(ReadingBuffer[Index] == '\n')
+                        if((ReadingBuffer[Index] == '\0') ||
+                           (ReadingBuffer[Index] == '\r') ||
+                           (ReadingBuffer[Index] == '\n'))
                         {
                             OutputBuffer[OutputIndex] = '\0';
                             
@@ -1373,6 +1369,7 @@ Win32UnzipToDirectory(string SourceZip, string DestFolder)
         Win32VariantInit(&ProgressDialog);
         ProgressDialog.vt = VT_I4;
         ProgressDialog.lVal = FOF_NO_UI;
+        //ProgressDialog.lVal = FOF_SIMPLEPROGRESS;
         
         VARIANT ItemsToBeCopied;
         Win32VariantInit(&ItemsToBeCopied);
