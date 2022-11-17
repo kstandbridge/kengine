@@ -9,6 +9,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define STB_TRUETYPE_IMPLEMENTATION 
+#include "stb_truetype.h"
+
 #ifndef VERSION
 #define VERSION 0
 #endif // VERSION
@@ -68,6 +71,20 @@ Win32WndProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
     return Result;
 }
 
+typedef struct glyph_info
+{
+    u8 *Data;
+    
+    s32 Width;
+    s32 Height;
+    s32 XOffset;
+    s32 YOffset;
+    
+    v4 UV;
+    
+} glyph_info;
+
+
 #if KENGINE_CONSOLE
 s32 __stdcall
 mainCRTStartup()
@@ -79,6 +96,9 @@ WinMain(HINSTANCE Instance,
         int ShowCode)
 #endif
 {
+    GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
+    GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
+    
     LARGE_INTEGER PerfCountFrequencyResult;
     QueryPerformanceFrequency(&PerfCountFrequencyResult);
     GlobalWin32State.PerfCountFrequency = (s64)PerfCountFrequencyResult.QuadPart;
@@ -339,11 +359,11 @@ WinMain(HINSTANCE Instance,
                     {
                         LogDebug("Creating D3D11 input layout");
                         
-                        D3D11_INPUT_ELEMENT_DESC InputElementDesc[2];
+                        D3D11_INPUT_ELEMENT_DESC InputElementDesc[3];
                         
                         InputElementDesc[0].SemanticName = "POS";
                         InputElementDesc[0].SemanticIndex = 0;
-                        InputElementDesc[0].Format = DXGI_FORMAT_R32G32_FLOAT;
+                        InputElementDesc[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
                         InputElementDesc[0].InputSlot = 0;
                         InputElementDesc[0].AlignedByteOffset = 0;
                         InputElementDesc[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
@@ -356,6 +376,14 @@ WinMain(HINSTANCE Instance,
                         InputElementDesc[1].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
                         InputElementDesc[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
                         InputElementDesc[1].InstanceDataStepRate = 0;
+                        
+                        InputElementDesc[2].SemanticName = "COLOR_INSTANCE";
+                        InputElementDesc[2].SemanticIndex = 0;
+                        InputElementDesc[2].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+                        InputElementDesc[2].InputSlot = 1;
+                        InputElementDesc[2].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+                        InputElementDesc[2].InputSlotClass = D3D11_INPUT_PER_INSTANCE_DATA;
+                        InputElementDesc[2].InstanceDataStepRate = 1;
                         
                         if(FAILED(HResult = ID3D11Device1_CreateInputLayout(D3D11Device, InputElementDesc, ArrayCount(InputElementDesc),
                                                                             ID3D10Blob_GetBufferPointer(VertexShaderBlob),
@@ -420,24 +448,44 @@ WinMain(HINSTANCE Instance,
                 }
             }
             
+            LogDebug("Creating D3D11 instance VertexBuffer");
+            ID3D11Buffer *InstanceVertexBuffer;
+            u32 InstanceStride;
+            {
+                
+#define MAX_GLYPH_COUNT 16384
+#define SIZE_OF_GLYPH_INSTANCE_IN_BYTES (sizeof(float)*14)
+#define GLYPH_INSTANCE_DATA_TOTAL_SIZE_IN_BYTES MAX_GLYPH_COUNT*SIZE_OF_GLYPH_INSTANCE_IN_BYTES
+                
+                
+                D3D11_BUFFER_DESC VertexBufferDesc;
+                ZeroStruct(VertexBufferDesc);
+                VertexBufferDesc.ByteWidth = (UINT)GLYPH_INSTANCE_DATA_TOTAL_SIZE_IN_BYTES;
+                VertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+                VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+                VertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+                
+                InstanceStride = SIZE_OF_GLYPH_INSTANCE_IN_BYTES;
+                
+                ID3D11Device1_CreateBuffer(D3D11Device, &VertexBufferDesc, 0, &InstanceVertexBuffer);
+            }
+            
             LogDebug("Creating D3D11 vertex buffer");
             ID3D11Buffer *VertexBuffer;
             u32 VertexCount = 0;
             u32 Stride;
-            u32 Offset;
-            // NOTE(kstandbridge): x, y, u, v
+            // NOTE(kstandbridge): x, y, z, u, v
             f32 VertexData[] = 
             {
-                -0.5f,  0.5f, 0.f, 0.f,
-                0.5f, -0.5f, 1.f, 1.f,
-                -0.5f, -0.5f, 0.f, 1.f,
-                -0.5f,  0.5f, 0.f, 0.f,
-                0.5f,  0.5f, 1.f, 0.f,
-                0.5f, -0.5f, 1.f, 1.f
+                -0.5f,  0.5f, 0.f, 0.f, 0.f,
+		        0.5f, -0.5f, 0.f, 1.f, 1.f,
+		        -0.5f, -0.5f, 0.f, 0.f, 1.f,
+		        -0.5f,  0.5f, 0.f, 0.f, 0.f,
+		        0.5f,  0.5f, 0.f, 1.f, 0.f,
+		        0.5f, -0.5f, 0.f, 1.f, 1.f
             };
-            Stride = 4 * sizeof(f32);
+            Stride = 5 * sizeof(f32);
             VertexCount = sizeof(VertexData) / Stride;
-            Offset = 0;
             
             D3D11_BUFFER_DESC VertexBufferDesc;
             ZeroStruct(VertexBufferDesc);
@@ -459,7 +507,7 @@ WinMain(HINSTANCE Instance,
                 LogDebug("Creating D3D11 sampler state");
                 D3D11_SAMPLER_DESC SamplerDesc;
                 ZeroStruct(SamplerDesc);
-                SamplerDesc.Filter         = D3D11_FILTER_MIN_MAG_MIP_POINT;
+                SamplerDesc.Filter         = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
                 SamplerDesc.AddressU       = D3D11_TEXTURE_ADDRESS_BORDER;
                 SamplerDesc.AddressV       = D3D11_TEXTURE_ADDRESS_BORDER;
                 SamplerDesc.AddressW       = D3D11_TEXTURE_ADDRESS_BORDER;
@@ -472,21 +520,195 @@ WinMain(HINSTANCE Instance,
                 ID3D11SamplerState *SamplerState;
                 ID3D11Device1_CreateSamplerState(D3D11Device, &SamplerDesc, &SamplerState);
                 
+#if 1              
+                ID3D11BlendState *D3D11BlendState;
+                {                
+                    LogDebug("Creating D3D11 blender state");
+                    D3D11_RENDER_TARGET_BLEND_DESC RenderTargetBlendDesc;
+                    ZeroStruct(RenderTargetBlendDesc);
+                    RenderTargetBlendDesc.BlendEnable = true;
+                    RenderTargetBlendDesc.SrcBlend = D3D11_BLEND_SRC_ALPHA;
+                    RenderTargetBlendDesc.DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+                    RenderTargetBlendDesc.BlendOp = D3D11_BLEND_OP_ADD;
+                    RenderTargetBlendDesc.SrcBlendAlpha = D3D11_BLEND_ONE;
+                    RenderTargetBlendDesc.DestBlendAlpha = D3D11_BLEND_ZERO;
+                    RenderTargetBlendDesc.BlendOpAlpha = D3D11_BLEND_OP_ADD;
+                    RenderTargetBlendDesc.RenderTargetWriteMask = 0x0f;
+                    
+                    D3D11_BLEND_DESC BlendDesc;
+                    ZeroStruct(BlendDesc);
+                    BlendDesc.AlphaToCoverageEnable = false;
+                    BlendDesc.IndependentBlendEnable = false;
+                    BlendDesc.RenderTarget[0] = RenderTargetBlendDesc;
+                    
+                    ID3D11Device1_CreateBlendState(D3D11Device, &BlendDesc, &D3D11BlendState);
+                    
+                    f32 BlendFactor[4];
+                    BlendFactor[0] = 1.0f;
+                    BlendFactor[1] = 1.0f;
+                    BlendFactor[2] = 1.0f;
+                    BlendFactor[3] = 1.0f;
+                    u32 SampleMask = 0xFFFFFFFF;
+                    
+                    ID3D11DeviceContext1_OMSetBlendState(D3D11DeviceContext, D3D11BlendState, BlendFactor, SampleMask);
+                }
+#endif
+                
+#if 1
+                ID3D11RasterizerState1 *D3D11RasterizerState;
+                
+                D3D11_RASTERIZER_DESC1 RasterizserDesc;
+                RasterizserDesc.FillMode = D3D11_FILL_SOLID;
+                RasterizserDesc.CullMode = D3D11_CULL_FRONT;
+                RasterizserDesc.FrontCounterClockwise = true;
+                RasterizserDesc.DepthBias = false;
+                RasterizserDesc.DepthBiasClamp = 0;
+                RasterizserDesc.SlopeScaledDepthBias = 0.0f;
+                RasterizserDesc.DepthClipEnable = true;
+                RasterizserDesc.ScissorEnable = false;
+                RasterizserDesc.MultisampleEnable = false;
+                RasterizserDesc.AntialiasedLineEnable = false;
+                RasterizserDesc.ForcedSampleCount = 0;
+                ID3D11Device1_CreateRasterizerState1(D3D11Device, &RasterizserDesc, &D3D11RasterizerState);
+                ID3D11DeviceContext1_RSSetState(D3D11DeviceContext, (ID3D11RasterizerState *)D3D11RasterizerState);
+#endif
+                
+#if 0
                 LogDebug("Loading image");
-                s32 TextureWidth;
-                s32 TextureHeight;
+                s32 TotalWidth;
+                s32 TotalHeight;
                 s32 TextureChannelCount;
                 s32 TextureForceChannelCount = 4;
-                u8 *TextureBytes = stbi_load("..\\data\\Texture.png", &TextureWidth, &TextureHeight,
+                u8 *TextureBytes = stbi_load("..\\data\\Texture.png", &TotalWidth, &TotalHeight,
                                              &TextureChannelCount, TextureForceChannelCount);
                 Assert(TextureBytes);
-                s32 TextureBytesPerRow = 4 * TextureWidth;
+                s32 TextureBytesPerRow = 4 * TotalWidth;
+#else
+                memory_arena MemoryArena;
+                ZeroStruct(MemoryArena);
+                string FontData = Win32ReadEntireFile(&MemoryArena, String("C:\\Windows\\Fonts\\segoeui.ttf"));
+                
+                stbtt_fontinfo FontInfo;
+                ZeroStruct(FontInfo);
+                stbtt_InitFont(&FontInfo, FontData.Data, 0);
+                
+                f32 MaxFontHeightInPixels = 32;
+                f32 Scale = stbtt_ScaleForPixelHeight(&FontInfo, MaxFontHeightInPixels);
+                s32 Padding = (s32)(MaxFontHeightInPixels / 3.0f);
+                u8 OnEdgeValue = (u8)(0.8f*255);
+                f32 PixelDistanceScale = (f32)OnEdgeValue/(f32)(Padding);
+                
+#if 0                
+                u32 FirstChar = 32;
+                u32 LastChar = 126;
+#else
+                u32 FirstChar = 0x0400;
+                u32 LastChar = FirstChar + 255;
+#endif
+                
+                s32 MaxWidth = 0;
+                s32 MaxHeight = 0;
+                s32 TotalWidth = 0;
+                s32 TotalHeight = 0;
+                u32 ColumnAt = 0;
+                u32 RowCount = 1;
+                
+                glyph_info GlyphInfos[255];
+                ZeroArray(ArrayCount(GlyphInfos), GlyphInfos);
+                
+                glyph_info *GlyphInfo = GlyphInfos;
+                
+                for(u32 CodePoint = FirstChar;
+                    CodePoint < LastChar;
+                    ++CodePoint)
+                {                
+                    
+                    
+                    GlyphInfo->Data = stbtt_GetCodepointSDF(&FontInfo, Scale, CodePoint, Padding, OnEdgeValue, PixelDistanceScale, 
+                                                            &GlyphInfo->Width, &GlyphInfo->Height, 
+                                                            &GlyphInfo->XOffset, &GlyphInfo->YOffset);
+                    
+                    
+                    if(GlyphInfo->Data)
+                    {
+                        TotalWidth += GlyphInfo->Width;
+                        ++ColumnAt;
+                        
+                        if(GlyphInfo->Height > MaxHeight)
+                        {
+                            MaxHeight = GlyphInfo->Height;
+                        }
+                    }
+                    
+                    if((ColumnAt % 16) == 0)
+                    {
+                        ++RowCount;
+                        ColumnAt = 0;
+                        if(TotalWidth > MaxWidth)
+                        {
+                            MaxWidth = TotalWidth;
+                        }
+                        TotalWidth = 0;
+                    }
+                    
+                    ++GlyphInfo;
+                }
+                
+                TotalWidth = MaxWidth;
+                TotalHeight = MaxHeight*RowCount;
+                
+                umm TextureSize = TotalWidth*TotalHeight*sizeof(u32);
+                u32 *TextureBytes = PushSize(&MemoryArena, TextureSize);
+                s32 TextureBytesPerRow = 4 * TotalWidth;
+                
+                u32 AtX = 0;
+                u32 AtY = 0;
+                
+                ColumnAt = 0;
+                
+                for(u32 Index = 0;
+                    Index < ArrayCount(GlyphInfos);
+                    ++Index)
+                {
+                    GlyphInfo = GlyphInfos + Index;
+                    
+                    GlyphInfo->UV = V4(AtX / TotalWidth, AtY / TotalHeight,
+                                       (AtX + GlyphInfo->Width) / TotalWidth, 
+                                       (AtY + GlyphInfo->Height) / TotalHeight);
+                    
+                    for(s32 Y = 0;
+                        Y < GlyphInfo->Height;
+                        ++Y)
+                    {
+                        for(s32 X = 0;
+                            X < GlyphInfo->Width;
+                            ++X)
+                        {
+                            u32 Alpha = (u32)GlyphInfo->Data[(Y*GlyphInfo->Width) + X];
+                            TextureBytes[(Y + AtY)*TotalWidth + (X + AtX)] = 0x00000000 | (u32)((Alpha) << 24);
+                        }
+                    }
+                    
+                    AtX += GlyphInfo->Width;
+                    
+                    ++ColumnAt;
+                    
+                    if((ColumnAt % 16) == 0)
+                    {
+                        AtY += MaxHeight;
+                        AtX = 0;
+                    }
+                    
+                    stbtt_FreeSDF(GlyphInfo->Data, 0);
+                }
+                
+#endif
                 
                 LogDebug("Creating D3D11 texture");
                 D3D11_TEXTURE2D_DESC TextureDesc;
                 ZeroStruct(TextureDesc);
-                TextureDesc.Width              = TextureWidth;
-                TextureDesc.Height             = TextureHeight;
+                TextureDesc.Width              = TotalWidth;
+                TextureDesc.Height             = TotalHeight;
                 TextureDesc.MipLevels          = 1;
                 TextureDesc.ArraySize          = 1;
                 TextureDesc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
@@ -504,9 +726,7 @@ WinMain(HINSTANCE Instance,
                 
                 ID3D11ShaderResourceView *TextureView;
                 ID3D11Device1_CreateShaderResourceView(D3D11Device, (ID3D11Resource *)Texture, 0, &TextureView);
-                
-                free(TextureBytes);
-#if 0                
+#if 1     
                 // NOTE(kstandbridge): Constant buffer
                 typedef struct constants
                 {
@@ -584,7 +804,7 @@ WinMain(HINSTANCE Instance,
                         GlobalWindowResize = false;
                     }
                     
-#if 0               
+#if 1               
                     // NOTE(kstandbridge): Constant buffer mapping
                     D3D11_MAPPED_SUBRESOURCE MappedSubresource;
                     ID3D11DeviceContext1_Map(D3D11DeviceContext, (ID3D11Resource *)D3D11ConstantBuffer, 
@@ -625,7 +845,17 @@ WinMain(HINSTANCE Instance,
                     ID3D11DeviceContext1_VSSetConstantBuffers(D3D11DeviceContext, 0, 1, &D3D11ConstantBuffer);
 #endif
                     
-                    ID3D11DeviceContext1_IASetVertexBuffers(D3D11DeviceContext, 0, 1, &VertexBuffer, &Stride, &Offset);
+                    ID3D11Buffer *VertexBuffers[2];
+                    VertexBuffers[0] = VertexBuffer;
+                    VertexBuffers[1] = InstanceVertexBuffer;
+                    UINT Strides[2];
+                    Strides[0] = Stride;
+                    Strides[1] = InstanceStride;
+                    UINT Offsets[2];
+                    Offsets[0] = 0;
+                    Offsets[1] = 0;
+                    
+                    ID3D11DeviceContext1_IASetVertexBuffers(D3D11DeviceContext, 0, 2, VertexBuffers, Strides, Offsets);
                     
                     ID3D11DeviceContext1_Draw(D3D11DeviceContext, VertexCount, 0);
                     
