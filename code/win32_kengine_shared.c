@@ -1,5 +1,5 @@
 
-#define Win32LogError(Format, ...) Win32LogError_(Win32GetLastError(), Format, __VA_ARGS__);
+#define Win32LogError(Format, ...) Win32LogError_(GetLastError(), Format, __VA_ARGS__);
 inline void
 Win32LogError_(DWORD ErrorCode, char *Format, ...)
 {
@@ -15,8 +15,8 @@ Win32LogError_(DWORD ErrorCode, char *Format, ...)
     string Message = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
     
     LPTSTR ErrorBuffer = 0;
-    DWORD ErrorLength = Win32FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, 
-                                            0, ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL), (LPTSTR)&ErrorBuffer, 0, 0);
+    DWORD ErrorLength = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, 
+                                       0, ErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL), (LPTSTR)&ErrorBuffer, 0, 0);
     
     if(ErrorLength)
     {
@@ -30,7 +30,7 @@ Win32LogError_(DWORD ErrorCode, char *Format, ...)
     
     if(ErrorBuffer)
     {
-        Win32LocalFree(ErrorBuffer);
+        LocalFree(ErrorBuffer);
     }
 }
 
@@ -104,7 +104,7 @@ Win32AllocateMemory(umm Size, u64 Flags)
         ProtectOffset = PageSize + SizeRoundedUp;
     }
     
-    win32_memory_block *Win32Block = (win32_memory_block *)Win32VirtualAlloc(0, TotalSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    win32_memory_block *Win32Block = (win32_memory_block *)VirtualAlloc(0, TotalSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     Assert(Win32Block);
     Win32Block->PlatformBlock.Base = (u8 *)Win32Block + BaseOffset;
     Assert(Win32Block->PlatformBlock.Used == 0);
@@ -113,7 +113,7 @@ Win32AllocateMemory(umm Size, u64 Flags)
     if(Flags & (PlatformMemoryBlockFlag_UnderflowCheck|PlatformMemoryBlockFlag_OverflowCheck))
     {
         DWORD OldProtect = 0;
-        b32 IsProtected = Win32VirtualProtect((u8 *)Win32Block + ProtectOffset, PageSize, PAGE_NOACCESS, &OldProtect);
+        b32 IsProtected = VirtualProtect((u8 *)Win32Block + ProtectOffset, PageSize, PAGE_NOACCESS, &OldProtect);
         Assert(IsProtected);
     }
     
@@ -142,7 +142,7 @@ Win32DeallocateMemory(platform_memory_block *Block)
     Win32Block->Next->Prev = Win32Block->Prev;
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
     
-    b32 IsFreed = Win32VirtualFree(Win32Block, 0, MEM_RELEASE);
+    b32 IsFreed = VirtualFree(Win32Block, 0, MEM_RELEASE);
     Assert(IsFreed);
 }
 
@@ -177,7 +177,7 @@ Win32DirectoryExists(string Path)
     char CPath[MAX_PATH];
     StringToCString(Path, MAX_PATH, CPath);
     
-    u32 Attributes = Win32GetFileAttributesA(CPath);
+    u32 Attributes = GetFileAttributesA(CPath);
     Result = ((Attributes != INVALID_FILE_ATTRIBUTES) &&
               (Attributes & FILE_ATTRIBUTE_DIRECTORY));
     
@@ -192,7 +192,7 @@ Win32FileExists(string Path)
     char CPath[MAX_PATH];
     StringToCString(Path, MAX_PATH, CPath);
     
-    u32 Attributes = Win32GetFileAttributesA(CPath);
+    u32 Attributes = GetFileAttributesA(CPath);
     
     Result = ((Attributes != INVALID_FILE_ATTRIBUTES) && 
               !(Attributes & FILE_ATTRIBUTE_DIRECTORY));
@@ -210,7 +210,7 @@ Win32PermanentDeleteFile(string Path)
     char CPath[MAX_PATH];
     StringToCString(Path, MAX_PATH, CPath);
     
-    Result = Win32DeleteFileA(CPath);
+    Result = DeleteFileA(CPath);
     
     return Result;
 }
@@ -230,17 +230,17 @@ Win32ConsoleOut(char *Format, ...)
     string Text = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
     Text;
 #if KENGINE_CONSOLE
-    HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     Assert(OutputHandle != INVALID_HANDLE_VALUE);
     
     DWORD NumberOfBytesWritten;
-    Win32WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&NumberOfBytesWritten, 0);
+    WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&NumberOfBytesWritten, 0);
     Assert(NumberOfBytesWritten == Text.Size);
 #endif
     
 #if KENGINE_INTERNAL
     Buffer[Text.Size] = '\0';
-    Win32OutputDebugStringA((char *)Buffer);
+    OutputDebugStringA((char *)Buffer);
 #endif
 }
 
@@ -253,7 +253,7 @@ Win32GetLastWriteTime(char *Filename)
     ZeroStruct(LastWriteTime);
     
     WIN32_FILE_ATTRIBUTE_DATA Data;
-    if(Win32GetFileAttributesExA(Filename, GetFileExInfoStandard, &Data))
+    if(GetFileAttributesExA(Filename, GetFileExInfoStandard, &Data))
     {
         LastWriteTime = Data.ftLastWriteTime;
     }
@@ -289,7 +289,7 @@ Win32AddWorkEntry(platform_work_queue *PlatformQueue, platform_work_queue_callba
     ++Win32Queue->CompletionGoal;
     _WriteBarrier();
     Win32Queue->NextEntryToWrite = NewNextEntryToWrite;
-    Win32ReleaseSemaphore(Win32Queue->SemaphoreHandle, 1, 0);
+    ReleaseSemaphore(Win32Queue->SemaphoreHandle, 1, 0);
 }
 
 internal b32
@@ -341,13 +341,13 @@ Win32WorkQueueThread(void *lpParameter)
     win32_work_queue *Win32Queue = (win32_work_queue *)lpParameter;
     
     u32 TestThreadId = GetThreadID();
-    Assert(TestThreadId == Win32GetCurrentThreadId());
+    Assert(TestThreadId == GetCurrentThreadId());
     
     for(;;)
     {
         if(Win32DoNextWorkQueueEntry((platform_work_queue *)Win32Queue))
         {
-            Win32WaitForSingleObjectEx(Win32Queue->SemaphoreHandle, INFINITE, false);
+            WaitForSingleObjectEx(Win32Queue->SemaphoreHandle, INFINITE, false);
         }
     }
 }
@@ -364,14 +364,14 @@ Win32MakeWorkQueue(memory_arena *Arena, u32 ThreadCount)
     Win32Queue->NextEntryToRead = 0;
     
     u32 InitialCount = 0;
-    Win32Queue->SemaphoreHandle = Win32CreateSemaphoreExA(0, InitialCount, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
+    Win32Queue->SemaphoreHandle = CreateSemaphoreExA(0, InitialCount, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
     for(u32 ThreadIndex = 0;
         ThreadIndex < ThreadCount;
         ++ThreadIndex)
     {
         u32 ThreadId;
-        HANDLE ThreadHandle = Win32CreateThread(0, 0, Win32WorkQueueThread, Win32Queue, 0, (LPDWORD)&ThreadId);
-        Win32CloseHandle(ThreadHandle);
+        HANDLE ThreadHandle = CreateThread(0, 0, Win32WorkQueueThread, Win32Queue, 0, (LPDWORD)&ThreadId);
+        CloseHandle(ThreadHandle);
     }
     
     platform_work_queue *Result = (platform_work_queue *)Win32Queue;
@@ -391,7 +391,7 @@ inline LARGE_INTEGER
 Win32GetWallClock()
 {    
     LARGE_INTEGER Result;
-    Win32QueryPerformanceCounter(&Result);
+    QueryPerformanceCounter(&Result);
     return Result;
 }
 
@@ -1104,7 +1104,7 @@ Win32GetTimestamp(s16 Year, s16 Month, s16 Day, s16 Hour, s16 Minute, s16 Second
     Date.wSecond = Second;
     
     FILETIME Time;
-    Win32SystemTimeToFileTime(&Date, &Time);
+    SystemTimeToFileTime(&Date, &Time);
     
     ULARGE_INTEGER Large;
     Large.LowPart = Time.dwLowDateTime;
@@ -1127,16 +1127,16 @@ Win32IterateProcesses_(string Name, iterate_processes_op Op)
 {
     b32 Result = false;
     
-    HANDLE Snapshot = Win32CreateToolhelp32Snapshot(TH32CS_SNAPALL, 0);
+    HANDLE Snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPALL, 0);
     PROCESSENTRY32 Entry;
     ZeroStruct(Entry);
     Entry.dwSize = sizeof(PROCESSENTRY32);
-    b32 ProcessFound = Win32Process32First(Snapshot, &Entry);
+    b32 ProcessFound = Process32First(Snapshot, &Entry);
     while(ProcessFound)
     {
         if(StringsAreEqual(CStringToString(Entry.szExeFile), Name))
         {
-            HANDLE Process = Win32OpenProcess(PROCESS_TERMINATE, false, Entry.th32ProcessID);
+            HANDLE Process = OpenProcess(PROCESS_TERMINATE, false, Entry.th32ProcessID);
             if(Process != 0)
             {
                 Result = true;
@@ -1145,24 +1145,24 @@ Win32IterateProcesses_(string Name, iterate_processes_op Op)
                     u8 CPipe[MAX_PATH];
                     string Pipe = FormatStringToBuffer(CPipe, sizeof(CPipe),  "\\\\.\\pipe\\close-request-pipe-%d", Entry.th32ProcessID);
                     CPipe[Pipe.Size] = '\0';
-                    HANDLE PipeHandle = Win32CreateFileA((char *)CPipe, 0, 0, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
+                    HANDLE PipeHandle = CreateFileA((char *)CPipe, 0, 0, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
                     
                     // NOTE(kstandbridge): Give it 3 seconds to close
-                    Win32Sleep(3000); 
-                    Win32CloseHandle(PipeHandle);
+                    Sleep(3000); 
+                    CloseHandle(PipeHandle);
                     
                     // NOTE(kstandbridge): Kill it anyway
-                    Win32TerminateProcess(Process, 0);
+                    TerminateProcess(Process, 0);
                 }
                 else if(Op == IterateProcesses_Terminate)
                 {                    
-                    Win32TerminateProcess(Process, 0);
+                    TerminateProcess(Process, 0);
                 }
                 else
                 {
                     Assert(Op == IterateProcesses_None);
                 }
-                Win32CloseHandle(Process);
+                CloseHandle(Process);
                 break;
             }
             else
@@ -1170,9 +1170,9 @@ Win32IterateProcesses_(string Name, iterate_processes_op Op)
                 Assert(!"Lack PROCESS_TERMINATE access to Firebird.exe");
             }
         }
-        ProcessFound = Win32Process32Next(Snapshot, &Entry);
+        ProcessFound = Process32Next(Snapshot, &Entry);
     }
-    Win32CloseHandle(Snapshot);
+    CloseHandle(Snapshot);
     
     return Result;
 }
@@ -1222,11 +1222,11 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory,
     
     HANDLE InPipeRead;
     HANDLE InPipeWrite;
-    if(Win32CreatePipe(&InPipeRead, &InPipeWrite, &SecurityAttributes, 0))
+    if(CreatePipe(&InPipeRead, &InPipeWrite, &SecurityAttributes, 0))
     {
         HANDLE OutPipeRead;
         HANDLE OutPipeWrite;
-        if(Win32CreatePipe(&OutPipeRead, &OutPipeWrite, &SecurityAttributes, 0))
+        if(CreatePipe(&OutPipeRead, &OutPipeWrite, &SecurityAttributes, 0))
         {
             STARTUPINFOA StartupInfo;
             ZeroStruct(StartupInfo);
@@ -1238,16 +1238,16 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory,
             
             PROCESS_INFORMATION ProcessInformation;
             ZeroStruct(ProcessInformation);
-            if(Win32CreateProcessA(CPath, CArgs, &SecurityAttributes, 0, true, DETACHED_PROCESS, 
-                                   0, CWorkingDirectory, &StartupInfo, &ProcessInformation))
+            if(CreateProcessA(CPath, CArgs, &SecurityAttributes, 0, true, DETACHED_PROCESS, 
+                              0, CWorkingDirectory, &StartupInfo, &ProcessInformation))
             {
 #define BUFFER_SIZE 1024
-                Win32CloseHandle(OutPipeWrite);
-                Win32CloseHandle(InPipeRead);
+                CloseHandle(OutPipeWrite);
+                CloseHandle(InPipeRead);
                 
                 char ReadingBuffer[BUFFER_SIZE];
                 DWORD ReadIndex = 0;
-                b32 IsReading = Win32ReadFile(OutPipeRead, ReadingBuffer, BUFFER_SIZE, &ReadIndex, 0);
+                b32 IsReading = ReadFile(OutPipeRead, ReadingBuffer, BUFFER_SIZE, &ReadIndex, 0);
                 while(IsReading)
                 {
                     ReadingBuffer[ReadIndex] = '\0';
@@ -1275,7 +1275,7 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory,
                             OutputBuffer[OutputIndex++] = ReadingBuffer[Index];
                         }
                     }
-                    IsReading = Win32ReadFile(OutPipeRead, ReadingBuffer, BUFFER_SIZE, &ReadIndex, 0);
+                    IsReading = ReadFile(OutPipeRead, ReadingBuffer, BUFFER_SIZE, &ReadIndex, 0);
                 }
             }
             else
@@ -1284,10 +1284,10 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory,
                 Win32LogError("Failed to create process: %s %s", CPath, CArgs);
             }
             
-            Win32CloseHandle(OutPipeRead);
+            CloseHandle(OutPipeRead);
             
             DWORD ExitCode = 0;
-            Win32GetExitCodeProcess(ProcessInformation.hProcess, &ExitCode);
+            GetExitCodeProcess(ProcessInformation.hProcess, &ExitCode);
             Result = ExitCode;
         }
         else
@@ -1295,7 +1295,7 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory,
             Win32LogError("Failed to create pipe for process: %s %s", CPath, CArgs);
         }
         
-        Win32CloseHandle(InPipeWrite);
+        CloseHandle(InPipeWrite);
     }
     else
     {
@@ -1331,12 +1331,12 @@ Win32UnzipToDirectory(string SourceZip, string DestFolder)
     LogVerbose("Unzipping %S to %S", SourceZip, DestFolder);
     
     wchar_t CSourceZip[MAX_PATH];
-    Win32MultiByteToWideChar(CP_UTF8, 0, (char *)SourceZip.Data, SourceZip.Size, CSourceZip, MAX_PATH);
+    MultiByteToWideChar(CP_UTF8, 0, (char *)SourceZip.Data, SourceZip.Size, CSourceZip, MAX_PATH);
     CSourceZip[SourceZip.Size + 0] = '\0';
     CSourceZip[SourceZip.Size + 1] = '\0';
     
     wchar_t CDestFolder[MAX_PATH];
-    Win32MultiByteToWideChar(CP_UTF8, 0, (char *)DestFolder.Data, DestFolder.Size, CDestFolder, MAX_PATH);
+    MultiByteToWideChar(CP_UTF8, 0, (char *)DestFolder.Data, DestFolder.Size, CDestFolder, MAX_PATH);
     CDestFolder[DestFolder.Size + 0] = '\0';
     CDestFolder[DestFolder.Size + 1] = '\0';
     
@@ -1380,7 +1380,7 @@ Win32UnzipToDirectory(string SourceZip, string DestFolder)
         
         // NOTE(kstandbridge): As much as I hate sleep, CopyHere creates a separate thread
         // which may not finish if this thread exist before completion. So 1000ms sleep.
-        Win32Sleep(1000);
+        Sleep(1000);
         
         FromFolder->lpVtbl->Release(FromFolder);
         ToFolder->lpVtbl->Release(ToFolder);
@@ -1395,16 +1395,16 @@ Win32WriteTextToFile(string Text, string FilePath)
     
     char CFilePath[MAX_PATH];
     StringToCString(FilePath, MAX_PATH, CFilePath);
-    HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    HANDLE FileHandle = CreateFileA(CFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
     Assert(FileHandle != INVALID_HANDLE_VALUE);
     
     DWORD BytesWritten = 0;
-    Win32WriteFile(FileHandle, Text.Data, (DWORD)Text.Size, &BytesWritten, 0);
+    WriteFile(FileHandle, Text.Data, (DWORD)Text.Size, &BytesWritten, 0);
     
     b32 Result = (Text.Size == BytesWritten);
     Assert(Result);
     
-    Win32CloseHandle(FileHandle);
+    CloseHandle(FileHandle);
     
     return Result;
 }
@@ -1420,12 +1420,12 @@ Win32ZipDirectory(string SourceDirectory, string DestinationZip)
     }
     
     wchar_t CDestZip[MAX_PATH];
-    Win32MultiByteToWideChar(CP_ACP, 0, (char *)DestinationZip.Data, DestinationZip.Size, CDestZip, MAX_PATH);
+    MultiByteToWideChar(CP_ACP, 0, (char *)DestinationZip.Data, DestinationZip.Size, CDestZip, MAX_PATH);
     CDestZip[DestinationZip.Size + 0] = '\0';
     CDestZip[DestinationZip.Size + 1] = '\0';
     
     wchar_t CSourceFolder[MAX_PATH];
-    Win32MultiByteToWideChar(CP_ACP, 0, (char *)SourceDirectory.Data, SourceDirectory.Size, CSourceFolder, MAX_PATH);
+    MultiByteToWideChar(CP_ACP, 0, (char *)SourceDirectory.Data, SourceDirectory.Size, CSourceFolder, MAX_PATH);
     CSourceFolder[SourceDirectory.Size + 0] = '\0';
     CSourceFolder[SourceDirectory.Size + 1] = '\0';
     
@@ -1471,7 +1471,7 @@ Win32ZipDirectory(string SourceDirectory, string DestinationZip)
             
             // NOTE(kstandbridge): As much as I hate sleep, CopyHere creates a separate thread
             // which may not finish if this thread exist before completion. So 1000ms sleep.
-            Win32Sleep(1000);
+            Sleep(1000);
             
             ToFolder->lpVtbl->Release(ToFolder);
             FromFolder->lpVtbl->Release(FromFolder);
@@ -1504,13 +1504,13 @@ Win32ReadEntireFile(memory_arena *Arena, string FilePath)
     char CFilePath[MAX_PATH];
     StringToCString(FilePath, MAX_PATH, CFilePath);
     
-    HANDLE FileHandle = Win32CreateFileA(CFilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    HANDLE FileHandle = CreateFileA(CFilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     Assert(FileHandle != INVALID_HANDLE_VALUE);
     
     if(FileHandle != INVALID_HANDLE_VALUE)
     {
         LARGE_INTEGER FileSize;
-        b32 ReadResult = Win32GetFileSizeEx(FileHandle, &FileSize);
+        b32 ReadResult = GetFileSizeEx(FileHandle, &FileSize);
         Assert(ReadResult);
         if(ReadResult)
         {    
@@ -1521,13 +1521,13 @@ Win32ReadEntireFile(memory_arena *Arena, string FilePath)
             if(Result.Data)
             {
                 u32 BytesRead;
-                ReadResult = Win32ReadFile(FileHandle, Result.Data, (u32)Result.Size, (LPDWORD)&BytesRead, 0);
+                ReadResult = ReadFile(FileHandle, Result.Data, (u32)Result.Size, (LPDWORD)&BytesRead, 0);
                 Assert(ReadResult);
                 Assert(BytesRead == Result.Size);
             }
         }
         
-        Win32CloseHandle(FileHandle);
+        CloseHandle(FileHandle);
     }
     
     return Result;
@@ -1551,7 +1551,7 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
     
     if(!Win32HttpQueryInfoA(FileHandle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
     {
-        DWORD ErrorCode = Win32GetLastError();
+        DWORD ErrorCode = GetLastError();
         if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
             Win32LogError_(ErrorCode, "Failed to query http info");
@@ -1561,7 +1561,7 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
     if(ContentLength == 0)
     {
         SaveToHandle = true;
-        SaveHandle = Win32CreateFileA(TempFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+        SaveHandle = CreateFileA(TempFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
         Assert(SaveHandle != INVALID_HANDLE_VALUE);
     }
     else
@@ -1584,7 +1584,7 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
         }
         else
         {
-            DWORD ErrorCode = Win32GetLastError();
+            DWORD ErrorCode = GetLastError();
             if (ErrorCode != ERROR_INSUFFICIENT_BUFFER)
             {
                 Win32LogError_(ErrorCode, "Failed to read response");
@@ -1599,7 +1599,7 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
         if(SaveToHandle)
         {
             DWORD BytesWritten;
-            Win32WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
+            WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
             Assert(CurrentBytesRead == BytesWritten);
         }
         else
@@ -1611,9 +1611,9 @@ Win32ReadInternetResponse(memory_arena *Arena, HINTERNET FileHandle)
     
     if(SaveToHandle)
     {
-        Win32CloseHandle(SaveHandle);
+        CloseHandle(SaveHandle);
         Result = Win32ReadEntireFile(Arena, String("temp.dat"));
-        Win32DeleteFileA(TempFilePath); 
+        DeleteFileA(TempFilePath); 
     }
     else
     {
@@ -1781,11 +1781,11 @@ Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, cha
     char CFile[MAX_PATH];
     StringToCString(File, MAX_PATH, CFile);
     
-    HANDLE FileHandle = Win32CreateFileA(CFile, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    HANDLE FileHandle = CreateFileA(CFile, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     if(FileHandle != INVALID_HANDLE_VALUE)
     {
         LARGE_INTEGER LFileSize;
-        Win32GetFileSizeEx(FileHandle, &LFileSize);
+        GetFileSizeEx(FileHandle, &LFileSize);
         umm FileSize = LFileSize.QuadPart;
         
         WebSessionInit();
@@ -1851,7 +1851,7 @@ Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, cha
                         Overlapped.OffsetHigh = (u32)((Offset >> 32) & 0xFFFFFFFF);
                         
                         DWORD BytesRead = 0;
-                        if(Win32ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
+                        if(ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
                         {
                             DWORD BytesSent = 0;
                             DWORD TotalBytesSend = 0;
@@ -1888,7 +1888,7 @@ Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, cha
             }
         }
         Win32InternetCloseHandle(WebConnect);
-        Win32CloseHandle(FileHandle);
+        CloseHandle(FileHandle);
     }
     else
     {
@@ -1904,10 +1904,10 @@ Win32GetSystemTimestamp()
     u64 Result;
     
     SYSTEMTIME SystemTime;
-    Win32GetSystemTime(&SystemTime);
+    GetSystemTime(&SystemTime);
     
     FILETIME FileTime;
-    Win32SystemTimeToFileTime(&SystemTime, &FileTime);
+    SystemTimeToFileTime(&SystemTime, &FileTime);
     
     ULARGE_INTEGER ULargeInteger;
     ULargeInteger.LowPart = FileTime.dwLowDateTime;
@@ -1931,7 +1931,7 @@ Win32GetDateTimeFromTimestamp(u64 Timestamp)
     FileTime.dwHighDateTime = ULargeInteger.HighPart;
     
     SYSTEMTIME SystemTime;
-    Win32FileTimeToSystemTime(&FileTime, &SystemTime);
+    FileTimeToSystemTime(&FileTime, &SystemTime);
     
     Result.Year = SystemTime.wYear;
     Result.Month = (u8)SystemTime.wMonth;

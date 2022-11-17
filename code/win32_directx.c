@@ -6,6 +6,8 @@
 #include "kengine_intrinsics.h"
 #include "kengine_math.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #ifndef VERSION
 #define VERSION 0
@@ -70,14 +72,15 @@ Win32WndProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
 s32 __stdcall
 mainCRTStartup()
 #else
-void __stdcall 
-WinMainCRTStartup()
+s32 CALLBACK
+WinMain(HINSTANCE Instance,
+        HINSTANCE PrevInstance,
+        LPSTR CommandLine,
+        int ShowCode)
 #endif
 {
-    Kernel32 = FindModuleBase(_ReturnAddress());
-    Assert(Kernel32);
     LARGE_INTEGER PerfCountFrequencyResult;
-    Win32QueryPerformanceFrequency(&PerfCountFrequencyResult);
+    QueryPerformanceFrequency(&PerfCountFrequencyResult);
     GlobalWin32State.PerfCountFrequency = (s64)PerfCountFrequencyResult.QuadPart;
     GlobalAppMemory.PlatformAPI.MakeWorkQueue = Win32MakeWorkQueue;
     GlobalAppMemory.PlatformAPI.AddWorkEntry = Win32AddWorkEntry;
@@ -143,8 +146,6 @@ WinMainCRTStartup()
     Platform = GlobalAppMemory.PlatformAPI;
     
     LogInfo("Starting up");
-    
-    HINSTANCE Instance = Win32GetModuleHandleA(0);
     
     WNDCLASSEXA WindowClass;
     ZeroStruct(WindowClass);
@@ -338,7 +339,7 @@ WinMainCRTStartup()
                     {
                         LogDebug("Creating D3D11 input layout");
                         
-                        D3D11_INPUT_ELEMENT_DESC InputElementDesc[1];
+                        D3D11_INPUT_ELEMENT_DESC InputElementDesc[2];
                         
                         InputElementDesc[0].SemanticName = "POS";
                         InputElementDesc[0].SemanticIndex = 0;
@@ -347,6 +348,14 @@ WinMainCRTStartup()
                         InputElementDesc[0].AlignedByteOffset = 0;
                         InputElementDesc[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
                         InputElementDesc[0].InstanceDataStepRate = 0;
+                        
+                        InputElementDesc[1].SemanticName = "TEX";
+                        InputElementDesc[1].SemanticIndex = 0;
+                        InputElementDesc[1].Format = DXGI_FORMAT_R32G32_FLOAT;
+                        InputElementDesc[1].InputSlot = 0;
+                        InputElementDesc[1].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+                        InputElementDesc[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+                        InputElementDesc[1].InstanceDataStepRate = 0;
                         
                         if(FAILED(HResult = ID3D11Device1_CreateInputLayout(D3D11Device, InputElementDesc, ArrayCount(InputElementDesc),
                                                                             ID3D10Blob_GetBufferPointer(VertexShaderBlob),
@@ -416,17 +425,17 @@ WinMainCRTStartup()
             u32 VertexCount = 0;
             u32 Stride;
             u32 Offset;
-            // NOTE(kstandbridge): x, y
+            // NOTE(kstandbridge): x, y, u, v
             f32 VertexData[] = 
             {
-                -0.5f,  0.5f,
-                0.5f, -0.5f, 
-                -0.5f, -0.5f,
-                -0.5f,  0.5f,
-                0.5f,  0.5f, 
-                0.5f, -0.5f
+                -0.5f,  0.5f, 0.f, 0.f,
+                0.5f, -0.5f, 1.f, 1.f,
+                -0.5f, -0.5f, 0.f, 1.f,
+                -0.5f,  0.5f, 0.f, 0.f,
+                0.5f,  0.5f, 1.f, 0.f,
+                0.5f, -0.5f, 1.f, 1.f
             };
-            Stride = 2 * sizeof(f32);
+            Stride = 4 * sizeof(f32);
             VertexCount = sizeof(VertexData) / Stride;
             Offset = 0;
             
@@ -447,6 +456,58 @@ WinMainCRTStartup()
             else
             {
                 
+                LogDebug("Creating D3D11 sampler state");
+                D3D11_SAMPLER_DESC SamplerDesc;
+                ZeroStruct(SamplerDesc);
+                SamplerDesc.Filter         = D3D11_FILTER_MIN_MAG_MIP_POINT;
+                SamplerDesc.AddressU       = D3D11_TEXTURE_ADDRESS_BORDER;
+                SamplerDesc.AddressV       = D3D11_TEXTURE_ADDRESS_BORDER;
+                SamplerDesc.AddressW       = D3D11_TEXTURE_ADDRESS_BORDER;
+                SamplerDesc.BorderColor[0] = 1.0f;
+                SamplerDesc.BorderColor[1] = 1.0f;
+                SamplerDesc.BorderColor[2] = 1.0f;
+                SamplerDesc.BorderColor[3] = 1.0f;
+                SamplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+                
+                ID3D11SamplerState *SamplerState;
+                ID3D11Device1_CreateSamplerState(D3D11Device, &SamplerDesc, &SamplerState);
+                
+                LogDebug("Loading image");
+                s32 TextureWidth;
+                s32 TextureHeight;
+                s32 TextureChannelCount;
+                s32 TextureForceChannelCount = 4;
+                u8 *TextureBytes = stbi_load("..\\data\\Texture.png", &TextureWidth, &TextureHeight,
+                                             &TextureChannelCount, TextureForceChannelCount);
+                Assert(TextureBytes);
+                s32 TextureBytesPerRow = 4 * TextureWidth;
+                
+                LogDebug("Creating D3D11 texture");
+                D3D11_TEXTURE2D_DESC TextureDesc;
+                ZeroStruct(TextureDesc);
+                TextureDesc.Width              = TextureWidth;
+                TextureDesc.Height             = TextureHeight;
+                TextureDesc.MipLevels          = 1;
+                TextureDesc.ArraySize          = 1;
+                TextureDesc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+                TextureDesc.SampleDesc.Count   = 1;
+                TextureDesc.Usage              = D3D11_USAGE_IMMUTABLE;
+                TextureDesc.BindFlags          = D3D11_BIND_SHADER_RESOURCE;
+                
+                D3D11_SUBRESOURCE_DATA TextureSubresourceData;
+                ZeroStruct(TextureSubresourceData);
+                TextureSubresourceData.pSysMem = TextureBytes;
+                TextureSubresourceData.SysMemPitch = TextureBytesPerRow;
+                
+                ID3D11Texture2D *Texture;
+                ID3D11Device1_CreateTexture2D(D3D11Device, &TextureDesc, &TextureSubresourceData, &Texture);
+                
+                ID3D11ShaderResourceView *TextureView;
+                ID3D11Device1_CreateShaderResourceView(D3D11Device, (ID3D11Resource *)Texture, 0, &TextureView);
+                
+                free(TextureBytes);
+#if 0                
+                // NOTE(kstandbridge): Constant buffer
                 typedef struct constants
                 {
                     v2 Position;
@@ -470,6 +531,7 @@ WinMainCRTStartup()
                         Win32LogError_(HResult, "Failed to create D3D11 constant buffer");
                     }
                 }
+#endif
                 
                 b32 IsRunning = true;
                 while(IsRunning)
@@ -522,6 +584,8 @@ WinMainCRTStartup()
                         GlobalWindowResize = false;
                     }
                     
+#if 0               
+                    // NOTE(kstandbridge): Constant buffer mapping
                     D3D11_MAPPED_SUBRESOURCE MappedSubresource;
                     ID3D11DeviceContext1_Map(D3D11DeviceContext, (ID3D11Resource *)D3D11ConstantBuffer, 
                                              0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
@@ -529,6 +593,7 @@ WinMainCRTStartup()
                     Constants->Position = V2(0.25f, 0.3f);
                     Constants->Color = V4(0.7f, 0.65f, 0.9f, 1.0f);
                     ID3D11DeviceContext1_Unmap(D3D11DeviceContext, (ID3D11Resource *)D3D11ConstantBuffer, 0);
+#endif
                     
                     f32 BackgroundColor[4] = { 0.1f, 0.2f, 0.6f, 1.0f };
                     ID3D11DeviceContext1_ClearRenderTargetView(D3D11DeviceContext, D3D11RenderTargetView, BackgroundColor);
@@ -553,7 +618,12 @@ WinMainCRTStartup()
                     ID3D11DeviceContext1_VSSetShader(D3D11DeviceContext, D3D11VertexShader, 0, 0);
                     ID3D11DeviceContext1_PSSetShader(D3D11DeviceContext, D3D11PixelShader, 0, 0);
                     
+                    ID3D11DeviceContext1_PSSetShaderResources(D3D11DeviceContext, 0, 1, &TextureView);
+                    ID3D11DeviceContext1_PSSetSamplers(D3D11DeviceContext, 0, 1, &SamplerState);
+                    
+#if 0                    
                     ID3D11DeviceContext1_VSSetConstantBuffers(D3D11DeviceContext, 0, 1, &D3D11ConstantBuffer);
+#endif
                     
                     ID3D11DeviceContext1_IASetVertexBuffers(D3D11DeviceContext, 0, 1, &VertexBuffer, &Stride, &Offset);
                     
@@ -573,7 +643,5 @@ WinMainCRTStartup()
         Win32LogError("Failed to register window class %s", WindowClass.lpszClassName);
     }
     
-    Win32ExitProcess(0);
-    
-    InvalidCodePath;
+    return 0;
 }

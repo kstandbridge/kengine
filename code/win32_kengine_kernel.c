@@ -50,8 +50,6 @@ FindGetProcessAddress(HMODULE Module)
     return Result;
 }
 
-global HMODULE Kernel32;
-
 global HMODULE Advapi32;
 global HMODULE Crypt32;
 global HMODULE Gdi32;
@@ -70,26 +68,6 @@ global HMODULE D3DCompiler_47;
 global HMODULE D3D11;
 
 global SecurityFunctionTableA *Win32SecurityFunctionTable;
-
-internal void *
-Win32GetProcAddressA(HMODULE Module, char *ProcName)
-{
-    typedef void *get_proc_address(HMODULE Module, char *ProcName);
-    
-    void *Result = 0;
-    
-    Assert(Kernel32);
-    
-    local_persist get_proc_address *Func = 0;
-    if(!Func)
-    {
-        Func = (get_proc_address *)FindGetProcessAddress(Kernel32);
-    }
-    Assert(Func);
-    Result = Func(Module, ProcName);
-    
-    return Result;
-}
 
 // NOTE(kstandbridge): CRT stuff
 

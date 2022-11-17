@@ -3,155 +3,6 @@
 
 platform_api Platform;
 
-internal HANDLE
-Win32CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
-{
-    HANDLE Result;
-    
-    Assert(Kernel32);
-    local_persist create_file_a *Func = 0;
-    if(!Func)
-    {
-        Func = (create_file_a *)Win32GetProcAddressA(Kernel32, "CreateFileA");
-    }
-    Assert(Func);
-    Result = Func(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    
-    return Result;
-}
-
-internal LPVOID
-Win32VirtualAlloc(LPVOID lpAddress, SIZE_T dwSize, DWORD flAllocationType, DWORD flProtect)
-{
-    LPVOID Result;
-    
-    Assert(Kernel32);
-    local_persist virtual_alloc *Func = 0;
-    if(!Func)
-    {
-        Func = (virtual_alloc *)Win32GetProcAddressA(Kernel32, "VirtualAlloc");
-    }
-    Assert(Func);
-    Result = Func(lpAddress, dwSize, flAllocationType, flProtect);
-    
-    return Result;
-}
-
-internal BOOL
-Win32GetFileSizeEx(HANDLE hFile, PLARGE_INTEGER lpFileSize)
-{
-    BOOL Result;
-    
-    Assert(Kernel32);
-    local_persist get_file_size_ex *Func = 0;
-    if(!Func)
-    {
-        Func = (get_file_size_ex *)Win32GetProcAddressA(Kernel32, "GetFileSizeEx");
-    }
-    Assert(Func);
-    Result = Func(hFile, lpFileSize);
-    
-    return Result;
-}
-
-internal BOOL
-Win32ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped)
-{
-    BOOL Result;
-    
-    Assert(Kernel32);
-    local_persist read_file *Func = 0;
-    if(!Func)
-    {
-        Func = (read_file *)Win32GetProcAddressA(Kernel32, "ReadFile");
-    }
-    Assert(Func);
-    Result = Func(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
-    
-    return Result;
-}
-
-internal BOOL
-Win32CloseHandle(HANDLE hObject)
-{
-    BOOL Result;
-    
-    Assert(Kernel32);
-    local_persist close_handle *Func = 0;
-    if(!Func)
-    {
-        Func = (close_handle *)Win32GetProcAddressA(Kernel32, "CloseHandle");
-    }
-    Assert(Func);
-    Result = Func(hObject);
-    
-    return Result;
-}
-
-internal HANDLE
-Win32GetStdHandle(DWORD nStdHandle)
-{
-    HANDLE Result;
-    
-    Assert(Kernel32);
-    local_persist get_std_handle *Func = 0;
-    if(!Func)
-    {
-        Func = (get_std_handle *)Win32GetProcAddressA(Kernel32, "GetStdHandle");
-    }
-    Assert(Func);
-    Result = Func(nStdHandle);
-    
-    return Result;
-}
-
-internal BOOL
-Win32WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped)
-{
-    BOOL Result;
-    
-    Assert(Kernel32);
-    local_persist write_file *Func = 0;
-    if(!Func)
-    {
-        Func = (write_file *)Win32GetProcAddressA(Kernel32, "WriteFile");
-    }
-    Assert(Func);
-    Result = Func(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped);
-    
-    return Result;
-}
-
-internal LPSTR
-Win32GetCommandLineA()
-{
-    LPSTR Result;
-    
-    Assert(Kernel32);
-    local_persist get_command_line_a *Func = 0;
-    if(!Func)
-    {
-        Func = (get_command_line_a *)Win32GetProcAddressA(Kernel32, "GetCommandLineA");
-    }
-    Assert(Func);
-    Result = Func();
-    
-    return Result;
-}
-
-internal void
-Win32ExitProcess(UINT uExitCode)
-{
-    Assert(Kernel32);
-    local_persist exit_process *Func = 0;
-    if(!Func)
-    {
-        Func = (exit_process *)Win32GetProcAddressA(Kernel32, "ExitProcess");
-    }
-    Assert(Func);
-    Func(uExitCode);
-}
-
 internal b32
 Win32PrintOutput(char *Format, ...)
 {
@@ -167,10 +18,10 @@ Win32PrintOutput(char *Format, ...)
     
     u32 Result = 0;
     
-    HANDLE OutputHandle = Win32GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     Assert(OutputHandle != INVALID_HANDLE_VALUE);
     
-    Win32WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&Result, 0);
+    WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&Result, 0);
     Assert(Result == Text.Size);
     
     return Result;
@@ -785,14 +636,14 @@ GenerateFunctionPointer(c_tokenizer *Tokenizer, string Library, string Parameter
     {
         Win32PrintOutput("    if(!%S)\n", Library);
         Win32PrintOutput("    {\n");
-        Win32PrintOutput("        %S = Win32LoadLibraryA(\"%S.dll\");\n", Library, Library);
+        Win32PrintOutput("        %S = LoadLibraryA(\"%S.dll\");\n", Library, Library);
         Win32PrintOutput("    }\n");
     }
     Win32PrintOutput("    Assert(%S);\n", Library);
     Win32PrintOutput("    local_persist %S *Func = 0;\n", FunctionType);
     Win32PrintOutput("    if(!Func)\n");
     Win32PrintOutput("    {\n");
-    Win32PrintOutput("         Func = (%S *)Win32GetProcAddressA(%S, \"%S\");\n", FunctionType, Library, MethodName);
+    Win32PrintOutput("         Func = (%S *)GetProcAddress(%S, \"%S\");\n", FunctionType, Library, MethodName);
     Win32PrintOutput("    }\n");
     Win32PrintOutput("    Assert(Func);\n");
     if(HasResult)
@@ -1058,14 +909,11 @@ ParseIntrospectable(string File)
 s32 __stdcall
 mainCRTStartup()
 {
-    Kernel32 = FindModuleBase(_ReturnAddress());
-    Assert(Kernel32);
-    
     memory_arena Arena_;
     ZeroStruct(Arena_);
     memory_arena *Arena = &Arena_;
     
-    char *CommandLingArgs = Win32GetCommandLineA();
+    char *CommandLingArgs = GetCommandLineA();
     Assert(CommandLingArgs);
     
     char *At = CommandLingArgs;
@@ -1098,30 +946,30 @@ mainCRTStartup()
                 string SourceFile;
                 ZeroStruct(SourceFile);
                 
-                HANDLE FileHandle = Win32CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+                HANDLE FileHandle = CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
                 Assert(FileHandle != INVALID_HANDLE_VALUE);
                 
                 if(FileHandle != INVALID_HANDLE_VALUE)
                 {
                     LARGE_INTEGER FileSize;
-                    b32 ReadResult = Win32GetFileSizeEx(FileHandle, &FileSize);
+                    b32 ReadResult = GetFileSizeEx(FileHandle, &FileSize);
                     Assert(ReadResult);
                     if(ReadResult)
                     {    
                         SourceFile.Size = FileSize.QuadPart;
-                        SourceFile.Data = Win32VirtualAlloc(0, SourceFile.Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+                        SourceFile.Data = VirtualAlloc(0, SourceFile.Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
                         Assert(SourceFile.Data);
                         
                         if(SourceFile.Data)
                         {
                             u32 BytesRead;
-                            ReadResult = Win32ReadFile(FileHandle, SourceFile.Data, (u32)SourceFile.Size, (LPDWORD)&BytesRead, 0);
+                            ReadResult = ReadFile(FileHandle, SourceFile.Data, (u32)SourceFile.Size, (LPDWORD)&BytesRead, 0);
                             Assert(ReadResult);
                             Assert(BytesRead == SourceFile.Size);
                         }
                     }
                     
-                    Win32CloseHandle(FileHandle);
+                    CloseHandle(FileHandle);
                 }
                 
                 Assert(SourceFile.Data);
@@ -1146,10 +994,6 @@ mainCRTStartup()
         }
         
     }
-    
-    Win32ExitProcess(0);
-    
-    InvalidCodePath;
     
     return 0;
 }

@@ -391,7 +391,7 @@ inline void
 RunRadixSortTests(memory_arena *Arena)
 {
     LARGE_INTEGER LastCounter;
-    Win32QueryPerformanceCounter(&LastCounter);
+    QueryPerformanceCounter(&LastCounter);
     random_state RandomState;
     RandomState.Value = (u32)LastCounter.QuadPart;
     
@@ -473,13 +473,13 @@ DEBUGWin32ReadEntireFile(memory_arena *Arena, char *FilePath)
     string Result;
     ZeroStruct(Result);
     
-    HANDLE FileHandle = Win32CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    HANDLE FileHandle = CreateFileA(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     Assert(FileHandle != INVALID_HANDLE_VALUE);
     
     if(FileHandle != INVALID_HANDLE_VALUE)
     {
         LARGE_INTEGER FileSize;
-        b32 ReadResult = Win32GetFileSizeEx(FileHandle, &FileSize);
+        b32 ReadResult = GetFileSizeEx(FileHandle, &FileSize);
         Assert(ReadResult);
         if(ReadResult)
         {    
@@ -490,13 +490,13 @@ DEBUGWin32ReadEntireFile(memory_arena *Arena, char *FilePath)
             if(Result.Data)
             {
                 u32 BytesRead;
-                ReadResult = Win32ReadFile(FileHandle, Result.Data, (u32)Result.Size, (LPDWORD)&BytesRead, 0);
+                ReadResult = ReadFile(FileHandle, Result.Data, (u32)Result.Size, (LPDWORD)&BytesRead, 0);
                 Assert(ReadResult);
                 Assert(BytesRead == Result.Size);
             }
         }
         
-        Win32CloseHandle(FileHandle);
+        CloseHandle(FileHandle);
     }
     
     return Result;
@@ -555,7 +555,7 @@ inline void
 RunEdDSATests(memory_arena *Arena)
 {
     LARGE_INTEGER LastCounter;
-    Win32QueryPerformanceCounter(&LastCounter);
+    QueryPerformanceCounter(&LastCounter);
     random_state RandomState;
     RandomState.Value = (u32)LastCounter.QuadPart;
     
@@ -695,9 +695,6 @@ RunAllTests(memory_arena *Arena)
 s32 __stdcall
 mainCRTStartup()
 {
-    Kernel32 = FindModuleBase(_ReturnAddress());
-    Assert(Kernel32);
-    
     Platform.AllocateMemory = Win32AllocateMemory;
     Platform.DeallocateMemory = Win32DeallocateMemory;
     
@@ -713,10 +710,6 @@ mainCRTStartup()
     
     b32 Result = RunAllTests(&Arena);
     Win32ConsoleOut("Unit Tests %s: %d/%d passed.\n", Result ? "Successful" : "Failed", TotalTests - FailedTests, TotalTests);
-    
-    Win32ExitProcess(0);
-    
-    InvalidCodePath;
     
     return 0;
 }
