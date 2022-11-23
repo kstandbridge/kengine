@@ -75,6 +75,8 @@ typedef struct glyph_info
 {
     u8 *Data;
     
+    u32 CodePoint;
+    
     s32 Width;
     s32 Height;
     s32 XOffset;
@@ -83,7 +85,6 @@ typedef struct glyph_info
     v4 UV;
     
 } glyph_info;
-
 
 #if KENGINE_CONSOLE
 s32 __stdcall
@@ -301,7 +302,9 @@ WinMain(HINSTANCE Instance,
                 {                
                     DXGI_SWAP_CHAIN_DESC1 D3D11SwapChainDesc;
                     ZeroStruct(D3D11SwapChainDesc);
-                    D3D11SwapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+                    D3D11SwapChainDesc.Width = 0;
+                    D3D11SwapChainDesc.Height = 0;
+                    D3D11SwapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
                     D3D11SwapChainDesc.SampleDesc.Count = 1;
                     D3D11SwapChainDesc.SampleDesc.Quality = 0;
                     D3D11SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -359,7 +362,7 @@ WinMain(HINSTANCE Instance,
                     {
                         LogDebug("Creating D3D11 input layout");
                         
-                        D3D11_INPUT_ELEMENT_DESC InputElementDesc[3];
+                        D3D11_INPUT_ELEMENT_DESC InputElementDesc[5];
                         
                         InputElementDesc[0].SemanticName = "POS";
                         InputElementDesc[0].SemanticIndex = 0;
@@ -384,6 +387,22 @@ WinMain(HINSTANCE Instance,
                         InputElementDesc[2].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
                         InputElementDesc[2].InputSlotClass = D3D11_INPUT_PER_INSTANCE_DATA;
                         InputElementDesc[2].InstanceDataStepRate = 1;
+                        
+                        InputElementDesc[3].SemanticName = "TEX_INSTANCE";
+                        InputElementDesc[3].SemanticIndex = 0;
+                        InputElementDesc[3].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+                        InputElementDesc[3].InputSlot = 1;
+                        InputElementDesc[3].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+                        InputElementDesc[3].InputSlotClass = D3D11_INPUT_PER_INSTANCE_DATA;
+                        InputElementDesc[3].InstanceDataStepRate = 1;
+                        
+                        InputElementDesc[4].SemanticName = "SIZE_INSTANCE";
+                        InputElementDesc[4].SemanticIndex = 0;
+                        InputElementDesc[4].Format = DXGI_FORMAT_R32G32_FLOAT;
+                        InputElementDesc[4].InputSlot = 1;
+                        InputElementDesc[4].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+                        InputElementDesc[4].InputSlotClass = D3D11_INPUT_PER_INSTANCE_DATA;
+                        InputElementDesc[4].InstanceDataStepRate = 1;
                         
                         if(FAILED(HResult = ID3D11Device1_CreateInputLayout(D3D11Device, InputElementDesc, ArrayCount(InputElementDesc),
                                                                             ID3D10Blob_GetBufferPointer(VertexShaderBlob),
@@ -454,7 +473,7 @@ WinMain(HINSTANCE Instance,
             {
                 
 #define MAX_GLYPH_COUNT 16384
-#define SIZE_OF_GLYPH_INSTANCE_IN_BYTES (sizeof(float)*14)
+#define SIZE_OF_GLYPH_INSTANCE_IN_BYTES (sizeof(float)*10)
 #define GLYPH_INSTANCE_DATA_TOTAL_SIZE_IN_BYTES MAX_GLYPH_COUNT*SIZE_OF_GLYPH_INSTANCE_IN_BYTES
                 
                 
@@ -520,7 +539,6 @@ WinMain(HINSTANCE Instance,
                 ID3D11SamplerState *SamplerState;
                 ID3D11Device1_CreateSamplerState(D3D11Device, &SamplerDesc, &SamplerState);
                 
-#if 1              
                 ID3D11BlendState *D3D11BlendState;
                 {                
                     LogDebug("Creating D3D11 blender state");
@@ -552,9 +570,7 @@ WinMain(HINSTANCE Instance,
                     
                     ID3D11DeviceContext1_OMSetBlendState(D3D11DeviceContext, D3D11BlendState, BlendFactor, SampleMask);
                 }
-#endif
                 
-#if 1
                 ID3D11RasterizerState1 *D3D11RasterizerState;
                 
                 D3D11_RASTERIZER_DESC1 RasterizserDesc;
@@ -571,7 +587,6 @@ WinMain(HINSTANCE Instance,
                 RasterizserDesc.ForcedSampleCount = 0;
                 ID3D11Device1_CreateRasterizerState1(D3D11Device, &RasterizserDesc, &D3D11RasterizerState);
                 ID3D11DeviceContext1_RSSetState(D3D11DeviceContext, (ID3D11RasterizerState *)D3D11RasterizerState);
-#endif
                 
 #if 0
                 LogDebug("Loading image");
@@ -598,9 +613,9 @@ WinMain(HINSTANCE Instance,
                 u8 OnEdgeValue = (u8)(0.8f*255);
                 f32 PixelDistanceScale = (f32)OnEdgeValue/(f32)(Padding);
                 
-#if 0                
-                u32 FirstChar = 32;
-                u32 LastChar = 126;
+#if 1
+                u32 FirstChar = 0;
+                u32 LastChar = 256;
 #else
                 u32 FirstChar = 0x0400;
                 u32 LastChar = FirstChar + 255;
@@ -613,7 +628,7 @@ WinMain(HINSTANCE Instance,
                 u32 ColumnAt = 0;
                 u32 RowCount = 1;
                 
-                glyph_info GlyphInfos[255];
+                glyph_info GlyphInfos[256];
                 ZeroArray(ArrayCount(GlyphInfos), GlyphInfos);
                 
                 glyph_info *GlyphInfo = GlyphInfos;
@@ -622,12 +637,11 @@ WinMain(HINSTANCE Instance,
                     CodePoint < LastChar;
                     ++CodePoint)
                 {                
-                    
-                    
                     GlyphInfo->Data = stbtt_GetCodepointSDF(&FontInfo, Scale, CodePoint, Padding, OnEdgeValue, PixelDistanceScale, 
                                                             &GlyphInfo->Width, &GlyphInfo->Height, 
                                                             &GlyphInfo->XOffset, &GlyphInfo->YOffset);
                     
+                    GlyphInfo->CodePoint = CodePoint;
                     
                     if(GlyphInfo->Data)
                     {
@@ -672,9 +686,9 @@ WinMain(HINSTANCE Instance,
                 {
                     GlyphInfo = GlyphInfos + Index;
                     
-                    GlyphInfo->UV = V4(AtX / TotalWidth, AtY / TotalHeight,
-                                       (AtX + GlyphInfo->Width) / TotalWidth, 
-                                       (AtY + GlyphInfo->Height) / TotalHeight);
+                    GlyphInfo->UV = V4((f32)AtX / (f32)TotalWidth, (f32)AtY / (f32)TotalHeight,
+                                       ((f32)AtX + (f32)GlyphInfo->Width) / (f32)TotalWidth, 
+                                       ((f32)AtY + (f32)GlyphInfo->Height) / (f32)TotalHeight);
                     
                     for(s32 Y = 0;
                         Y < GlyphInfo->Height;
@@ -726,13 +740,12 @@ WinMain(HINSTANCE Instance,
                 
                 ID3D11ShaderResourceView *TextureView;
                 ID3D11Device1_CreateShaderResourceView(D3D11Device, (ID3D11Resource *)Texture, 0, &TextureView);
-#if 1     
+                
                 // NOTE(kstandbridge): Constant buffer
                 typedef struct constants
                 {
-                    v2 Position;
-                    v2 Padding; // NOTE(kstandbridge): Needs to align to 16-byte
                     v4 Color;
+                    f32 Matrix[16];
                 } constants;
                 
                 ID3D11Buffer *D3D11ConstantBuffer;
@@ -751,7 +764,6 @@ WinMain(HINSTANCE Instance,
                         Win32LogError_(HResult, "Failed to create D3D11 constant buffer");
                     }
                 }
-#endif
                 
                 b32 IsRunning = true;
                 while(IsRunning)
@@ -804,17 +816,6 @@ WinMain(HINSTANCE Instance,
                         GlobalWindowResize = false;
                     }
                     
-#if 1               
-                    // NOTE(kstandbridge): Constant buffer mapping
-                    D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-                    ID3D11DeviceContext1_Map(D3D11DeviceContext, (ID3D11Resource *)D3D11ConstantBuffer, 
-                                             0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
-                    constants *Constants = (constants *)MappedSubresource.pData;
-                    Constants->Position = V2(0.25f, 0.3f);
-                    Constants->Color = V4(0.7f, 0.65f, 0.9f, 1.0f);
-                    ID3D11DeviceContext1_Unmap(D3D11DeviceContext, (ID3D11Resource *)D3D11ConstantBuffer, 0);
-#endif
-                    
                     f32 BackgroundColor[4] = { 0.1f, 0.2f, 0.6f, 1.0f };
                     ID3D11DeviceContext1_ClearRenderTargetView(D3D11DeviceContext, D3D11RenderTargetView, BackgroundColor);
                     
@@ -830,6 +831,76 @@ WinMain(HINSTANCE Instance,
                     ViewPort.MaxDepth = 1.0f;
                     ID3D11DeviceContext1_RSSetViewports(D3D11DeviceContext, 1, &ViewPort);
                     
+                    // NOTE(kstandbridge): Constant buffer mapping
+                    D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+                    ID3D11DeviceContext1_Map(D3D11DeviceContext, (ID3D11Resource *)D3D11ConstantBuffer, 
+                                             0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+                    constants *Destination = (constants *)MappedSubresource.pData;
+                    
+                    f32 A = 2.0f / ViewPort.Width;
+                    f32 B = 2.0f / ViewPort.Height;
+                    f32 NearClip = 0.1f;
+                    f32 FarClip = 1000.0f;
+                    
+                    f32 OffsetX = 0;
+                    f32 OffsetY = 0;
+                    
+#if 1               
+                    constants Constants = { 
+                        V4(1.0f, 0.0f, 0.0f, 1.0f), 
+                        {
+                            A, 0, 0, 0,
+                            0, B, 0, 0,
+                            0, 0, 1.0f/(FarClip - NearClip), 0,
+                            OffsetX, OffsetY, NearClip/(NearClip - FarClip), 1
+                        } 
+                    };
+#else
+                    constants Constants = { 
+                        V4(1.0f, 0.0f, 0.0f, 1.0f), 
+                        {
+                            A, 0, 0, 0,
+                            0, B, 0, 0,
+                            0, 0, 1, 0,
+                            -1, -1, 0, 1
+                        } 
+                    };
+#endif
+                    
+                    *Destination = Constants;
+                    
+                    ID3D11DeviceContext1_Unmap(D3D11DeviceContext, (ID3D11Resource *)D3D11ConstantBuffer, 0);
+                    
+                    // NOTE(kstandbridge): COLOR_INSTANCE mapping?
+                    {
+                        D3D11_MAPPED_SUBRESOURCE MappedSubResource;
+                        ZeroStruct(MappedSubResource);
+                        ID3D11DeviceContext1_Map(D3D11DeviceContext, (ID3D11Resource *)InstanceVertexBuffer, 
+                                                 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubResource);
+                        u8 *DestData = (u8 *)MappedSubResource.pData;
+                        
+                        f32 SourceData[10];
+                        SourceData[0] = 1.0f;
+                        SourceData[1] = 1.0f;
+                        SourceData[2] = 1.0f;
+                        SourceData[3] = 1.0f;
+                        
+                        glyph_info *Glyph = GlyphInfos + 'K';
+                        Assert(Glyph->CodePoint == 'K');
+                        SourceData[4] = Glyph->UV.R;
+                        SourceData[5] = Glyph->UV.G;
+                        SourceData[6] = Glyph->UV.B;
+                        SourceData[7] = Glyph->UV.A;
+                        
+                        SourceData[8] = Glyph->Width*0.6f;
+                        SourceData[9] = Glyph->Height*0.6f;
+                        
+                        memcpy(DestData, SourceData, SIZE_OF_GLYPH_INSTANCE_IN_BYTES);
+                        
+                        ID3D11DeviceContext1_Unmap(D3D11DeviceContext, (ID3D11Resource *)InstanceVertexBuffer, 0);
+                    }
+                    
+                    
                     ID3D11DeviceContext1_OMSetRenderTargets(D3D11DeviceContext, 1, &D3D11RenderTargetView, 0);
                     
                     ID3D11DeviceContext1_IASetPrimitiveTopology(D3D11DeviceContext, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -841,9 +912,7 @@ WinMain(HINSTANCE Instance,
                     ID3D11DeviceContext1_PSSetShaderResources(D3D11DeviceContext, 0, 1, &TextureView);
                     ID3D11DeviceContext1_PSSetSamplers(D3D11DeviceContext, 0, 1, &SamplerState);
                     
-#if 0                    
                     ID3D11DeviceContext1_VSSetConstantBuffers(D3D11DeviceContext, 0, 1, &D3D11ConstantBuffer);
-#endif
                     
                     ID3D11Buffer *VertexBuffers[2];
                     VertexBuffers[0] = VertexBuffer;
@@ -857,7 +926,7 @@ WinMain(HINSTANCE Instance,
                     
                     ID3D11DeviceContext1_IASetVertexBuffers(D3D11DeviceContext, 0, 2, VertexBuffers, Strides, Offsets);
                     
-                    ID3D11DeviceContext1_Draw(D3D11DeviceContext, VertexCount, 0);
+                    ID3D11DeviceContext1_DrawInstanced(D3D11DeviceContext, VertexCount, 1, 0, 0);
                     
                     IDXGISwapChain1_Present(D3D11SwapChain, 1, 0);
                 }

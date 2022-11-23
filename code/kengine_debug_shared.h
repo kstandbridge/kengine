@@ -3,7 +3,7 @@
 
 #if KENGINE_INTERNAL
 
-typedef enum
+typedef enum debug_event_type
 {
     DebugEvent_None,
     

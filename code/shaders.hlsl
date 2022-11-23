@@ -1,8 +1,8 @@
 
 cbuffer constants : register(b0)
 {
-	float2 Offset;
-	float4 UniformColor;
+	float4 ConstColor;	
+	float4x4 OrthoMatrix;
 };
 
 struct vs_input
@@ -10,6 +10,8 @@ struct vs_input
 	float3 Position : POS;
 	float2 UV : TEX;
 	float4 Color : COLOR_INSTANCE;
+	float4 GlyphUV : TEX_INSTANCE;
+	float4 Size : SIZE_INSTANCE;
 };
 
 struct vs_output
@@ -26,11 +28,19 @@ vs_output vs_main(vs_input Input)
 {
 	vs_output Result;
 
-	Result.Position = float4(Input.Position, 1.0f);
-	Result.UV = Input.UV;
+	float3 Position = Input.Position;
+	
+	Position.x *= Input.Size.x;
+	Position.y *= Input.Size.y;
 
-	// NOTE(kstandbridge): vs_input Color is of type COLOR_INSTANCE, which we need to map and memcpy
-	Result.Color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	Result.Position = mul(OrthoMatrix, float4(Position, 1.0f));
+
+	// Result.UV = Input.UV;
+	Result.UV.x = lerp(Input.GlyphUV.x, Input.GlyphUV.z, Input.UV.x);
+	Result.UV.y = lerp(Input.GlyphUV.y, Input.GlyphUV.w, Input.UV.y);
+
+	//Result.Color = Input.Color;
+	Result.Color = ConstColor;
 
 	return Result;
 }

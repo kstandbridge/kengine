@@ -7,6 +7,19 @@ SquareRoot(f32 Value)
     return Result;
 }
 
+inline f32
+Cos(f32 Value)
+{
+    f32 Result = _mm_cvtss_f32(_mm_cos_ps(_mm_set_ss(Value)));
+    return Result;
+}
+
+inline f32
+Sin(f32 Value)
+{
+    f32 Result = _mm_cvtss_f32(_mm_sin_ps(_mm_set_ss(Value)));
+    return Result;
+}
 
 inline s32
 RoundF32ToS32(f32 Value)
@@ -14,7 +27,6 @@ RoundF32ToS32(f32 Value)
     s32 Result = _mm_cvtss_si32(_mm_set_ss(Value));
     return Result;
 }
-
 
 inline u32
 RoundF32ToU32(f32 Value)

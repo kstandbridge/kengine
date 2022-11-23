@@ -15,7 +15,7 @@
 #include <Schnlsp.h>
 #include <tlhelp32.h>
 
-#include <d3d11_1.h>
+#include <d3d11.h>
 #include <d3dcompiler.h>
 
 #ifdef CreateDirectory
@@ -46,9 +46,13 @@ introspect(win32, Gdi32) typedef BOOL swap_buffers(HDC unnamedParam1);
 introspect(win32, User32) typedef HWND create_window_ex_a(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName, DWORD dwStyle, int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam);
 introspect(win32, User32) typedef LRESULT def_window_proc_a(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 introspect(win32, User32) typedef LRESULT dispatch_message_a(const MSG *lpMsg);
+introspect(win32, User32) typedef BOOL set_window_text_a(HWND hWnd, LPCSTR lpString );
+introspect(win32, User32) typedef HWND set_capture(HWND hWnd);
+introspect(win32, User32) typedef BOOL release_capture();
 introspect(win32, User32) typedef HDC get_d_c(HWND hWnd);
 introspect(win32, User32) typedef SHORT get_key_state(int nVirtKey);
 introspect(win32, User32) typedef LONG_PTR get_window_long_ptr_a(HWND hWnd, int nIndex);
+introspect(win32, User32) typedef BOOL get_message_a(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax);
 introspect(win32, User32) typedef BOOL peek_message_a(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg);
 introspect(win32, User32) typedef ATOM register_class_ex_a(const WNDCLASSEXA *unnamedParam1);
 introspect(win32, User32) typedef LONG_PTR set_window_long_ptr_a(HWND hWnd, int nIndex, LONG_PTR dwNewLong);
@@ -61,6 +65,7 @@ introspect(win32, User32) typedef BOOL get_client_rect(HWND hWnd, LPRECT lpRect)
 introspect(win32, User32) typedef BOOL destroy_window(HWND hWnd);
 introspect(win32, User32) typedef HICON load_icon_a(HINSTANCE hInstance, LPCSTR lpIconName);
 introspect(win32, User32) typedef HCURSOR load_cursor_a(HINSTANCE hInstance, LPCSTR lpCursorName);
+introspect(win32, User32) typedef BOOL adjust_window_rect(LPRECT lpRect, DWORD dwStyle, BOOL bMenu);
 introspect(win32, User32) typedef BOOL adjust_window_rect_ex(LPRECT lpRect, DWORD dwStyle, BOOL bMenu, DWORD dwExStyle);
 introspect(win32, User32) typedef void post_quit_message(int nExitCode);
 
@@ -185,6 +190,18 @@ introspect(win32, D3DCompiler_47) typedef HRESULT d_3_d_compile_from_file(LPCWST
                                                                           ID3DBlob               **ppCode,
                                                                           ID3DBlob               **ppErrorMsgs);
 
+introspect(win32, D3D11) typedef HRESULT d_3_d_11_create_device_and_swap_chain(IDXGIAdapter               *pAdapter,
+                                                                               D3D_DRIVER_TYPE            DriverType,
+                                                                               HMODULE                    Software,
+                                                                               UINT                       Flags,
+                                                                               D3D_FEATURE_LEVEL    *pFeatureLevels,
+                                                                               UINT                       FeatureLevels,
+                                                                               UINT                       SDKVersion,
+                                                                               DXGI_SWAP_CHAIN_DESC *pSwapChainDesc,
+                                                                               IDXGISwapChain             **ppSwapChain,
+                                                                               ID3D11Device               **ppDevice,
+                                                                               D3D_FEATURE_LEVEL          *pFeatureLevel,
+                                                                               ID3D11DeviceContext        **ppImmediateContext);
 introspect(win32, D3D11) typedef HRESULT d_3_d_11_create_device(IDXGIAdapter            *pAdapter,
                                                                 D3D_DRIVER_TYPE         DriverType,
                                                                 HMODULE                 Software,

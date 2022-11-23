@@ -127,11 +127,11 @@ GetElementFromGUID(debug_state *DebugState, u32 Index, char *GUID)
     return Result;
 }
 
-enum debug_element_add_op
+typedef enum debug_element_add_op
 {
     DebugElement_AddToGroup = 0x1,
     DebugElement_CreateHierarchy = 0x2,
-};
+} debug_element_add_op;
 
 internal debug_element *
 GetElementFromEvent(debug_state *DebugState, debug_event *Event, debug_variable_link *Parent,
