@@ -76,10 +76,10 @@ internal void
 PostTelemetryThread(void *Data)
 {
     // NOTE(kstandbridge): Swap queues
-    for(;;)
+    if((GlobalTelemetryState->CurrentState != TelemetryState_Uninitialized) &&
+       (GlobalTelemetryState->CurrentState != TelemetryState_Initializing))
     {
-        if((GlobalTelemetryState->CurrentState != TelemetryState_Uninitialized) &&
-           (GlobalTelemetryState->CurrentState != TelemetryState_Initializing))
+        for(;;)
         {        
             u32 StateType = AtomicCompareExchangeU32((u32 *)&GlobalTelemetryState->CurrentState, TelemetryState_SwappingQueues, TelemetryState_Idle);
             if(StateType == TelemetryState_Idle)

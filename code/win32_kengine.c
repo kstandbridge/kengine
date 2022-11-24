@@ -198,7 +198,7 @@ Win32GetGlyphForCodePoint(memory_arena *Arena, u32 CodePoint)
 #if 1
         Win32AddFontResourceExA("c:/Windows/Fonts/segoeui.ttf", FR_PRIVATE, 0);
         s32 PointSize = 11;
-        s32 FontHeight = -Win32MulDiv(PointSize, Win32GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
+        s32 FontHeight = -MulDiv(PointSize, Win32GetDeviceCaps(FontDeviceContext, LOGPIXELSY), 72);
         FontHandle = Win32CreateFontA(FontHeight, 0, 0, 0,
                                       FW_NORMAL, // NOTE(kstandbridge): Weight
                                       FALSE, // NOTE(kstandbridge): Italic
@@ -411,7 +411,7 @@ Win32GetHostname(u8 *Buffer, umm BufferMaxSize)
 {
     DWORD Result = BufferMaxSize;
     
-    if(!Win32GetComputerNameA((char *)Buffer, &Result))
+    if(!GetComputerNameA((char *)Buffer, &Result))
     {
         Win32LogError("Failed to get computer name");
     }
@@ -422,7 +422,7 @@ Win32GetHostname(u8 *Buffer, umm BufferMaxSize)
 internal umm
 Win32GetHomeDirectory(u8 *Buffer, umm BufferMaxSize)
 {
-    DWORD Result = Win32ExpandEnvironmentStringsA("%UserProfile%", (char *)Buffer, BufferMaxSize);
+    DWORD Result = ExpandEnvironmentStringsA("%UserProfile%", (char *)Buffer, BufferMaxSize);
     
     if(Result == 0)
     {
@@ -440,7 +440,7 @@ Win32GetHomeDirectory(u8 *Buffer, umm BufferMaxSize)
 internal umm
 Win32GetAppConfigDirectory(u8 *Buffer, umm BufferMaxSize)
 {
-    DWORD Result = Win32ExpandEnvironmentStringsA("%AppData%", (char *)Buffer, BufferMaxSize);
+    DWORD Result = ExpandEnvironmentStringsA("%AppData%", (char *)Buffer, BufferMaxSize);
     
     if(Result == 0)
     {
@@ -458,7 +458,7 @@ Win32GetAppConfigDirectory(u8 *Buffer, umm BufferMaxSize)
 internal umm
 Win32GetUsername(u8 *Buffer, umm BufferMaxSize)
 {
-    umm Result = Win32GetEnvironmentVariableA("Username", (char *)Buffer, BufferMaxSize);
+    umm Result = GetEnvironmentVariableA("Username", (char *)Buffer, BufferMaxSize);
     
     if(Result == 0)
     {
@@ -471,7 +471,7 @@ Win32GetUsername(u8 *Buffer, umm BufferMaxSize)
 internal u32
 Win32GetProcessId()
 {
-    u32 Result = Win32GetCurrentProcessId();
+    u32 Result = GetCurrentProcessId();
     
     return Result;
 }
@@ -797,11 +797,11 @@ Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File
     char CFile[MAX_PATH];
     StringToCString(File, MAX_PATH, CFile);
     
-    HANDLE FileHandle = Win32CreateFileA(CFile, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    HANDLE FileHandle = CreateFileA(CFile, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     if(FileHandle != INVALID_HANDLE_VALUE)
     {
         LARGE_INTEGER LFileSize;
-        Win32GetFileSizeEx(FileHandle, &LFileSize);
+        GetFileSizeEx(FileHandle, &LFileSize);
         umm FileSize = LFileSize.QuadPart;
         PlatformRequest->RequestLength = FileSize;
         
@@ -827,7 +827,7 @@ Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File
                     Overlapped.OffsetHigh = (u32)((Offset >> 32) & 0xFFFFFFFF);
                     
                     DWORD BytesRead = 0;
-                    if(Win32ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
+                    if(ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
                     {
                         DWORD BytesSent = 0;
                         DWORD TotalBytesSend = 0;
@@ -943,7 +943,7 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
     }
     else
     {
-        DWORD ErrorCode = Win32GetLastError();
+        DWORD ErrorCode = GetLastError();
         if(ErrorCode == ERROR_INTERNET_TIMEOUT)
         {
             LogVerbose("Client timeout on http request");
@@ -974,7 +974,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
     
     if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CUSTOM, (LPVOID)&ContentLengthBuffer, (LPDWORD)&ContentLengthSize, 0))
     {
-        DWORD ErrorCode = Win32GetLastError();
+        DWORD ErrorCode = GetLastError();
         if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
             PlatformRequest->NoErrors = false;
@@ -990,7 +990,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
     {
         u8 CFile[MAX_PATH];
         StringToCString(File, sizeof(CFile), (char *)CFile);
-        HANDLE SaveHandle = Win32CreateFileA((char *)CFile, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
+        HANDLE SaveHandle = CreateFileA((char *)CFile, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
         u8 SaveBuffer[4096];
         
         LogVerbose("Downloading to file %s", CFile);
@@ -1006,7 +1006,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
             }
             else
             {
-                DWORD ErrorCode = Win32GetLastError();
+                DWORD ErrorCode = GetLastError();
                 if(ErrorCode == ERROR_INSUFFICIENT_BUFFER)
                 {
                     LogError("InternetReadFile failed due to insufficent buffer size");
@@ -1015,7 +1015,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
                 break;
             }
             DWORD BytesWritten;
-            Win32WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
+            WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
             
             LARGE_INTEGER ThisCounter = Win32GetWallClock();
             f32 SecondsElapsed = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
@@ -1036,7 +1036,7 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
             LastCounter = ThisCounter;
         }
         
-        Win32CloseHandle(SaveHandle);
+        CloseHandle(SaveHandle);
         
         Result = TotalBytesRead;
         
@@ -1066,7 +1066,7 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
     
     if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
     {
-        DWORD ErrorCode = Win32GetLastError();
+        DWORD ErrorCode = GetLastError();
         if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
         {
             PlatformRequest->NoErrors = false;
@@ -1110,7 +1110,7 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
             }
             else
             {
-                DWORD ErrorCode = Win32GetLastError();
+                DWORD ErrorCode = GetLastError();
                 if (ErrorCode == ERROR_INSUFFICIENT_BUFFER)
                 {
                     LogError("InternetReadFile failed due to insufficent buffer size");
@@ -1156,14 +1156,11 @@ void __stdcall
 WinMainCRTStartup()
 #endif
 {
-    Kernel32 = FindModuleBase(_ReturnAddress());
-    Assert(Kernel32);
-    
     GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
     GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
     
 #if !defined(KENGINE_CONSOLE) && !defined(KENGINE_HEADLESS)
-    HINSTANCE Instance = Win32GetModuleHandleA(0);
+    HINSTANCE Instance = GetModuleHandleA(0);
     
     WNDCLASSEXA WindowClass;
     ZeroStruct(WindowClass);
@@ -1174,7 +1171,7 @@ WinMainCRTStartup()
 #endif // !defined(KENGINE_CONSOLE) && !defined(KENGINE_HEADLESS)
     
     LARGE_INTEGER PerfCountFrequencyResult;
-    Win32QueryPerformanceFrequency(&PerfCountFrequencyResult);
+    QueryPerformanceFrequency(&PerfCountFrequencyResult);
     GlobalWin32State.PerfCountFrequency = (s64)PerfCountFrequencyResult.QuadPart;
     GlobalAppMemory.PlatformAPI.MakeWorkQueue = Win32MakeWorkQueue;
     GlobalAppMemory.PlatformAPI.AddWorkEntry = Win32AddWorkEntry;
@@ -1239,7 +1236,7 @@ WinMainCRTStartup()
 #if KENGINE_INTERNAL
     {    
         char Filename[MAX_PATH];
-        Win32GetModuleFileNameA(0, Filename, MAX_PATH);
+        GetModuleFileNameA(0, Filename, MAX_PATH);
         u32 Length = GetNullTerminiatedStringLength(Filename);
         
         char *At = Filename;
@@ -1269,7 +1266,7 @@ WinMainCRTStartup()
 #endif
     
     GlobalAppMemory.ArgCount = 1;
-    char *CommandLingArgs = Win32GetCommandLineA();
+    char *CommandLingArgs = GetCommandLineA();
     // NOTE(kstandbridge): Parse command line args
     {    
         Assert(CommandLingArgs);
@@ -1432,17 +1429,17 @@ WinMainCRTStartup()
                                                    0, 0, Instance, 0);
     Assert(GlobalWin32State.Window);
     Win32ShowWindow(GlobalWin32State.Window, SW_SHOW);
+    
     HDC OpenGLDC = Win32GetDC(GlobalWin32State.Window);
-    HGLRC OpenGLRC = Win32InitOpenGL(OpenGLDC);
     
     u8 PushBuffer[65536];
     umm PushBufferSize = sizeof(PushBuffer);
     
     u32 CurrentSortMemorySize = Kilobytes(64);
-    void *SortMemory = Win32VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+    void *SortMemory = VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
     
     u32 CurrentClipMemorySize = Kilobytes(64);
-    void *ClipMemory = Win32VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+    void *ClipMemory = VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
     
     
     app_input Input[2];
@@ -1479,10 +1476,10 @@ WinMainCRTStartup()
 #if KENGINE_INTERNAL
         b32 DllNeedsToBeReloaded = false;
         FILETIME NewDLLWriteTime = Win32GetLastWriteTime(GlobalWin32State.DllFullFilePath);
-        if(Win32CompareFileTime(&NewDLLWriteTime, &GlobalWin32State.LastDLLWriteTime) != 0)
+        if(CompareFileTime(&NewDLLWriteTime, &GlobalWin32State.LastDLLWriteTime) != 0)
         {
             WIN32_FILE_ATTRIBUTE_DATA Ignored;
-            if(!Win32GetFileAttributesExA(GlobalWin32State.LockFullFilePath, GetFileExInfoStandard, &Ignored))
+            if(!GetFileAttributesExA(GlobalWin32State.LockFullFilePath, GetFileExInfoStandard, &Ignored))
             {
                 DllNeedsToBeReloaded = true;
             }
@@ -1558,7 +1555,7 @@ WinMainCRTStartup()
         
         if(DllNeedsToBeReloaded)
         {
-            if(GlobalWin32State.AppLibrary && !Win32FreeLibrary(GlobalWin32State.AppLibrary))
+            if(GlobalWin32State.AppLibrary && !FreeLibrary(GlobalWin32State.AppLibrary))
             {
                 Win32LogError("Failed to free app library");
             }
@@ -1571,17 +1568,17 @@ WinMainCRTStartup()
             GlobalWin32State.AppHandleHttpRequest = 0;
 #endif // KENGINE_HTTP
             
-            if(Win32CopyFileA(GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath, false))
+            if(CopyFileA(GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath, false))
             {
                 LogDebug("App code reloaded!");
-                GlobalWin32State.AppLibrary = Win32LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
+                GlobalWin32State.AppLibrary = LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
                 if(GlobalWin32State.AppLibrary)
                 {
-                    GlobalWin32State.AppTick_ = (app_tick_ *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppTick_");
+                    GlobalWin32State.AppTick_ = (app_tick_ *)GetProcAddress(GlobalWin32State.AppLibrary, "AppTick_");
                     Assert(GlobalWin32State.AppTick_);
 #if KENGINE_CONSOLE
                     // NOTE(kstandbridge): Command handler is optional
-                    GlobalWin32State.AppHandleCommand = (app_handle_command *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleCommand");
+                    GlobalWin32State.AppHandleCommand = (app_handle_command *)GetProcAddress(GlobalWin32State.AppLibrary, "AppHandleCommand");
 #endif // KENGINE_CONSOLE
                     
 #if KENGINE_HTTP
@@ -1618,24 +1615,24 @@ WinMainCRTStartup()
         u32 NeededSortMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
         if(CurrentSortMemorySize < NeededSortMemorySize)
         {
-            Win32VirtualFree(SortMemory, 0, MEM_RELEASE);
+            VirtualFree(SortMemory, 0, MEM_RELEASE);
             while(CurrentSortMemorySize < NeededSortMemorySize)
             {
                 CurrentSortMemorySize *= 2;
             }
-            SortMemory = Win32VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+            SortMemory = VirtualAlloc(0, CurrentSortMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
         }
         
         // TODO(kstandbridge): Can we merge sort/clip and push buffer memory together?
         u32 NeededClipMemorySize = Commands->PushBufferElementCount * sizeof(sort_entry);
         if(CurrentClipMemorySize < NeededClipMemorySize)
         {
-            Win32VirtualFree(ClipMemory, 0, MEM_RELEASE);
+            VirtualFree(ClipMemory, 0, MEM_RELEASE);
             while(CurrentClipMemorySize < NeededClipMemorySize)
             {
                 CurrentClipMemorySize *= 2;
             }
-            ClipMemory = Win32VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+            ClipMemory = VirtualAlloc(0, CurrentClipMemorySize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
         }
         END_BLOCK();
         
@@ -1643,7 +1640,6 @@ WinMainCRTStartup()
         SortRenderCommands(Commands, SortMemory);
         LinearizeClipRects(Commands, ClipMemory);
         
-        Win32OpenGLRenderCommands(Commands);
         Win32SwapBuffers(DeviceContext);
         
         EndRenderCommands(Commands);
@@ -1667,7 +1663,7 @@ WinMainCRTStartup()
             DWORD Miliseconds = (DWORD)(1000.0f * (TargetSecondsPerFrame - FrameSeconds));
             if(Miliseconds > 0)
             {
-                Win32Sleep(Miliseconds);
+                Sleep(Miliseconds);
             }
             
             FrameSeconds = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
@@ -1697,9 +1693,7 @@ WinMainCRTStartup()
     
     PostTelemetryThread(0);
     
-    Win32ExitProcess(0);
-    
-    InvalidCodePath;
+    ExitProcess(0);
     
 #if KENGINE_CONSOLE
     return 0;
