@@ -15,7 +15,8 @@
 #include <Schnlsp.h>
 #include <tlhelp32.h>
 
-#include <d3d11.h>
+#include <d3d11_1.h>
+#include <dxgi1_4.h>
 #include <d3dcompiler.h>
 
 #ifdef CreateDirectory
@@ -43,19 +44,39 @@ introspect(win32, Gdi32) typedef int describe_pixel_format(HDC hdc, int iPixelFo
 introspect(win32, Gdi32) typedef BOOL set_pixel_format(HDC hdc, int format, const PIXELFORMATDESCRIPTOR *ppfd);
 introspect(win32, Gdi32) typedef BOOL swap_buffers(HDC unnamedParam1);
 
-introspect(win32, User32) typedef HWND create_window_ex_a(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName, DWORD dwStyle, int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam);
+introspect(win32, User32) typedef HWND create_window_ex_a(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName, DWORD dwStyle, 
+                                                          int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, 
+                                                          HINSTANCE hInstance, LPVOID lpParam);
+introspect(win32, User32) typedef HWND create_window_ex_w(DWORD     dwExStyle,
+                                                          LPCWSTR   lpClassName,
+                                                          LPCWSTR   lpWindowName,
+                                                          DWORD     dwStyle,
+                                                          int       X,
+                                                          int       Y,
+                                                          int       nWidth,
+                                                          int       nHeight,
+                                                          HWND      hWndParent,
+                                                          HMENU     hMenu,
+                                                          HINSTANCE hInstance,
+                                                          LPVOID    lpParam);
 introspect(win32, User32) typedef LRESULT def_window_proc_a(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+introspect(win32, User32) typedef LRESULT def_window_proc_w(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 introspect(win32, User32) typedef LRESULT dispatch_message_a(const MSG *lpMsg);
+introspect(win32, User32) typedef LRESULT dispatch_message_w(const MSG *lpMsg);
 introspect(win32, User32) typedef BOOL set_window_text_a(HWND hWnd, LPCSTR lpString );
 introspect(win32, User32) typedef HWND set_capture(HWND hWnd);
 introspect(win32, User32) typedef BOOL release_capture();
 introspect(win32, User32) typedef HDC get_d_c(HWND hWnd);
 introspect(win32, User32) typedef SHORT get_key_state(int nVirtKey);
 introspect(win32, User32) typedef LONG_PTR get_window_long_ptr_a(HWND hWnd, int nIndex);
+introspect(win32, User32) typedef LONG_PTR get_window_long_ptr_w(HWND hWnd, int nIndex);
 introspect(win32, User32) typedef BOOL get_message_a(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax);
 introspect(win32, User32) typedef BOOL peek_message_a(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg);
+introspect(win32, User32) typedef BOOL peek_message_w(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg);
 introspect(win32, User32) typedef ATOM register_class_ex_a(const WNDCLASSEXA *unnamedParam1);
+introspect(win32, User32) typedef ATOM register_class_ex_w(const WNDCLASSEXW *unnamedParam1);
 introspect(win32, User32) typedef LONG_PTR set_window_long_ptr_a(HWND hWnd, int nIndex, LONG_PTR dwNewLong);
+introspect(win32, User32) typedef LONG_PTR set_window_long_ptr_w(HWND hWnd, int nIndex, LONG_PTR dwNewLong);
 introspect(win32, User32) typedef BOOL show_window(HWND hWnd, int nCmdShow);
 introspect(win32, User32) typedef int release_d_c(HWND hWnd, HDC hDC);
 introspect(win32, User32) typedef BOOL translate_message(const MSG *lpMsg);
@@ -68,6 +89,12 @@ introspect(win32, User32) typedef HCURSOR load_cursor_a(HINSTANCE hInstance, LPC
 introspect(win32, User32) typedef BOOL adjust_window_rect(LPRECT lpRect, DWORD dwStyle, BOOL bMenu);
 introspect(win32, User32) typedef BOOL adjust_window_rect_ex(LPRECT lpRect, DWORD dwStyle, BOOL bMenu, DWORD dwExStyle);
 introspect(win32, User32) typedef void post_quit_message(int nExitCode);
+introspect(win32, User32) typedef BOOL unregister_class_w(LPCWSTR lpClassName,HINSTANCE hInstance);
+introspect(win32, User32) typedef int message_box_w(HWND    hWnd,
+                                                    LPCWSTR lpText,
+                                                    LPCWSTR lpCaption,
+                                                    UINT    uType);
+
 
 introspect(win32, Ole32) typedef HRESULT co_initialize(LPVOID pvReserved);
 introspect(win32, Ole32) typedef HRESULT co_create_instance(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID *ppv);
@@ -179,6 +206,8 @@ introspect(win32, Httpapi) typedef ULONG http_send_http_response(HANDLE         
                                                                  PHTTP_LOG_DATA     LogData);
 introspect(win32, Httpapi) typedef ULONG http_shutdown_request_queue(HANDLE RequestQueueHandle);
 
+
+introspect(win32, DXGI) typedef HRESULT create_d_x_g_i_factory(REFIID riid, void **ppFactory);
 
 introspect(win32, D3DCompiler_47) typedef HRESULT d_3_d_compile_from_file(LPCWSTR                pFileName,
                                                                           D3D_SHADER_MACRO *pDefines,
