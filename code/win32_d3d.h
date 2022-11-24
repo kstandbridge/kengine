@@ -20,6 +20,7 @@ typedef struct win32_window_state
     IDXGISwapChain *SwapChain;
     ID3D11DeviceContext *DeviceContext;
     ID3D11RenderTargetView *RenderTargetView;
+    ID3D11DepthStencilView *DepthStencilView;
     
     // NOTE(kstandbridge): Misc
     s32 Width;
