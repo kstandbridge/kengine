@@ -42,16 +42,22 @@ debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
 #include "win32_kengine_http.c"
 #endif
 
-typedef struct vertex
-{
-    v2 Position;
-} vertex;
-
 // TODO(kstandbridge): Put this in win32_state;
 global s32 GlobalWindowWidth;
 global s32 GlobalWindowHeight;
 
-global vertex Vertices[6];
+typedef struct vertex_instance
+{
+    v2 Offset;
+    v2 Size;
+    v4 Color;
+} vertex_instance;
+
+global vertex_instance VertexInstances[] =
+{
+    { 10, 10, 120, 120, 1.0f, 0.5f, 0.0f, 1.0f },
+    { 50, 300, 200, 120, 0.5f, 0.5f, 0.0f, 1.0f },
+};
 
 v2
 TransformV2(m4x4 Matrix, v2 Vector)
@@ -74,19 +80,26 @@ TransformV2(m4x4 Matrix, v2 Vector)
     
 }
 
-m4x4
-M4x4Orthographic(f32 ViewWidth, f32 ViewHeight, f32 NearZ, f32 FarZ)
+internal m4x4
+M4x4OrthographicOffCenterLH(float ViewLeft,
+                            float ViewRight,
+                            float ViewBottom,
+                            float ViewTop,
+                            float NearZ,
+                            float FarZ)
 {
-    f32 fRange = 1.0f / (FarZ - NearZ);
+    float ReciprocalWidth = 1.0f / (ViewRight - ViewLeft);
+    float ReciprocalHeight = 1.0f / (ViewTop - ViewBottom);
+    float fRange = 1.0f / (FarZ - NearZ);
     
     m4x4 Result;
-    Result.E[0][0] = 2.0f / ViewWidth;
+    Result.E[0][0] = ReciprocalWidth + ReciprocalWidth;
     Result.E[0][1] = 0.0f;
     Result.E[0][2] = 0.0f;
     Result.E[0][3] = 0.0f;
     
     Result.E[1][0] = 0.0f;
-    Result.E[1][1] = 2.0f / ViewHeight;
+    Result.E[1][1] = ReciprocalHeight + ReciprocalHeight;
     Result.E[1][2] = 0.0f;
     Result.E[1][3] = 0.0f;
     
@@ -95,24 +108,53 @@ M4x4Orthographic(f32 ViewWidth, f32 ViewHeight, f32 NearZ, f32 FarZ)
     Result.E[2][2] = fRange;
     Result.E[2][3] = 0.0f;
     
-    Result.E[3][0] = 0.0f;
-    Result.E[3][1] = 0.0f;
+    Result.E[3][0] = -(ViewLeft + ViewRight) * ReciprocalWidth;
+    Result.E[3][1] = -(ViewTop + ViewBottom) * ReciprocalHeight;
     Result.E[3][2] = -fRange * NearZ;
     Result.E[3][3] = 1.0f;
+    return Result;
+}
+
+internal m4x4
+M4x4Orthographic(f32 ViewWidth, f32 ViewHeight, f32 NearZ, f32 FarZ)
+{
+    f32 fRange = 1.0f / (FarZ - NearZ);
+    
+    m4x4 Result;
+    Result.E[0][0] =  2.0f / ViewWidth;
+    Result.E[0][1] =  0.0f;
+    Result.E[0][2] =  0.0f;
+    Result.E[0][3] =  0.0f;
+    
+    Result.E[1][0] =  0.0f;
+    Result.E[1][1] =  2.0f / ViewHeight;
+    Result.E[1][2] =  0.0f;
+    Result.E[1][3] =  0.0f;
+    
+    Result.E[2][0] =  0.0f;
+    Result.E[2][1] =  0.0f;
+    Result.E[2][2] =  fRange;
+    Result.E[2][3] =  0.0f;
+    
+    Result.E[3][0] = -1.0f;
+    Result.E[3][1] =  1.0f;
+    Result.E[3][2] = -fRange * NearZ;
+    Result.E[3][3] =  1.0f;
     
     return Result;
 }
 
 internal void
-Foo(f32 Width, f32 Height, v2 *Input) // 640, 480
+Foo(f32 Width, f32 Height, f32 X, f32 Y, v2 *Input) // 640, 480
 {
     m4x4 Matrix = M4x4Identity();
     // Size
     
-    // TODO(kstandbridge): cache this as only changes when window resizes
     Matrix = M4x4Multiply(Matrix, M4x4Scale(V3(Width*0.5f, Height*0.5f, 1.0f)));
-    Matrix = M4x4Multiply(Matrix, M4x4Orthographic(GlobalWindowWidth, GlobalWindowHeight, 0.1f, 10000.0f));
+    Matrix = M4x4Multiply(Matrix, M4x4Translation(V3(Width*0.5f + X, -Height*0.5f - Y, 1.0f)));
     
+    // TODO(kstandbridge): cache this as only changes when window resizes
+    Matrix = M4x4Multiply(Matrix, M4x4Orthographic(GlobalWindowWidth, GlobalWindowHeight, 0.1f, 10000.0f));
     
     Matrix = M4x4Transpose(Matrix);
     
@@ -127,7 +169,6 @@ Foo(f32 Width, f32 Height, v2 *Input) // 640, 480
 typedef struct constant
 {
     m4x4 Transform;
-    v4 Color;
 } constant;
 
 internal HRESULT
@@ -254,7 +295,7 @@ Win32RenderCreate(win32_state *Win32State)
         D3D11_RASTERIZER_DESC RasterizerDesc =
         {
             .FillMode = D3D11_FILL_SOLID,
-            .CullMode = D3D11_CULL_BACK,
+            .CullMode = D3D11_CULL_NONE,
             .FrontCounterClockwise = FALSE,
             .DepthBias = 0,
             .DepthBiasClamp = 0,
@@ -327,7 +368,10 @@ Win32RenderCreate(win32_state *Win32State)
         LogDebug("Creating vertex shader and input layout");
         D3D11_INPUT_ELEMENT_DESC InputElementDesc[] =
         {
-            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(vertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 }
+            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "OFFSET", 0, DXGI_FORMAT_R32G32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
+            { "SIZE", 0, DXGI_FORMAT_R32G32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
+            { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
         };
         
         size_t VertexShaderDataSize = sizeof(VertexShaderData);
@@ -360,13 +404,33 @@ Win32RenderCreate(win32_state *Win32State)
     
     if(SUCCEEDED(HResult))
     {
+        v2 Vertices[] =
+        {
+            
+#if 1    
+            {  0.0f, -1.0f }, // Bottom Left?
+            {  1.0f, 0.0f }, // Top Right?
+            {  0.0f, 0.0f }, // Top Left?
+            
+            {  0.0f, -1.0f }, // Bottom Left
+            {  1.0f, -1.0f }, // Bottom Right?
+            {  1.0f, 0.0f }, // Top Right?
+#else
+            { -0.5f,  0.5f },
+            {  0.5f, -0.5f },
+            { -0.5f, -0.5f },
+            { -0.5f,  0.5f },
+            {  0.5f,  0.5f },
+            {  0.5f, -0.5f },
+#endif
+        };
+        
         LogDebug("Creating vertex buffer");
         D3D11_BUFFER_DESC BufferDesc =
         {
             .ByteWidth = sizeof(Vertices),
-            .Usage = D3D11_USAGE_DYNAMIC,
+            .Usage = D3D11_USAGE_IMMUTABLE,
             .BindFlags = D3D11_BIND_VERTEX_BUFFER,
-            .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
         };
         
         D3D11_SUBRESOURCE_DATA SubresourceData =
@@ -378,6 +442,24 @@ Win32RenderCreate(win32_state *Win32State)
                   ID3D11Device_CreateBuffer(Win32State->RenderDevice, &BufferDesc, &SubresourceData, &Win32State->RenderVertexBuffer)))
         {
             Win32LogError_(HResult, "Failed to create vertex buffer");
+        }
+    }
+    
+    if(SUCCEEDED(HResult))
+    {
+        LogDebug("Creating vertex instance buffer");
+        D3D11_BUFFER_DESC BufferDesc =
+        {
+            .ByteWidth = sizeof(VertexInstances),
+            .Usage = D3D11_USAGE_DYNAMIC,
+            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
+            .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
+        };
+        
+        if(FAILED(HResult =
+                  ID3D11Device_CreateBuffer(Win32State->RenderDevice, &BufferDesc, 0, &Win32State->RenderInstanceBuffer)))
+        {
+            Win32LogError_(HResult, "Failed to create vertex instance buffer");
         }
     }
     
@@ -415,6 +497,7 @@ Win32RenderDestroy(win32_state *Win32State)
     }
     
     D3D11SafeRelease(ID3D11Buffer, Win32State->RenderConstantBuffer);
+    D3D11SafeRelease(ID3D11Buffer, Win32State->RenderInstanceBuffer);
     D3D11SafeRelease(ID3D11Buffer, Win32State->RenderVertexBuffer);
     D3D11SafeRelease(ID3D11InputLayout, Win32State->RenderInputLayout);
     D3D11SafeRelease(ID3D11VertexShader, Win32State->RenderVertexShader);
@@ -677,33 +760,52 @@ Win32RenderFrame(win32_state *Win32State)
         // NOTE(kstandbridge): PushRectCommand(Position, color);
         {        
             // NOTE(kstandbridge): Draw a rect
-            D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-            ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderConstantBuffer, 
-                                    0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
-            constant *Constants = (constant *)MappedSubresource.pData;
-            Constants->Color = V4(0.7f, 0.65f, 0.1f, 1.0f);
             
-            m4x4 Transform = M4x4Identity();
-            //Transform = M4x4Multiply(Transform, M4x4Translation(V3(0.5f, 0.5f, 4.0f)));
-            Transform = M4x4Transpose(Transform);
+            // NOTE(kstandbridge): Map the constant buffer which has our orthographic matrix in
+            {            
+                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+                ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderConstantBuffer, 
+                                        0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+                constant *Constants = (constant *)MappedSubresource.pData;
+                Constants->Transform = M4x4Orthographic(GlobalWindowWidth, GlobalWindowHeight, 0.0f, 1.0f);
+                //Constants->Transform = M4x4Orthographic(GlobalWindowWidth, GlobalWindowHeight, 0.0f, 1.0f);
+                //Constants->Transform = M4x4OrthographicOffCenterLH(0, GlobalWindowWidth, GlobalWindowHeight, 0, 0.0f, 1.0f);
+                ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderConstantBuffer, 0);
+            }
             
-            Constants->Transform = Transform;
+            {            
+                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+                ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 
+                                        0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+                vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
+                
+                memcpy(DataGPU, VertexInstances, sizeof(VertexInstances));
+                
+                ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 0);
+            }
             
-            ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderConstantBuffer, 0);
-            
-            u32 Stride = sizeof(vertex);
-            u32 Offset = 0;
             ID3D11DeviceContext_IASetInputLayout(Win32State->RenderContext, Win32State->RenderInputLayout);
             ID3D11DeviceContext_VSSetConstantBuffers(Win32State->RenderContext, 0, 1, &Win32State->RenderConstantBuffer);
-            ID3D11DeviceContext_IASetVertexBuffers(Win32State->RenderContext, 0, 1, &Win32State->RenderVertexBuffer, &Stride, &Offset);
+            u32 Strides[] = { sizeof(v2), sizeof(vertex_instance)};
+            u32 Offsets[] = {0, 0};
+            
+            ID3D11Buffer *VertexBuffers[] =
+            {
+                Win32State->RenderVertexBuffer,
+                Win32State->RenderInstanceBuffer
+            };
+            
+            ID3D11DeviceContext_IASetVertexBuffers(Win32State->RenderContext, 0, 2, VertexBuffers, Strides, Offsets);
+            
+            
             ID3D11DeviceContext_IASetPrimitiveTopology(Win32State->RenderContext, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             ID3D11DeviceContext_VSSetShader(Win32State->RenderContext, Win32State->RenderVertexShader, 0, 0);
             ID3D11DeviceContext_PSSetShader(Win32State->RenderContext, Win32State->RenderPixelShader, 0, 0);
             
-            //ID3D11DeviceContext_RSSetState(Win32State->RenderContext, Win32State->RenderRasterizerState);
-            //ID3D11DeviceContext_OMSetBlendState(Win32State->RenderContext, Win32State->RenderBlendState, 0, ~0U);
+            ID3D11DeviceContext_RSSetState(Win32State->RenderContext, Win32State->RenderRasterizerState);
+            ID3D11DeviceContext_OMSetBlendState(Win32State->RenderContext, Win32State->RenderBlendState, 0, ~0U);
             
-            ID3D11DeviceContext_Draw(Win32State->RenderContext, ArrayCount(Vertices), 0);
+            ID3D11DeviceContext_DrawInstanced(Win32State->RenderContext, 6, ArrayCount(VertexInstances), 0, 0);
         }
         
     }
@@ -739,6 +841,8 @@ Win32WindowProc_(win32_state *Win32State, HWND Window, u32 Message, WPARAM WPara
             }
             else
             {
+                
+#if 0                
                 Vertices[0].Position = V2( -1.0f,  1.0f );
                 Vertices[1].Position = V2(  1.0f, -1.0f );
                 Vertices[2].Position = V2( -1.0f, -1.0f );
@@ -746,7 +850,16 @@ Win32WindowProc_(win32_state *Win32State, HWND Window, u32 Message, WPARAM WPara
                 Vertices[4].Position = V2(  1.0f,  1.0f );
                 Vertices[5].Position = V2(  1.0f, -1.0f );
                 
-                Foo(640, 480, (v2 *)Vertices);
+                Vertices[6].Position = V2( -1.0f,  1.0f );
+                Vertices[7].Position = V2(  1.0f, -1.0f );
+                Vertices[8].Position = V2( -1.0f, -1.0f );
+                Vertices[9].Position = V2( -1.0f,  1.0f );
+                Vertices[10].Position = V2(  1.0f,  1.0f );
+                Vertices[11].Position = V2(  1.0f, -1.0f );
+                
+                
+                Foo(64, 48, 10, 10, (v2 *)Vertices);
+                Foo(32, 24, 100, 80, (v2 *)Vertices + 6);
                 
                 D3D11_MAPPED_SUBRESOURCE MappedSubresource;
                 ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderVertexBuffer, 
@@ -758,8 +871,10 @@ Win32WindowProc_(win32_state *Win32State, HWND Window, u32 Message, WPARAM WPara
                 Constants[3] = Vertices[3];
                 Constants[4] = Vertices[4];
                 Constants[5] = Vertices[5];
+                Constants[6] = Vertices[6];
                 
                 ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderVertexBuffer, 0);
+#endif
                 
             }
         } break;

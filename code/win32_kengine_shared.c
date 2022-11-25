@@ -70,6 +70,7 @@ typedef struct win32_state
     ID3D11VertexShader *RenderVertexShader;
     ID3D11InputLayout *RenderInputLayout;
     ID3D11Buffer *RenderVertexBuffer;
+    ID3D11Buffer *RenderInstanceBuffer;
     ID3D11Buffer *RenderConstantBuffer;
 #endif
     
