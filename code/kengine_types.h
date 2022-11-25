@@ -206,6 +206,11 @@ introspect(ctor) typedef struct
     s32 MaxY;
 } rectangle2i;
 
+typedef struct m4x4
+{
+    f32 E[4][4];
+} m4x4;
+
 introspect(ctor) typedef struct
 {
     v4 Text;
