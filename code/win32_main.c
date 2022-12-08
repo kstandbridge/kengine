@@ -9,6 +9,13 @@
 #include "kengine_math.h"
 #include "kengine_renderer_shared.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#define STB_TRUETYPE_IMPLEMENTATION 
+#include "stb_truetype.h"
+
+
 #ifndef VERSION
 #define VERSION 0
 #endif // VERSION
@@ -51,13 +58,31 @@ typedef struct vertex_instance
     v2 Offset;
     v2 Size;
     v4 Color;
+    v4 GlyphUV;
 } vertex_instance;
 
-global vertex_instance VertexInstances[] =
+#define MAX_VERTEX_INSTANCES 2048
+global vertex_instance VertexInstances[MAX_VERTEX_INSTANCES];
+global u32 CurrentVertexInstanceIndex;
+
+inline void
+PushVertexInstance(v2 Offset, v2 Size, v4 Color, v4 GlyphUV)
 {
-    { 10, 10, 120, 120, 1.0f, 0.5f, 0.0f, 1.0f },
-    { 50, 300, 200, 120, 0.5f, 0.5f, 0.0f, 1.0f },
-};
+    if(CurrentVertexInstanceIndex < MAX_VERTEX_INSTANCES)
+    {
+        vertex_instance *Vertex = VertexInstances + CurrentVertexInstanceIndex;
+        CurrentVertexInstanceIndex++;
+        
+        Vertex->Offset = Offset;
+        Vertex->Size = Size;
+        Vertex->Color = Color;
+        Vertex->GlyphUV = GlyphUV;
+    }
+    else
+    {
+        LogError("VertexInstance buffer too small");
+    }
+}
 
 v2
 TransformV2(m4x4 Matrix, v2 Vector)
@@ -320,10 +345,24 @@ Win32RenderCreate(win32_state *Win32State)
         {
             .DepthEnable = TRUE,
             .DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL,
-            .DepthFunc = D3D11_COMPARISON_LESS,
-            .StencilEnable = FALSE,
-            .StencilReadMask = 0,
-            .StencilWriteMask = 0,
+            .DepthFunc = D3D11_COMPARISON_LESS_EQUAL,
+            .StencilEnable = TRUE,
+            .StencilReadMask = 0xFF,
+            .StencilWriteMask = 0xFF,
+            .FrontFace = 
+            {
+                .StencilFailOp = D3D11_STENCIL_OP_KEEP,
+                .StencilDepthFailOp = D3D11_STENCIL_OP_INCR,
+                .StencilPassOp = D3D11_STENCIL_OP_KEEP,
+                .StencilFunc = D3D11_COMPARISON_ALWAYS,
+            },
+            .BackFace =
+            {
+                .StencilFailOp = D3D11_STENCIL_OP_KEEP,
+                .StencilDepthFailOp = D3D11_STENCIL_OP_INCR,
+                .StencilPassOp = D3D11_STENCIL_OP_KEEP,
+                .StencilFunc = D3D11_COMPARISON_ALWAYS,
+            }
         };
         
         if(FAILED(HResult =
@@ -344,13 +383,16 @@ Win32RenderCreate(win32_state *Win32State)
             .RenderTarget =
             {
                 {
-                    .BlendEnable = FALSE,
+                    .BlendEnable = true,
+                    
                     .SrcBlend = D3D11_BLEND_SRC_ALPHA,
                     .DestBlend = D3D11_BLEND_INV_SRC_ALPHA,
                     .BlendOp = D3D11_BLEND_OP_ADD,
-                    .SrcBlendAlpha = D3D11_BLEND_SRC_ALPHA,
-                    .DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA,
+                    
+                    .SrcBlendAlpha = D3D11_BLEND_ONE,
+                    .DestBlendAlpha = D3D11_BLEND_ONE,
                     .BlendOpAlpha = D3D11_BLEND_OP_ADD,
+                    
                     .RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL,
                 },
             },
@@ -369,9 +411,11 @@ Win32RenderCreate(win32_state *Win32State)
         D3D11_INPUT_ELEMENT_DESC InputElementDesc[] =
         {
             { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEX", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
             { "OFFSET", 0, DXGI_FORMAT_R32G32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
             { "SIZE", 0, DXGI_FORMAT_R32G32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
             { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
+            { "GLYPHUV", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
         };
         
         size_t VertexShaderDataSize = sizeof(VertexShaderData);
@@ -404,24 +448,24 @@ Win32RenderCreate(win32_state *Win32State)
     
     if(SUCCEEDED(HResult))
     {
-        v2 Vertices[] =
+        v4 Vertices[] =
         {
             
-#if 1    
-            {  0.0f, -1.0f }, // Bottom Left?
-            {  1.0f, 0.0f }, // Top Right?
-            {  0.0f, 0.0f }, // Top Left?
+#if 1
+            {  0.0f, -1.0f, 0.0f, 1.0f }, // Bottom Left?
+            {  1.0f,  0.0f, 1.0f, 0.0f }, // Top Right?
+            {  0.0f,  0.0f, 0.0f, 0.0f }, // Top Left?
             
-            {  0.0f, -1.0f }, // Bottom Left
-            {  1.0f, -1.0f }, // Bottom Right?
-            {  1.0f, 0.0f }, // Top Right?
+            {  0.0f, -1.0f, 0.0f, 1.0f }, // Bottom Left
+            {  1.0f, -1.0f, 1.0f, 1.0f }, // Bottom Right?
+            {  1.0f,  0.0f, 1.0f, 0.0f }, // Top Right?
 #else
-            { -0.5f,  0.5f },
-            {  0.5f, -0.5f },
-            { -0.5f, -0.5f },
-            { -0.5f,  0.5f },
-            {  0.5f,  0.5f },
-            {  0.5f, -0.5f },
+            { -0.5f,  0.5f, 0.0f, 0.0f },
+            {  0.5f, -0.5f, 1.0f, 1.0f },
+            { -0.5f, -0.5f, 0.0f, 1.0f },
+            { -0.5f,  0.5f, 0.0f, 0.0f },
+            {  0.5f,  0.5f, 1.0f, 0.0f },
+            {  0.5f, -0.5f, 1.0f, 1.0f },
 #endif
         };
         
@@ -481,6 +525,193 @@ Win32RenderCreate(win32_state *Win32State)
         }
     }
     
+    
+    if(SUCCEEDED(HResult))
+    {
+        LogDebug("Creating sampler state");
+        D3D11_SAMPLER_DESC SamplerDesc =
+        {
+            .Filter         = D3D11_FILTER_MIN_MAG_MIP_LINEAR,
+            .AddressU       = D3D11_TEXTURE_ADDRESS_BORDER,
+            .AddressV       = D3D11_TEXTURE_ADDRESS_BORDER,
+            .AddressW       = D3D11_TEXTURE_ADDRESS_BORDER,
+            .ComparisonFunc = D3D11_COMPARISON_NEVER,
+            .BorderColor    = { 1.0f, 1.0f, 1.0f, 1.0f },
+        };
+        
+        if(FAILED(HResult =
+                  ID3D11Device_CreateSamplerState(Win32State->RenderDevice, &SamplerDesc, &Win32State->RenderSamplerState)))
+        {
+            Win32LogError_(HResult, "Failed to create samper state");
+        }
+        
+    }
+    
+    if(SUCCEEDED(HResult))
+    {
+#if 0
+        LogDebug("Loading texture");
+        s32 TotalWidth;
+        s32 TotalHeight;
+        s32 TextureChannelCount;
+        s32 TextureForceChannelCount = 4;
+        u8 *TextureBytes = stbi_load("..\\data\\Mushroom.png", &TotalWidth, &TotalHeight,
+                                     &TextureChannelCount, TextureForceChannelCount);
+        Assert(TextureBytes);
+        s32 TextureBytesPerRow = 4 * TotalWidth;
+#else
+        string FontData = Win32ReadEntireFile(&Win32State->Arena, String("C:\\Windows\\Fonts\\segoeui.ttf"));
+        stbtt_InitFont(&Win32State->FontInfo, FontData.Data, 0);
+        
+        f32 MaxFontHeightInPixels = 32;
+        Win32State->FontScale = stbtt_ScaleForPixelHeight(&Win32State->FontInfo, MaxFontHeightInPixels);
+        stbtt_GetFontVMetrics(&Win32State->FontInfo, &Win32State->FontAscent, &Win32State->FontDescent, &Win32State->FontLineGap);
+        
+        s32 Padding = (s32)(MaxFontHeightInPixels / 3.0f);
+        u8 OnEdgeValue = (u8)(0.8f*255);
+        f32 PixelDistanceScale = (f32)OnEdgeValue/(f32)(Padding);
+#if 1
+        u32 FirstChar = 0;
+        u32 LastChar = 256;
+#else
+        u32 FirstChar = 0x0400;
+        u32 LastChar = FirstChar + 255;
+#endif
+        
+        s32 MaxWidth = 0;
+        s32 MaxHeight = 0;
+        s32 TotalWidth = 0;
+        s32 TotalHeight = 0;
+        u32 ColumnAt = 0;
+        u32 RowCount = 1;
+        
+        glyph_info *GlyphInfo = Win32State->GlyphInfos;
+        
+        for(u32 CodePoint = FirstChar;
+            CodePoint < LastChar;
+            ++CodePoint)
+        {                
+            GlyphInfo->Data = stbtt_GetCodepointSDF(&Win32State->FontInfo, Win32State->FontScale, CodePoint, Padding, OnEdgeValue, PixelDistanceScale, 
+                                                    &GlyphInfo->Width, &GlyphInfo->Height, 
+                                                    &GlyphInfo->XOffset, &GlyphInfo->YOffset);
+            stbtt_GetCodepointHMetrics(&Win32State->FontInfo, CodePoint, &GlyphInfo->AdvanceWidth, &GlyphInfo->LeftSideBearing);
+            
+            GlyphInfo->CodePoint = CodePoint;
+            
+            if(GlyphInfo->Data)
+            {
+                TotalWidth += GlyphInfo->Width;
+                ++ColumnAt;
+                
+                if(GlyphInfo->Height > MaxHeight)
+                {
+                    MaxHeight = GlyphInfo->Height;
+                }
+            }
+            
+            if((ColumnAt % 16) == 0)
+            {
+                ++RowCount;
+                ColumnAt = 0;
+                if(TotalWidth > MaxWidth)
+                {
+                    MaxWidth = TotalWidth;
+                }
+                TotalWidth = 0;
+            }
+            
+            ++GlyphInfo;
+        }
+        
+        TotalWidth = MaxWidth;
+        TotalHeight = MaxHeight*RowCount;
+        
+        umm TextureSize = TotalWidth*TotalHeight*sizeof(u32);
+        u32 *TextureBytes = PushSize(&Win32State->Arena, TextureSize);
+        s32 TextureBytesPerRow = 4 * TotalWidth;
+        
+        u32 AtX = 0;
+        u32 AtY = 0;
+        
+        ColumnAt = 0;
+        
+        for(u32 Index = 0;
+            Index < ArrayCount(Win32State->GlyphInfos);
+            ++Index)
+        {
+            GlyphInfo = Win32State->GlyphInfos + Index;
+            
+            GlyphInfo->UV = V4((f32)AtX / (f32)TotalWidth, (f32)AtY / (f32)TotalHeight,
+                               ((f32)AtX + (f32)GlyphInfo->Width) / (f32)TotalWidth, 
+                               ((f32)AtY + (f32)GlyphInfo->Height) / (f32)TotalHeight);
+            
+            for(s32 Y = 0;
+                Y < GlyphInfo->Height;
+                ++Y)
+            {
+                for(s32 X = 0;
+                    X < GlyphInfo->Width;
+                    ++X)
+                {
+                    u32 Alpha = (u32)GlyphInfo->Data[(Y*GlyphInfo->Width) + X];
+                    TextureBytes[(Y + AtY)*TotalWidth + (X + AtX)] = 0x00000000 | (u32)((Alpha) << 24);
+                }
+            }
+            
+            AtX += GlyphInfo->Width;
+            
+            ++ColumnAt;
+            
+            if((ColumnAt % 16) == 0)
+            {
+                AtY += MaxHeight;
+                AtX = 0;
+            }
+            
+            stbtt_FreeSDF(GlyphInfo->Data, 0);
+        }
+        
+#endif
+        D3D11_TEXTURE2D_DESC TextureDesc =
+        {
+            .Width = TotalWidth,
+            .Height = TotalHeight,
+            .MipLevels = 1,
+            .ArraySize = 1,
+            .Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+            .Usage = D3D11_USAGE_IMMUTABLE,
+            .BindFlags = D3D11_BIND_SHADER_RESOURCE,
+            .SampleDesc = 
+            {
+                .Count = 1,
+            },
+        };
+        
+        D3D11_SUBRESOURCE_DATA SubresourceData =
+        {
+            .pSysMem = TextureBytes,
+            .SysMemPitch = TextureBytesPerRow
+        };
+        
+        ID3D11Texture2D *Texture;
+        if(SUCCEEDED(HResult = 
+                     ID3D11Device_CreateTexture2D(Win32State->RenderDevice, &TextureDesc, &SubresourceData, &Texture)))
+        {
+            
+            if(FAILED(HResult =
+                      ID3D11Device_CreateShaderResourceView(Win32State->RenderDevice, (ID3D11Resource *)Texture, 0, &Win32State->RenderTextureView)))
+            {
+                Win32LogError_(HResult, "Failed to create texture view");
+            }
+            
+            ID3D11Texture2D_Release(Texture);
+        }
+        else
+        {
+            Win32LogError_(HResult, "Failed to create texture");
+        }
+    }
+    
     return HResult;
 }
 
@@ -510,6 +741,8 @@ Win32RenderDestroy(win32_state *Win32State)
     D3D11SafeRelease(ID3D11Device, Win32State->RenderDevice);
     D3D11SafeRelease(ID3D11DeviceContext, Win32State->RenderContext);
     D3D11SafeRelease(IDXGISwapChain, Win32State->RenderSwapChain);
+    D3D11SafeRelease(ID3D11SamplerState, Win32State->RenderSamplerState);
+    D3D11SafeRelease(ID3D11ShaderResourceView, Win32State->RenderTextureView);
     
     Win32State->RenderContext1 = 0;
     Win32State->RenderFrameLatencyWait = 0;
@@ -744,9 +977,9 @@ Win32RenderFrame(win32_state *Win32State)
         // NOTE(kstandbridge): BeginDraw!
         {        
             ID3D11DeviceContext_OMSetRenderTargets(Win32State->RenderContext, 1, &Win32State->RenderTargetView, Win32State->RenderDepthStencilView);
-            ID3D11DeviceContext_OMSetDepthStencilState(Win32State->RenderContext, Win32State->RenderDepthStencilState, 0);
             ID3D11DeviceContext_ClearDepthStencilView(Win32State->RenderContext, Win32State->RenderDepthStencilView, 
                                                       D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+            ID3D11DeviceContext_OMSetDepthStencilState(Win32State->RenderContext, Win32State->RenderDepthStencilState, 1);
         }
         
         
@@ -757,10 +990,9 @@ Win32RenderFrame(win32_state *Win32State)
             ID3D11DeviceContext_ClearRenderTargetView(Win32State->RenderContext, Win32State->RenderTargetView, ClearColor);
         }
         
-        // NOTE(kstandbridge): PushRectCommand(Position, color);
+        // NOTE(kstandbridge): PushRectGlyphBatchCommand(Position, color); ??
+        // This currently draws multiple textures from a single call
         {        
-            // NOTE(kstandbridge): Draw a rect
-            
             // NOTE(kstandbridge): Map the constant buffer which has our orthographic matrix in
             {            
                 D3D11_MAPPED_SUBRESOURCE MappedSubresource;
@@ -779,15 +1011,15 @@ Win32RenderFrame(win32_state *Win32State)
                                         0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
                 vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
                 
-                memcpy(DataGPU, VertexInstances, sizeof(VertexInstances));
+                memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
                 
                 ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 0);
             }
             
             ID3D11DeviceContext_IASetInputLayout(Win32State->RenderContext, Win32State->RenderInputLayout);
             ID3D11DeviceContext_VSSetConstantBuffers(Win32State->RenderContext, 0, 1, &Win32State->RenderConstantBuffer);
-            u32 Strides[] = { sizeof(v2), sizeof(vertex_instance)};
-            u32 Offsets[] = {0, 0};
+            u32 Strides[] = { sizeof(v4), sizeof(vertex_instance) };
+            u32 Offsets[] = { 0, 0 };
             
             ID3D11Buffer *VertexBuffers[] =
             {
@@ -802,10 +1034,13 @@ Win32RenderFrame(win32_state *Win32State)
             ID3D11DeviceContext_VSSetShader(Win32State->RenderContext, Win32State->RenderVertexShader, 0, 0);
             ID3D11DeviceContext_PSSetShader(Win32State->RenderContext, Win32State->RenderPixelShader, 0, 0);
             
-            ID3D11DeviceContext_RSSetState(Win32State->RenderContext, Win32State->RenderRasterizerState);
-            ID3D11DeviceContext_OMSetBlendState(Win32State->RenderContext, Win32State->RenderBlendState, 0, ~0U);
+            ID3D11DeviceContext_PSSetShaderResources(Win32State->RenderContext, 0, 1, &Win32State->RenderTextureView);
+            ID3D11DeviceContext_PSSetSamplers(Win32State->RenderContext, 0, 1, &Win32State->RenderSamplerState);
             
-            ID3D11DeviceContext_DrawInstanced(Win32State->RenderContext, 6, ArrayCount(VertexInstances), 0, 0);
+            ID3D11DeviceContext_RSSetState(Win32State->RenderContext, Win32State->RenderRasterizerState);
+            ID3D11DeviceContext_OMSetBlendState(Win32State->RenderContext, Win32State->RenderBlendState, 0, 0xffffffff);
+            
+            ID3D11DeviceContext_DrawInstanced(Win32State->RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
         }
         
     }
@@ -838,44 +1073,6 @@ Win32WindowProc_(win32_state *Win32State, HWND Window, u32 Message, WPARAM WPara
             if(FAILED(Win32RenderResize(Win32State, LOWORD(LParam), HIWORD(LParam))))
             {
                 Win32DestroyWindow(Window);
-            }
-            else
-            {
-                
-#if 0                
-                Vertices[0].Position = V2( -1.0f,  1.0f );
-                Vertices[1].Position = V2(  1.0f, -1.0f );
-                Vertices[2].Position = V2( -1.0f, -1.0f );
-                Vertices[3].Position = V2( -1.0f,  1.0f );
-                Vertices[4].Position = V2(  1.0f,  1.0f );
-                Vertices[5].Position = V2(  1.0f, -1.0f );
-                
-                Vertices[6].Position = V2( -1.0f,  1.0f );
-                Vertices[7].Position = V2(  1.0f, -1.0f );
-                Vertices[8].Position = V2( -1.0f, -1.0f );
-                Vertices[9].Position = V2( -1.0f,  1.0f );
-                Vertices[10].Position = V2(  1.0f,  1.0f );
-                Vertices[11].Position = V2(  1.0f, -1.0f );
-                
-                
-                Foo(64, 48, 10, 10, (v2 *)Vertices);
-                Foo(32, 24, 100, 80, (v2 *)Vertices + 6);
-                
-                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-                ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderVertexBuffer, 
-                                        0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
-                vertex *Constants = (vertex *)MappedSubresource.pData;
-                Constants[0] = Vertices[0];
-                Constants[1] = Vertices[1];
-                Constants[2] = Vertices[2];
-                Constants[3] = Vertices[3];
-                Constants[4] = Vertices[4];
-                Constants[5] = Vertices[5];
-                Constants[6] = Vertices[6];
-                
-                ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderVertexBuffer, 0);
-#endif
-                
             }
         } break;
         
@@ -1029,6 +1226,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
         if(Window)
         {
             LogDebug("Begin application loop");
+            
             for(;;)
             {
                 MSG Msg;
@@ -1041,6 +1239,78 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     Win32TranslateMessage(&Msg);
                     Win32DispatchMessageW(&Msg);
                     continue;
+                }
+                
+                // NOTE(kstandbridge): This should be created each frame in the app layer
+                {          
+                    CurrentVertexInstanceIndex = 0;
+                    
+#if 0    
+                    
+#define BOX_WIDTH 60
+#define BOX_HEIGHT 60
+#define BOX_PADDING 5
+                    u32 Columns = GlobalWindowWidth / (BOX_WIDTH + BOX_PADDING);
+                    u32 Rows = GlobalWindowHeight / (BOX_HEIGHT + BOX_PADDING);
+                    u32 AtX = BOX_PADDING;
+                    u32 AtY = BOX_PADDING;
+                    
+                    for(u32 Row = 0;
+                        Row < Rows;
+                        ++Row)
+                    {
+                        for(u32 Column = 0;
+                            Column < Columns;
+                            ++Column)
+                        {
+                            PushVertexInstance(V2(AtX, AtY), V2(BOX_WIDTH, BOX_HEIGHT), V4(0.3f, 0.5f, 0.2f, 1.0f));
+                            
+                            AtX += BOX_WIDTH + BOX_PADDING;
+                        }
+                        AtX = BOX_PADDING;
+                        AtY += BOX_HEIGHT + BOX_PADDING;
+                    }
+#else
+                    
+                    f32 AtX = 0.0f;
+                    f32 AtY = Win32State->FontScale*Win32State->FontAscent;
+                    string Text = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
+                    u32 PreviousCodePoint = 0;
+                    for(umm Index = 0;
+                        Index < Text.Size;
+                        ++Index)
+                    {
+                        u32 CodePoint = Text.Data[Index];
+                        
+                        if(CodePoint == '\n')
+                        {
+                            AtY += Win32State->FontScale*Win32State->FontAscent;
+                            AtX = 0.0f;
+                        }
+                        else
+                        {
+                            glyph_info *Info = Win32State->GlyphInfos + CodePoint;
+                            
+                            Assert(Info->CodePoint == CodePoint);
+                            
+                            PushVertexInstance(V2(AtX, AtY + Info->YOffset), 
+                                               V2(Info->Width, Info->Height), 
+                                               V4(1.0f, 1.0f, 1.0f, 1.0f), 
+                                               Info->UV);
+                            
+                            AtX += Win32State->FontScale*Info->AdvanceWidth;
+                            
+                            if(Index < Text.Size)
+                            {
+                                s32 Kerning = stbtt_GetCodepointKernAdvance(&Win32State->FontInfo, CodePoint, Text.Data[Index + 1]);
+                                AtX += Win32State->FontScale*Kerning;
+                            }
+                        }
+                        
+                        PreviousCodePoint = CodePoint;
+                    }
+                    
+#endif
                 }
                 
                 Win32RenderFrame(Win32State);
