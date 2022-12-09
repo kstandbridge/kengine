@@ -86,14 +86,22 @@ typedef struct win32_state
     ID3D11RasterizerState *RenderRasterizerState;
     ID3D11DepthStencilState *RenderDepthStencilState;
     ID3D11BlendState *RenderBlendState;
-    ID3D11PixelShader *RenderPixelShader;
+    
     ID3D11VertexShader *RenderVertexShader;
     ID3D11InputLayout *RenderInputLayout;
-    ID3D11Buffer *RenderVertexBuffer;
     ID3D11Buffer *RenderInstanceBuffer;
+    
+    ID3D11ShaderResourceView *RenderGlyphTextureView;
+    ID3D11PixelShader *RenderGlyphPixelShader;
+    
+    ID3D11ShaderResourceView *RenderSpriteTextureView;
+    ID3D11PixelShader *RenderSpritePixelShader;
+    
+    ID3D11PixelShader *RenderRectPixelShader;
+    
+    ID3D11Buffer *RenderVertexBuffer;
     ID3D11Buffer *RenderConstantBuffer;
     ID3D11SamplerState *RenderSamplerState;
-    ID3D11ShaderResourceView *RenderTextureView;
     
     f32 FontScale;
     s32 FontAscent;

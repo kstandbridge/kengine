@@ -24,7 +24,9 @@
 #include "win32_kengine_generated.c"
 
 #include "win32_vertex_shader_generated.h"
-#include "win32_pixel_shader_generated.h"
+#include "win32_glyph_pixel_shader_generated.h"
+#include "win32_sprite_pixel_shader_generated.h"
+#include "win32_rect_pixel_shader_generated.h"
 
 global app_memory GlobalAppMemory;
 
@@ -55,18 +57,18 @@ global s32 GlobalWindowHeight;
 
 typedef struct vertex_instance
 {
-    v2 Offset;
+    v3 Offset;
     v2 Size;
     v4 Color;
-    v4 GlyphUV;
+    v4 SpriteUV;
 } vertex_instance;
 
-#define MAX_VERTEX_INSTANCES 2048
+#define MAX_VERTEX_INSTANCES 65535
 global vertex_instance VertexInstances[MAX_VERTEX_INSTANCES];
 global u32 CurrentVertexInstanceIndex;
 
 inline void
-PushVertexInstance(v2 Offset, v2 Size, v4 Color, v4 GlyphUV)
+PushVertexInstance(v3 Offset, v2 Size, v4 Color, v4 SpriteUV)
 {
     if(CurrentVertexInstanceIndex < MAX_VERTEX_INSTANCES)
     {
@@ -76,11 +78,12 @@ PushVertexInstance(v2 Offset, v2 Size, v4 Color, v4 GlyphUV)
         Vertex->Offset = Offset;
         Vertex->Size = Size;
         Vertex->Color = Color;
-        Vertex->GlyphUV = GlyphUV;
+        Vertex->SpriteUV = SpriteUV;
     }
     else
     {
-        LogError("VertexInstance buffer too small");
+        CurrentVertexInstanceIndex = 0;
+        LogWarning("Go easy on the verticies!");
     }
 }
 
@@ -407,15 +410,15 @@ Win32RenderCreate(win32_state *Win32State)
     
     if(SUCCEEDED(HResult))
     {
-        LogDebug("Creating vertex shader and input layout");
+        LogDebug("Creating glyph vertex shader and input layout");
         D3D11_INPUT_ELEMENT_DESC InputElementDesc[] =
         {
             { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
             { "TEX", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "OFFSET", 0, DXGI_FORMAT_R32G32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
+            { "OFFSET", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
             { "SIZE", 0, DXGI_FORMAT_R32G32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
             { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
-            { "GLYPHUV", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
+            { "SPRITE_UV", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
         };
         
         size_t VertexShaderDataSize = sizeof(VertexShaderData);
@@ -431,18 +434,39 @@ Win32RenderCreate(win32_state *Win32State)
         }
         else
         {
-            Win32LogError_(HResult, "Failed to create vertex shader");
+            Win32LogError_(HResult, "Failed to create glyph vertex shader");
         }
     }
     
     if(SUCCEEDED(HResult))
     {
-        LogDebug("Creating pixel shader");
-        size_t PixelShaderDataSize = sizeof(PixelShaderData);
+        LogDebug("Creating glyph pixel shader");
+        size_t GlyphPixelShaderDataSize = sizeof(GlyphPixelShaderData);
         if(FAILED(HResult =
-                  ID3D11Device_CreatePixelShader(Win32State->RenderDevice, PixelShaderData, PixelShaderDataSize, 0, &Win32State->RenderPixelShader)))
+                  ID3D11Device_CreatePixelShader(Win32State->RenderDevice, GlyphPixelShaderData, GlyphPixelShaderDataSize, 0, &Win32State->RenderGlyphPixelShader)))
         {
-            Win32LogError_(HResult, "Failed to create pixel shader");
+            Win32LogError_(HResult, "Failed to create glyph pixel shader");
+        }
+    }
+    
+    if(SUCCEEDED(HResult))
+    {
+        LogDebug("Creating sprite pixel shader");
+        size_t SpritePixelShaderDataSize = sizeof(SpritePixelShaderData);
+        if(FAILED(HResult =
+                  ID3D11Device_CreatePixelShader(Win32State->RenderDevice, SpritePixelShaderData, SpritePixelShaderDataSize, 0, &Win32State->RenderSpritePixelShader)))
+        {
+            Win32LogError_(HResult, "Failed to create sprite pixel shader");
+        }
+    }
+    if(SUCCEEDED(HResult))
+    {
+        LogDebug("Creating rect pixel shader");
+        size_t RectPixelShaderDataSize = sizeof(RectPixelShaderData);
+        if(FAILED(HResult =
+                  ID3D11Device_CreatePixelShader(Win32State->RenderDevice, RectPixelShaderData, RectPixelShaderDataSize, 0, &Win32State->RenderRectPixelShader)))
+        {
+            Win32LogError_(HResult, "Failed to create rect pixel shader");
         }
     }
     
@@ -549,17 +573,60 @@ Win32RenderCreate(win32_state *Win32State)
     
     if(SUCCEEDED(HResult))
     {
-#if 0
-        LogDebug("Loading texture");
+        LogDebug("Loading sprite texture");
         s32 TotalWidth;
         s32 TotalHeight;
         s32 TextureChannelCount;
         s32 TextureForceChannelCount = 4;
-        u8 *TextureBytes = stbi_load("..\\data\\Mushroom.png", &TotalWidth, &TotalHeight,
+        u8 *TextureBytes = stbi_load("..\\data\\sprite_sheet.png", &TotalWidth, &TotalHeight,
                                      &TextureChannelCount, TextureForceChannelCount);
         Assert(TextureBytes);
         s32 TextureBytesPerRow = 4 * TotalWidth;
-#else
+        
+        D3D11_TEXTURE2D_DESC TextureDesc =
+        {
+            .Width = TotalWidth,
+            .Height = TotalHeight,
+            .MipLevels = 1,
+            .ArraySize = 1,
+            .Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+            .Usage = D3D11_USAGE_IMMUTABLE,
+            .BindFlags = D3D11_BIND_SHADER_RESOURCE,
+            .SampleDesc = 
+            {
+                .Count = 1,
+            },
+        };
+        
+        D3D11_SUBRESOURCE_DATA SubresourceData =
+        {
+            .pSysMem = TextureBytes,
+            .SysMemPitch = TextureBytesPerRow
+        };
+        
+        ID3D11Texture2D *Texture;
+        if(SUCCEEDED(HResult = 
+                     ID3D11Device_CreateTexture2D(Win32State->RenderDevice, &TextureDesc, &SubresourceData, &Texture)))
+        {
+            
+            if(FAILED(HResult =
+                      ID3D11Device_CreateShaderResourceView(Win32State->RenderDevice, (ID3D11Resource *)Texture, 0, &Win32State->RenderSpriteTextureView)))
+            {
+                Win32LogError_(HResult, "Failed to create sprite texture view");
+            }
+            
+            ID3D11Texture2D_Release(Texture);
+        }
+        else
+        {
+            Win32LogError_(HResult, "Failed to create sprite texture");
+        }
+    }
+    
+    if(SUCCEEDED(HResult))
+    {
+        LogDebug("Loading glyph texture");
+        
         string FontData = Win32ReadEntireFile(&Win32State->Arena, String("C:\\Windows\\Fonts\\segoeui.ttf"));
         stbtt_InitFont(&Win32State->FontInfo, FontData.Data, 0);
         
@@ -671,7 +738,6 @@ Win32RenderCreate(win32_state *Win32State)
             stbtt_FreeSDF(GlyphInfo->Data, 0);
         }
         
-#endif
         D3D11_TEXTURE2D_DESC TextureDesc =
         {
             .Width = TotalWidth,
@@ -699,16 +765,16 @@ Win32RenderCreate(win32_state *Win32State)
         {
             
             if(FAILED(HResult =
-                      ID3D11Device_CreateShaderResourceView(Win32State->RenderDevice, (ID3D11Resource *)Texture, 0, &Win32State->RenderTextureView)))
+                      ID3D11Device_CreateShaderResourceView(Win32State->RenderDevice, (ID3D11Resource *)Texture, 0, &Win32State->RenderGlyphTextureView)))
             {
-                Win32LogError_(HResult, "Failed to create texture view");
+                Win32LogError_(HResult, "Failed to create glyph texture view");
             }
             
             ID3D11Texture2D_Release(Texture);
         }
         else
         {
-            Win32LogError_(HResult, "Failed to create texture");
+            Win32LogError_(HResult, "Failed to create glyph texture");
         }
     }
     
@@ -732,7 +798,15 @@ Win32RenderDestroy(win32_state *Win32State)
     D3D11SafeRelease(ID3D11Buffer, Win32State->RenderVertexBuffer);
     D3D11SafeRelease(ID3D11InputLayout, Win32State->RenderInputLayout);
     D3D11SafeRelease(ID3D11VertexShader, Win32State->RenderVertexShader);
-    D3D11SafeRelease(ID3D11PixelShader, Win32State->RenderPixelShader);
+    
+    D3D11SafeRelease(ID3D11ShaderResourceView, Win32State->RenderGlyphTextureView);
+    D3D11SafeRelease(ID3D11PixelShader, Win32State->RenderGlyphPixelShader);
+    
+    D3D11SafeRelease(ID3D11ShaderResourceView, Win32State->RenderSpriteTextureView);
+    D3D11SafeRelease(ID3D11PixelShader, Win32State->RenderSpritePixelShader);
+    
+    D3D11SafeRelease(ID3D11PixelShader, Win32State->RenderRectPixelShader);
+    
     D3D11SafeRelease(ID3D11RasterizerState, Win32State->RenderRasterizerState);
     D3D11SafeRelease(ID3D11DepthStencilState, Win32State->RenderDepthStencilState);
     D3D11SafeRelease(ID3D11BlendState, Win32State->RenderBlendState);
@@ -742,7 +816,6 @@ Win32RenderDestroy(win32_state *Win32State)
     D3D11SafeRelease(ID3D11DeviceContext, Win32State->RenderContext);
     D3D11SafeRelease(IDXGISwapChain, Win32State->RenderSwapChain);
     D3D11SafeRelease(ID3D11SamplerState, Win32State->RenderSamplerState);
-    D3D11SafeRelease(ID3D11ShaderResourceView, Win32State->RenderTextureView);
     
     Win32State->RenderContext1 = 0;
     Win32State->RenderFrameLatencyWait = 0;
@@ -982,39 +1055,71 @@ Win32RenderFrame(win32_state *Win32State)
             ID3D11DeviceContext_OMSetDepthStencilState(Win32State->RenderContext, Win32State->RenderDepthStencilState, 1);
         }
         
-        
-        // NOTE(kstandbridge): PushClearCommand(color);
         {        
             // NOTE(kstandbridge): Clear background
             f32 ClearColor[] = { 0.1f, 0.2f, 0.6f, 1.0f };
             ID3D11DeviceContext_ClearRenderTargetView(Win32State->RenderContext, Win32State->RenderTargetView, ClearColor);
         }
         
-        // NOTE(kstandbridge): PushRectGlyphBatchCommand(Position, color); ??
-        // This currently draws multiple textures from a single call
-        {        
-            // NOTE(kstandbridge): Map the constant buffer which has our orthographic matrix in
-            {            
-                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-                ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderConstantBuffer, 
-                                        0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
-                constant *Constants = (constant *)MappedSubresource.pData;
-                Constants->Transform = M4x4Orthographic(GlobalWindowWidth, GlobalWindowHeight, 0.0f, 1.0f);
-                //Constants->Transform = M4x4Orthographic(GlobalWindowWidth, GlobalWindowHeight, 0.0f, 1.0f);
-                //Constants->Transform = M4x4OrthographicOffCenterLH(0, GlobalWindowWidth, GlobalWindowHeight, 0, 0.0f, 1.0f);
-                ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderConstantBuffer, 0);
-            }
+        // NOTE(kstandbridge): Map the constant buffer which has our orthographic matrix in
+        // TODO(kstandbridge): only when its dirty!
+        {            
+            D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+            ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderConstantBuffer, 
+                                    0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+            constant *Constants = (constant *)MappedSubresource.pData;
+            Constants->Transform = M4x4Orthographic(GlobalWindowWidth, GlobalWindowHeight, 10.0f, 0.0f);
+            //Constants->Transform = M4x4Orthographic(GlobalWindowWidth, GlobalWindowHeight, 0.0f, 1.0f);
+            //Constants->Transform = M4x4OrthographicOffCenterLH(0, GlobalWindowWidth, GlobalWindowHeight, 0, 0.0f, 1.0f);
+            ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderConstantBuffer, 0);
+        }
+        
+        // NOTE(kstandbridge): Populate Rects
+        
+        {
+            CurrentVertexInstanceIndex = 0;
             
-            {            
-                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-                ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 
-                                        0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
-                vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
-                
-                memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
-                
-                ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 0);
+#define BOX_WIDTH 60
+#define BOX_HEIGHT 60
+#define BOX_PADDING 5
+            u32 Columns = GlobalWindowWidth / (BOX_WIDTH + BOX_PADDING);
+            u32 Rows = GlobalWindowHeight / (BOX_HEIGHT + BOX_PADDING);
+            u32 AtX = BOX_PADDING;
+            u32 AtY = BOX_PADDING;
+            
+            for(u32 Row = 0;
+                Row < Rows;
+                ++Row)
+            {
+                for(u32 Column = 0;
+                    Column < Columns;
+                    ++Column)
+                {
+                    PushVertexInstance(V3(AtX, AtY, 1.0f), 
+                                       V2(BOX_WIDTH, BOX_HEIGHT), 
+                                       V4(0.3f, 0.5f, 0.2f, 1.0f),
+                                       V4(0.0f, 0.0f, 1.0f, 1.0f));
+                    AtX += BOX_WIDTH + BOX_PADDING;
+                }
+                AtX = BOX_PADDING;
+                AtY += BOX_HEIGHT + BOX_PADDING;
             }
+        }
+        
+        // NOTE(kstandbridge): Copy Rect data
+        {            
+            D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+            ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 
+                                    0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+            vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
+            
+            memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
+            
+            ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 0);
+        }
+        
+        // NOTE(kstandbridge): Draw rects
+        {        
             
             ID3D11DeviceContext_IASetInputLayout(Win32State->RenderContext, Win32State->RenderInputLayout);
             ID3D11DeviceContext_VSSetConstantBuffers(Win32State->RenderContext, 0, 1, &Win32State->RenderConstantBuffer);
@@ -1029,12 +1134,10 @@ Win32RenderFrame(win32_state *Win32State)
             
             ID3D11DeviceContext_IASetVertexBuffers(Win32State->RenderContext, 0, 2, VertexBuffers, Strides, Offsets);
             
-            
             ID3D11DeviceContext_IASetPrimitiveTopology(Win32State->RenderContext, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             ID3D11DeviceContext_VSSetShader(Win32State->RenderContext, Win32State->RenderVertexShader, 0, 0);
-            ID3D11DeviceContext_PSSetShader(Win32State->RenderContext, Win32State->RenderPixelShader, 0, 0);
+            ID3D11DeviceContext_PSSetShader(Win32State->RenderContext, Win32State->RenderRectPixelShader, 0, 0);
             
-            ID3D11DeviceContext_PSSetShaderResources(Win32State->RenderContext, 0, 1, &Win32State->RenderTextureView);
             ID3D11DeviceContext_PSSetSamplers(Win32State->RenderContext, 0, 1, &Win32State->RenderSamplerState);
             
             ID3D11DeviceContext_RSSetState(Win32State->RenderContext, Win32State->RenderRasterizerState);
@@ -1043,6 +1146,107 @@ Win32RenderFrame(win32_state *Win32State)
             ID3D11DeviceContext_DrawInstanced(Win32State->RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
         }
         
+        // NOTE(kstandbridge): Populate Sprites
+        {
+            CurrentVertexInstanceIndex = 0;
+            PushVertexInstance(V3(500.0f, 300.0f, 4.0f),
+                               V2(100, 100),
+                               V4(1.0f, 1.0f, 1.0f, 1.0f),
+                               V4(0.126f, 0.354f, 0.141f, 0.374f));
+        }
+        
+        // NOTE(kstandbridge): Copy sprite data
+        {            
+            D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+            ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 
+                                    0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+            vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
+            
+            memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
+            
+            ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 0);
+        }
+        
+        
+        // NOTE(kstandbridge): Draw sprite data
+        {
+            
+            ID3D11DeviceContext_PSSetShaderResources(Win32State->RenderContext, 0, 1, &Win32State->RenderSpriteTextureView);
+            
+            ID3D11DeviceContext_PSSetShader(Win32State->RenderContext, Win32State->RenderSpritePixelShader, 0, 0);
+            ID3D11DeviceContext_DrawInstanced(Win32State->RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
+        }
+        
+        // NOTE(kstandbridge): Populate Glyphs
+        {          
+            CurrentVertexInstanceIndex = 0;
+            
+            f32 AtX = 0.0f;
+            f32 AtY = Win32State->FontScale*Win32State->FontAscent;
+            string Text = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
+            u32 PreviousCodePoint = 0;
+            for(umm Index = 0;
+                Index < Text.Size;
+                ++Index)
+            {
+                u32 CodePoint = Text.Data[Index];
+                
+                if(CodePoint == '\n')
+                {
+                    AtY += Win32State->FontScale*Win32State->FontAscent;
+                    AtX = 0.0f;
+                }
+                else
+                {
+                    glyph_info *Info = Win32State->GlyphInfos + CodePoint;
+                    
+                    Assert(Info->CodePoint == CodePoint);
+                    
+                    PushVertexInstance(V3(AtX + 2.0f, AtY + Info->YOffset + 2.0f, 3.0f), 
+                                       V2(Info->Width, Info->Height), 
+                                       V4(0.0f, 0.0f, 0.0f, 1.0f), 
+                                       Info->UV);
+                    
+                    PushVertexInstance(V3(AtX, AtY + Info->YOffset, 3.0f), 
+                                       V2(Info->Width, Info->Height), 
+                                       V4(1.0f, 1.0f, 1.0f, 1.0f), 
+                                       Info->UV);
+                    
+                    AtX += Win32State->FontScale*Info->AdvanceWidth;
+                    
+                    if(Index < Text.Size)
+                    {
+                        s32 Kerning = stbtt_GetCodepointKernAdvance(&Win32State->FontInfo, CodePoint, Text.Data[Index + 1]);
+                        AtX += Win32State->FontScale*Kerning;
+                    }
+                }
+                
+                PreviousCodePoint = CodePoint;
+            }
+            
+        }
+        
+        // NOTE(kstandbridge): Copy glyph data
+        {            
+            D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+            ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 
+                                    0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+            vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
+            
+            memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
+            
+            ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 0);
+        }
+        
+        
+        // NOTE(kstandbridge): Draw Glyph data
+        {
+            
+            ID3D11DeviceContext_PSSetShaderResources(Win32State->RenderContext, 0, 1, &Win32State->RenderGlyphTextureView);
+            
+            ID3D11DeviceContext_PSSetShader(Win32State->RenderContext, Win32State->RenderGlyphPixelShader, 0, 0);
+            ID3D11DeviceContext_DrawInstanced(Win32State->RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
+        }
     }
 }
 
@@ -1239,78 +1443,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     Win32TranslateMessage(&Msg);
                     Win32DispatchMessageW(&Msg);
                     continue;
-                }
-                
-                // NOTE(kstandbridge): This should be created each frame in the app layer
-                {          
-                    CurrentVertexInstanceIndex = 0;
-                    
-#if 0    
-                    
-#define BOX_WIDTH 60
-#define BOX_HEIGHT 60
-#define BOX_PADDING 5
-                    u32 Columns = GlobalWindowWidth / (BOX_WIDTH + BOX_PADDING);
-                    u32 Rows = GlobalWindowHeight / (BOX_HEIGHT + BOX_PADDING);
-                    u32 AtX = BOX_PADDING;
-                    u32 AtY = BOX_PADDING;
-                    
-                    for(u32 Row = 0;
-                        Row < Rows;
-                        ++Row)
-                    {
-                        for(u32 Column = 0;
-                            Column < Columns;
-                            ++Column)
-                        {
-                            PushVertexInstance(V2(AtX, AtY), V2(BOX_WIDTH, BOX_HEIGHT), V4(0.3f, 0.5f, 0.2f, 1.0f));
-                            
-                            AtX += BOX_WIDTH + BOX_PADDING;
-                        }
-                        AtX = BOX_PADDING;
-                        AtY += BOX_HEIGHT + BOX_PADDING;
-                    }
-#else
-                    
-                    f32 AtX = 0.0f;
-                    f32 AtY = Win32State->FontScale*Win32State->FontAscent;
-                    string Text = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
-                    u32 PreviousCodePoint = 0;
-                    for(umm Index = 0;
-                        Index < Text.Size;
-                        ++Index)
-                    {
-                        u32 CodePoint = Text.Data[Index];
-                        
-                        if(CodePoint == '\n')
-                        {
-                            AtY += Win32State->FontScale*Win32State->FontAscent;
-                            AtX = 0.0f;
-                        }
-                        else
-                        {
-                            glyph_info *Info = Win32State->GlyphInfos + CodePoint;
-                            
-                            Assert(Info->CodePoint == CodePoint);
-                            
-                            PushVertexInstance(V2(AtX, AtY + Info->YOffset), 
-                                               V2(Info->Width, Info->Height), 
-                                               V4(1.0f, 1.0f, 1.0f, 1.0f), 
-                                               Info->UV);
-                            
-                            AtX += Win32State->FontScale*Info->AdvanceWidth;
-                            
-                            if(Index < Text.Size)
-                            {
-                                s32 Kerning = stbtt_GetCodepointKernAdvance(&Win32State->FontInfo, CodePoint, Text.Data[Index + 1]);
-                                AtX += Win32State->FontScale*Kerning;
-                            }
-                        }
-                        
-                        PreviousCodePoint = CodePoint;
-                    }
-                    
-#endif
                 }
                 
                 Win32RenderFrame(Win32State);
