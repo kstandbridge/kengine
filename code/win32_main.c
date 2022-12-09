@@ -7,7 +7,7 @@
 #include "kengine_string.h"
 #include "kengine_intrinsics.h"
 #include "kengine_math.h"
-// #include "kengine_renderer_shared.h"
+#include "kengine_render_group.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -41,11 +41,11 @@ debug_event_table *GlobalDebugEventTable = &GlobalDebugEventTable_;
 #if KENGINE_INTERNAL
 #include "kengine_sort.c"
 #include "kengine_telemetry.c"
+#include "kengine_render_group.c"
 #else
 #include "kengine.h"
 #include "kengine.c"
 #endif
-// #include "kengine_renderer.c"
 #include "win32_kengine_shared.c"
 #if KENGINE_HTTP
 #include "win32_kengine_http.c"
@@ -1037,66 +1037,8 @@ Win32RenderPresent(win32_state *Win32State)
     return Result;
 }
 
-typedef enum render_command_type
-{
-    RenderCommand_Glyph,
-    RenderCommand_Rect
-} render_command_type;
-
-typedef struct render_command_glyph
-{
-    v3 Offset;
-    v2 Size;
-    v4 Color;
-    
-    u32 CodePoint;
-} render_command_glyph;
-
-typedef struct render_command_rect
-{
-    v3 Offset;
-    v2 Size;
-    v4 Color;
-} render_command_rect;
-
-typedef struct render_command
-{
-    render_command_type Type;
-    union
-    {
-        render_command_glyph Glyph;
-        render_command_rect Rect;
-    };
-} render_command;
-
-typedef struct render_group
-{
-    render_command *Commands;
-    u32 CurrentCommand;
-    u32 MaxCommands;
-} render_group;
-
-inline render_command *
-PushRenderCommand(render_group *Group, render_command_type Type)
-{
-    render_command *Result;
-    
-    if(Group->CurrentCommand >= Group->MaxCommands)
-    {
-        Group->CurrentCommand = 0;
-        LogWarning("Render commands buffer wrapped around");
-    }
-    
-    Result = Group->Commands + Group->CurrentCommand;
-    
-    ++Group->CurrentCommand;
-    Result->Type = Type;
-    
-    return Result;
-}
-
 internal void
-AppUpdateFrame(win32_state *Win32State, render_group *Group)
+AppUpdateFrame(render_group *Group)
 {
     // NOTE(kstandbridge): Populate rects
     {
@@ -1129,56 +1071,22 @@ AppUpdateFrame(win32_state *Win32State, render_group *Group)
     }
     
     // NOTE(kstandbridge): Populate Glyphs
-    {          
-        CurrentVertexInstanceIndex = 0;
+    {
         
-        f32 AtX = 0.0f;
-        f32 AtY = Win32State->FontScale*Win32State->FontAscent;
-        string Text = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
-        u32 PreviousCodePoint = 0;
-        for(umm Index = 0;
-            Index < Text.Size;
-            ++Index)
-        {
-            u32 CodePoint = Text.Data[Index];
-            
-            if(CodePoint == '\n')
-            {
-                AtY += Win32State->FontScale*Win32State->FontAscent;
-                AtX = 0.0f;
-            }
-            else
-            {
-                glyph_info *Info = Win32State->GlyphInfos + CodePoint;
-                
-                Assert(Info->CodePoint == CodePoint);
-                
-                render_command *Command = PushRenderCommand(Group, RenderCommand_Glyph);
-                Command->Glyph.Offset = V3(AtX + 2.0f, AtY + Info->YOffset + 2.0f, 3.0f);
-                Command->Glyph.Size = V2(Info->Width, Info->Height);
-                Command->Glyph.Color = V4(0.0f, 0.0f, 0.0f, 1.0f);
-                Command->Glyph.CodePoint = CodePoint;
-                
-                Command = PushRenderCommand(Group, RenderCommand_Glyph);
-                Command->Glyph.Offset = V3(AtX, AtY + Info->YOffset, 3.0f);
-                Command->Glyph.Size = V2(Info->Width, Info->Height);
-                Command->Glyph.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
-                Command->Glyph.CodePoint = CodePoint;
-                
-                AtX += Win32State->FontScale*Info->AdvanceWidth;
-                
-                if(Index < Text.Size)
-                {
-                    s32 Kerning = stbtt_GetCodepointKernAdvance(&Win32State->FontInfo, CodePoint, Text.Data[Index + 1]);
-                    AtX += Win32State->FontScale*Kerning;
-                }
-            }
-            
-            PreviousCodePoint = CodePoint;
-        }
+        string LoremIpsum = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
         
+        render_command *Command = PushRenderCommand(Group, RenderCommand_Text);
+        Command->Text.Offset = V3(2.0f, 2.0f, 1.0f);
+        Command->Text.Size = V2(1.0f, 1.0f);
+        Command->Text.Color = V4(0.0f, 0.0f, 0.0f, 1.0f);
+        Command->Text.Text = LoremIpsum;
+        
+        Command = PushRenderCommand(Group, RenderCommand_Text);
+        Command->Text.Offset = V3(0.0f, 0.0f, 1.0f);
+        Command->Text.Size = V2(1.0f, 1.0f);
+        Command->Text.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
+        Command->Text.Text = LoremIpsum;
     }
-    
 }
 
 internal void
@@ -1219,7 +1127,6 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
         }
         
         // NOTE(kstandbridge): Populate Rects
-        
         {
             CurrentVertexInstanceIndex = 0;
             for(u32 CommandIndex = 0;
@@ -1249,7 +1156,6 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
         
         // NOTE(kstandbridge): Draw rects
         {        
-            
             ID3D11DeviceContext_IASetInputLayout(Win32State->RenderContext, Win32State->RenderInputLayout);
             ID3D11DeviceContext_VSSetConstantBuffers(Win32State->RenderContext, 0, 1, &Win32State->RenderConstantBuffer);
             u32 Strides[] = { sizeof(v4), sizeof(vertex_instance) };
@@ -1275,7 +1181,7 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
             ID3D11DeviceContext_DrawInstanced(Win32State->RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
         }
         
-        // TODO(kstandbridge): Sprite command
+        // TODO(kstandbridge): Sprite commands
         
 #if 0        
         // NOTE(kstandbridge): Populate Sprites
@@ -1318,14 +1224,42 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
                 ++CommandIndex)
             {
                 render_command *Command = RenderGroup->Commands + CommandIndex;
-                if(Command->Type == RenderCommand_Glyph)
+                if(Command->Type == RenderCommand_Text)
                 {
-                    glyph_info *Info = Win32State->GlyphInfos + Command->Glyph.CodePoint;
+                    f32 AtX = Command->Text.Offset.X;
+                    f32 AtY = Command->Text.Offset.X +Win32State->FontScale*Win32State->FontAscent*Command->Text.Size.Y;
                     
-                    Assert(Info->CodePoint == Command->Glyph.CodePoint);
-                    
-                    PushVertexInstance(Command->Glyph.Offset, Command->Glyph.Size,
-                                       Command->Glyph.Color, Info->UV);
+                    for(umm Index = 0;
+                        Index < Command->Text.Text.Size;
+                        ++Index)
+                    {
+                        u32 CodePoint = Command->Text.Text.Data[Index];
+                        
+                        if(CodePoint == '\n')
+                        {
+                            AtY += Win32State->FontScale*Win32State->FontAscent*Command->Text.Size.Y;
+                            AtX = 0.0f;
+                        }
+                        else
+                        {
+                            glyph_info *Info = Win32State->GlyphInfos + CodePoint;
+                            
+                            Assert(Info->CodePoint == CodePoint);
+                            
+                            PushVertexInstance(V3(AtX, AtY + Info->YOffset*Command->Text.Size.Y, 3.0f),
+                                               V2Multiply(Command->Text.Size, V2(Info->Width, Info->Height)),
+                                               Command->Text.Color,
+                                               Info->UV);
+                            
+                            AtX += Win32State->FontScale*Info->AdvanceWidth*Command->Text.Size.X;
+                            
+                            if(Index < Command->Text.Text.Size)
+                            {
+                                s32 Kerning = stbtt_GetCodepointKernAdvance(&Win32State->FontInfo, CodePoint, Command->Text.Text.Data[Index + 1]);
+                                AtX += Win32State->FontScale*Kerning*Command->Text.Size.X;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1341,7 +1275,6 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
             
             ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 0);
         }
-        
         
         // NOTE(kstandbridge): Draw Glyph data
         {
@@ -1559,7 +1492,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     .MaxCommands = MaxRenderCommands
                 };
                 
-                AppUpdateFrame(Win32State, &RenderGroup);
+                AppUpdateFrame(&RenderGroup);
                 
                 Win32RenderFrame(Win32State, &RenderGroup);
                 
