@@ -200,7 +200,7 @@ typedef struct constant
 } constant;
 
 internal HRESULT
-Win32RenderCreate(win32_state *Win32State)
+Win32RenderCreate()
 {
     HRESULT HResult = 0;
     
@@ -216,11 +216,11 @@ Win32RenderCreate(win32_state *Win32State)
 #endif
         
         if(FAILED(HResult = Win32D3D11CreateDevice(0, D3D_DRIVER_TYPE_HARDWARE, 0, Flags, 0, 0, D3D11_SDK_VERSION,
-                                                   &Win32State->RenderDevice, &FeatureLevel, &Win32State->RenderContext)))
+                                                   &GlobalWin32State.RenderDevice, &FeatureLevel, &GlobalWin32State.RenderContext)))
         {
             LogWarning("Failed to create D3D11 hardware device, attempting software mode");
             if(FAILED(HResult = Win32D3D11CreateDevice(0, D3D_DRIVER_TYPE_WARP, 0, Flags, 0, 0, D3D11_SDK_VERSION,
-                                                       &Win32State->RenderDevice, &FeatureLevel, &Win32State->RenderContext)))
+                                                       &GlobalWin32State.RenderDevice, &FeatureLevel, &GlobalWin32State.RenderContext)))
             {
                 Win32LogError_(HResult, "Failed to create D3D11 software device");
             }
@@ -228,11 +228,11 @@ Win32RenderCreate(win32_state *Win32State)
         
         if(SUCCEEDED(HResult))
         {
-            if(SUCCEEDED(HResult = ID3D11DeviceContext_QueryInterface(Win32State->RenderContext, &IID_ID3D11DeviceContext1, &Win32State->RenderContext1)))
+            if(SUCCEEDED(HResult = ID3D11DeviceContext_QueryInterface(GlobalWin32State.RenderContext, &IID_ID3D11DeviceContext1, &GlobalWin32State.RenderContext1)))
             {
                 LogDebug("Using ID3D11DeviceContext1");
-                ID3D11DeviceContext_Release(Win32State->RenderContext);
-                Win32State->RenderContext = (ID3D11DeviceContext *)Win32State->RenderContext1;
+                ID3D11DeviceContext_Release(GlobalWin32State.RenderContext);
+                GlobalWin32State.RenderContext = (ID3D11DeviceContext *)GlobalWin32State.RenderContext1;
             }
             HResult = 0;
         }
@@ -265,7 +265,7 @@ Win32RenderCreate(win32_state *Win32State)
                     .Quality = 0
                 },
                 .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
-                .OutputWindow = Win32State->Window,
+                .OutputWindow = GlobalWin32State.Window,
                 .Windowed = TRUE,
             };
             
@@ -273,28 +273,28 @@ Win32RenderCreate(win32_state *Win32State)
             SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
             SwapChainDesc.Flags = 0;
             if(FAILED(HResult = 
-                      IDXGIFactory_CreateSwapChain(Factory, (IUnknown *)Win32State->RenderDevice, &SwapChainDesc, &Win32State->RenderSwapChain)))
+                      IDXGIFactory_CreateSwapChain(Factory, (IUnknown *)GlobalWin32State.RenderDevice, &SwapChainDesc, &GlobalWin32State.RenderSwapChain)))
             {
                 LogDebug("Creating flip discard swap chain failed, attempting flip sequential");
                 SwapChainDesc.BufferCount = 2;
                 SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
                 SwapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
                 if(FAILED(HResult =
-                          IDXGIFactory_CreateSwapChain(Factory, (IUnknown *)Win32State->RenderDevice, &SwapChainDesc, &Win32State->RenderSwapChain)))
+                          IDXGIFactory_CreateSwapChain(Factory, (IUnknown *)GlobalWin32State.RenderDevice, &SwapChainDesc, &GlobalWin32State.RenderSwapChain)))
                 {
                     LogDebug("Creating flip sequential swap chain failed, attempting discard");
                     SwapChainDesc.BufferCount = 1;
                     SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
                     SwapChainDesc.Flags = 0;
                     if(SUCCEEDED(HResult =
-                                 IDXGIFactory_CreateSwapChain(Factory, (IUnknown *)Win32State->RenderDevice, &SwapChainDesc, &Win32State->RenderSwapChain)))
+                                 IDXGIFactory_CreateSwapChain(Factory, (IUnknown *)GlobalWin32State.RenderDevice, &SwapChainDesc, &GlobalWin32State.RenderSwapChain)))
                     {
                         IDXGISwapChain2 *SwapChain2;
                         if(SUCCEEDED(HResult = 
-                                     IDXGISwapChain_QueryInterface(Win32State->RenderSwapChain, &IID_IDXGISwapChain2, &SwapChain2)))
+                                     IDXGISwapChain_QueryInterface(GlobalWin32State.RenderSwapChain, &IID_IDXGISwapChain2, &SwapChain2)))
                         {
                             LogDebug("Using IDXGISwapChain2 for frame latency control");
-                            Win32State->RenderFrameLatencyWait = IDXGISwapChain2_GetFrameLatencyWaitableObject(SwapChain2);
+                            GlobalWin32State.RenderFrameLatencyWait = IDXGISwapChain2_GetFrameLatencyWaitableObject(SwapChain2);
                             IDXGISwapChain2_Release(SwapChain2);
                         }
                     }
@@ -303,7 +303,7 @@ Win32RenderCreate(win32_state *Win32State)
             
             if(SUCCEEDED(HResult))
             {
-                if(FAILED(HResult = IDXGIFactory_MakeWindowAssociation(Factory, Win32State->Window, DXGI_MWA_NO_WINDOW_CHANGES | DXGI_MWA_NO_ALT_ENTER)))
+                if(FAILED(HResult = IDXGIFactory_MakeWindowAssociation(Factory, GlobalWin32State.Window, DXGI_MWA_NO_WINDOW_CHANGES | DXGI_MWA_NO_ALT_ENTER)))
                 {
                     Win32LogError_(HResult, "Make window association failed");
                 }
@@ -335,7 +335,7 @@ Win32RenderCreate(win32_state *Win32State)
         };
         
         if(FAILED(HResult =
-                  ID3D11Device_CreateRasterizerState(Win32State->RenderDevice, &RasterizerDesc, &Win32State->RenderRasterizerState)))
+                  ID3D11Device_CreateRasterizerState(GlobalWin32State.RenderDevice, &RasterizerDesc, &GlobalWin32State.RenderRasterizerState)))
         {
             Win32LogError_(HResult, "Failed to create rasterizer state"); 
         }
@@ -369,7 +369,7 @@ Win32RenderCreate(win32_state *Win32State)
         };
         
         if(FAILED(HResult =
-                  ID3D11Device_CreateDepthStencilState(Win32State->RenderDevice, &DepthStencilDesc, &Win32State->RenderDepthStencilState)))
+                  ID3D11Device_CreateDepthStencilState(GlobalWin32State.RenderDevice, &DepthStencilDesc, &GlobalWin32State.RenderDepthStencilState)))
         {
             Win32LogError_(HResult, "Failed to create depth stencil state");
         }
@@ -402,7 +402,7 @@ Win32RenderCreate(win32_state *Win32State)
         };
         
         if(FAILED(HResult =
-                  ID3D11Device_CreateBlendState(Win32State->RenderDevice, &BlendDesc, &Win32State->RenderBlendState)))
+                  ID3D11Device_CreateBlendState(GlobalWin32State.RenderDevice, &BlendDesc, &GlobalWin32State.RenderBlendState)))
         {
             Win32LogError_(HResult, "Failed to create blend state");
         }
@@ -423,11 +423,11 @@ Win32RenderCreate(win32_state *Win32State)
         
         size_t VertexShaderDataSize = sizeof(VertexShaderData);
         if(SUCCEEDED(HResult = 
-                     ID3D11Device_CreateVertexShader(Win32State->RenderDevice, VertexShaderData, VertexShaderDataSize, 0, &Win32State->RenderVertexShader)))
+                     ID3D11Device_CreateVertexShader(GlobalWin32State.RenderDevice, VertexShaderData, VertexShaderDataSize, 0, &GlobalWin32State.RenderVertexShader)))
         {
             if(FAILED(HResult =
-                      ID3D11Device_CreateInputLayout(Win32State->RenderDevice, InputElementDesc, ArrayCount(InputElementDesc),
-                                                     VertexShaderData, sizeof(VertexShaderData), &Win32State->RenderInputLayout)))
+                      ID3D11Device_CreateInputLayout(GlobalWin32State.RenderDevice, InputElementDesc, ArrayCount(InputElementDesc),
+                                                     VertexShaderData, sizeof(VertexShaderData), &GlobalWin32State.RenderInputLayout)))
             {
                 Win32LogError_(HResult, "Failed to create input layout");
             }
@@ -443,7 +443,7 @@ Win32RenderCreate(win32_state *Win32State)
         LogDebug("Creating glyph pixel shader");
         size_t GlyphPixelShaderDataSize = sizeof(GlyphPixelShaderData);
         if(FAILED(HResult =
-                  ID3D11Device_CreatePixelShader(Win32State->RenderDevice, GlyphPixelShaderData, GlyphPixelShaderDataSize, 0, &Win32State->RenderGlyphPixelShader)))
+                  ID3D11Device_CreatePixelShader(GlobalWin32State.RenderDevice, GlyphPixelShaderData, GlyphPixelShaderDataSize, 0, &GlobalWin32State.RenderGlyphPixelShader)))
         {
             Win32LogError_(HResult, "Failed to create glyph pixel shader");
         }
@@ -454,7 +454,7 @@ Win32RenderCreate(win32_state *Win32State)
         LogDebug("Creating sprite pixel shader");
         size_t SpritePixelShaderDataSize = sizeof(SpritePixelShaderData);
         if(FAILED(HResult =
-                  ID3D11Device_CreatePixelShader(Win32State->RenderDevice, SpritePixelShaderData, SpritePixelShaderDataSize, 0, &Win32State->RenderSpritePixelShader)))
+                  ID3D11Device_CreatePixelShader(GlobalWin32State.RenderDevice, SpritePixelShaderData, SpritePixelShaderDataSize, 0, &GlobalWin32State.RenderSpritePixelShader)))
         {
             Win32LogError_(HResult, "Failed to create sprite pixel shader");
         }
@@ -464,7 +464,7 @@ Win32RenderCreate(win32_state *Win32State)
         LogDebug("Creating rect pixel shader");
         size_t RectPixelShaderDataSize = sizeof(RectPixelShaderData);
         if(FAILED(HResult =
-                  ID3D11Device_CreatePixelShader(Win32State->RenderDevice, RectPixelShaderData, RectPixelShaderDataSize, 0, &Win32State->RenderRectPixelShader)))
+                  ID3D11Device_CreatePixelShader(GlobalWin32State.RenderDevice, RectPixelShaderData, RectPixelShaderDataSize, 0, &GlobalWin32State.RenderRectPixelShader)))
         {
             Win32LogError_(HResult, "Failed to create rect pixel shader");
         }
@@ -507,7 +507,7 @@ Win32RenderCreate(win32_state *Win32State)
         };
         
         if(FAILED(HResult =
-                  ID3D11Device_CreateBuffer(Win32State->RenderDevice, &BufferDesc, &SubresourceData, &Win32State->RenderVertexBuffer)))
+                  ID3D11Device_CreateBuffer(GlobalWin32State.RenderDevice, &BufferDesc, &SubresourceData, &GlobalWin32State.RenderVertexBuffer)))
         {
             Win32LogError_(HResult, "Failed to create vertex buffer");
         }
@@ -525,7 +525,7 @@ Win32RenderCreate(win32_state *Win32State)
         };
         
         if(FAILED(HResult =
-                  ID3D11Device_CreateBuffer(Win32State->RenderDevice, &BufferDesc, 0, &Win32State->RenderInstanceBuffer)))
+                  ID3D11Device_CreateBuffer(GlobalWin32State.RenderDevice, &BufferDesc, 0, &GlobalWin32State.RenderInstanceBuffer)))
         {
             Win32LogError_(HResult, "Failed to create vertex instance buffer");
         }
@@ -543,7 +543,7 @@ Win32RenderCreate(win32_state *Win32State)
         };
         
         if(FAILED(HResult =
-                  ID3D11Device_CreateBuffer(Win32State->RenderDevice, &BufferDesc, 0, &Win32State->RenderConstantBuffer)))
+                  ID3D11Device_CreateBuffer(GlobalWin32State.RenderDevice, &BufferDesc, 0, &GlobalWin32State.RenderConstantBuffer)))
         {
             Win32LogError_(HResult, "Failed to create constant buffer");
         }
@@ -564,7 +564,7 @@ Win32RenderCreate(win32_state *Win32State)
         };
         
         if(FAILED(HResult =
-                  ID3D11Device_CreateSamplerState(Win32State->RenderDevice, &SamplerDesc, &Win32State->RenderSamplerState)))
+                  ID3D11Device_CreateSamplerState(GlobalWin32State.RenderDevice, &SamplerDesc, &GlobalWin32State.RenderSamplerState)))
         {
             Win32LogError_(HResult, "Failed to create samper state");
         }
@@ -606,11 +606,11 @@ Win32RenderCreate(win32_state *Win32State)
         
         ID3D11Texture2D *Texture;
         if(SUCCEEDED(HResult = 
-                     ID3D11Device_CreateTexture2D(Win32State->RenderDevice, &TextureDesc, &SubresourceData, &Texture)))
+                     ID3D11Device_CreateTexture2D(GlobalWin32State.RenderDevice, &TextureDesc, &SubresourceData, &Texture)))
         {
             
             if(FAILED(HResult =
-                      ID3D11Device_CreateShaderResourceView(Win32State->RenderDevice, (ID3D11Resource *)Texture, 0, &Win32State->RenderSpriteTextureView)))
+                      ID3D11Device_CreateShaderResourceView(GlobalWin32State.RenderDevice, (ID3D11Resource *)Texture, 0, &GlobalWin32State.RenderSpriteTextureView)))
             {
                 Win32LogError_(HResult, "Failed to create sprite texture view");
             }
@@ -627,12 +627,12 @@ Win32RenderCreate(win32_state *Win32State)
     {
         LogDebug("Loading glyph texture");
         
-        string FontData = Win32ReadEntireFile(&Win32State->Arena, String("C:\\Windows\\Fonts\\segoeui.ttf"));
-        stbtt_InitFont(&Win32State->FontInfo, FontData.Data, 0);
+        string FontData = Win32ReadEntireFile(&GlobalWin32State.Arena, String("C:\\Windows\\Fonts\\segoeui.ttf"));
+        stbtt_InitFont(&GlobalWin32State.FontInfo, FontData.Data, 0);
         
         f32 MaxFontHeightInPixels = 32;
-        Win32State->FontScale = stbtt_ScaleForPixelHeight(&Win32State->FontInfo, MaxFontHeightInPixels);
-        stbtt_GetFontVMetrics(&Win32State->FontInfo, &Win32State->FontAscent, &Win32State->FontDescent, &Win32State->FontLineGap);
+        GlobalWin32State.FontScale = stbtt_ScaleForPixelHeight(&GlobalWin32State.FontInfo, MaxFontHeightInPixels);
+        stbtt_GetFontVMetrics(&GlobalWin32State.FontInfo, &GlobalWin32State.FontAscent, &GlobalWin32State.FontDescent, &GlobalWin32State.FontLineGap);
         
         s32 Padding = (s32)(MaxFontHeightInPixels / 3.0f);
         u8 OnEdgeValue = (u8)(0.8f*255);
@@ -652,16 +652,16 @@ Win32RenderCreate(win32_state *Win32State)
         u32 ColumnAt = 0;
         u32 RowCount = 1;
         
-        glyph_info *GlyphInfo = Win32State->GlyphInfos;
+        glyph_info *GlyphInfo = GlobalWin32State.GlyphInfos;
         
         for(u32 CodePoint = FirstChar;
             CodePoint < LastChar;
             ++CodePoint)
         {                
-            GlyphInfo->Data = stbtt_GetCodepointSDF(&Win32State->FontInfo, Win32State->FontScale, CodePoint, Padding, OnEdgeValue, PixelDistanceScale, 
+            GlyphInfo->Data = stbtt_GetCodepointSDF(&GlobalWin32State.FontInfo, GlobalWin32State.FontScale, CodePoint, Padding, OnEdgeValue, PixelDistanceScale, 
                                                     &GlyphInfo->Width, &GlyphInfo->Height, 
                                                     &GlyphInfo->XOffset, &GlyphInfo->YOffset);
-            stbtt_GetCodepointHMetrics(&Win32State->FontInfo, CodePoint, &GlyphInfo->AdvanceWidth, &GlyphInfo->LeftSideBearing);
+            stbtt_GetCodepointHMetrics(&GlobalWin32State.FontInfo, CodePoint, &GlyphInfo->AdvanceWidth, &GlyphInfo->LeftSideBearing);
             
             GlyphInfo->CodePoint = CodePoint;
             
@@ -694,7 +694,7 @@ Win32RenderCreate(win32_state *Win32State)
         TotalHeight = MaxHeight*RowCount;
         
         umm TextureSize = TotalWidth*TotalHeight*sizeof(u32);
-        u32 *TextureBytes = PushSize(&Win32State->Arena, TextureSize);
+        u32 *TextureBytes = PushSize(&GlobalWin32State.Arena, TextureSize);
         s32 TextureBytesPerRow = 4 * TotalWidth;
         
         u32 AtX = 0;
@@ -703,10 +703,10 @@ Win32RenderCreate(win32_state *Win32State)
         ColumnAt = 0;
         
         for(u32 Index = 0;
-            Index < ArrayCount(Win32State->GlyphInfos);
+            Index < ArrayCount(GlobalWin32State.GlyphInfos);
             ++Index)
         {
-            GlyphInfo = Win32State->GlyphInfos + Index;
+            GlyphInfo = GlobalWin32State.GlyphInfos + Index;
             
             GlyphInfo->UV = V4((f32)AtX / (f32)TotalWidth, (f32)AtY / (f32)TotalHeight,
                                ((f32)AtX + (f32)GlyphInfo->Width) / (f32)TotalWidth, 
@@ -761,11 +761,11 @@ Win32RenderCreate(win32_state *Win32State)
         
         ID3D11Texture2D *Texture;
         if(SUCCEEDED(HResult = 
-                     ID3D11Device_CreateTexture2D(Win32State->RenderDevice, &TextureDesc, &SubresourceData, &Texture)))
+                     ID3D11Device_CreateTexture2D(GlobalWin32State.RenderDevice, &TextureDesc, &SubresourceData, &Texture)))
         {
             
             if(FAILED(HResult =
-                      ID3D11Device_CreateShaderResourceView(Win32State->RenderDevice, (ID3D11Resource *)Texture, 0, &Win32State->RenderGlyphTextureView)))
+                      ID3D11Device_CreateShaderResourceView(GlobalWin32State.RenderDevice, (ID3D11Resource *)Texture, 0, &GlobalWin32State.RenderGlyphTextureView)))
             {
                 Win32LogError_(HResult, "Failed to create glyph texture view");
             }
@@ -784,51 +784,51 @@ Win32RenderCreate(win32_state *Win32State)
 #define D3D11SafeRelease(Release, Obj) if (Obj) { Release##_Release(Obj); }
 
 internal void
-Win32RenderDestroy(win32_state *Win32State)
+Win32RenderDestroy()
 {
     LogDebug("Destroying renderer");
     
-    if(Win32State->RenderContext)
+    if(GlobalWin32State.RenderContext)
     {
-        ID3D11DeviceContext_ClearState(Win32State->RenderContext);
+        ID3D11DeviceContext_ClearState(GlobalWin32State.RenderContext);
     }
     
-    D3D11SafeRelease(ID3D11Buffer, Win32State->RenderConstantBuffer);
-    D3D11SafeRelease(ID3D11Buffer, Win32State->RenderInstanceBuffer);
-    D3D11SafeRelease(ID3D11Buffer, Win32State->RenderVertexBuffer);
-    D3D11SafeRelease(ID3D11InputLayout, Win32State->RenderInputLayout);
-    D3D11SafeRelease(ID3D11VertexShader, Win32State->RenderVertexShader);
+    D3D11SafeRelease(ID3D11Buffer, GlobalWin32State.RenderConstantBuffer);
+    D3D11SafeRelease(ID3D11Buffer, GlobalWin32State.RenderInstanceBuffer);
+    D3D11SafeRelease(ID3D11Buffer, GlobalWin32State.RenderVertexBuffer);
+    D3D11SafeRelease(ID3D11InputLayout, GlobalWin32State.RenderInputLayout);
+    D3D11SafeRelease(ID3D11VertexShader, GlobalWin32State.RenderVertexShader);
     
-    D3D11SafeRelease(ID3D11ShaderResourceView, Win32State->RenderGlyphTextureView);
-    D3D11SafeRelease(ID3D11PixelShader, Win32State->RenderGlyphPixelShader);
+    D3D11SafeRelease(ID3D11ShaderResourceView, GlobalWin32State.RenderGlyphTextureView);
+    D3D11SafeRelease(ID3D11PixelShader, GlobalWin32State.RenderGlyphPixelShader);
     
-    D3D11SafeRelease(ID3D11ShaderResourceView, Win32State->RenderSpriteTextureView);
-    D3D11SafeRelease(ID3D11PixelShader, Win32State->RenderSpritePixelShader);
+    D3D11SafeRelease(ID3D11ShaderResourceView, GlobalWin32State.RenderSpriteTextureView);
+    D3D11SafeRelease(ID3D11PixelShader, GlobalWin32State.RenderSpritePixelShader);
     
-    D3D11SafeRelease(ID3D11PixelShader, Win32State->RenderRectPixelShader);
+    D3D11SafeRelease(ID3D11PixelShader, GlobalWin32State.RenderRectPixelShader);
     
-    D3D11SafeRelease(ID3D11RasterizerState, Win32State->RenderRasterizerState);
-    D3D11SafeRelease(ID3D11DepthStencilState, Win32State->RenderDepthStencilState);
-    D3D11SafeRelease(ID3D11BlendState, Win32State->RenderBlendState);
-    D3D11SafeRelease(ID3D11DepthStencilView, Win32State->RenderDepthStencilView);
-    D3D11SafeRelease(ID3D11RenderTargetView, Win32State->RenderTargetView);
-    D3D11SafeRelease(ID3D11Device, Win32State->RenderDevice);
-    D3D11SafeRelease(ID3D11DeviceContext, Win32State->RenderContext);
-    D3D11SafeRelease(IDXGISwapChain, Win32State->RenderSwapChain);
-    D3D11SafeRelease(ID3D11SamplerState, Win32State->RenderSamplerState);
+    D3D11SafeRelease(ID3D11RasterizerState, GlobalWin32State.RenderRasterizerState);
+    D3D11SafeRelease(ID3D11DepthStencilState, GlobalWin32State.RenderDepthStencilState);
+    D3D11SafeRelease(ID3D11BlendState, GlobalWin32State.RenderBlendState);
+    D3D11SafeRelease(ID3D11DepthStencilView, GlobalWin32State.RenderDepthStencilView);
+    D3D11SafeRelease(ID3D11RenderTargetView, GlobalWin32State.RenderTargetView);
+    D3D11SafeRelease(ID3D11Device, GlobalWin32State.RenderDevice);
+    D3D11SafeRelease(ID3D11DeviceContext, GlobalWin32State.RenderContext);
+    D3D11SafeRelease(IDXGISwapChain, GlobalWin32State.RenderSwapChain);
+    D3D11SafeRelease(ID3D11SamplerState, GlobalWin32State.RenderSamplerState);
     
-    Win32State->RenderContext1 = 0;
-    Win32State->RenderFrameLatencyWait = 0;
+    GlobalWin32State.RenderContext1 = 0;
+    GlobalWin32State.RenderFrameLatencyWait = 0;
 }
 
 internal HRESULT
-Win32RecreateDevice(win32_state *Win32State)
+Win32RecreateDevice()
 {
     HRESULT Result;
     
     LogDebug("Recreating renderer");
-    Win32RenderDestroy(Win32State);
-    if(FAILED(Result = Win32RenderCreate(Win32State)))
+    Win32RenderDestroy();
+    if(FAILED(Result = Win32RenderCreate()))
     {
         LogDebug("Recreating renderer");
     }
@@ -844,7 +844,7 @@ Win32FatalDeviceLostError()
 }
 
 internal HRESULT
-Win32RenderResize(win32_state *Win32State, s32 Width, s32 Height)
+Win32RenderResize(s32 Width, s32 Height)
 {
     HRESULT Result = 0;
     
@@ -861,26 +861,26 @@ Win32RenderResize(win32_state *Win32State, s32 Width, s32 Height)
         GlobalWindowWidth = Width;
         GlobalWindowHeight = Height;
         
-        if(Win32State->RenderTargetView)
+        if(GlobalWin32State.RenderTargetView)
         {
-            ID3D11DeviceContext_OMSetRenderTargets(Win32State->RenderContext, 0, 0, 0);
-            ID3D11RenderTargetView_Release(Win32State->RenderTargetView);
-            Win32State->RenderTargetView = 0;
+            ID3D11DeviceContext_OMSetRenderTargets(GlobalWin32State.RenderContext, 0, 0, 0);
+            ID3D11RenderTargetView_Release(GlobalWin32State.RenderTargetView);
+            GlobalWin32State.RenderTargetView = 0;
         }
         
-        if(Win32State->RenderDepthStencilView)
+        if(GlobalWin32State.RenderDepthStencilView)
         {
-            ID3D11DepthStencilView_Release(Win32State->RenderDepthStencilView);
-            Win32State->RenderDepthStencilView = 0;
+            ID3D11DepthStencilView_Release(GlobalWin32State.RenderDepthStencilView);
+            GlobalWin32State.RenderDepthStencilView = 0;
         }
         
         LogDebug("Resizing buffers");
-        Result = IDXGISwapChain_ResizeBuffers(Win32State->RenderSwapChain, 0, Width, Height, DXGI_FORMAT_UNKNOWN, 0);
+        Result = IDXGISwapChain_ResizeBuffers(GlobalWin32State.RenderSwapChain, 0, Width, Height, DXGI_FORMAT_UNKNOWN, 0);
         if((Result == DXGI_ERROR_DEVICE_REMOVED) ||
            (Result == DXGI_ERROR_DEVICE_RESET) ||
            (Result == DXGI_ERROR_DRIVER_INTERNAL_ERROR))
         {
-            if(FAILED(Win32RecreateDevice(Win32State)))
+            if(FAILED(Win32RecreateDevice()))
             {
                 Result = Win32FatalDeviceLostError();
             }
@@ -899,10 +899,10 @@ Win32RenderResize(win32_state *Win32State, s32 Width, s32 Height)
             LogDebug("Creating render target view");
             ID3D11Texture2D *WindowBuffer;
             if(SUCCEEDED(Result =
-                         IDXGISwapChain_GetBuffer(Win32State->RenderSwapChain, 0, &IID_ID3D11Texture2D, &WindowBuffer)))
+                         IDXGISwapChain_GetBuffer(GlobalWin32State.RenderSwapChain, 0, &IID_ID3D11Texture2D, &WindowBuffer)))
             {
                 if(FAILED(Result =
-                          ID3D11Device_CreateRenderTargetView(Win32State->RenderDevice, (ID3D11Resource *)WindowBuffer, 0, &Win32State->RenderTargetView)))
+                          ID3D11Device_CreateRenderTargetView(GlobalWin32State.RenderDevice, (ID3D11Resource *)WindowBuffer, 0, &GlobalWin32State.RenderTargetView)))
                 {
                     Win32LogError_(Result, "Failed to create render target view");
                 }
@@ -935,11 +935,11 @@ Win32RenderResize(win32_state *Win32State, s32 Width, s32 Height)
             
             ID3D11Texture2D *DepthStencil;
             if(SUCCEEDED(Result = 
-                         ID3D11Device_CreateTexture2D(Win32State->RenderDevice, &DepthStencilDesc, 0, &DepthStencil)))
+                         ID3D11Device_CreateTexture2D(GlobalWin32State.RenderDevice, &DepthStencilDesc, 0, &DepthStencil)))
             {
                 if(FAILED(Result =
-                          ID3D11Device_CreateDepthStencilView(Win32State->RenderDevice, (ID3D11Resource *)DepthStencil, 0,
-                                                              &Win32State->RenderDepthStencilView)))
+                          ID3D11Device_CreateDepthStencilView(GlobalWin32State.RenderDevice, (ID3D11Resource *)DepthStencil, 0,
+                                                              &GlobalWin32State.RenderDepthStencilView)))
                 {
                     Win32LogError_(Result, "Failed to create depth stencil view");
                 }
@@ -963,7 +963,7 @@ Win32RenderResize(win32_state *Win32State, s32 Width, s32 Height)
                 .MinDepth = 0.f,
                 .MaxDepth = 1.f,
             };
-            ID3D11DeviceContext_RSSetViewports(Win32State->RenderContext, 1, &Viewport);
+            ID3D11DeviceContext_RSSetViewports(GlobalWin32State.RenderContext, 1, &Viewport);
         }
     }
     
@@ -971,66 +971,66 @@ Win32RenderResize(win32_state *Win32State, s32 Width, s32 Height)
 }
 
 internal HRESULT
-Win32RenderPresent(win32_state *Win32State)
+Win32RenderPresent()
 {
     HRESULT Result = S_OK;
     
-    if(Win32State->RenderOccluded)
+    if(GlobalWin32State.RenderOccluded)
     {
-        Result = IDXGISwapChain_Present(Win32State->RenderSwapChain, 0, DXGI_PRESENT_TEST);
+        Result = IDXGISwapChain_Present(GlobalWin32State.RenderSwapChain, 0, DXGI_PRESENT_TEST);
         if((SUCCEEDED(Result)) &&
            (Result != DXGI_STATUS_OCCLUDED))
         {
             LogDebug("DXGI window is back to normal, resuming rendering");
-            Win32State->RenderOccluded = false;
+            GlobalWin32State.RenderOccluded = false;
         }
     }
     
-    if(!Win32State->RenderOccluded)
+    if(!GlobalWin32State.RenderOccluded)
     {
-        Result = IDXGISwapChain_Present(Win32State->RenderSwapChain, 1, 0);
+        Result = IDXGISwapChain_Present(GlobalWin32State.RenderSwapChain, 1, 0);
     }
     
     if((Result == DXGI_ERROR_DEVICE_RESET) ||
        (Result == DXGI_ERROR_DEVICE_REMOVED))
     {
         LogDebug("Device reset or removed, recreating");
-        if(FAILED(Win32RecreateDevice(Win32State)))
+        if(FAILED(Win32RecreateDevice()))
         {
             Result = Win32FatalDeviceLostError();
         }
         else
         {
             RECT Rect;
-            if(!Win32GetClientRect(Win32State->Window, &Rect))
+            if(!Win32GetClientRect(GlobalWin32State.Window, &Rect))
             {
                 Win32LogError("Failed to get window rect");
             }
             else
             {
-                Win32RenderResize(Win32State, Rect.right - Rect.left, Rect.bottom - Rect.top);
+                Win32RenderResize(Rect.right - Rect.left, Rect.bottom - Rect.top);
             }
         }
     }
     else if(Result == DXGI_STATUS_OCCLUDED)
     {
         LogDebug("DXGI window is occluded, skipping rendering");
-        Win32State->RenderOccluded = true;
+        GlobalWin32State.RenderOccluded = true;
     }
     else if(FAILED(Result))
     {
         Win32LogError_(Result, "Swap chain present failed");
     }
     
-    if(Win32State->RenderOccluded)
+    if(GlobalWin32State.RenderOccluded)
     {
         Sleep(10);
     }
     else
     {
-        if(Win32State->RenderContext1)
+        if(GlobalWin32State.RenderContext1)
         {
-            ID3D11DeviceContext1_DiscardView(Win32State->RenderContext1, (ID3D11View *)Win32State->RenderTargetView);
+            ID3D11DeviceContext1_DiscardView(GlobalWin32State.RenderContext1, (ID3D11View *)GlobalWin32State.RenderTargetView);
         }
     }
     
@@ -1038,92 +1038,40 @@ Win32RenderPresent(win32_state *Win32State)
 }
 
 internal void
-AppUpdateFrame(render_group *Group)
+Win32RenderFrame(render_group *RenderGroup)
 {
-    // NOTE(kstandbridge): Populate rects
+    if(!GlobalWin32State.RenderOccluded)
     {
-#define BOX_WIDTH 60
-#define BOX_HEIGHT 60
-#define BOX_PADDING 5
-        u32 Columns = GlobalWindowWidth / (BOX_WIDTH + BOX_PADDING);
-        u32 Rows = GlobalWindowHeight / (BOX_HEIGHT + BOX_PADDING);
-        u32 AtX = BOX_PADDING;
-        u32 AtY = BOX_PADDING;
-        
-        for(u32 Row = 0;
-            Row < Rows;
-            ++Row)
+        if(GlobalWin32State.RenderFrameLatencyWait)
         {
-            for(u32 Column = 0;
-                Column < Columns;
-                ++Column)
-            {
-                render_command *Command = PushRenderCommand(Group, RenderCommand_Rect);
-                Command->Rect.Offset = V3(AtX, AtY, 1.0f);
-                Command->Rect.Size = V2(BOX_WIDTH, BOX_HEIGHT);
-                Command->Rect.Color = V4(0.3f, 0.5f, 0.2f, 1.0f);
-                
-                AtX += BOX_WIDTH + BOX_PADDING;
-            }
-            AtX = BOX_PADDING;
-            AtY += BOX_HEIGHT + BOX_PADDING;
-        }
-    }
-    
-    // NOTE(kstandbridge): Populate Glyphs
-    {
-        
-        string LoremIpsum = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
-        
-        render_command *Command = PushRenderCommand(Group, RenderCommand_Text);
-        Command->Text.Offset = V3(2.0f, 2.0f, 1.0f);
-        Command->Text.Size = V2(1.0f, 1.0f);
-        Command->Text.Color = V4(0.0f, 0.0f, 0.0f, 1.0f);
-        Command->Text.Text = LoremIpsum;
-        
-        Command = PushRenderCommand(Group, RenderCommand_Text);
-        Command->Text.Offset = V3(0.0f, 0.0f, 1.0f);
-        Command->Text.Size = V2(1.0f, 1.0f);
-        Command->Text.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
-        Command->Text.Text = LoremIpsum;
-    }
-}
-
-internal void
-Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
-{
-    if(!Win32State->RenderOccluded)
-    {
-        if(Win32State->RenderFrameLatencyWait)
-        {
-            WaitForSingleObjectEx(Win32State->RenderFrameLatencyWait, INFINITE, TRUE);
+            WaitForSingleObjectEx(GlobalWin32State.RenderFrameLatencyWait, INFINITE, TRUE);
         }
         
         // NOTE(kstandbridge): BeginDraw!
         {        
-            ID3D11DeviceContext_OMSetRenderTargets(Win32State->RenderContext, 1, &Win32State->RenderTargetView, Win32State->RenderDepthStencilView);
-            ID3D11DeviceContext_ClearDepthStencilView(Win32State->RenderContext, Win32State->RenderDepthStencilView, 
+            ID3D11DeviceContext_OMSetRenderTargets(GlobalWin32State.RenderContext, 1, &GlobalWin32State.RenderTargetView, GlobalWin32State.RenderDepthStencilView);
+            ID3D11DeviceContext_ClearDepthStencilView(GlobalWin32State.RenderContext, GlobalWin32State.RenderDepthStencilView, 
                                                       D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-            ID3D11DeviceContext_OMSetDepthStencilState(Win32State->RenderContext, Win32State->RenderDepthStencilState, 1);
+            ID3D11DeviceContext_OMSetDepthStencilState(GlobalWin32State.RenderContext, GlobalWin32State.RenderDepthStencilState, 1);
         }
         
         {        
             // NOTE(kstandbridge): Clear background
             f32 ClearColor[] = { 0.1f, 0.2f, 0.6f, 1.0f };
-            ID3D11DeviceContext_ClearRenderTargetView(Win32State->RenderContext, Win32State->RenderTargetView, ClearColor);
+            ID3D11DeviceContext_ClearRenderTargetView(GlobalWin32State.RenderContext, GlobalWin32State.RenderTargetView, ClearColor);
         }
         
         // NOTE(kstandbridge): Map the constant buffer which has our orthographic matrix in
         // TODO(kstandbridge): only when its dirty!
         {            
             D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-            ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderConstantBuffer, 
+            ID3D11DeviceContext_Map(GlobalWin32State.RenderContext, (ID3D11Resource *)GlobalWin32State.RenderConstantBuffer, 
                                     0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
             constant *Constants = (constant *)MappedSubresource.pData;
             Constants->Transform = M4x4Orthographic(GlobalWindowWidth, GlobalWindowHeight, 10.0f, 0.0f);
             //Constants->Transform = M4x4Orthographic(GlobalWindowWidth, GlobalWindowHeight, 0.0f, 1.0f);
             //Constants->Transform = M4x4OrthographicOffCenterLH(0, GlobalWindowWidth, GlobalWindowHeight, 0, 0.0f, 1.0f);
-            ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderConstantBuffer, 0);
+            ID3D11DeviceContext_Unmap(GlobalWin32State.RenderContext, (ID3D11Resource *)GlobalWin32State.RenderConstantBuffer, 0);
         }
         
         // NOTE(kstandbridge): Populate Rects
@@ -1145,40 +1093,40 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
         // NOTE(kstandbridge): Copy Rect data
         {            
             D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-            ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 
+            ID3D11DeviceContext_Map(GlobalWin32State.RenderContext, (ID3D11Resource *)GlobalWin32State.RenderInstanceBuffer, 
                                     0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
             vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
             
             memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
             
-            ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 0);
+            ID3D11DeviceContext_Unmap(GlobalWin32State.RenderContext, (ID3D11Resource *)GlobalWin32State.RenderInstanceBuffer, 0);
         }
         
         // NOTE(kstandbridge): Draw rects
         {        
-            ID3D11DeviceContext_IASetInputLayout(Win32State->RenderContext, Win32State->RenderInputLayout);
-            ID3D11DeviceContext_VSSetConstantBuffers(Win32State->RenderContext, 0, 1, &Win32State->RenderConstantBuffer);
+            ID3D11DeviceContext_IASetInputLayout(GlobalWin32State.RenderContext, GlobalWin32State.RenderInputLayout);
+            ID3D11DeviceContext_VSSetConstantBuffers(GlobalWin32State.RenderContext, 0, 1, &GlobalWin32State.RenderConstantBuffer);
             u32 Strides[] = { sizeof(v4), sizeof(vertex_instance) };
             u32 Offsets[] = { 0, 0 };
             
             ID3D11Buffer *VertexBuffers[] =
             {
-                Win32State->RenderVertexBuffer,
-                Win32State->RenderInstanceBuffer
+                GlobalWin32State.RenderVertexBuffer,
+                GlobalWin32State.RenderInstanceBuffer
             };
             
-            ID3D11DeviceContext_IASetVertexBuffers(Win32State->RenderContext, 0, 2, VertexBuffers, Strides, Offsets);
+            ID3D11DeviceContext_IASetVertexBuffers(GlobalWin32State.RenderContext, 0, 2, VertexBuffers, Strides, Offsets);
             
-            ID3D11DeviceContext_IASetPrimitiveTopology(Win32State->RenderContext, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            ID3D11DeviceContext_VSSetShader(Win32State->RenderContext, Win32State->RenderVertexShader, 0, 0);
-            ID3D11DeviceContext_PSSetShader(Win32State->RenderContext, Win32State->RenderRectPixelShader, 0, 0);
+            ID3D11DeviceContext_IASetPrimitiveTopology(GlobalWin32State.RenderContext, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            ID3D11DeviceContext_VSSetShader(GlobalWin32State.RenderContext, GlobalWin32State.RenderVertexShader, 0, 0);
+            ID3D11DeviceContext_PSSetShader(GlobalWin32State.RenderContext, GlobalWin32State.RenderRectPixelShader, 0, 0);
             
-            ID3D11DeviceContext_PSSetSamplers(Win32State->RenderContext, 0, 1, &Win32State->RenderSamplerState);
+            ID3D11DeviceContext_PSSetSamplers(GlobalWin32State.RenderContext, 0, 1, &GlobalWin32State.RenderSamplerState);
             
-            ID3D11DeviceContext_RSSetState(Win32State->RenderContext, Win32State->RenderRasterizerState);
-            ID3D11DeviceContext_OMSetBlendState(Win32State->RenderContext, Win32State->RenderBlendState, 0, 0xffffffff);
+            ID3D11DeviceContext_RSSetState(GlobalWin32State.RenderContext, GlobalWin32State.RenderRasterizerState);
+            ID3D11DeviceContext_OMSetBlendState(GlobalWin32State.RenderContext, GlobalWin32State.RenderBlendState, 0, 0xffffffff);
             
-            ID3D11DeviceContext_DrawInstanced(Win32State->RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
+            ID3D11DeviceContext_DrawInstanced(GlobalWin32State.RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
         }
         
         // TODO(kstandbridge): Sprite commands
@@ -1196,23 +1144,23 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
         // NOTE(kstandbridge): Copy sprite data
         {            
             D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-            ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 
+            ID3D11DeviceContext_Map(GlobalWin32State.RenderContext, (ID3D11Resource *)GlobalWin32State.RenderInstanceBuffer, 
                                     0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
             vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
             
             memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
             
-            ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 0);
+            ID3D11DeviceContext_Unmap(GlobalWin32State.RenderContext, (ID3D11Resource *)GlobalWin32State.RenderInstanceBuffer, 0);
         }
         
         
         // NOTE(kstandbridge): Draw sprite data
         {
             
-            ID3D11DeviceContext_PSSetShaderResources(Win32State->RenderContext, 0, 1, &Win32State->RenderSpriteTextureView);
+            ID3D11DeviceContext_PSSetShaderResources(GlobalWin32State.RenderContext, 0, 1, &GlobalWin32State.RenderSpriteTextureView);
             
-            ID3D11DeviceContext_PSSetShader(Win32State->RenderContext, Win32State->RenderSpritePixelShader, 0, 0);
-            ID3D11DeviceContext_DrawInstanced(Win32State->RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
+            ID3D11DeviceContext_PSSetShader(GlobalWin32State.RenderContext, GlobalWin32State.RenderSpritePixelShader, 0, 0);
+            ID3D11DeviceContext_DrawInstanced(GlobalWin32State.RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
         }
 #endif
         
@@ -1227,7 +1175,7 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
                 if(Command->Type == RenderCommand_Text)
                 {
                     f32 AtX = Command->Text.Offset.X;
-                    f32 AtY = Command->Text.Offset.X +Win32State->FontScale*Win32State->FontAscent*Command->Text.Size.Y;
+                    f32 AtY = Command->Text.Offset.X +GlobalWin32State.FontScale*GlobalWin32State.FontAscent*Command->Text.Size.Y;
                     
                     for(umm Index = 0;
                         Index < Command->Text.Text.Size;
@@ -1237,12 +1185,12 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
                         
                         if(CodePoint == '\n')
                         {
-                            AtY += Win32State->FontScale*Win32State->FontAscent*Command->Text.Size.Y;
+                            AtY += GlobalWin32State.FontScale*GlobalWin32State.FontAscent*Command->Text.Size.Y;
                             AtX = 0.0f;
                         }
                         else
                         {
-                            glyph_info *Info = Win32State->GlyphInfos + CodePoint;
+                            glyph_info *Info = GlobalWin32State.GlyphInfos + CodePoint;
                             
                             Assert(Info->CodePoint == CodePoint);
                             
@@ -1251,12 +1199,12 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
                                                Command->Text.Color,
                                                Info->UV);
                             
-                            AtX += Win32State->FontScale*Info->AdvanceWidth*Command->Text.Size.X;
+                            AtX += GlobalWin32State.FontScale*Info->AdvanceWidth*Command->Text.Size.X;
                             
                             if(Index < Command->Text.Text.Size)
                             {
-                                s32 Kerning = stbtt_GetCodepointKernAdvance(&Win32State->FontInfo, CodePoint, Command->Text.Text.Data[Index + 1]);
-                                AtX += Win32State->FontScale*Kerning*Command->Text.Size.X;
+                                s32 Kerning = stbtt_GetCodepointKernAdvance(&GlobalWin32State.FontInfo, CodePoint, Command->Text.Text.Data[Index + 1]);
+                                AtX += GlobalWin32State.FontScale*Kerning*Command->Text.Size.X;
                             }
                         }
                     }
@@ -1267,28 +1215,28 @@ Win32RenderFrame(win32_state *Win32State, render_group *RenderGroup)
         // NOTE(kstandbridge): Copy glyph data
         {            
             D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-            ID3D11DeviceContext_Map(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 
+            ID3D11DeviceContext_Map(GlobalWin32State.RenderContext, (ID3D11Resource *)GlobalWin32State.RenderInstanceBuffer, 
                                     0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
             vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
             
             memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
             
-            ID3D11DeviceContext_Unmap(Win32State->RenderContext, (ID3D11Resource *)Win32State->RenderInstanceBuffer, 0);
+            ID3D11DeviceContext_Unmap(GlobalWin32State.RenderContext, (ID3D11Resource *)GlobalWin32State.RenderInstanceBuffer, 0);
         }
         
         // NOTE(kstandbridge): Draw Glyph data
         {
             
-            ID3D11DeviceContext_PSSetShaderResources(Win32State->RenderContext, 0, 1, &Win32State->RenderGlyphTextureView);
+            ID3D11DeviceContext_PSSetShaderResources(GlobalWin32State.RenderContext, 0, 1, &GlobalWin32State.RenderGlyphTextureView);
             
-            ID3D11DeviceContext_PSSetShader(Win32State->RenderContext, Win32State->RenderGlyphPixelShader, 0, 0);
-            ID3D11DeviceContext_DrawInstanced(Win32State->RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
+            ID3D11DeviceContext_PSSetShader(GlobalWin32State.RenderContext, GlobalWin32State.RenderGlyphPixelShader, 0, 0);
+            ID3D11DeviceContext_DrawInstanced(GlobalWin32State.RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
         }
     }
 }
 
 internal LRESULT CALLBACK
-Win32WindowProc_(win32_state *Win32State, HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
+Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
 {
     LRESULT Result = 0;
     
@@ -1296,7 +1244,8 @@ Win32WindowProc_(win32_state *Win32State, HWND Window, u32 Message, WPARAM WPara
     {
         case WM_CREATE:
         {
-            if(FAILED(Win32RenderCreate(Win32State)))
+            GlobalWin32State.Window = Window;
+            if(FAILED(Win32RenderCreate()))
             {
                 Win32LogError("Failed to create renderer");
                 Result = -1;
@@ -1305,13 +1254,13 @@ Win32WindowProc_(win32_state *Win32State, HWND Window, u32 Message, WPARAM WPara
         
         case WM_DESTROY:
         {
-            Win32RenderDestroy(Win32State);
+            Win32RenderDestroy();
             Win32PostQuitMessage(0);
         } break;
         
         case WM_SIZE:
         {
-            if(FAILED(Win32RenderResize(Win32State, LOWORD(LParam), HIWORD(LParam))))
+            if(FAILED(Win32RenderResize(LOWORD(LParam), HIWORD(LParam))))
             {
                 Win32DestroyWindow(Window);
             }
@@ -1326,50 +1275,6 @@ Win32WindowProc_(win32_state *Win32State, HWND Window, u32 Message, WPARAM WPara
     return Result;
 }
 
-
-internal LRESULT CALLBACK
-Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
-{
-    LRESULT Result;
-    
-    win32_state *Win32State = (win32_state *)Win32GetWindowLongPtrW(Window, GWLP_USERDATA);
-    
-    if(Win32State)
-    {
-        Result = Win32WindowProc_(Win32State, Window, Message, WParam, LParam);
-    }
-    else
-    {
-        LogWarning("Unable to get win32 state, skipping message");
-        Result = Win32DefWindowProcW(Window, Message, WParam, LParam);
-    }
-    
-    return Result;
-}
-
-internal LRESULT CALLBACK
-Win32WindowProcSetup(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
-{
-    LRESULT Result;
-    
-    win32_state *Win32State = 0;
-    if(Message == WM_NCCREATE)
-    {
-        CREATESTRUCTW *Create = (CREATESTRUCTW *)LParam;
-        Win32State = (win32_state *)Create->lpCreateParams;
-        Win32SetWindowLongPtrW(Window, GWLP_USERDATA, (LONG_PTR)Win32State);
-        Win32SetWindowLongPtrW(Window, GWLP_WNDPROC, (LONG_PTR)Win32WindowProc);
-        Win32State->Window = Window;
-        
-        Result = Win32WindowProc_(Win32State, Window, Message, WParam, LParam);
-    }
-    else
-    {
-        Result = Win32DefWindowProcW(Window, Message, WParam, LParam);
-    }
-    
-    return Result;
-}
 
 s32 WINAPI
 WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
@@ -1441,6 +1346,36 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
 #if KENGINE_INTERNAL
     GlobalAppMemory.TelemetryState = GlobalTelemetryState;
     GlobalAppMemory.DebugEventTable = GlobalDebugEventTable;
+    // NOTE(kstandbridge): Populate paths for DLL hotloading
+    {    
+        char Filename[MAX_PATH];
+        GetModuleFileNameA(0, Filename, MAX_PATH);
+        u32 Length = GetNullTerminiatedStringLength(Filename);
+        
+        char *At = Filename;
+        if(*At == '\"')
+        {
+            ++At;
+            Length -= 2;
+        }
+        char *lastSlash = At + Length;
+        while(*lastSlash != '\\')
+        {
+            --Length;
+            --lastSlash;
+        }
+        Copy(Length, At, GlobalWin32State.ExeFilePath);
+        GlobalWin32State.ExeFilePath[Length] = '\0';
+        
+        Copy(Length, GlobalWin32State.ExeFilePath, GlobalWin32State.DllFullFilePath);
+        AppendCString(GlobalWin32State.DllFullFilePath + Length, "\\kengine.dll");
+        
+        Copy(Length, GlobalWin32State.ExeFilePath, GlobalWin32State.TempDllFullFilePath);
+        AppendCString(GlobalWin32State.TempDllFullFilePath + Length, "\\kengine_temp.dll");
+        
+        Copy(Length, GlobalWin32State.ExeFilePath, GlobalWin32State.LockFullFilePath);
+        AppendCString(GlobalWin32State.LockFullFilePath + Length, "\\lock.tmp");
+    }
 #endif
     
     Platform = GlobalAppMemory.PlatformAPI;
@@ -1448,7 +1383,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
     WNDCLASSEXW WindowClass =
     {
         .cbSize = sizeof(WindowClass),
-        .lpfnWndProc = Win32WindowProcSetup,
+        .lpfnWndProc = Win32WindowProc,
         .hInstance = Instance,
         .hIcon = Win32LoadIconA(Instance, MAKEINTRESOURCE(IDI_ICON)),
         .hCursor = Win32LoadCursorA(NULL, IDC_ARROW),
@@ -1458,12 +1393,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
     LogDebug("Registering %ls window class", WindowClass.lpszClassName);
     if(Win32RegisterClassExW(&WindowClass))
     {
-        win32_state *Win32State = BootstrapPushStruct(win32_state, Arena);
-        
         LogDebug("Creating window");
         HWND Window = Win32CreateWindowExW(WS_EX_APPWINDOW, WindowClass.lpszClassName, L"kengine",
                                            WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-                                           0, 0, WindowClass.hInstance, Win32State);
+                                           0, 0, WindowClass.hInstance, 0);
         if(Window)
         {
             LogDebug("Begin application loop");
@@ -1473,6 +1406,20 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
             
             for(;;)
             {
+                
+#if KENGINE_INTERNAL
+                b32 DllNeedsToBeReloaded = false;
+                FILETIME NewDLLWriteTime = Win32GetLastWriteTime(GlobalWin32State.DllFullFilePath);
+                if(CompareFileTime(&NewDLLWriteTime, &GlobalWin32State.LastDLLWriteTime) != 0)
+                {
+                    WIN32_FILE_ATTRIBUTE_DATA Ignored;
+                    if(!GetFileAttributesExA(GlobalWin32State.LockFullFilePath, GetFileExInfoStandard, &Ignored))
+                    {
+                        DllNeedsToBeReloaded = true;
+                    }
+                }
+#endif
+                
                 MSG Msg;
                 if(Win32PeekMessageW(&Msg, 0, 0, 0, PM_REMOVE))
                 {
@@ -1485,18 +1432,75 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     continue;
                 }
                 
+#if KENGINE_INTERNAL
+                if(DllNeedsToBeReloaded)
+                {
+                    if(GlobalWin32State.AppLibrary && !FreeLibrary(GlobalWin32State.AppLibrary))
+                    {
+                        Win32LogError("Failed to free app library");
+                    }
+                    GlobalWin32State.AppLibrary = 0;
+                    GlobalWin32State.AppTick_ = 0;
+#if KENGINE_CONSOLE
+                    GlobalWin32State.AppHandleCommand = 0;
+#endif
+#if KENGINE_HTTP
+                    GlobalWin32State.AppHandleHttpRequest = 0;
+#endif // KENGINE_HTTP
+                    
+                    if(CopyFileA(GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath, false))
+                    {
+                        LogDebug("App code reloaded!");
+                        GlobalWin32State.AppLibrary = LoadLibraryA(GlobalWin32State.TempDllFullFilePath);
+                        if(GlobalWin32State.AppLibrary)
+                        {
+                            GlobalWin32State.AppTick_ = (app_tick_ *)GetProcAddress(GlobalWin32State.AppLibrary, "AppTick_");
+                            Assert(GlobalWin32State.AppTick_);
+#if KENGINE_CONSOLE
+                            // NOTE(kstandbridge): Command handler is optional
+                            GlobalWin32State.AppHandleCommand = (app_handle_command *)GetProcAddress(GlobalWin32State.AppLibrary, "AppHandleCommand");
+#endif // KENGINE_CONSOLE
+                            
+#if KENGINE_HTTP
+                            GlobalWin32State.AppHandleHttpRequest = (app_handle_http_request *)Win32GetProcAddressA(GlobalWin32State.AppLibrary, "AppHandleHttpRequest");
+                            Assert(GlobalWin32State.AppHandleHttpRequest);
+#endif // KENGINE_HTTP
+                            
+                            GlobalWin32State.LastDLLWriteTime = NewDLLWriteTime;
+                        }
+                        else
+                        {
+                            Win32LogError("Failed to load app library");
+                        }
+                    }
+                    else
+                    {
+                        Win32LogError("Failed to copy %S to %S", GlobalWin32State.DllFullFilePath, GlobalWin32State.TempDllFullFilePath);
+                    }
+                }
+#endif
+                
                 render_group RenderGroup =
                 {
                     .Commands = RenderCommands,
                     .CurrentCommand = 0,
-                    .MaxCommands = MaxRenderCommands
+                    .MaxCommands = MaxRenderCommands,
+                    .Width = GlobalWindowWidth,
+                    .Height = GlobalWindowHeight
                 };
                 
-                AppUpdateFrame(&RenderGroup);
+#if KENGINE_INTERNAL
+                if(GlobalWin32State.AppTick_)
+                {
+                    GlobalWin32State.AppTick_(&GlobalAppMemory, &RenderGroup);
+                }
+#else
+                AppTick_(&RenderGroup);
+#endif
                 
-                Win32RenderFrame(Win32State, &RenderGroup);
+                Win32RenderFrame(&RenderGroup);
                 
-                if(FAILED(Win32RenderPresent(Win32State)))
+                if(FAILED(Win32RenderPresent()))
                 {
                     break;
                 }
@@ -1511,7 +1515,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
         LogDebug("Unregistering %ls window class", WindowClass.lpszClassName);
         Win32UnregisterClassW(WindowClass.lpszClassName, WindowClass.hInstance);
         
-        ClearArena(&Win32State->Arena);
+        ClearArena(&GlobalWin32State.Arena);
     }
     else
     {

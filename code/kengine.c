@@ -40,7 +40,7 @@ global debug_event_table *GlobalDebugEventTable;
 #include "kengine_sort.c"
 #include "kengine_telemetry.c"
 #include "kengine_render_group.c"
-#include "kengine_ui.c"
+//#include "kengine_ui.c"
 #include "kengine_html_parser.c"
 #include "kengine_json_parser.c"
 #include "kengine_sha512.c"
@@ -48,16 +48,76 @@ global debug_event_table *GlobalDebugEventTable;
 #include "kengine_random.c"
 
 #if KENGINE_INTERNAL
-#include "kengine_debug_ui.c"
+//#include "kengine_debug_ui.c"
 #endif
 
 #include "main.c"
 
 extern void
+AppTick_(app_memory *AppMemory, render_group *Group)
+{
+#if KENGINE_INTERNAL
+    Platform = AppMemory->PlatformAPI;
+    GlobalTelemetryState = AppMemory->TelemetryState;
+    GlobalDebugEventTable = AppMemory->DebugEventTable;
+#endif
+    
+    // NOTE(kstandbridge): Populate rects
+    {
+#define BOX_WIDTH 60
+#define BOX_HEIGHT 60
+#define BOX_PADDING 5
+        u32 Columns = Group->Width / (BOX_WIDTH + BOX_PADDING);
+        u32 Rows = Group->Height / (BOX_HEIGHT + BOX_PADDING);
+        u32 AtX = BOX_PADDING;
+        u32 AtY = BOX_PADDING;
+        
+        for(u32 Row = 0;
+            Row < Rows;
+            ++Row)
+        {
+            for(u32 Column = 0;
+                Column < Columns;
+                ++Column)
+            {
+                render_command *Command = PushRenderCommand(Group, RenderCommand_Rect);
+                Command->Rect.Offset = V3(AtX, AtY, 1.0f);
+                Command->Rect.Size = V2(BOX_WIDTH, BOX_HEIGHT);
+                Command->Rect.Color = V4(0.3f, 0.5f, 0.2f, 1.0f);
+                
+                AtX += BOX_WIDTH + BOX_PADDING;
+            }
+            AtX = BOX_PADDING;
+            AtY += BOX_HEIGHT + BOX_PADDING;
+        }
+    }
+    
+    // NOTE(kstandbridge): Populate Glyphs
+    {
+        
+        string LoremIpsum = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
+        
+        render_command *Command = PushRenderCommand(Group, RenderCommand_Text);
+        Command->Text.Offset = V3(2.0f, 2.0f, 1.0f);
+        Command->Text.Size = V2(1.0f, 1.0f);
+        Command->Text.Color = V4(0.0f, 0.0f, 0.0f, 1.0f);
+        Command->Text.Text = LoremIpsum;
+        
+        Command = PushRenderCommand(Group, RenderCommand_Text);
+        Command->Text.Offset = V3(0.0f, 0.0f, 1.0f);
+        Command->Text.Size = V2(1.0f, 1.0f);
+        Command->Text.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
+        Command->Text.Text = LoremIpsum;
+        
+    }
+}
+
+#if 0
+extern void
 #if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
 AppTick_(app_memory *AppMemory, f32 dtForFrame)
 #else 
-AppTick_(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32 dtForFrame)
+AppTick_(app_memory *AppMemory, render_group *Group)
 #endif 
 {
 #if KENGINE_INTERNAL
@@ -211,3 +271,4 @@ AppTick_(app_memory *AppMemory, render_commands *Commands, app_input *Input, f32
     
 #endif // defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
 }
+#endif

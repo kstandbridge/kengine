@@ -37,6 +37,8 @@ typedef struct render_group
     render_command *Commands;
     u32 CurrentCommand;
     u32 MaxCommands;
+    u32 Width;
+    u32 Height;
 } render_group;
 
 #define KENGINE_RENDER_GROUP_H

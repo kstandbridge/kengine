@@ -13,7 +13,6 @@
 #include "kengine_debug.h"
 #include "kengine_debug_generated.h"
 #endif
-#include "kengine_renderer_shared.h"
 #include "kengine_render_group.h"
 #include "kengine_ui.h"
 

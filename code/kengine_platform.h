@@ -269,8 +269,7 @@ typedef void app_handle_command(app_memory *Memory, string Command, u32 ArgCount
 #if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
 typedef void app_tick_(app_memory *Memory, f32 dtForFrame);
 #else
-typedef struct render_commands render_commands;
-typedef void app_tick_(app_memory *Memory, render_commands *Commands, app_input *Input, f32 dtForFrame);
+typedef void app_tick_(app_memory *Memory, struct render_group *RenderGroup);
 #endif
 
 #if KENGINE_HTTP
