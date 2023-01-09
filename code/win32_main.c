@@ -63,7 +63,7 @@ typedef struct vertex_instance
     v4 SpriteUV;
 } vertex_instance;
 
-#define MAX_VERTEX_INSTANCES 2048
+#define MAX_VERTEX_INSTANCES 10240
 global vertex_instance VertexInstances[MAX_VERTEX_INSTANCES];
 global u32 CurrentVertexInstanceIndex;
 
@@ -1401,7 +1401,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
         {
             LogDebug("Begin application loop");
             
-            render_command RenderCommands[4096];
+            render_command RenderCommands[10240];
             u32 MaxRenderCommands = ArrayCount(RenderCommands);
             
             for(;;)
@@ -1431,6 +1431,15 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     Win32DispatchMessageW(&Msg);
                     continue;
                 }
+                
+                POINT MouseP;
+                Win32GetCursorPos(&MouseP);
+                Win32ScreenToClient(GlobalWin32State.Window, &MouseP);
+                app_input Input =
+                {
+                    .MouseX = (f32)MouseP.x,
+                    .MouseY = (f32)MouseP.y
+                };
                 
 #if KENGINE_INTERNAL
                 if(DllNeedsToBeReloaded)
@@ -1492,7 +1501,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
 #if KENGINE_INTERNAL
                 if(GlobalWin32State.AppTick_)
                 {
-                    GlobalWin32State.AppTick_(&GlobalAppMemory, &RenderGroup);
+                    GlobalWin32State.AppTick_(&GlobalAppMemory, &RenderGroup, Input);
                 }
 #else
                 AppTick_(&RenderGroup);

@@ -1,5 +1,9 @@
 #include "kengine.h"
 
+/* NOTE(kstandbridge): 
+
+*/
+
 #ifndef VERSION
 #define VERSION 0
 #endif // VERSION
@@ -54,7 +58,7 @@ global debug_event_table *GlobalDebugEventTable;
 #include "main.c"
 
 extern void
-AppTick_(app_memory *AppMemory, render_group *Group)
+AppTick_(app_memory *AppMemory, render_group *Group, app_input Input)
 {
 #if KENGINE_INTERNAL
     Platform = AppMemory->PlatformAPI;
@@ -62,11 +66,12 @@ AppTick_(app_memory *AppMemory, render_group *Group)
     GlobalDebugEventTable = AppMemory->DebugEventTable;
 #endif
     
+#if 0
     // NOTE(kstandbridge): Populate rects
     {
-#define BOX_WIDTH 60
-#define BOX_HEIGHT 60
-#define BOX_PADDING 5
+#define BOX_WIDTH 15
+#define BOX_HEIGHT 15
+#define BOX_PADDING 3
         u32 Columns = Group->Width / (BOX_WIDTH + BOX_PADDING);
         u32 Rows = Group->Height / (BOX_HEIGHT + BOX_PADDING);
         u32 AtX = BOX_PADDING;
@@ -91,10 +96,11 @@ AppTick_(app_memory *AppMemory, render_group *Group)
             AtY += BOX_HEIGHT + BOX_PADDING;
         }
     }
+#endif
     
+#if 0
     // NOTE(kstandbridge): Populate Glyphs
     {
-        
         string LoremIpsum = String("Lorem Ipsum is simply dummy text of the printing and typesetting\nindustry. Lorem Ipsum has been the industry's standard dummy\ntext ever since the 1500s, when an unknown printer took a galley\nof type and scrambled it to make a type specimen book. It has\nsurvived not only five centuries, but also the leap into electronic\ntypesetting, remaining essentially unchanged. It was popularised in\nthe 1960s with the release of Letraset sheets containing Lorem\nIpsum passages, and more recently with desktop publishing\nsoftware like Aldus PageMaker including versions of Lorem Ipsum.");
         
         render_command *Command = PushRenderCommand(Group, RenderCommand_Text);
@@ -110,6 +116,28 @@ AppTick_(app_memory *AppMemory, render_group *Group)
         Command->Text.Text = LoremIpsum;
         
     }
+#endif
+    
+    v2 MouseP = V2(Input.MouseX, Input.MouseY);
+    rectangle2 Rect = Rectangle2(V2(10, 10), V2(100, 100));
+    {
+        b32 Hot = Rectangle2IsIn(Rect, MouseP);
+        v4 Color = Hot ? V4(1, 0, 0, 1) : V4(0, 1, 0, 1);
+        render_command *Command = PushRenderCommand(Group, RenderCommand_Rect);
+        Command->Rect.Offset = V3(Rect.Min.X, Rect.Min.Y, 4.0f);
+        Command->Rect.Size = V2Subtract(Rect.Max, Rect.Min);
+        Command->Rect.Color = Color;
+    }
+    
+    {
+        render_command *Command = PushRenderCommand(Group, RenderCommand_Rect);
+        Command->Rect.Offset = V3(Input.MouseX, Input.MouseY, 5.0f);
+        Command->Rect.Size = V2(10, 10);
+        Command->Rect.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
+        
+    }
+    
+    
 }
 
 #if 0
