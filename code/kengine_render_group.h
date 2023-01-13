@@ -8,8 +8,6 @@ typedef enum render_command_type
 
 typedef struct render_command_text
 {
-    v3 Offset;
-    v2 Size;
     v4 Color;
     
     string Text;
@@ -17,14 +15,16 @@ typedef struct render_command_text
 
 typedef struct render_command_rect
 {
-    v3 Offset;
-    v2 Size;
     v4 Color;
+    
 } render_command_rect;
 
 typedef struct render_command
 {
     render_command_type Type;
+    v2 Offset;
+    f32 Depth;
+    v2 Size;
     union
     {
         render_command_text Text;

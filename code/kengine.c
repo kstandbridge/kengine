@@ -1,40 +1,8 @@
 #include "kengine.h"
 
-/* NOTE(kstandbridge): 
-
-*/
-
 #ifndef VERSION
 #define VERSION 0
 #endif // VERSION
-
-typedef struct colors
-{
-    v4 Clear;
-    v4 TabBackground;
-    v4 TabHeaderBackground;
-    v4 TabHeaderHotBackground;
-    v4 TabBorder;
-    
-    v4 SelectedTextBackground;
-    v4 SelectedText;
-    v4 Text;
-    
-    v4 TextboxBackground;
-    
-    v4 ScrollButton;
-    v4 ScrollButtonText;
-    v4 ScrollButtonHot;
-    v4 ScrollButtonHotText;
-    v4 ScrollButtonClicked;
-    v4 ScrollButtonClickedText;
-    
-    v4 ScrollBar;
-    v4 ScrollBarBackground;
-    v4 ScrollBarHot;
-    v4 ScrollBarClicked;
-    
-} colors;
 
 #if KENGINE_INTERNAL
 platform_api Platform;
@@ -44,7 +12,6 @@ global debug_event_table *GlobalDebugEventTable;
 #include "kengine_sort.c"
 #include "kengine_telemetry.c"
 #include "kengine_render_group.c"
-//#include "kengine_ui.c"
 #include "kengine_html_parser.c"
 #include "kengine_json_parser.c"
 #include "kengine_sha512.c"
@@ -57,14 +24,119 @@ global debug_event_table *GlobalDebugEventTable;
 
 #include "main.c"
 
+inline b32
+ElementIsHot(control_element Element, v2 MouseP)
+{
+    b32 Result = false;
+    
+    v2 Offset = V2(Element.Offset.X, Element.Offset.Y);
+    
+    rectangle2 Bounds = Rectangle2(Offset, V2Add(Offset, Element.Size));
+    Result = Rectangle2IsIn(Bounds, MouseP);
+    
+    return Result;
+}
+
+internal void
+BeginGrid(ui_state *UiState, rectangle2 Bounds, u32 Columns, u32 Rows)
+{
+    ui_frame *Frame = UiState->Frame;
+    memory_arena *Arena = Frame->Arena;
+    render_group *RenderGroup = Frame->RenderGroup;
+    
+    ui_grid *Grid = PushStruct(Arena, ui_grid);
+    Grid->Prev= Frame->CurrentGrid;
+    Frame->CurrentGrid = Grid;
+    
+    Grid->Bounds = Bounds;
+    Grid->Columns = Columns;
+    Grid->Rows = Rows;
+    
+    Grid->ColumnWidth = (Bounds.Max.X - Bounds.Min.X) / Grid->Columns;
+    Grid->RowHeight = (Bounds.Max.Y - Bounds.Min.Y) / Grid->Rows;
+}
+
+internal void
+EndGrid(ui_state *UiState)
+{
+    ui_frame *Frame = UiState->Frame;
+    Assert(Frame->CurrentGrid);
+    Frame->CurrentGrid = Frame->CurrentGrid->Prev;
+}
+
+internal void
+GridSetRowHeight(ui_state *UiState, u32 Row, f32 Height)
+{
+}
+
+internal void
+GridSetColumnWidth(ui_state *UiState, u32 Column, f32 Widdth)
+{
+}
+
+internal rectangle2
+GridGetColumnBounds(ui_state *UiState, u32 Column, u32 Row)
+{
+    ui_frame *Frame = UiState->Frame;
+    Assert(Frame->CurrentGrid);
+    ui_grid *Grid = Frame->CurrentGrid;
+    
+    v2 Min = Grid->Bounds.Min;
+    Min.X += Column * Grid->ColumnWidth;
+    Min.Y += Row * Grid->RowHeight;
+    
+    v2 Max = V2Add(Min, V2(Grid->ColumnWidth, Grid->RowHeight));
+    
+    rectangle2 Result = Rectangle2(Min, Max);
+    return Result;
+}
+
+internal b32
+Button(ui_state *UiState, u32 Column, u32 Row, char *Format, ...)
+{
+    b32 Result = false;
+    
+    ui_frame *Frame = UiState->Frame;
+    memory_arena *Arena = Frame->Arena;
+    render_group *RenderGroup = Frame->RenderGroup;
+    Assert(Frame->CurrentGrid);
+    ui_grid *Grid = Frame->CurrentGrid;
+    
+    rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
+    if(Rectangle2IsIn(Bounds, Frame->Input->MouseP))
+    {
+        // TODO(kstandbridge): Is current interaction?
+        Result = true;
+    }
+    
+    PushRenderCommandRect(RenderGroup, Bounds, 1.0f, V4(1.0f, 0.5f, 0.0f, 1.0f));
+    
+    PushRenderCommandText(RenderGroup, 1.0f, Bounds.Min, 2.0f, V4(0.0f, 0.0f, 0.0f, 1.0f),
+                          FormatString(Arena, Format));
+    
+    return Result;
+}
+
+internal void
+Label(ui_state *UiState, u32 Column, u32 Row, char *Format, ...)
+{
+    
+}
+
 extern void
-AppTick_(app_memory *AppMemory, render_group *Group, app_input Input)
+AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
 {
 #if KENGINE_INTERNAL
     Platform = AppMemory->PlatformAPI;
     GlobalTelemetryState = AppMemory->TelemetryState;
     GlobalDebugEventTable = AppMemory->DebugEventTable;
 #endif
+    
+    app_state *AppState = AppMemory->AppState;
+    if(!AppState)
+    {
+        AppState = AppMemory->AppState = BootstrapPushStruct(app_state, Arena);
+    }
     
 #if 0
     // NOTE(kstandbridge): Populate rects
@@ -118,185 +190,104 @@ AppTick_(app_memory *AppMemory, render_group *Group, app_input Input)
     }
 #endif
     
-    v2 MouseP = V2(Input.MouseX, Input.MouseY);
-    rectangle2 Rect = Rectangle2(V2(10, 10), V2(100, 100));
+    temporary_memory MemoryFlush = BeginTemporaryMemory(&AppState->Arena);
+    
+    ui_frame _UiFrame = 
     {
-        b32 Hot = Rectangle2IsIn(Rect, MouseP);
-        v4 Color = Hot ? V4(1, 0, 0, 1) : V4(0, 1, 0, 1);
+        .Arena = MemoryFlush.Arena,
+        .RenderGroup = RenderGroup,
+        .Input = Input,
+        .CurrentGrid = 0,
+    };
+    
+    // TODO(kstandbridge): Persist ui_state
+    ui_state UiState_ =
+    {
+        .Frame = &_UiFrame
+    };
+    ui_state *UiState = &UiState_;
+    
+    
+    rectangle2 Bounds = Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height));
+    
+    BeginGrid(UiState, Bounds, 2, 2);
+    {
+        GridSetRowHeight(UiState, 0, 24.0f);
+        GridSetColumnWidth(UiState, 0, 128.0f);
+        
+        if(Button(UiState, 0, 0, "Add"))
+        {
+            AppState->SomeValue += 100;
+        }
+        
+        if(Button(UiState, 1, 0, "Subtract"))
+        {
+            AppState->SomeValue -= 100;
+        }
+        
+        Label(UiState, 0, 1, "Value %u", AppState->SomeValue);
+    }
+    EndGrid(UiState);
+    
+    EndTemporaryMemory(MemoryFlush);
+#if 0
+    {    
+        control_element Btn =
+        {
+            .Size = V2(100, 100),
+            .Offset = V3(10, 10, 1.0f),
+        };
+        
+        b32 IsHot = ElementIsHot(Btn, MouseP);
+        v4 Color = IsHot ? V4(1, 0, 0, 1) : V4(0, 1, 0, 1);
         render_command *Command = PushRenderCommand(Group, RenderCommand_Rect);
-        Command->Rect.Offset = V3(Rect.Min.X, Rect.Min.Y, 4.0f);
-        Command->Rect.Size = V2Subtract(Rect.Max, Rect.Min);
+        Command->Rect.Offset = Btn.Offset;
+        Command->Rect.Size = Btn.Size;
         Command->Rect.Color = Color;
     }
     
+    {    
+        control_element Btn =
+        {
+            .Size = V2(100, 100),
+            .Offset = V3(10, 120, 1.0f),
+        };
+        
+        b32 IsHot = ElementIsHot(Btn, MouseP);
+        v4 Color = IsHot ? V4(1, 0, 0, 1) : V4(0, 1, 0, 1);
+        render_command *Command = PushRenderCommand(Group, RenderCommand_Rect);
+        Command->Rect.Offset = Btn.Offset;
+        Command->Rect.Size = Btn.Size;
+        Command->Rect.Color = Color;
+    }
+    
+    // NOTE(kstandbridge): FPS?
+    {
+        render_command *Command = PushRenderCommand(RenderGroup, RenderCommand_Text);
+        Command->Text.Offset = V3(2.0f, 2.0f, 5.0f);
+        Command->Text.Size = V2Set1(1.0f);
+        Command->Text.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
+        Command->Text.Text = FormatString(MemoryFlush.Arena, "FPS: %.02f", 1.0f / Input->DeltaTime);;
+    }
+    
+    // NOTE(kstandbridge): Value t0 display
+    {
+        render_command *Command = PushRenderCommand(Group, RenderCommand_Text);
+        Command->Text.Offset = V3(20.0f, 600.0f, 4.0f);
+        Command->Text.Size = V2Set1(1.0f);
+        Command->Text.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
+        Command->Text.Text = FormatString(MemoryFlush.Arena, "Value: %u", AppState->SomeValue);
+        
+    }
+    
+    // NOTE(kstandbridge): Cursor
     {
         render_command *Command = PushRenderCommand(Group, RenderCommand_Rect);
-        Command->Rect.Offset = V3(Input.MouseX, Input.MouseY, 5.0f);
+        Command->Rect.Offset = V3(MouseP.X, MouseP.Y, 5.0f);
         Command->Rect.Size = V2(10, 10);
         Command->Rect.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
         
     }
     
-    
+#endif
 }
-
-#if 0
-extern void
-#if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
-AppTick_(app_memory *AppMemory, f32 dtForFrame)
-#else 
-AppTick_(app_memory *AppMemory, render_group *Group)
-#endif 
-{
-#if KENGINE_INTERNAL
-    Platform = AppMemory->PlatformAPI;
-    GlobalTelemetryState = AppMemory->TelemetryState;
-    GlobalDebugEventTable = AppMemory->DebugEventTable;
-#endif
-    app_state *AppState = AppMemory->AppState;
-    if(!AppState)
-    {
-        AppState = AppMemory->AppState = BootstrapPushStruct(app_state, Arena);
-#if KENGINE_INTERNAL
-        GlobalDebugEventTable->Settings.ShowDebugTab = true;
-#endif
-        AppInit(AppMemory);
-        
-        u32 ArgCount = AppMemory->ArgCount;
-        string *Args = AppMemory->Args;
-        
-        if(ArgCount > 1)
-        {
-            string Command = Args[1];
-            if(ArgCount == 2)
-            {
-                Args = 0;
-            }
-            else
-            {
-                Args += 2;
-            }
-            ArgCount -= 2;
-            AppHandleCommand(AppMemory, Command, ArgCount, Args);
-        }
-    }
-    
-#if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
-    AppTick(AppMemory, dtForFrame);
-#else
-    
-    ui_state *UIState = AppMemory->UIState;
-    if(!UIState)
-    {
-        UIState = AppMemory->UIState = BootstrapPushStruct(ui_state, PermArena);
-        
-        // NOTE(kstandbridge): GetVerticleAdvance will return 0 if no glyphs have been loaded
-        Platform.GetGlyphForCodePoint(&UIState->TranArena, 'K');
-        AppMemory->UIState->LineAdvance = Platform.GetVerticleAdvance();
-    }
-    
-#if KENGINE_INTERNAL
-    debug_state *DebugState = AppMemory->DebugState;
-#endif
-    
-    colors Colors;
-    Colors.Clear = RGBColor(240, 240, 240, 255);
-    Colors.TabBackground = RGBColor(255, 255, 255, 255);
-    Colors.TabHeaderBackground = RGBColor(240, 240, 240, 255);
-    Colors.TabHeaderHotBackground = RGBColor(216, 234, 249, 255);
-    Colors.TabBorder = RGBColor(217, 217, 217, 255);
-    
-    
-    Colors.SelectedTextBackground = RGBColor(0, 120, 215, 255);
-    Colors.SelectedText = RGBColor(255, 255, 255, 255);
-    Colors.Text = RGBColor(0, 0, 0, 255);
-    
-    
-    Colors.TextboxBackground = RGBColor(255, 255, 255, 255);
-    
-    Colors.ScrollButton = RGBColor(240, 240, 240, 255);
-    Colors.ScrollButtonText = RGBColor(96, 96, 96, 255);
-    Colors.ScrollButtonHot = RGBColor(218, 218, 218, 255);
-    Colors.ScrollButtonHotText = RGBColor(0, 0, 0, 255);
-    Colors.ScrollButtonClicked = RGBColor(96, 96, 96, 255);
-    Colors.ScrollButtonClickedText = RGBColor(255, 255, 255, 255);
-    
-    Colors.ScrollBar = RGBColor(205, 205, 205, 255);
-    Colors.ScrollBarBackground = RGBColor(240, 240, 240, 255);
-    Colors.ScrollBarHot = RGBColor(116, 116, 116, 255);
-    Colors.ScrollBarClicked = RGBColor(96, 96, 96, 255);
-    
-    render_group RenderGroup_;
-    ZeroStruct(RenderGroup_);
-    render_group *RenderGroup = &RenderGroup_;
-    RenderGroup->Commands = Commands;
-    RenderGroup->CurrentClipRectIndex = PushRenderCommandClipRectangle(RenderGroup, Rectangle2i(0, Commands->Width, 0, Commands->Height));
-    RenderGroup->Arena = &AppState->Arena;
-    RenderGroup->Glyphs = UIState->Glyphs;
-    RenderGroup->Colors = &Colors;
-    
-    PushRenderCommandClear(RenderGroup, 0.0f, Colors.Clear);
-    
-#if 0
-    // NOTE(kstandbridge): Rectangle with clipping regions
-    f32 Width = (f32)Commands->Width;
-    f32 Height = (f32)Commands->Height;
-    
-    BeginClipRect(RenderGroup, Rectangle2(V2(Width*0.1f, Height*0.1f), V2(Width*0.9f,  Height*0.9f)));
-    {    
-        PushRenderCommandRectangle(RenderGroup, V4(1.0f, 0.0f, 0.0f, 1.0f),
-                                   Rectangle2(V2(0.0f, 0.0f), V2(Width*0.5f, Height*0.5f)), 1.0f);
-        
-        PushRenderCommandRectangle(RenderGroup, V4(0.0f, 1.0f, 0.0f, 1.0f),
-                                   Rectangle2(V2(Width*0.5f, 0.0f), V2(Width, Height*0.5f)), 1.0f);
-        
-        PushRenderCommandRectangle(RenderGroup, V4(0.0f, 0.0f, 1.0f, 1.0f),
-                                   Rectangle2(V2(0.0f, Height*0.5f), V2(Width*0.5f, Height)), 1.0f);
-        
-        PushRenderCommandRectangle(RenderGroup, V4(1.0f, 1.0f, 0.0f, 1.0f),
-                                   Rectangle2(V2(Width*0.5f, Height*0.5f), V2(Width, Height)), 1.0f);
-    }
-    
-    EndClipRect(RenderGroup);
-#endif
-    
-    UIState->MouseDown = Input->MouseButtons[MouseButton_Left].EndedDown;
-    UIState->LastMouseP = UIState->MouseP;
-    UIState->MouseP = V2(Input->MouseX, Input->MouseY);
-    UIState->dMouseP = V2Subtract(UIState->LastMouseP, UIState->MouseP);
-    
-    temporary_memory TempMem = BeginTemporaryMemory(&UIState->TranArena);
-    
-#if KENGINE_INTERNAL
-    DEBUG_IF(ShowDebugTab)
-    {
-        rectangle2 Bounds = Rectangle2(V2Set1(0.0f), V2((f32)Commands->Width, (f32)Commands->Height));
-        DrawDebugGrid(DebugState, UIState, RenderGroup, &AppState->Arena, TempMem.Arena, Input, Bounds);
-    }
-    else
-    {
-        AppTick(AppMemory, dtForFrame);
-    }
-#else
-    AppTick(AppMemory, dtForFrame);
-#endif
-    
-    Interact(UIState, Input, dtForFrame);
-    UIState->ToExecute = UIState->NextToExecute;
-    ClearInteraction(&UIState->NextToExecute);
-    ClearInteraction(&UIState->NextHotInteraction);
-    
-#if KENGINE_INTERNAL
-    if(Input->FKeyPressed[10])
-    {
-        GlobalDebugEventTable->Settings.ShowDebugTab = !GlobalDebugEventTable->Settings.ShowDebugTab;
-    }
-#endif
-    
-    EndTemporaryMemory(TempMem);
-    CheckArena(&UIState->TranArena);
-    CheckArena(&AppState->Arena);
-    
-#endif // defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
-}
-#endif

@@ -1084,7 +1084,7 @@ Win32RenderFrame(render_group *RenderGroup)
                 render_command *Command = RenderGroup->Commands + CommandIndex;
                 if(Command->Type == RenderCommand_Rect)
                 {
-                    PushVertexInstance(Command->Rect.Offset, Command->Rect.Size,
+                    PushVertexInstance(V3(Command->Offset.X, Command->Offset.Y, Command->Depth), Command->Size,
                                        Command->Rect.Color, V4(0.0f, 0.0f, 1.0f, 1.0f));
                 }
             }
@@ -1174,8 +1174,8 @@ Win32RenderFrame(render_group *RenderGroup)
                 render_command *Command = RenderGroup->Commands + CommandIndex;
                 if(Command->Type == RenderCommand_Text)
                 {
-                    f32 AtX = Command->Text.Offset.X;
-                    f32 AtY = Command->Text.Offset.X +GlobalWin32State.FontScale*GlobalWin32State.FontAscent*Command->Text.Size.Y;
+                    f32 AtX = Command->Offset.X;
+                    f32 AtY = Command->Offset.Y + GlobalWin32State.FontScale*GlobalWin32State.FontAscent*Command->Size.Y;
                     
                     for(umm Index = 0;
                         Index < Command->Text.Text.Size;
@@ -1185,7 +1185,7 @@ Win32RenderFrame(render_group *RenderGroup)
                         
                         if(CodePoint == '\n')
                         {
-                            AtY += GlobalWin32State.FontScale*GlobalWin32State.FontAscent*Command->Text.Size.Y;
+                            AtY += GlobalWin32State.FontScale*GlobalWin32State.FontAscent*Command->Size.Y;
                             AtX = 0.0f;
                         }
                         else
@@ -1194,17 +1194,17 @@ Win32RenderFrame(render_group *RenderGroup)
                             
                             Assert(Info->CodePoint == CodePoint);
                             
-                            PushVertexInstance(V3(AtX, AtY + Info->YOffset*Command->Text.Size.Y, 3.0f),
-                                               V2Multiply(Command->Text.Size, V2(Info->Width, Info->Height)),
+                            PushVertexInstance(V3(AtX, AtY + Info->YOffset*Command->Size.Y, 3.0f),
+                                               V2Multiply(Command->Size, V2(Info->Width, Info->Height)),
                                                Command->Text.Color,
                                                Info->UV);
                             
-                            AtX += GlobalWin32State.FontScale*Info->AdvanceWidth*Command->Text.Size.X;
+                            AtX += GlobalWin32State.FontScale*Info->AdvanceWidth*Command->Size.X;
                             
                             if(Index < Command->Text.Text.Size)
                             {
                                 s32 Kerning = stbtt_GetCodepointKernAdvance(&GlobalWin32State.FontInfo, CodePoint, Command->Text.Text.Data[Index + 1]);
-                                AtX += GlobalWin32State.FontScale*Kerning*Command->Text.Size.X;
+                                AtX += GlobalWin32State.FontScale*Kerning*Command->Size.X;
                             }
                         }
                     }
@@ -1401,11 +1401,38 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
         {
             LogDebug("Begin application loop");
             
+            s32 MonitorRefreshHz = 60;
+            HDC WindowDC = Win32GetDC(Window);
+            s32 Win32RefreshRate = Win32GetDeviceCaps(WindowDC, VREFRESH);
+            Win32ReleaseDC(Window, WindowDC);
+            if(Win32RefreshRate > 1)
+            {
+                MonitorRefreshHz = Win32RefreshRate;
+            }
+            
+            f32 AppUpdateHz = (f32)Win32RefreshRate;
+            
             render_command RenderCommands[10240];
             u32 MaxRenderCommands = ArrayCount(RenderCommands);
             
+            app_input Input[2];
+            ZeroArray(ArrayCount(Input), Input);
+            app_input *NewInput = Input;
+            app_input *OldInput = Input + 1;
+            
+            {
+                LARGE_INTEGER PerfCountFrequencyResult;
+                QueryPerformanceFrequency(&PerfCountFrequencyResult);
+                GlobalWin32State.PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+            }
+            LARGE_INTEGER LastCounter = Win32GetWallClock();
+            
+            u32 ExpectedFramesPerUpdate = 1;
+            f32 TargetSecondsPerFrame = (f32)ExpectedFramesPerUpdate / AppUpdateHz;
             for(;;)
             {
+                
+                NewInput->DeltaTime = TargetSecondsPerFrame;
                 
 #if KENGINE_INTERNAL
                 b32 DllNeedsToBeReloaded = false;
@@ -1435,11 +1462,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                 POINT MouseP;
                 Win32GetCursorPos(&MouseP);
                 Win32ScreenToClient(GlobalWin32State.Window, &MouseP);
-                app_input Input =
-                {
-                    .MouseX = (f32)MouseP.x,
-                    .MouseY = (f32)MouseP.y
-                };
+                NewInput->MouseP = V2((f32)MouseP.x, (f32)MouseP.y);
                 
 #if KENGINE_INTERNAL
                 if(DllNeedsToBeReloaded)
@@ -1501,7 +1524,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
 #if KENGINE_INTERNAL
                 if(GlobalWin32State.AppTick_)
                 {
-                    GlobalWin32State.AppTick_(&GlobalAppMemory, &RenderGroup, Input);
+                    GlobalWin32State.AppTick_(&GlobalAppMemory, &RenderGroup, NewInput);
                 }
 #else
                 AppTick_(&RenderGroup);
@@ -1513,6 +1536,19 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                 {
                     break;
                 }
+                
+                app_input *TempInput = NewInput;
+                NewInput = OldInput;
+                OldInput = TempInput;
+                
+                LARGE_INTEGER EndCounter = Win32GetWallClock();
+                f32 MeasuredSecondsPerFrame = Win32GetSecondsElapsed(LastCounter, EndCounter, GlobalWin32State.PerfCountFrequency);
+                f32 ExactTargetFramesPerUpdate = MeasuredSecondsPerFrame*MonitorRefreshHz;
+                ExpectedFramesPerUpdate = RoundF32ToU32(ExactTargetFramesPerUpdate);
+                
+                TargetSecondsPerFrame = MeasuredSecondsPerFrame;
+                
+                LastCounter = EndCounter;
             }
             LogDebug("Ended application loop");
         }

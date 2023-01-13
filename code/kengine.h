@@ -14,7 +14,50 @@
 #include "kengine_debug_generated.h"
 #endif
 #include "kengine_render_group.h"
-#include "kengine_ui.h"
+
+typedef struct app_state
+{
+    memory_arena Arena;
+    
+    u32 SomeValue;
+    
+} app_state;
+
+typedef struct control_element
+{
+    v2 Size;
+    v3 Offset;
+} control_element;
+
+typedef struct ui_grid
+{
+    rectangle2 Bounds;
+    u32 Columns;
+    u32 Rows;
+    
+    f32 ColumnWidth;
+    f32 RowHeight;
+    
+    struct ui_grid *Prev;
+} ui_grid;
+
+typedef struct ui_frame
+{
+    memory_arena *Arena;
+    render_group *RenderGroup;
+    app_input *Input;
+    ui_grid *CurrentGrid;
+} ui_frame;
+
+typedef struct ui_state
+{
+    // NOTE(kstandbridge): Persistent
+    // Interactions
+    
+    
+    // NOTE(kstandbridge): Transient
+    ui_frame *Frame;
+} ui_state;
 
 #define KENGINE_H
 #endif //KENGINE_H

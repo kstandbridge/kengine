@@ -26,9 +26,10 @@ typedef enum
 
 typedef struct app_input
 {
+    f32 DeltaTime;
+    
     app_button_state MouseButtons[MouseButton_Count];
-    f32 MouseX;
-    f32 MouseY;
+    v2 MouseP;
     f32 MouseZ;
     
     b32 ShiftDown, AltDown, ControlDown;
@@ -250,7 +251,6 @@ typedef struct app_memory
 {
     // TODO(kstandbridge): App state maybe, UI state hard no
     struct app_state *AppState;
-    struct ui_state *UIState;
     
 #if KENGINE_INTERNAL
     struct telemetry_state *TelemetryState;
@@ -269,7 +269,7 @@ typedef void app_handle_command(app_memory *Memory, string Command, u32 ArgCount
 #if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
 typedef void app_tick_(app_memory *Memory, f32 dtForFrame);
 #else
-typedef void app_tick_(app_memory *Memory, struct render_group *RenderGroup, app_input Input);
+typedef void app_tick_(app_memory *Memory, struct render_group *RenderGroup, app_input *Input);
 #endif
 
 #if KENGINE_HTTP
