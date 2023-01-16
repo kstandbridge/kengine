@@ -1275,6 +1275,15 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
     return Result;
 }
 
+inline void
+ProcessInputMessage(app_button_state *NewState, b32 IsDown)
+{
+    if(NewState->EndedDown != IsDown)
+    {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
+    }
+}
 
 s32 WINAPI
 WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
@@ -1419,7 +1428,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
             ZeroArray(ArrayCount(Input), Input);
             app_input *NewInput = Input;
             app_input *OldInput = Input + 1;
-            
             {
                 LARGE_INTEGER PerfCountFrequencyResult;
                 QueryPerformanceFrequency(&PerfCountFrequencyResult);
@@ -1431,7 +1439,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
             f32 TargetSecondsPerFrame = (f32)ExpectedFramesPerUpdate / AppUpdateHz;
             for(;;)
             {
-                
                 NewInput->DeltaTime = TargetSecondsPerFrame;
                 
 #if KENGINE_INTERNAL
@@ -1463,6 +1470,24 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                 Win32GetCursorPos(&MouseP);
                 Win32ScreenToClient(GlobalWin32State.Window, &MouseP);
                 NewInput->MouseP = V2((f32)MouseP.x, (f32)MouseP.y);
+                
+                DWORD Win32ButtonIds[MouseButton_Count] =
+                {
+                    VK_LBUTTON,
+                    VK_MBUTTON,
+                    VK_RBUTTON,
+                    VK_XBUTTON1,
+                    VK_XBUTTON2,
+                };
+                for(u32 ButtonIndex = 0;
+                    ButtonIndex < MouseButton_Count;
+                    ++ButtonIndex)
+                {
+                    NewInput->MouseButtons[ButtonIndex] = OldInput->MouseButtons[ButtonIndex];
+                    NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
+                    ProcessInputMessage(&NewInput->MouseButtons[ButtonIndex],
+                                        Win32GetKeyState(Win32ButtonIds[ButtonIndex]) & (1 << 15));
+                }
                 
 #if KENGINE_INTERNAL
                 if(DllNeedsToBeReloaded)

@@ -249,8 +249,8 @@ extern platform_api Platform;
 // TODO(kstandbridge): Rename to platform_state ???
 typedef struct app_memory
 {
-    // TODO(kstandbridge): App state maybe, UI state hard no
     struct app_state *AppState;
+    struct ui_state *UiState;
     
 #if KENGINE_INTERNAL
     struct telemetry_state *TelemetryState;

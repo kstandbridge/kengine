@@ -70,7 +70,7 @@ GridSetRowHeight(ui_state *UiState, u32 Row, f32 Height)
 }
 
 internal void
-GridSetColumnWidth(ui_state *UiState, u32 Column, f32 Widdth)
+GridSetColumnWidth(ui_state *UiState, u32 Column, f32 Width)
 {
 }
 
@@ -92,7 +92,7 @@ GridGetColumnBounds(ui_state *UiState, u32 Column, u32 Row)
 }
 
 internal b32
-Button(ui_state *UiState, u32 Column, u32 Row, char *Format, ...)
+Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
 {
     b32 Result = false;
     
@@ -102,14 +102,25 @@ Button(ui_state *UiState, u32 Column, u32 Row, char *Format, ...)
     Assert(Frame->CurrentGrid);
     ui_grid *Grid = Frame->CurrentGrid;
     
-    rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
-    if(Rectangle2IsIn(Bounds, Frame->Input->MouseP))
+    ui_interaction Interaction =
     {
-        // TODO(kstandbridge): Is current interaction?
-        Result = true;
+        .Id = Id,
+        .Type = UI_Interaction_ImmediateButton,
+        .Target = 0
+    };
+    
+    Result = InteractionsAreEqual(Interaction, UiState->ToExecute);
+    
+    rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
+    
+    v4 ButtonColor = V4(1.0f, 0.5f, 0.0f, 1.0f);
+    if(Interaction.Type && Rectangle2IsIn(Bounds, UiState->MouseP))
+    {
+        UiState->NextHotInteraction = Interaction;
+        ButtonColor = V4(0.5f, 1.0f, 0.0f, 1.0f);
     }
     
-    PushRenderCommandRect(RenderGroup, Bounds, 1.0f, V4(1.0f, 0.5f, 0.0f, 1.0f));
+    PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
     
     PushRenderCommandText(RenderGroup, 1.0f, Bounds.Min, 2.0f, V4(0.0f, 0.0f, 0.0f, 1.0f),
                           FormatString(Arena, Format));
@@ -120,7 +131,22 @@ Button(ui_state *UiState, u32 Column, u32 Row, char *Format, ...)
 internal void
 Label(ui_state *UiState, u32 Column, u32 Row, char *Format, ...)
 {
+    ui_frame *Frame = UiState->Frame;
+    memory_arena *Arena = Frame->Arena;
+    render_group *RenderGroup = Frame->RenderGroup;
+    Assert(Frame->CurrentGrid);
+    ui_grid *Grid = Frame->CurrentGrid;
     
+    rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
+    
+    format_string_state StringState = BeginFormatString();
+    va_list ArgList;
+    va_start(ArgList, Format);
+    AppendFormatString_(&StringState, Format, ArgList);
+    va_end(ArgList);
+    string Message = EndFormatString(&StringState, &UiState->Arena);
+    
+    PushRenderCommandText(RenderGroup, 1.0f, Bounds.Min, 2.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Message);
 }
 
 extern void
@@ -136,6 +162,12 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
     if(!AppState)
     {
         AppState = AppMemory->AppState = BootstrapPushStruct(app_state, Arena);
+    }
+    
+    ui_state *UiState = AppMemory->UiState;
+    if(!UiState)
+    {
+        UiState = AppMemory->UiState = BootstrapPushStruct(ui_state, Arena);
     }
     
 #if 0
@@ -200,34 +232,108 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
         .CurrentGrid = 0,
     };
     
-    // TODO(kstandbridge): Persist ui_state
-    ui_state UiState_ =
-    {
-        .Frame = &_UiFrame
-    };
-    ui_state *UiState = &UiState_;
+    UiState->LastMouseP = UiState->MouseP;
+    UiState->MouseP = Input->MouseP;
+    UiState->dMouseP = V2Subtract(UiState->MouseP, UiState->LastMouseP);
     
-    
-    rectangle2 Bounds = Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height));
-    
-    BeginGrid(UiState, Bounds, 2, 2);
-    {
-        GridSetRowHeight(UiState, 0, 24.0f);
-        GridSetColumnWidth(UiState, 0, 128.0f);
+    UiState->Frame = &_UiFrame;
+    // NOTE(kstandbridge): UpdateAndRender
+    {    
         
-        if(Button(UiState, 0, 0, "Add"))
+        
+        rectangle2 Bounds = Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height));
+        BeginGrid(UiState, Bounds, 2, 2);
         {
-            AppState->SomeValue += 100;
+            GridSetRowHeight(UiState, 0, 24.0f);
+            GridSetColumnWidth(UiState, 0, 128.0f);
+            
+            if(Button(UiState, 0, 0, GenerateUIId(&AppState->SomeValue), "Add"))
+            {
+                AppState->SomeValue += 100;
+                LogInfo("Added");
+            }
+            
+            if(Button(UiState, 1, 0, GenerateUIId(&AppState->SomeValue), "Subtract"))
+            {
+                AppState->SomeValue -= 100;
+                LogInfo("Subtracted");
+            }
+            
+            Label(UiState, 0, 1, "Value %d", AppState->SomeValue);
         }
-        
-        if(Button(UiState, 1, 0, "Subtract"))
-        {
-            AppState->SomeValue -= 100;
-        }
-        
-        Label(UiState, 0, 1, "Value %u", AppState->SomeValue);
+        EndGrid(UiState);
     }
-    EndGrid(UiState);
+    
+    UiState->ToExecute = UiState->NextToExecute;
+    ZeroStruct(UiState->NextToExecute);
+    
+    // NOTE(kstandbridge): Interact
+    {
+        u32 TransistionCount = Input->MouseButtons[MouseButton_Left].HalfTransitionCount;
+        b32 MouseButton = Input->MouseButtons[MouseButton_Left].EndedDown;
+        if(TransistionCount % 2)
+        {
+            MouseButton = !MouseButton;
+        }
+        
+        for(u32 TransitionIndex = 0;
+            TransitionIndex <= TransistionCount;
+            ++TransitionIndex)
+        {
+            b32 MouseMove = false;
+            b32 MouseDown = false;
+            b32 MouseUp = false;
+            if(TransitionIndex == 0)
+            {
+                MouseMove = true;
+            }
+            else
+            {
+                MouseDown = MouseButton;
+                MouseUp = !MouseButton;
+            }
+            
+            b32 EndInteraction = false;
+            
+            switch(UiState->Interaction.Type)
+            {
+                case UI_Interaction_ImmediateButton:
+                {
+                    if(MouseUp)
+                    {
+                        UiState->NextToExecute = UiState->Interaction;
+                        EndInteraction = true;
+                    }
+                } break;
+                
+                case UI_Interaction_None:
+                {
+                    UiState->HotInteraction = UiState->NextHotInteraction;
+                    if(MouseDown)
+                    {
+                        UiState->Interaction = UiState->HotInteraction;
+                    }
+                } break;
+                
+                default:
+                {
+                    if(MouseUp)
+                    {
+                        EndInteraction = true;
+                    }
+                } break;
+            }
+            
+            if(EndInteraction)
+            {
+                ClearInteraction(&UiState->Interaction);
+            }
+            
+            MouseButton = !MouseButton;
+        }
+    }
+    
+    ZeroStruct(UiState->NextHotInteraction);
     
     EndTemporaryMemory(MemoryFlush);
 #if 0
