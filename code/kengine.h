@@ -19,7 +19,7 @@ typedef struct app_state
 {
     memory_arena Arena;
     
-    s32 SomeValue;
+    f32 SomeValue;
     
 } app_state;
 
@@ -77,6 +77,7 @@ typedef enum ui_interaction_type
     
     UI_Interaction_NOP,
     
+    UI_Interaction_Draggable,
     UI_Interaction_ImmediateButton,
     
 } ui_interaction_type;

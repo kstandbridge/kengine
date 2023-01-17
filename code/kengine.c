@@ -114,7 +114,7 @@ Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
     rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
     
     v4 ButtonColor = V4(1.0f, 0.5f, 0.0f, 1.0f);
-    if(Interaction.Type && Rectangle2IsIn(Bounds, UiState->MouseP))
+    if(Rectangle2IsIn(Bounds, UiState->MouseP))
     {
         UiState->NextHotInteraction = Interaction;
         ButtonColor = V4(0.5f, 1.0f, 0.0f, 1.0f);
@@ -129,7 +129,7 @@ Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
 }
 
 internal void
-Label(ui_state *UiState, u32 Column, u32 Row, char *Format, ...)
+Label(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
 {
     ui_frame *Frame = UiState->Frame;
     memory_arena *Arena = Frame->Arena;
@@ -145,6 +145,68 @@ Label(ui_state *UiState, u32 Column, u32 Row, char *Format, ...)
     AppendFormatString_(&StringState, Format, ArgList);
     va_end(ArgList);
     string Message = EndFormatString(&StringState, &UiState->Arena);
+    
+    ui_interaction Interaction =
+    {
+        .Id = Id,
+        .Type = UI_Interaction_NOP,
+        .Target = 0
+    };
+    
+    
+    v4 ButtonColor = V4(1.0f, 0.5f, 0.0f, 1.0f);
+    if(Rectangle2IsIn(Bounds, UiState->MouseP))
+    {
+        UiState->NextHotInteraction = Interaction;
+        ButtonColor = V4(0.5f, 1.0f, 0.0f, 1.0f);
+    }
+    
+    PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
+    
+    
+    PushRenderCommandText(RenderGroup, 1.0f, Bounds.Min, 2.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Message);
+}
+
+internal void
+Slider(ui_state *UiState, u32 Column, u32 Row, ui_id Id, f32 *Target, char *Format, ...)
+{
+    ui_frame *Frame = UiState->Frame;
+    memory_arena *Arena = Frame->Arena;
+    render_group *RenderGroup = Frame->RenderGroup;
+    Assert(Frame->CurrentGrid);
+    ui_grid *Grid = Frame->CurrentGrid;
+    
+    rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
+    
+    format_string_state StringState = BeginFormatString();
+    va_list ArgList;
+    va_start(ArgList, Format);
+    AppendFormatString_(&StringState, Format, ArgList);
+    va_end(ArgList);
+    string Message = EndFormatString(&StringState, &UiState->Arena);
+    
+    ui_interaction Interaction =
+    {
+        .Id = Id,
+        .Type = UI_Interaction_Draggable,
+        .Target = Target
+    };
+    
+    
+    v4 ButtonColor = V4(1.0f, 0.5f, 0.0f, 1.0f);
+    if(Rectangle2IsIn(Bounds, UiState->MouseP))
+    {
+        UiState->NextHotInteraction = Interaction;
+        ButtonColor = V4(0.5f, 1.0f, 0.0f, 1.0f);
+    }
+    
+    if(InteractionsAreEqual(Interaction, UiState->Interaction))
+    {
+        *Target += 0.01f*UiState->dMouseP.X;
+    }
+    
+    PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
+    
     
     PushRenderCommandText(RenderGroup, 1.0f, Bounds.Min, 2.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Message);
 }
@@ -239,8 +301,6 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
     UiState->Frame = &_UiFrame;
     // NOTE(kstandbridge): UpdateAndRender
     {    
-        
-        
         rectangle2 Bounds = Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height));
         BeginGrid(UiState, Bounds, 2, 2);
         {
@@ -249,23 +309,24 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
             
             if(Button(UiState, 0, 0, GenerateUIId(&AppState->SomeValue), "Add"))
             {
-                AppState->SomeValue += 100;
+                AppState->SomeValue += 10.0f;
                 LogInfo("Added");
             }
             
             if(Button(UiState, 1, 0, GenerateUIId(&AppState->SomeValue), "Subtract"))
             {
-                AppState->SomeValue -= 100;
+                AppState->SomeValue -= 10.0f;
                 LogInfo("Subtracted");
             }
             
-            Label(UiState, 0, 1, "Value %d", AppState->SomeValue);
+            Label(UiState, 0, 1, GenerateUIId(&AppState->SomeValue), "Value %f", AppState->SomeValue);
+            Slider(UiState, 1, 1, GenerateUIId(&AppState->SomeValue), &AppState->SomeValue, "Slide");
         }
         EndGrid(UiState);
     }
     
     UiState->ToExecute = UiState->NextToExecute;
-    ZeroStruct(UiState->NextToExecute);
+    ClearInteraction(&UiState->NextToExecute);
     
     // NOTE(kstandbridge): Interact
     {
@@ -333,67 +394,8 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
         }
     }
     
-    ZeroStruct(UiState->NextHotInteraction);
+    ClearInteraction(&UiState->NextHotInteraction);
     
     EndTemporaryMemory(MemoryFlush);
-#if 0
-    {    
-        control_element Btn =
-        {
-            .Size = V2(100, 100),
-            .Offset = V3(10, 10, 1.0f),
-        };
-        
-        b32 IsHot = ElementIsHot(Btn, MouseP);
-        v4 Color = IsHot ? V4(1, 0, 0, 1) : V4(0, 1, 0, 1);
-        render_command *Command = PushRenderCommand(Group, RenderCommand_Rect);
-        Command->Rect.Offset = Btn.Offset;
-        Command->Rect.Size = Btn.Size;
-        Command->Rect.Color = Color;
-    }
     
-    {    
-        control_element Btn =
-        {
-            .Size = V2(100, 100),
-            .Offset = V3(10, 120, 1.0f),
-        };
-        
-        b32 IsHot = ElementIsHot(Btn, MouseP);
-        v4 Color = IsHot ? V4(1, 0, 0, 1) : V4(0, 1, 0, 1);
-        render_command *Command = PushRenderCommand(Group, RenderCommand_Rect);
-        Command->Rect.Offset = Btn.Offset;
-        Command->Rect.Size = Btn.Size;
-        Command->Rect.Color = Color;
-    }
-    
-    // NOTE(kstandbridge): FPS?
-    {
-        render_command *Command = PushRenderCommand(RenderGroup, RenderCommand_Text);
-        Command->Text.Offset = V3(2.0f, 2.0f, 5.0f);
-        Command->Text.Size = V2Set1(1.0f);
-        Command->Text.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
-        Command->Text.Text = FormatString(MemoryFlush.Arena, "FPS: %.02f", 1.0f / Input->DeltaTime);;
-    }
-    
-    // NOTE(kstandbridge): Value t0 display
-    {
-        render_command *Command = PushRenderCommand(Group, RenderCommand_Text);
-        Command->Text.Offset = V3(20.0f, 600.0f, 4.0f);
-        Command->Text.Size = V2Set1(1.0f);
-        Command->Text.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
-        Command->Text.Text = FormatString(MemoryFlush.Arena, "Value: %u", AppState->SomeValue);
-        
-    }
-    
-    // NOTE(kstandbridge): Cursor
-    {
-        render_command *Command = PushRenderCommand(Group, RenderCommand_Rect);
-        Command->Rect.Offset = V3(MouseP.X, MouseP.Y, 5.0f);
-        Command->Rect.Size = V2(10, 10);
-        Command->Rect.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
-        
-    }
-    
-#endif
 }
