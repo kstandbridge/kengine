@@ -2,8 +2,9 @@
 inline render_command *
 PushRenderCommandRect(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Color)
 {
-    render_command *Result;
+    render_command *Result = 0;
     
+#if 0    
     if(Group->CurrentCommand >= Group->MaxCommands)
     {
         Group->CurrentCommand = 0;
@@ -17,13 +18,14 @@ PushRenderCommandRect(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Colo
     Result->Offset = Bounds.Min;
     Result->Depth = Depth;
     Result->Size = V2Subtract(Bounds.Max, Bounds.Min);
-    Result->Rect.Color = Color;
+    Result->Color = Color;
+#endif
     
     return Result;
 }
 
 inline render_command *
-PushRenderCommandText(render_group *Group, f32 Scale, v2 Offset, f32 Depth, v4 Color, string Text)
+PushRenderCommandGlyph(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 Color, v4 UV)
 {
     render_command *Result;
     
@@ -36,12 +38,12 @@ PushRenderCommandText(render_group *Group, f32 Scale, v2 Offset, f32 Depth, v4 C
     Result = Group->Commands + Group->CurrentCommand;
     
     ++Group->CurrentCommand;
-    Result->Type = RenderCommand_Text;
+    Result->Type = RenderCommand_Glyph;
     Result->Offset = Offset;
     Result->Depth = Depth;
-    Result->Size = V2(Scale, Scale);
-    Result->Text.Color = Color;
-    Result->Text.Text = Text;
+    Result->Size = Size;
+    Result->Color = Color;
+    Result->UV = UV;
     
     return Result;
 }

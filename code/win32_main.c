@@ -15,7 +15,6 @@
 #define STB_TRUETYPE_IMPLEMENTATION 
 #include "stb_truetype.h"
 
-
 #ifndef VERSION
 #define VERSION 0
 #endif // VERSION
@@ -623,161 +622,6 @@ Win32RenderCreate()
         }
     }
     
-    if(SUCCEEDED(HResult))
-    {
-        LogDebug("Loading glyph texture");
-        
-        string FontData = Win32ReadEntireFile(&GlobalWin32State.Arena, String("C:\\Windows\\Fonts\\segoeui.ttf"));
-        stbtt_InitFont(&GlobalWin32State.FontInfo, FontData.Data, 0);
-        
-        f32 MaxFontHeightInPixels = 32;
-        GlobalWin32State.FontScale = stbtt_ScaleForPixelHeight(&GlobalWin32State.FontInfo, MaxFontHeightInPixels);
-        stbtt_GetFontVMetrics(&GlobalWin32State.FontInfo, &GlobalWin32State.FontAscent, &GlobalWin32State.FontDescent, &GlobalWin32State.FontLineGap);
-        
-        s32 Padding = (s32)(MaxFontHeightInPixels / 3.0f);
-        u8 OnEdgeValue = (u8)(0.8f*255);
-        f32 PixelDistanceScale = (f32)OnEdgeValue/(f32)(Padding);
-#if 1
-        u32 FirstChar = 0;
-        u32 LastChar = 256;
-#else
-        u32 FirstChar = 0x0400;
-        u32 LastChar = FirstChar + 255;
-#endif
-        
-        s32 MaxWidth = 0;
-        s32 MaxHeight = 0;
-        s32 TotalWidth = 0;
-        s32 TotalHeight = 0;
-        u32 ColumnAt = 0;
-        u32 RowCount = 1;
-        
-        glyph_info *GlyphInfo = GlobalWin32State.GlyphInfos;
-        
-        for(u32 CodePoint = FirstChar;
-            CodePoint < LastChar;
-            ++CodePoint)
-        {                
-            GlyphInfo->Data = stbtt_GetCodepointSDF(&GlobalWin32State.FontInfo, GlobalWin32State.FontScale, CodePoint, Padding, OnEdgeValue, PixelDistanceScale, 
-                                                    &GlyphInfo->Width, &GlyphInfo->Height, 
-                                                    &GlyphInfo->XOffset, &GlyphInfo->YOffset);
-            stbtt_GetCodepointHMetrics(&GlobalWin32State.FontInfo, CodePoint, &GlyphInfo->AdvanceWidth, &GlyphInfo->LeftSideBearing);
-            
-            GlyphInfo->CodePoint = CodePoint;
-            
-            if(GlyphInfo->Data)
-            {
-                TotalWidth += GlyphInfo->Width;
-                ++ColumnAt;
-                
-                if(GlyphInfo->Height > MaxHeight)
-                {
-                    MaxHeight = GlyphInfo->Height;
-                }
-            }
-            
-            if((ColumnAt % 16) == 0)
-            {
-                ++RowCount;
-                ColumnAt = 0;
-                if(TotalWidth > MaxWidth)
-                {
-                    MaxWidth = TotalWidth;
-                }
-                TotalWidth = 0;
-            }
-            
-            ++GlyphInfo;
-        }
-        
-        TotalWidth = MaxWidth;
-        TotalHeight = MaxHeight*RowCount;
-        
-        umm TextureSize = TotalWidth*TotalHeight*sizeof(u32);
-        u32 *TextureBytes = PushSize(&GlobalWin32State.Arena, TextureSize);
-        s32 TextureBytesPerRow = 4 * TotalWidth;
-        
-        u32 AtX = 0;
-        u32 AtY = 0;
-        
-        ColumnAt = 0;
-        
-        for(u32 Index = 0;
-            Index < ArrayCount(GlobalWin32State.GlyphInfos);
-            ++Index)
-        {
-            GlyphInfo = GlobalWin32State.GlyphInfos + Index;
-            
-            GlyphInfo->UV = V4((f32)AtX / (f32)TotalWidth, (f32)AtY / (f32)TotalHeight,
-                               ((f32)AtX + (f32)GlyphInfo->Width) / (f32)TotalWidth, 
-                               ((f32)AtY + (f32)GlyphInfo->Height) / (f32)TotalHeight);
-            
-            for(s32 Y = 0;
-                Y < GlyphInfo->Height;
-                ++Y)
-            {
-                for(s32 X = 0;
-                    X < GlyphInfo->Width;
-                    ++X)
-                {
-                    u32 Alpha = (u32)GlyphInfo->Data[(Y*GlyphInfo->Width) + X];
-                    TextureBytes[(Y + AtY)*TotalWidth + (X + AtX)] = 0x00000000 | (u32)((Alpha) << 24);
-                }
-            }
-            
-            AtX += GlyphInfo->Width;
-            
-            ++ColumnAt;
-            
-            if((ColumnAt % 16) == 0)
-            {
-                AtY += MaxHeight;
-                AtX = 0;
-            }
-            
-            stbtt_FreeSDF(GlyphInfo->Data, 0);
-        }
-        
-        D3D11_TEXTURE2D_DESC TextureDesc =
-        {
-            .Width = TotalWidth,
-            .Height = TotalHeight,
-            .MipLevels = 1,
-            .ArraySize = 1,
-            .Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
-            .Usage = D3D11_USAGE_IMMUTABLE,
-            .BindFlags = D3D11_BIND_SHADER_RESOURCE,
-            .SampleDesc = 
-            {
-                .Count = 1,
-            },
-        };
-        
-        D3D11_SUBRESOURCE_DATA SubresourceData =
-        {
-            .pSysMem = TextureBytes,
-            .SysMemPitch = TextureBytesPerRow
-        };
-        
-        ID3D11Texture2D *Texture;
-        if(SUCCEEDED(HResult = 
-                     ID3D11Device_CreateTexture2D(GlobalWin32State.RenderDevice, &TextureDesc, &SubresourceData, &Texture)))
-        {
-            
-            if(FAILED(HResult =
-                      ID3D11Device_CreateShaderResourceView(GlobalWin32State.RenderDevice, (ID3D11Resource *)Texture, 0, &GlobalWin32State.RenderGlyphTextureView)))
-            {
-                Win32LogError_(HResult, "Failed to create glyph texture view");
-            }
-            
-            ID3D11Texture2D_Release(Texture);
-        }
-        else
-        {
-            Win32LogError_(HResult, "Failed to create glyph texture");
-        }
-    }
-    
     return HResult;
 }
 
@@ -1085,7 +929,7 @@ Win32RenderFrame(render_group *RenderGroup)
                 if(Command->Type == RenderCommand_Rect)
                 {
                     PushVertexInstance(V3(Command->Offset.X, Command->Offset.Y, Command->Depth), Command->Size,
-                                       Command->Rect.Color, V4(0.0f, 0.0f, 1.0f, 1.0f));
+                                       Command->Color, V4(0.0f, 0.0f, 1.0f, 1.0f));
                 }
             }
         }
@@ -1172,42 +1016,10 @@ Win32RenderFrame(render_group *RenderGroup)
                 ++CommandIndex)
             {
                 render_command *Command = RenderGroup->Commands + CommandIndex;
-                if(Command->Type == RenderCommand_Text)
+                if(Command->Type == RenderCommand_Glyph)
                 {
-                    f32 AtX = Command->Offset.X;
-                    f32 AtY = Command->Offset.Y + GlobalWin32State.FontScale*GlobalWin32State.FontAscent*Command->Size.Y;
-                    
-                    for(umm Index = 0;
-                        Index < Command->Text.Text.Size;
-                        ++Index)
-                    {
-                        u32 CodePoint = Command->Text.Text.Data[Index];
-                        
-                        if(CodePoint == '\n')
-                        {
-                            AtY += GlobalWin32State.FontScale*GlobalWin32State.FontAscent*Command->Size.Y;
-                            AtX = 0.0f;
-                        }
-                        else
-                        {
-                            glyph_info *Info = GlobalWin32State.GlyphInfos + CodePoint;
-                            
-                            Assert(Info->CodePoint == CodePoint);
-                            
-                            PushVertexInstance(V3(AtX, AtY + Info->YOffset*Command->Size.Y, 3.0f),
-                                               V2Multiply(Command->Size, V2(Info->Width, Info->Height)),
-                                               Command->Text.Color,
-                                               Info->UV);
-                            
-                            AtX += GlobalWin32State.FontScale*Info->AdvanceWidth*Command->Size.X;
-                            
-                            if(Index < Command->Text.Text.Size)
-                            {
-                                s32 Kerning = stbtt_GetCodepointKernAdvance(&GlobalWin32State.FontInfo, CodePoint, Command->Text.Text.Data[Index + 1]);
-                                AtX += GlobalWin32State.FontScale*Kerning*Command->Size.X;
-                            }
-                        }
-                    }
+                    PushVertexInstance(V3(Command->Offset.X, Command->Offset.Y, Command->Depth), Command->Size,
+                                       Command->Color, Command->UV);
                 }
             }
         }
@@ -1285,6 +1097,53 @@ ProcessInputMessage(app_button_state *NewState, b32 IsDown)
     }
 }
 
+internal void
+Win32LoadTexture(s32 TotalWidth, s32 TotalHeight, u32 *TextureBytes)
+{
+    s32 TextureBytesPerRow = 4 * TotalWidth;
+    
+    HRESULT HResult = S_OK;
+    
+    D3D11_TEXTURE2D_DESC TextureDesc =
+    {
+        .Width = TotalWidth,
+        .Height = TotalHeight,
+        .MipLevels = 1,
+        .ArraySize = 1,
+        .Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        .Usage = D3D11_USAGE_IMMUTABLE,
+        .BindFlags = D3D11_BIND_SHADER_RESOURCE,
+        .SampleDesc = 
+        {
+            .Count = 1,
+        },
+    };
+    
+    D3D11_SUBRESOURCE_DATA SubresourceData =
+    {
+        .pSysMem = TextureBytes,
+        .SysMemPitch = TextureBytesPerRow
+    };
+    
+    ID3D11Texture2D *Texture;
+    if(SUCCEEDED(HResult = 
+                 ID3D11Device_CreateTexture2D(GlobalWin32State.RenderDevice, &TextureDesc, &SubresourceData, &Texture)))
+    {
+        
+        if(FAILED(HResult =
+                  ID3D11Device_CreateShaderResourceView(GlobalWin32State.RenderDevice, (ID3D11Resource *)Texture, 0, &GlobalWin32State.RenderGlyphTextureView)))
+        {
+            Win32LogError_(HResult, "Failed to create glyph texture view");
+        }
+        
+        ID3D11Texture2D_Release(Texture);
+    }
+    else
+    {
+        Win32LogError_(HResult, "Failed to create glyph texture");
+    }
+}
+
 s32 WINAPI
 WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
 {
@@ -1350,6 +1209,8 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
     GlobalAppMemory.PlatformAPI.GetSystemTimestamp = Win32GetSystemTimestamp;
     GlobalAppMemory.PlatformAPI.GetDateTimeFromTimestamp = Win32GetDateTimeFromTimestamp;
     GlobalAppMemory.PlatformAPI.ConsoleOut = Win32ConsoleOut;
+    
+    GlobalAppMemory.PlatformAPI.LoadTexture = Win32LoadTexture;
     
     
 #if KENGINE_INTERNAL

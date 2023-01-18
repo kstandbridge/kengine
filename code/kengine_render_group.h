@@ -2,22 +2,10 @@
 
 typedef enum render_command_type
 {
-    RenderCommand_Text,
-    RenderCommand_Rect
+    RenderCommand_Rect,
+    RenderCommand_Glyph,
+    RenderCommand_Sprint,
 } render_command_type;
-
-typedef struct render_command_text
-{
-    v4 Color;
-    
-    string Text;
-} render_command_text;
-
-typedef struct render_command_rect
-{
-    v4 Color;
-    
-} render_command_rect;
 
 typedef struct render_command
 {
@@ -25,11 +13,9 @@ typedef struct render_command
     v2 Offset;
     f32 Depth;
     v2 Size;
-    union
-    {
-        render_command_text Text;
-        render_command_rect Rect;
-    };
+    v4 Color;
+    v4 UV;
+    
 } render_command;
 
 typedef struct render_group

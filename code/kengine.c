@@ -22,6 +22,48 @@ global debug_event_table *GlobalDebugEventTable;
 //#include "kengine_debug_ui.c"
 #endif
 
+internal void
+TextOp(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text)
+{
+    ui_frame *Frame = UiState->Frame;
+    memory_arena *Arena = Frame->Arena;
+    render_group *RenderGroup = Frame->RenderGroup;
+    
+    f32 AtX = Offset.X;
+    f32 AtY = Offset.Y + UiState->FontScale*UiState->FontAscent*Scale;
+    
+    for(umm Index = 0;
+        Index < Text.Size;
+        ++Index)
+    {
+        u32 CodePoint = Text.Data[Index];
+        
+        if(CodePoint == '\n')
+        {
+            AtY += UiState->FontScale*UiState->FontAscent*Scale;
+            AtX = 0.0f;
+        }
+        else
+        {
+            glyph_info *Info = UiState->GlyphInfos + CodePoint;
+            
+            Assert(Info->CodePoint == CodePoint);
+            
+            v2 Size = V2(Scale*Info->Width, Scale*Info->Height);
+            PushRenderCommandGlyph(RenderGroup, V2(AtX, AtY + Info->YOffset*Scale), Depth, Size, Color, Info->UV);
+            
+            AtX += UiState->FontScale*Info->AdvanceWidth*Scale;
+            
+            if(Index < Text.Size)
+            {
+                s32 Kerning = stbtt_GetCodepointKernAdvance(&UiState->FontInfo, CodePoint, Text.Data[Index + 1]);
+                AtX += UiState->FontScale*Kerning*Scale;
+            }
+        }
+    }
+}
+
+
 #include "main.c"
 
 inline b32
@@ -122,8 +164,7 @@ Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
     
     PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
     
-    PushRenderCommandText(RenderGroup, 1.0f, Bounds.Min, 2.0f, V4(0.0f, 0.0f, 0.0f, 1.0f),
-                          FormatString(Arena, Format));
+    TextOp(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), FormatString(Arena, Format));
     
     return Result;
 }
@@ -163,8 +204,7 @@ Label(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
     
     PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
     
-    
-    PushRenderCommandText(RenderGroup, 1.0f, Bounds.Min, 2.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Message);
+    TextOp(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Message);
 }
 
 internal void
@@ -207,8 +247,7 @@ Slider(ui_state *UiState, u32 Column, u32 Row, ui_id Id, f32 *Target, char *Form
     
     PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
     
-    
-    PushRenderCommandText(RenderGroup, 1.0f, Bounds.Min, 2.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Message);
+    TextOp(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Message);
 }
 
 extern void
@@ -230,6 +269,127 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
     if(!UiState)
     {
         UiState = AppMemory->UiState = BootstrapPushStruct(ui_state, Arena);
+        
+        
+        // NOTE(kstandbridge): Loading a glyph sprite sheet
+        {
+            LogDebug("Loading a glyph sprite sheet");
+            
+            string FontData = Platform.ReadEntireFile(&UiState->Arena, String("C:\\Windows\\Fonts\\segoeui.ttf"));
+            stbtt_InitFont(&UiState->FontInfo, FontData.Data, 0);
+            
+            f32 MaxFontHeightInPixels = 32;
+            UiState->FontScale = stbtt_ScaleForPixelHeight(&UiState->FontInfo, MaxFontHeightInPixels);
+            stbtt_GetFontVMetrics(&UiState->FontInfo, &UiState->FontAscent, &UiState->FontDescent, &UiState->FontLineGap);
+            
+            s32 Padding = (s32)(MaxFontHeightInPixels / 3.0f);
+            u8 OnEdgeValue = (u8)(0.8f*255);
+            f32 PixelDistanceScale = (f32)OnEdgeValue/(f32)(Padding);
+#if 1
+            u32 FirstChar = 0;
+            u32 LastChar = 256;
+#else
+            u32 FirstChar = 0x0400;
+            u32 LastChar = FirstChar + 255;
+#endif
+            
+            s32 MaxWidth = 0;
+            s32 MaxHeight = 0;
+            s32 TotalWidth = 0;
+            s32 TotalHeight = 0;
+            u32 ColumnAt = 0;
+            u32 RowCount = 1;
+            
+            glyph_info *GlyphInfo = UiState->GlyphInfos;
+            
+            for(u32 CodePoint = FirstChar;
+                CodePoint < LastChar;
+                ++CodePoint)
+            {                
+                GlyphInfo->Data = stbtt_GetCodepointSDF(&UiState->FontInfo, UiState->FontScale, CodePoint, Padding, OnEdgeValue, PixelDistanceScale, 
+                                                        &GlyphInfo->Width, &GlyphInfo->Height, 
+                                                        &GlyphInfo->XOffset, &GlyphInfo->YOffset);
+                stbtt_GetCodepointHMetrics(&UiState->FontInfo, CodePoint, &GlyphInfo->AdvanceWidth, &GlyphInfo->LeftSideBearing);
+                
+                GlyphInfo->CodePoint = CodePoint;
+                
+                if(GlyphInfo->Data)
+                {
+                    TotalWidth += GlyphInfo->Width;
+                    ++ColumnAt;
+                    
+                    if(GlyphInfo->Height > MaxHeight)
+                    {
+                        MaxHeight = GlyphInfo->Height;
+                    }
+                }
+                
+                if((ColumnAt % 16) == 0)
+                {
+                    ++RowCount;
+                    ColumnAt = 0;
+                    if(TotalWidth > MaxWidth)
+                    {
+                        MaxWidth = TotalWidth;
+                    }
+                    TotalWidth = 0;
+                }
+                
+                ++GlyphInfo;
+            }
+            
+            TotalWidth = MaxWidth;
+            TotalHeight = MaxHeight*RowCount;
+            
+            umm TextureSize = TotalWidth*TotalHeight*sizeof(u32);
+            // TODO(kstandbridge): Temp memory here
+            u32 *TextureBytes = PushSize(&UiState->Arena, TextureSize);
+            
+            u32 AtX = 0;
+            u32 AtY = 0;
+            
+            ColumnAt = 0;
+            
+            for(u32 Index = 0;
+                Index < ArrayCount(UiState->GlyphInfos);
+                ++Index)
+            {
+                GlyphInfo = UiState->GlyphInfos + Index;
+                
+                GlyphInfo->UV = V4((f32)AtX / (f32)TotalWidth, (f32)AtY / (f32)TotalHeight,
+                                   ((f32)AtX + (f32)GlyphInfo->Width) / (f32)TotalWidth, 
+                                   ((f32)AtY + (f32)GlyphInfo->Height) / (f32)TotalHeight);
+                
+                for(s32 Y = 0;
+                    Y < GlyphInfo->Height;
+                    ++Y)
+                {
+                    for(s32 X = 0;
+                        X < GlyphInfo->Width;
+                        ++X)
+                    {
+                        u32 Alpha = (u32)GlyphInfo->Data[(Y*GlyphInfo->Width) + X];
+                        TextureBytes[(Y + AtY)*TotalWidth + (X + AtX)] = 0x00000000 | (u32)((Alpha) << 24);
+                    }
+                }
+                
+                AtX += GlyphInfo->Width;
+                
+                ++ColumnAt;
+                
+                if((ColumnAt % 16) == 0)
+                {
+                    AtY += MaxHeight;
+                    AtX = 0;
+                }
+                
+                stbtt_FreeSDF(GlyphInfo->Data, 0);
+            }
+            
+            Platform.LoadTexture(TotalWidth, TotalHeight, TextureBytes);
+            
+        }
+        
     }
     
 #if 0

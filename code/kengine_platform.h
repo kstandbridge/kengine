@@ -188,6 +188,8 @@ typedef u64 platform_get_system_timestamp();
 typedef date_time platform_get_date_time_for_timestamp(u64 Timestamp);
 typedef void platform_console_out(char *Format, ...);
 
+typedef void platform_load_texture(s32 TotalWidth, s32 TotalHeight, u32 *TextureBytes);
+
 typedef struct platform_api
 {
     platform_make_work_queue *MakeWorkQueue;
@@ -242,6 +244,8 @@ typedef struct platform_api
     platform_get_system_timestamp *GetSystemTimestamp;
     platform_get_date_time_for_timestamp *GetDateTimeFromTimestamp;
     platform_console_out *ConsoleOut;
+    
+    platform_load_texture *LoadTexture;
     
 } platform_api;
 extern platform_api Platform;

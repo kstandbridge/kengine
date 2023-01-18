@@ -42,26 +42,6 @@ typedef struct win32_memory_block
     u64 Padding;
 } win32_memory_block;
 
-// TODO(kstandbridge): Move this somewhere?
-typedef struct glyph_info
-{
-    u8 *Data;
-    
-    u32 CodePoint;
-    
-    s32 Width;
-    s32 Height;
-    s32 XOffset;
-    s32 YOffset;
-    
-    s32 AdvanceWidth;
-    s32 LeftSideBearing;
-    
-    v4 UV;
-    
-} glyph_info;
-
-
 typedef struct win32_state
 {
     ticket_mutex MemoryMutex;
@@ -102,13 +82,6 @@ typedef struct win32_state
     ID3D11Buffer *RenderVertexBuffer;
     ID3D11Buffer *RenderConstantBuffer;
     ID3D11SamplerState *RenderSamplerState;
-    
-    f32 FontScale;
-    s32 FontAscent;
-    s32 FontDescent;
-    s32 FontLineGap;
-    stbtt_fontinfo FontInfo;
-    glyph_info GlyphInfos[256];
 #endif
     
 #endif

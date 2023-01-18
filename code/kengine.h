@@ -15,6 +15,11 @@
 #endif
 #include "kengine_render_group.h"
 
+
+#define STB_TRUETYPE_IMPLEMENTATION 
+#include "stb_truetype.h"
+
+
 typedef struct app_state
 {
     memory_arena Arena;
@@ -103,6 +108,24 @@ typedef struct ui_frame
     ui_grid *CurrentGrid;
 } ui_frame;
 
+typedef struct glyph_info
+{
+    u8 *Data;
+    
+    u32 CodePoint;
+    
+    s32 Width;
+    s32 Height;
+    s32 XOffset;
+    s32 YOffset;
+    
+    s32 AdvanceWidth;
+    s32 LeftSideBearing;
+    
+    v4 UV;
+    
+} glyph_info;
+
 typedef struct ui_state
 {
     // NOTE(kstandbridge): Persistent
@@ -111,6 +134,13 @@ typedef struct ui_state
     v2 MouseP;
     v2 dMouseP;
     v2 LastMouseP;
+    
+    f32 FontScale;
+    s32 FontAscent;
+    s32 FontDescent;
+    s32 FontLineGap;
+    stbtt_fontinfo FontInfo;
+    glyph_info GlyphInfos[256];
     
     ui_interaction Interaction;
     
