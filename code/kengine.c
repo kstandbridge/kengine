@@ -22,9 +22,17 @@ global debug_event_table *GlobalDebugEventTable;
 //#include "kengine_debug_ui.c"
 #endif
 
-internal void
-TextOp(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text)
+typedef enum text_op
 {
+    TextOp_Draw,
+    TextOp_Size,
+} text_op;
+
+internal rectangle2
+TextOp_(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text, text_op Op)
+{
+    rectangle2 Result = Rectangle2(Offset, Offset);
+    
     ui_frame *Frame = UiState->Frame;
     memory_arena *Arena = Frame->Arena;
     render_group *RenderGroup = Frame->RenderGroup;
@@ -50,7 +58,17 @@ TextOp(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text
             Assert(Info->CodePoint == CodePoint);
             
             v2 Size = V2(Scale*Info->Width, Scale*Info->Height);
-            PushRenderCommandGlyph(RenderGroup, V2(AtX, AtY + Info->YOffset*Scale), Depth, Size, Color, Info->UV);
+            
+            v2 GlyphOffset = V2(AtX, AtY + Info->YOffset*Scale);
+            if(Op == TextOp_Draw)
+            {
+                PushRenderCommandGlyph(RenderGroup, GlyphOffset, Depth, Size, Color, Info->UV);
+            }
+            else
+            {
+                Assert(Op == TextOp_Size);
+                Result = Rectangle2Union(Result, Rectangle2(GlyphOffset, V2Add(GlyphOffset, Size)));
+            }
             
             AtX += UiState->FontScale*Info->AdvanceWidth*Scale;
             
@@ -61,6 +79,21 @@ TextOp(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text
             }
         }
     }
+    
+    return Result;
+}
+
+internal void
+DrawTextAt(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text)
+{
+    TextOp_(UiState, Offset, Depth, Scale, Color, Text, TextOp_Draw);
+}
+
+internal rectangle2
+GetTextBounds(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text)
+{
+    rectangle2 Result = TextOp_(UiState, Offset, Depth, Scale, Color, Text, TextOp_Size);
+    return Result;
 }
 
 
@@ -134,7 +167,7 @@ GridGetColumnBounds(ui_state *UiState, u32 Column, u32 Row)
 }
 
 internal b32
-Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
+Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
 {
     b32 Result = false;
     
@@ -154,6 +187,7 @@ Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
     Result = InteractionsAreEqual(Interaction, UiState->ToExecute);
     
     rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
+    v2 Dim = Rectangle2GetDim(Bounds);
     
     v4 ButtonColor = V4(1.0f, 0.5f, 0.0f, 1.0f);
     if(Rectangle2IsIn(Bounds, UiState->MouseP))
@@ -164,13 +198,20 @@ Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
     
     PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
     
-    TextOp(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), FormatString(Arena, Format));
+    rectangle2 TextBounds = GetTextBounds(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    
+    v2 TextDim = Rectangle2GetDim(TextBounds);
+    
+    v2 TextOffset = V2Add(Bounds.Min,
+                          V2Subtract(V2Multiply(Dim, V2Set1(0.5f)),
+                                     V2Multiply(TextDim, V2Set1(0.5f))));
+    DrawTextAt(UiState, TextOffset, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
     
     return Result;
 }
 
 internal void
-Label(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
+Label(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
 {
     ui_frame *Frame = UiState->Frame;
     memory_arena *Arena = Frame->Arena;
@@ -179,13 +220,6 @@ Label(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
     ui_grid *Grid = Frame->CurrentGrid;
     
     rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
-    
-    format_string_state StringState = BeginFormatString();
-    va_list ArgList;
-    va_start(ArgList, Format);
-    AppendFormatString_(&StringState, Format, ArgList);
-    va_end(ArgList);
-    string Message = EndFormatString(&StringState, &UiState->Arena);
     
     ui_interaction Interaction =
     {
@@ -204,11 +238,15 @@ Label(ui_state *UiState, u32 Column, u32 Row, ui_id Id, char *Format, ...)
     
     PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
     
-    TextOp(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Message);
+    rectangle2 TextBounds = GetTextBounds(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    
+    PushRenderCommandRect(RenderGroup, TextBounds, 1.0f, V4(1, 0, 0, 1));
+    
+    DrawTextAt(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
 }
 
 internal void
-Slider(ui_state *UiState, u32 Column, u32 Row, ui_id Id, f32 *Target, char *Format, ...)
+Slider(ui_state *UiState, u32 Column, u32 Row, ui_id Id, f32 *Target, string Text)
 {
     ui_frame *Frame = UiState->Frame;
     memory_arena *Arena = Frame->Arena;
@@ -217,13 +255,6 @@ Slider(ui_state *UiState, u32 Column, u32 Row, ui_id Id, f32 *Target, char *Form
     ui_grid *Grid = Frame->CurrentGrid;
     
     rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
-    
-    format_string_state StringState = BeginFormatString();
-    va_list ArgList;
-    va_start(ArgList, Format);
-    AppendFormatString_(&StringState, Format, ArgList);
-    va_end(ArgList);
-    string Message = EndFormatString(&StringState, &UiState->Arena);
     
     ui_interaction Interaction =
     {
@@ -247,7 +278,7 @@ Slider(ui_state *UiState, u32 Column, u32 Row, ui_id Id, f32 *Target, char *Form
     
     PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
     
-    TextOp(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Message);
+    DrawTextAt(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
 }
 
 extern void
@@ -467,20 +498,20 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
             GridSetRowHeight(UiState, 0, 24.0f);
             GridSetColumnWidth(UiState, 0, 128.0f);
             
-            if(Button(UiState, 0, 0, GenerateUIId(&AppState->SomeValue), "Add"))
+            if(Button(UiState, 0, 0, GenerateUIId(&AppState->SomeValue), String("Add")))
             {
                 AppState->SomeValue += 10.0f;
                 LogInfo("Added");
             }
             
-            if(Button(UiState, 1, 0, GenerateUIId(&AppState->SomeValue), "Subtract"))
+            if(Button(UiState, 1, 0, GenerateUIId(&AppState->SomeValue), String("Subtract")))
             {
                 AppState->SomeValue -= 10.0f;
                 LogInfo("Subtracted");
             }
             
-            Label(UiState, 0, 1, GenerateUIId(&AppState->SomeValue), "Value %f", AppState->SomeValue);
-            Slider(UiState, 1, 1, GenerateUIId(&AppState->SomeValue), &AppState->SomeValue, "Slide");
+            Label(UiState, 0, 1, GenerateUIId(&AppState->SomeValue), FormatString(MemoryFlush.Arena, "Value %f", AppState->SomeValue));
+            Slider(UiState, 1, 1, GenerateUIId(&AppState->SomeValue), &AppState->SomeValue, String("Slide"));
         }
         EndGrid(UiState);
     }

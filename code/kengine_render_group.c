@@ -4,7 +4,6 @@ PushRenderCommandRect(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Colo
 {
     render_command *Result = 0;
     
-#if 0    
     if(Group->CurrentCommand >= Group->MaxCommands)
     {
         Group->CurrentCommand = 0;
@@ -19,7 +18,6 @@ PushRenderCommandRect(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Colo
     Result->Depth = Depth;
     Result->Size = V2Subtract(Bounds.Max, Bounds.Min);
     Result->Color = Color;
-#endif
     
     return Result;
 }
