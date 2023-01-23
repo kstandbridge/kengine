@@ -25,6 +25,7 @@ typedef struct render_group
     u32 MaxCommands;
     u32 Width;
     u32 Height;
+    v4 ClearColor;
 } render_group;
 
 #define KENGINE_RENDER_GROUP_H

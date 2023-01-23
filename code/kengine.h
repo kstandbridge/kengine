@@ -28,20 +28,17 @@ typedef struct app_state
     
 } app_state;
 
-typedef struct control_element
-{
-    v2 Size;
-    v3 Offset;
-} control_element;
-
 typedef struct ui_grid
 {
     rectangle2 Bounds;
     u32 Columns;
     u32 Rows;
     
-    f32 ColumnWidth;
-    f32 RowHeight;
+    b32 GridSizeCalculated;
+    f32 *ColumnWidths;
+    f32 *RowHeights;
+    
+    f32 DefaultRowHeight;
     
     struct ui_grid *Prev;
 } ui_grid;
@@ -150,6 +147,8 @@ typedef struct ui_state
     ui_interaction ToExecute;
     ui_interaction NextToExecute;
     
+    ui_interaction SelectedInteration;
+    
     // NOTE(kstandbridge): Transient
     ui_frame *Frame;
 } ui_state;
@@ -185,6 +184,22 @@ InteractionIsHot(ui_state *UiState, ui_interaction B)
     
     return Result;
 }
+
+global f32 GlobalMargin = 7.0f;
+
+#define RGB(R, G ,B) {R/255.0f,G/255.0f,B/255.0f, 1.0f }
+global v4 GlobalBackColor = RGB(240, 240, 240);
+global v4 GlobalFormColor = RGB(255, 255, 255);
+global v4 GlobalFormTextColor = RGB(0, 0, 0);
+
+global v4 GlobalButtonBackColor = RGB(225, 225, 225);
+global v4 GlobalButtonBorderColor = RGB(173, 173, 173);
+
+global v4 GlobalButtonHotBackColor = RGB(229, 241, 251);
+global v4 GlobalButtonHotBorderColor = RGB(0, 120, 215);
+
+global v4 GlobalButtonClickedBackColor = RGB(204, 228, 247);
+global v4 GlobalButtonClickedBorderColor = RGB(0, 84, 153);
 
 #define KENGINE_H
 #endif //KENGINE_H

@@ -22,6 +22,16 @@ PushRenderCommandRect(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Colo
     return Result;
 }
 
+inline void
+PushRenderCommandRectOutline(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Color, f32 Thickness)
+{
+    PushRenderCommandRect(Group, Rectangle2(Bounds.Min, V2(Bounds.Min.X + Thickness, Bounds.Max.Y)), Depth, Color);
+    PushRenderCommandRect(Group, Rectangle2(V2(Bounds.Max.X - Thickness, Bounds.Min.Y), Bounds.Max), Depth, Color);
+    
+    PushRenderCommandRect(Group, Rectangle2(Bounds.Min, V2(Bounds.Max.X, Bounds.Min.Y + Thickness)), Depth, Color);
+    PushRenderCommandRect(Group, Rectangle2(V2(Bounds.Min.X, Bounds.Max.Y - Thickness), Bounds.Max), Depth, Color);
+}
+
 inline render_command *
 PushRenderCommandGlyph(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 Color, v4 UV)
 {

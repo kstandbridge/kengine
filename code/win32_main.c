@@ -901,8 +901,8 @@ Win32RenderFrame(render_group *RenderGroup)
         
         {        
             // NOTE(kstandbridge): Clear background
-            f32 ClearColor[] = { 0.1f, 0.2f, 0.6f, 1.0f };
-            ID3D11DeviceContext_ClearRenderTargetView(GlobalWin32State.RenderContext, GlobalWin32State.RenderTargetView, ClearColor);
+            ID3D11DeviceContext_ClearRenderTargetView(GlobalWin32State.RenderContext, GlobalWin32State.RenderTargetView,
+                                                      (f32 *)&RenderGroup->ClearColor.R);
         }
         
         // NOTE(kstandbridge): Map the constant buffer which has our orthographic matrix in
@@ -1004,6 +1004,7 @@ Win32RenderFrame(render_group *RenderGroup)
             ID3D11DeviceContext_PSSetShaderResources(GlobalWin32State.RenderContext, 0, 1, &GlobalWin32State.RenderSpriteTextureView);
             
             ID3D11DeviceContext_PSSetShader(GlobalWin32State.RenderContext, GlobalWin32State.RenderSpritePixelShader, 0, 0);
+            
             ID3D11DeviceContext_DrawInstanced(GlobalWin32State.RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
         }
 #endif
@@ -1041,7 +1042,13 @@ Win32RenderFrame(render_group *RenderGroup)
             
             ID3D11DeviceContext_PSSetShaderResources(GlobalWin32State.RenderContext, 0, 1, &GlobalWin32State.RenderGlyphTextureView);
             
+#if 0            
             ID3D11DeviceContext_PSSetShader(GlobalWin32State.RenderContext, GlobalWin32State.RenderGlyphPixelShader, 0, 0);
+#else
+            ID3D11DeviceContext_PSSetShader(GlobalWin32State.RenderContext, GlobalWin32State.RenderSpritePixelShader, 0, 0);
+            
+#endif
+            
             ID3D11DeviceContext_DrawInstanced(GlobalWin32State.RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
         }
     }
@@ -1265,7 +1272,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
     {
         LogDebug("Creating window");
         HWND Window = Win32CreateWindowExW(WS_EX_APPWINDOW, WindowClass.lpszClassName, L"kengine",
-                                           WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+                                           WS_OVERLAPPEDWINDOW | WS_VISIBLE, 3, 43, 376, 488,
                                            0, 0, WindowClass.hInstance, 0);
         if(Window)
         {
@@ -1404,7 +1411,8 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     .CurrentCommand = 0,
                     .MaxCommands = MaxRenderCommands,
                     .Width = GlobalWindowWidth,
-                    .Height = GlobalWindowHeight
+                    .Height = GlobalWindowHeight,
+                    .ClearColor = { 0.1f, 0.2f, 0.6f, 1.0f },
                 };
                 
 #if KENGINE_INTERNAL

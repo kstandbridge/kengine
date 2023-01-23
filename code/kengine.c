@@ -31,6 +31,7 @@ typedef enum text_op
 internal rectangle2
 TextOp_(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text, text_op Op)
 {
+    Scale = 0.5f;
     rectangle2 Result = Rectangle2(Offset, Offset);
     
     ui_frame *Frame = UiState->Frame;
@@ -96,21 +97,7 @@ GetTextBounds(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, stri
     return Result;
 }
 
-
 #include "main.c"
-
-inline b32
-ElementIsHot(control_element Element, v2 MouseP)
-{
-    b32 Result = false;
-    
-    v2 Offset = V2(Element.Offset.X, Element.Offset.Y);
-    
-    rectangle2 Bounds = Rectangle2(Offset, V2Add(Offset, Element.Size));
-    Result = Rectangle2IsIn(Bounds, MouseP);
-    
-    return Result;
-}
 
 internal void
 BeginGrid(ui_state *UiState, rectangle2 Bounds, u32 Columns, u32 Rows)
@@ -120,15 +107,30 @@ BeginGrid(ui_state *UiState, rectangle2 Bounds, u32 Columns, u32 Rows)
     render_group *RenderGroup = Frame->RenderGroup;
     
     ui_grid *Grid = PushStruct(Arena, ui_grid);
-    Grid->Prev= Frame->CurrentGrid;
+    Grid->Prev = Frame->CurrentGrid;
     Frame->CurrentGrid = Grid;
     
     Grid->Bounds = Bounds;
     Grid->Columns = Columns;
     Grid->Rows = Rows;
     
-    Grid->ColumnWidth = (Bounds.Max.X - Bounds.Min.X) / Grid->Columns;
-    Grid->RowHeight = (Bounds.Max.Y - Bounds.Min.Y) / Grid->Rows;
+    Grid->GridSizeCalculated = false;
+    Grid->ColumnWidths = PushArray(Arena, Columns, f32);
+    for(u32 ColumnIndex = 0;
+        ColumnIndex < Columns;
+        ++ColumnIndex)
+    {
+        Grid->ColumnWidths[ColumnIndex] = 0.0f;
+    }
+    
+    Grid->DefaultRowHeight = UiState->FontScale*UiState->FontAscent*2.0f;
+    Grid->RowHeights = PushArray(Arena, Rows, f32);
+    for(u32 RowIndex = 0;
+        RowIndex < Rows;
+        ++RowIndex)
+    {
+        Grid->RowHeights[RowIndex] = 0.0f;
+    }
 }
 
 internal void
@@ -142,32 +144,148 @@ EndGrid(ui_state *UiState)
 internal void
 GridSetRowHeight(ui_state *UiState, u32 Row, f32 Height)
 {
+    ui_frame *Frame = UiState->Frame;
+    Assert(Frame->CurrentGrid);
+    ui_grid *Grid = Frame->CurrentGrid;
+    Assert(Row <= Grid->Rows);
+    
+    // NOTE(kstandbridge): Sizes must be set before a control is drawn
+    Assert(!Grid->GridSizeCalculated);
+    
+    Grid->RowHeights[Row] = Height;
 }
 
 internal void
 GridSetColumnWidth(ui_state *UiState, u32 Column, f32 Width)
 {
+    ui_frame *Frame = UiState->Frame;
+    Assert(Frame->CurrentGrid);
+    ui_grid *Grid = Frame->CurrentGrid;
+    Assert(Column <= Grid->Columns);
+    
+    // NOTE(kstandbridge): Sizes must be set before a control is drawn
+    Assert(!Grid->GridSizeCalculated);
+    
+    Grid->ColumnWidths[Column] = Width;
 }
 
 internal rectangle2
-GridGetColumnBounds(ui_state *UiState, u32 Column, u32 Row)
+GridGetCellBounds(ui_state *UiState, u32 Column, u32 Row)
 {
     ui_frame *Frame = UiState->Frame;
     Assert(Frame->CurrentGrid);
     ui_grid *Grid = Frame->CurrentGrid;
     
-    v2 Min = Grid->Bounds.Min;
-    Min.X += Column * Grid->ColumnWidth;
-    Min.Y += Row * Grid->RowHeight;
+    if(!Grid->GridSizeCalculated)
+    {
+        
+        v2 Dim = Rectangle2GetDim(Grid->Bounds);
+#if 0        
+        f32 ColumnWidth = Dim.X / Grid->Columns;
+        for(u32 ColumnIndex = 0;
+            ColumnIndex < Grid->Columns;
+            ++ColumnIndex)
+        {
+            Grid->ColumnWidths[ColumnIndex] = ColumnWidth;
+        }
+        
+        f32 RowHeight = Dim.Y / Grid->Rows;
+        for(u32 RowIndex = 0;
+            RowIndex < Grid->Rows;
+            ++RowIndex)
+        {
+            Grid->RowHeights[RowIndex] = RowHeight;
+        }
+#else
+        u32 ColumnsFilled = 0;
+        f32 WidthUsed = 0.0f;
+        for(u32 ColumnIndex = 0;
+            ColumnIndex < Grid->Columns;
+            ++ColumnIndex)
+        {
+            if(Grid->ColumnWidths[ColumnIndex] == 0.0f)
+            {
+                ++ColumnsFilled;
+            }
+            else
+            {
+                WidthUsed += Grid->ColumnWidths[ColumnIndex];
+            }
+        }
+        if(ColumnsFilled > 0)
+        {
+            f32 WidthRemaining = Dim.X - WidthUsed;
+            f32 ColumnWidth = WidthRemaining / ColumnsFilled;
+            
+            for(u32 ColumnIndex = 0;
+                ColumnIndex < Grid->Columns;
+                ++ColumnIndex)
+            {
+                if(Grid->ColumnWidths[ColumnIndex] == 0.0f)
+                {
+                    Grid->ColumnWidths[ColumnIndex] = ColumnWidth;
+                }
+            }
+        }
+        
+        u32 RowsFilled = 0;
+        f32 HeightUsed = 0.0f;
+        for(u32 RowIndex = 0;
+            RowIndex < Grid->Rows;
+            ++RowIndex)
+        {
+            if(Grid->RowHeights[RowIndex] == 0.0f)
+            {
+                ++RowsFilled;
+            }
+            else
+            {
+                HeightUsed += Grid->RowHeights[RowIndex];
+            }
+        }
+        if(RowsFilled > 0)
+        {
+            f32 HeightRemaining = Dim.Y - HeightUsed;
+            f32 RowHeight = HeightRemaining / RowsFilled;
+            
+            for(u32 RowIndex = 0;
+                RowIndex < Grid->Rows;
+                ++RowIndex)
+            {
+                if(Grid->RowHeights[RowIndex] == 0.0f)
+                {
+                    Grid->RowHeights[RowIndex] = RowHeight;
+                }
+            }
+        }
+#endif
+        
+        Grid->GridSizeCalculated = true;
+    }
     
-    v2 Max = V2Add(Min, V2(Grid->ColumnWidth, Grid->RowHeight));
+    v2 Min = Grid->Bounds.Min;
+    for(u32 ColumnIndex = 0;
+        ColumnIndex < Column;
+        ++ColumnIndex)
+    {
+        Min.X += Grid->ColumnWidths[ColumnIndex];
+    }
+    for(u32 RowIndex = 0;
+        RowIndex < Row;
+        ++RowIndex)
+    {
+        Min.Y += Grid->RowHeights[RowIndex];
+    }
+    
+    v2 Max = V2Add(Min, V2(Grid->ColumnWidths[Column], Grid->RowHeights[Row]));
     
     rectangle2 Result = Rectangle2(Min, Max);
     return Result;
 }
 
+#define Button(UiState, Column, Row, Text) Button_(UiState, Column, Row, GenerateUIId(0), Text)
 internal b32
-Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
+Button_(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
 {
     b32 Result = false;
     
@@ -186,17 +304,37 @@ Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
     
     Result = InteractionsAreEqual(Interaction, UiState->ToExecute);
     
-    rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
+    rectangle2 Bounds = GridGetCellBounds(UiState, Column, Row);
+    Bounds.Min = V2Add(Bounds.Min, V2Set1(GlobalMargin));
+    
     v2 Dim = Rectangle2GetDim(Bounds);
     
-    v4 ButtonColor = V4(1.0f, 0.5f, 0.0f, 1.0f);
     if(Rectangle2IsIn(Bounds, UiState->MouseP))
     {
         UiState->NextHotInteraction = Interaction;
-        ButtonColor = V4(0.5f, 1.0f, 0.0f, 1.0f);
     }
     
-    PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
+    if(InteractionsAreEqual(Interaction, UiState->Interaction) &&
+       InteractionsAreEqual(Interaction, UiState->NextHotInteraction))
+    {
+        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonClickedBackColor);
+        PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonClickedBorderColor, 1);
+    }
+    else if(InteractionsAreEqual(Interaction, UiState->HotInteraction))
+    {
+        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonHotBackColor);
+        PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonHotBorderColor, 1);
+    }
+    else if(InteractionsAreEqual(Interaction, UiState->SelectedInteration))
+    {
+        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonBackColor);
+        PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonHotBorderColor, 2);
+    }
+    else
+    {
+        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonBackColor);
+        PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonBorderColor, 1);
+    }
     
     rectangle2 TextBounds = GetTextBounds(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
     
@@ -210,8 +348,9 @@ Button(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
     return Result;
 }
 
+#define Label(UiState, Column, Row, Text) Label_(UiState, Column, Row, GenerateUIId(0), Text);
 internal void
-Label(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
+Label_(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
 {
     ui_frame *Frame = UiState->Frame;
     memory_arena *Arena = Frame->Arena;
@@ -219,7 +358,7 @@ Label(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
     Assert(Frame->CurrentGrid);
     ui_grid *Grid = Frame->CurrentGrid;
     
-    rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
+    rectangle2 Bounds = GridGetCellBounds(UiState, Column, Row);
     
     ui_interaction Interaction =
     {
@@ -229,20 +368,38 @@ Label(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
     };
     
     
-    v4 ButtonColor = V4(1.0f, 0.5f, 0.0f, 1.0f);
     if(Rectangle2IsIn(Bounds, UiState->MouseP))
     {
         UiState->NextHotInteraction = Interaction;
-        ButtonColor = V4(0.5f, 1.0f, 0.0f, 1.0f);
+        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, V4(0.5f, 0.5f, 0.0f, 1.0f));
+    }
+    else
+    {
+        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalFormColor);
     }
     
-    PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
+    
+    PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, V4(1.0f, 0.5f, 0.0f, 1.0f), 1.0f);
+    
+    v2 Dim = Rectangle2GetDim(Bounds);
     
     rectangle2 TextBounds = GetTextBounds(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
     
-    PushRenderCommandRect(RenderGroup, TextBounds, 1.0f, V4(1, 0, 0, 1));
+    v2 TextDim = Rectangle2GetDim(TextBounds);
     
-    DrawTextAt(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    v2 TextOffset = V2Add(Bounds.Min,
+                          V2Subtract(V2Multiply(Dim, V2Set1(0.5f)),
+                                     V2Multiply(TextDim, V2Set1(0.5f))));
+    
+#if 0    
+    PushRenderCommandRect(RenderGroup, Rectangle2(TextOffset, V2Add(TextOffset, TextDim)), 
+                          1.0f, V4(1, 0, 0, 1));
+    PushRenderCommandRectOutline(RenderGroup, Rectangle2(TextOffset, V2Add(TextOffset, TextDim)), 
+                                 2.0f, V4(0, 1, 0, 1), 3.0f);
+#endif
+    
+    DrawTextAt(UiState, TextOffset, 2.0f, 1.0f, GlobalFormTextColor, Text);
+    
 }
 
 internal void
@@ -254,7 +411,7 @@ Slider(ui_state *UiState, u32 Column, u32 Row, ui_id Id, f32 *Target, string Tex
     Assert(Frame->CurrentGrid);
     ui_grid *Grid = Frame->CurrentGrid;
     
-    rectangle2 Bounds = GridGetColumnBounds(UiState, Column, Row);
+    rectangle2 Bounds = GridGetCellBounds(UiState, Column, Row);
     
     ui_interaction Interaction =
     {
@@ -309,13 +466,20 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
             string FontData = Platform.ReadEntireFile(&UiState->Arena, String("C:\\Windows\\Fonts\\segoeui.ttf"));
             stbtt_InitFont(&UiState->FontInfo, FontData.Data, 0);
             
-            f32 MaxFontHeightInPixels = 32;
+            f32 MaxFontHeightInPixels = 32.0f;
             UiState->FontScale = stbtt_ScaleForPixelHeight(&UiState->FontInfo, MaxFontHeightInPixels);
             stbtt_GetFontVMetrics(&UiState->FontInfo, &UiState->FontAscent, &UiState->FontDescent, &UiState->FontLineGap);
             
+#if 0
             s32 Padding = (s32)(MaxFontHeightInPixels / 3.0f);
-            u8 OnEdgeValue = (u8)(0.8f*255);
-            f32 PixelDistanceScale = (f32)OnEdgeValue/(f32)(Padding);
+            u8 OnEdgeValue = (u8)(0.8f*255.0f);
+            f32 PixelDistanceScale = (f32)OnEdgeValue/(f32)Padding;
+#else
+            s32 Padding = 4;
+            u8 OnEdgeValue = 128;
+            f32 PixelDistanceScale = 100.0f;
+#endif
+            
 #if 1
             u32 FirstChar = 0;
             u32 LastChar = 256;
@@ -492,28 +656,143 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
     UiState->Frame = &_UiFrame;
     // NOTE(kstandbridge): UpdateAndRender
     {    
-        rectangle2 Bounds = Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height));
-        BeginGrid(UiState, Bounds, 2, 2);
+        RenderGroup->ClearColor = GlobalBackColor;
+#if 1
+        
+#if 0        
+        PushRenderCommandGlyph(RenderGroup, V2Set1(0.0f), 1.0f, V2(RenderGroup->Width, RenderGroup->Height), V4Set1(1.0f), V4(0.0f, 0.0f, 1.0f, 1.0f));
+#else
+        rectangle2 ScreenBounds = Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height));
+        ScreenBounds = Rectangle2AddRadiusTo(ScreenBounds, -GlobalMargin);
+        
+        BeginGrid(UiState, ScreenBounds, 1, 2);
         {
-            GridSetRowHeight(UiState, 0, 24.0f);
-            GridSetColumnWidth(UiState, 0, 128.0f);
+            GridSetRowHeight(UiState, 1, 32.0f);
             
-            if(Button(UiState, 0, 0, GenerateUIId(&AppState->SomeValue), String("Add")))
+            Label(UiState, 0, 0, String("Tab"));
+            
+            BeginGrid(UiState, GridGetCellBounds(UiState, 0, 1), 4, 1);
             {
-                AppState->SomeValue += 10.0f;
-                LogInfo("Added");
+                //Label(UiState, 0, 0, String("Space"));
+                
+                if(Button(UiState, 1, 0, String("OK")))
+                {
+                    LogInfo("OK");
+                }
+                if(Button(UiState, 2, 0, String("Cancel")))
+                {
+                    LogInfo("Canel");
+                }
+                if(Button(UiState, 3, 0, String("Apply")))
+                {
+                    LogInfo("Apply");
+                }
             }
+            EndGrid(UiState);
             
-            if(Button(UiState, 1, 0, GenerateUIId(&AppState->SomeValue), String("Subtract")))
-            {
-                AppState->SomeValue -= 10.0f;
-                LogInfo("Subtracted");
-            }
-            
-            Label(UiState, 0, 1, GenerateUIId(&AppState->SomeValue), FormatString(MemoryFlush.Arena, "Value %f", AppState->SomeValue));
-            Slider(UiState, 1, 1, GenerateUIId(&AppState->SomeValue), &AppState->SomeValue, String("Slide"));
         }
         EndGrid(UiState);
+#endif
+        
+        
+#else
+        f32 LabelWidth = 96.0f;
+        BeginGrid(UiState, Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height)), 1, 11);
+        {       
+            GridSetRowHeight(UiState, 0, 24.0f);
+            GridSetRowHeight(UiState, 1, 48.0f);
+            GridSetRowHeight(UiState, 2, 4.0f);
+            GridSetRowHeight(UiState, 3, 128.0f);
+            GridSetRowHeight(UiState, 4, 4.0f);
+            GridSetRowHeight(UiState, 5, 24.0f);
+            GridSetRowHeight(UiState, 6, 4.0f);
+            GridSetRowHeight(UiState, 7, 24.0f);
+            GridSetRowHeight(UiState, 8, 24.0f);
+            GridSetRowHeight(UiState, 10, 24.0f);
+            
+            BeginGrid(UiState, GridGetColumnBounds(UiState, 0, 0), 5, 1);
+            {
+                Label(UiState, 0, 0, String("General"));
+                Label(UiState, 1, 0, String("Sharing"));
+                Label(UiState, 2, 0, String("Security"));
+                Label(UiState, 3, 0, String("Previous Versions"));
+                //Label(UiState, 4, 0, String(""));
+            }
+            EndGrid(UiState);
+            
+            BeginGrid(UiState, GridGetColumnBounds(UiState, 0, 1), 2, 1);
+            {
+                GridSetColumnWidth(UiState, 0, LabelWidth);
+                
+                Label(UiState, 0, 0, String("<Folder>"));
+                Label(UiState, 1, 0, String("Windows"));
+            }
+            EndGrid(UiState);
+            
+            Label(UiState, 0, 2, String(""));
+            
+            BeginGrid(UiState, GridGetColumnBounds(UiState, 0, 3), 2, 5);
+            {
+                GridSetColumnWidth(UiState, 0, LabelWidth);
+                
+                Label(UiState, 0, 0, String("Type:"));
+                Label(UiState, 1, 0, String("File Folder"));
+                Label(UiState, 0, 1, String("Location:"));
+                Label(UiState, 1, 1, String("C:\\"));
+                Label(UiState, 0, 2, String("Size:"));
+                Label(UiState, 1, 2, String("30.4 GB (32,731,587,083 bytes)"));
+                Label(UiState, 0, 3, String("Size on disk:"));
+                Label(UiState, 1, 3, String("30.3 GB (32,640,794,624 bytes)"));
+                Label(UiState, 0, 4, String("Contains:"));
+                Label(UiState, 1, 4, String("311,762 Files, 137,072 Folders"));
+            }
+            EndGrid(UiState);
+            
+            Label(UiState, 0, 4, String(""));
+            
+            BeginGrid(UiState, GridGetColumnBounds(UiState, 0, 5), 2, 1);
+            {
+                GridSetColumnWidth(UiState, 0, LabelWidth);
+                
+                Label(UiState, 0, 0, String("Created:"));
+                Label(UiState, 1, 0, String("07 December 2019, 09:03:44"));
+            }
+            EndGrid(UiState);
+            
+            Label(UiState, 0, 6, String(""));
+            
+            BeginGrid(UiState, GridGetColumnBounds(UiState, 0, 7), 2, 1);
+            {
+                GridSetColumnWidth(UiState, 0, LabelWidth);
+                
+                Label(UiState, 0, 0, String("Attributes:"));
+                Label(UiState, 1, 0, String("Read-only (Only applies to files in folder)"));
+            }
+            EndGrid(UiState);
+            
+            BeginGrid(UiState, GridGetColumnBounds(UiState, 0, 8), 3, 1);
+            {
+                GridSetColumnWidth(UiState, 0, LabelWidth);
+                
+                Label(UiState, 0, 0, String(""));
+                Label(UiState, 1, 0, String("Hidden"));
+                Label(UiState, 2, 0, String("Advanced..."));
+            }
+            EndGrid(UiState);
+            
+            Label(UiState, 0, 9, String("Apply Apply AWAV"));
+            
+            BeginGrid(UiState, GridGetColumnBounds(UiState, 0, 10), 4, 1);
+            {
+                //Label(UiState, 0, 0, String(""));
+                Label(UiState, 1, 0, String("OK"));
+                Label(UiState, 2, 0, String("Cancel"));
+                Label(UiState, 3, 0, String("Apply"));
+            }
+            EndGrid(UiState);
+        }
+        EndGrid(UiState);
+#endif
     }
     
     UiState->ToExecute = UiState->NextToExecute;
@@ -574,6 +853,16 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
                         EndInteraction = true;
                     }
                 } break;
+            }
+            
+            if(MouseDown)
+            {
+                ClearInteraction(&UiState->SelectedInteration);
+            }
+            
+            if(MouseUp)
+            {
+                UiState->SelectedInteration = UiState->Interaction;
             }
             
             if(EndInteraction)
