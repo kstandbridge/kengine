@@ -270,6 +270,7 @@ GridGetCellBounds(ui_state *UiState, u32 Column, u32 Row)
     {
         Min.X += Grid->ColumnWidths[ColumnIndex];
     }
+    
     for(u32 RowIndex = 0;
         RowIndex < Row;
         ++RowIndex)
@@ -280,6 +281,47 @@ GridGetCellBounds(ui_state *UiState, u32 Column, u32 Row)
     v2 Max = V2Add(Min, V2(Grid->ColumnWidths[Column], Grid->RowHeights[Row]));
     
     rectangle2 Result = Rectangle2(Min, Max);
+    return Result;
+}
+
+typedef enum ui_interaction_state
+{
+    UIInteractionState_None,
+    UIInteractionState_HotClicked,
+    UIInteractionState_Hot,
+    UIInteractionState_Selected
+} ui_interaction_state;
+
+internal ui_interaction_state
+AddUIInteraction(ui_state *UiState, rectangle2 Bounds, ui_interaction Interaction)
+{
+    ui_interaction_state Result = UIInteractionState_None;
+    
+    Assert(Interaction.Type);
+    
+    if(Rectangle2IsIn(Bounds, UiState->MouseP))
+    {
+        UiState->NextHotInteraction = Interaction;
+    }
+    
+    if(InteractionsAreEqual(Interaction, UiState->Interaction) &&
+       InteractionsAreEqual(Interaction, UiState->NextHotInteraction))
+    {
+        Result = UIInteractionState_HotClicked;
+    }
+    else if(InteractionsAreEqual(Interaction, UiState->HotInteraction))
+    {
+        Result = UIInteractionState_Hot;
+    }
+    else if(InteractionsAreEqual(Interaction, UiState->SelectedInteration))
+    {
+        Result = UIInteractionState_Selected;
+    }
+    else
+    {
+        Result = UIInteractionState_None;
+    }
+    
     return Result;
 }
 
@@ -309,31 +351,32 @@ Button_(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
     
     v2 Dim = Rectangle2GetDim(Bounds);
     
-    if(Rectangle2IsIn(Bounds, UiState->MouseP))
+    ui_interaction_state InteractionState = AddUIInteraction(UiState, Bounds, Interaction);
+    switch(InteractionState)
     {
-        UiState->NextHotInteraction = Interaction;
-    }
-    
-    if(InteractionsAreEqual(Interaction, UiState->Interaction) &&
-       InteractionsAreEqual(Interaction, UiState->NextHotInteraction))
-    {
-        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonClickedBackColor);
-        PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonClickedBorderColor, 1);
-    }
-    else if(InteractionsAreEqual(Interaction, UiState->HotInteraction))
-    {
-        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonHotBackColor);
-        PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonHotBorderColor, 1);
-    }
-    else if(InteractionsAreEqual(Interaction, UiState->SelectedInteration))
-    {
-        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonBackColor);
-        PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonHotBorderColor, 2);
-    }
-    else
-    {
-        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonBackColor);
-        PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonBorderColor, 1);
+        case UIInteractionState_HotClicked:
+        {
+            PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonClickedBackColor);
+            PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonClickedBorderColor, 1);
+        } break;
+        
+        case UIInteractionState_Hot:
+        {
+            PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonHotBackColor);
+            PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonHotBorderColor, 1);
+        } break;
+        
+        case UIInteractionState_Selected:
+        {
+            PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonBackColor);
+            PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonHotBorderColor, 2);
+        } break;
+        
+        default:
+        {
+            PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonBackColor);
+            PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonBorderColor, 1);
+        } break;
     }
     
     rectangle2 TextBounds = GetTextBounds(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
@@ -681,7 +724,7 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
                 }
                 if(Button(UiState, 2, 0, String("Cancel")))
                 {
-                    LogInfo("Canel");
+                    LogInfo("Cancel");
                 }
                 if(Button(UiState, 3, 0, String("Apply")))
                 {
