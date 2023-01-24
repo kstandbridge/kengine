@@ -25,6 +25,7 @@ typedef struct app_state
     memory_arena Arena;
     
     f32 SomeValue;
+    u32 SelectedIndex;
     
 } app_state;
 
@@ -200,6 +201,12 @@ global v4 GlobalButtonHotBorderColor = RGB(0, 120, 215);
 
 global v4 GlobalButtonClickedBackColor = RGB(204, 228, 247);
 global v4 GlobalButtonClickedBorderColor = RGB(0, 84, 153);
+
+global v4 GlobalTabButtonBorder = RGB(217, 217, 217);
+global v4 GlobalTabButtonBackground = RGB(240, 240, 240);
+global v4 GlobalTabButtonHot = RGB(216, 234, 249);
+global v4 GlobalTabButtonClicked = RGB(204, 228, 247);
+global v4 GlobalTabButtonSelected = RGB(255, 255, 255);
 
 #define KENGINE_H
 #endif //KENGINE_H

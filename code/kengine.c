@@ -509,7 +509,7 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
             string FontData = Platform.ReadEntireFile(&UiState->Arena, String("C:\\Windows\\Fonts\\segoeui.ttf"));
             stbtt_InitFont(&UiState->FontInfo, FontData.Data, 0);
             
-            f32 MaxFontHeightInPixels = 32.0f;
+            f32 MaxFontHeightInPixels = 30.0f;
             UiState->FontScale = stbtt_ScaleForPixelHeight(&UiState->FontInfo, MaxFontHeightInPixels);
             stbtt_GetFontVMetrics(&UiState->FontInfo, &UiState->FontAscent, &UiState->FontDescent, &UiState->FontLineGap);
             
@@ -712,7 +712,140 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
         {
             GridSetRowHeight(UiState, 1, 32.0f);
             
+#if 0            
             Label(UiState, 0, 0, String("Tab"));
+#else
+            // TODO(kstandbridge): TabControl?
+            BeginGrid(UiState, GridGetCellBounds(UiState, 0, 0), 1, 2);
+            {
+                GridSetRowHeight(UiState, 0, 20.0f);
+                
+                string Labels[] =
+                {
+                    String("General"),
+                    String("Sharing"),
+                    String("Security"),
+                    String("Previous Versions"),
+                    String("Customize")
+                };
+                
+                // NOTE(kstandbridge): Tab controls
+                {
+                    rectangle2 Bounds = GridGetCellBounds(UiState, 0, 0);
+                    v2 At = Bounds.Min;
+                    
+                    for(u32 LabelIndex = 0;
+                        LabelIndex < ArrayCount(Labels);
+                        ++LabelIndex)
+                    {
+                        string Text = Labels[LabelIndex];
+                        rectangle2 TextBounds = GetTextBounds(UiState, At, 1.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+                        TextBounds.Max.X += GlobalMargin;
+                        if(LabelIndex == AppState->SelectedIndex)
+                        {
+                            rectangle2 ButtonBounds = Rectangle2(TextBounds.Min, V2(TextBounds.Max.X, Bounds.Max.Y));
+                            PushRenderCommandRect(RenderGroup, ButtonBounds, 1.0f, 
+                                                  GlobalTabButtonSelected);
+                            PushRenderCommandRect(RenderGroup, Rectangle2(V2(ButtonBounds.Min.X, ButtonBounds.Max.Y - 1.0f), ButtonBounds.Max), 3.0f, GlobalFormColor);
+                        }
+                        else
+                        {
+                            rectangle2 ButtonBounds = Rectangle2(TextBounds.Min, V2(TextBounds.Max.X, Bounds.Max.Y));
+                            ButtonBounds.Min.Y += 4.0f;
+                            
+                            ui_interaction Interaction =
+                            {
+                                .Id = GenerateUIId(Labels + LabelIndex),
+                                .Type = UI_Interaction_ImmediateButton,
+                                .Target = 0
+                            };
+                            
+                            ui_interaction_state InteractionState = AddUIInteraction(UiState, ButtonBounds, Interaction);
+                            switch(InteractionState)
+                            {
+                                case UIInteractionState_HotClicked:
+                                {
+                                    PushRenderCommandRect(RenderGroup, ButtonBounds, 1.0f, 
+                                                          GlobalTabButtonClicked);
+                                } break;
+                                case UIInteractionState_Hot:
+                                {
+                                    PushRenderCommandRect(RenderGroup, ButtonBounds, 1.0f, 
+                                                          GlobalTabButtonHot);
+                                } break;
+                                
+                                default:
+                                {
+                                    PushRenderCommandRect(RenderGroup, ButtonBounds, 1.0f, 
+                                                          GlobalTabButtonBackground);
+                                } break;
+                            }
+                            
+                            
+                            PushRenderCommandRectOutline(RenderGroup, ButtonBounds, 2.0f, GlobalTabButtonBorder, 1.0f);
+                            
+                            if(InteractionsAreEqual(Interaction, UiState->ToExecute))
+                            {
+                                AppState->SelectedIndex = LabelIndex;
+                            }
+                        }
+                        At.X += GlobalMargin/2.0f;
+                        DrawTextAt(UiState, 
+                                   V2(At.X, At.Y + 2.0f), 
+                                   1.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+                        
+                        At.X = TextBounds.Max.X;
+                        
+                        //Label(UiState, LabelIndex, 0, Labels[LabelIndex]);
+                    }
+                }
+                
+                // NOTE(kstandbridge): Tab content
+                {
+                    rectangle2 Bounds = GridGetCellBounds(UiState, 0, 1);
+                    Bounds.Min.Y -= 1.0f;
+                    PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalFormColor);
+                    PushRenderCommandRectOutline(RenderGroup, Bounds, 2.0f, GlobalTabButtonBorder, 1.0f);
+                    Bounds.Min.Y += 1.0f;
+                    Bounds.Max = V2Subtract(Bounds.Max, V2Set1(GlobalMargin));
+                    
+                    BeginGrid(UiState, Bounds, 1, 1);
+                    
+                    switch(AppState->SelectedIndex)
+                    {
+                        case 0:
+                        {
+                            Button(UiState, 0, 0, String("First tab selected"));
+                        } break;
+                        case 1:
+                        {
+                            Button(UiState, 0, 0, String("Second tab selected"));
+                        } break;
+                        case 2:
+                        {
+                            Button(UiState, 0, 0, String("Third tab selected"));
+                        } break;
+                        case 3:
+                        {
+                            Button(UiState, 0, 0, String("Fourth tab selected"));
+                        } break;
+                        case 4:
+                        {
+                            Button(UiState, 0, 0, String("Fifth tab selected"));
+                        } break;
+                        
+                        default:
+                        {
+                            Button(UiState, 0, 0, String("Invalid tab selection"));
+                        } break;
+                    }
+                    
+                    EndGrid(UiState);
+                }
+                
+            }
+            EndGrid(UiState);
+#endif
             
             BeginGrid(UiState, GridGetCellBounds(UiState, 0, 1), 4, 1);
             {
