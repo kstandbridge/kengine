@@ -1,6 +1,5 @@
 #ifndef KENGINE_UI_H
 
-
 typedef struct ui_grid
 {
     rectangle2 Bounds;
@@ -179,6 +178,8 @@ global v4 GlobalTabButtonBackground = RGB(240, 240, 240);
 global v4 GlobalTabButtonHot = RGB(216, 234, 249);
 global v4 GlobalTabButtonClicked = RGB(204, 228, 247);
 global v4 GlobalTabButtonSelected = RGB(255, 255, 255);
+
+global v4 GlobalGroupBorder = RGB(220, 220, 220);
 
 
 #define KENGINE_UI_H

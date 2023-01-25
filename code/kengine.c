@@ -266,39 +266,57 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
             };
             rectangle2 TabBounds = TabControl(UiState, 0, 0, (u32 *)&AppState->SelectedPropertyTab,
                                               TabLabels, ArrayCount(TabLabels));
-            BeginGrid(UiState, TabBounds, 1, 1);
-            {            
-                switch(AppState->SelectedPropertyTab)
+            switch(AppState->SelectedPropertyTab)
+            {
+                case PropertiesTab_General:
                 {
-                    case PropertiesTab_General:
+                    BeginGrid(UiState, TabBounds, 1, 1);
                     {
-                        Button(UiState, 0, 0, String("First tab selected"));
-                    } break;
-                    case PropertiesTab_Sharing:
+                        Button(UiState, 0, 0, String("This should be the general tab"));
+                    }
+                    EndGrid(UiState);
+                } break;
+                case PropertiesTab_Sharing:
+                {
+                    BeginGrid(UiState, TabBounds, 1, 3);
                     {
-                        Button(UiState, 0, 0, String("Second tab selected"));
-                    } break;
-                    case PropertiesTab_Security:
+                        rectangle2 GroupBounds = GroupControl(UiState, 0, 0, 
+                                                              String("Network File and Folder Sharing"));
+                        PushRenderCommandRect(RenderGroup, GroupBounds, 1.0f, GlobalTabButtonBackground);
+                        
+                        GroupBounds = GroupControl(UiState, 0, 1, String("Advanced Sharing"));
+                        PushRenderCommandRect(RenderGroup, GroupBounds, 1.0f, GlobalTabButtonBackground);
+                        
+                    }
+                    EndGrid(UiState);
+                } break;
+                case PropertiesTab_Security:
+                {
+                    BeginGrid(UiState, TabBounds, 1, 1);
                     {
-                        Button(UiState, 0, 0, String("Third tab selected"));
-                    } break;
-                    case PropertiesTab_PreviousVersions:
+                        Button(UiState, 0, 0, String("Here we have the security tab"));
+                    }
+                    EndGrid(UiState);
+                } break;
+                case PropertiesTab_PreviousVersions:
+                {
+                    BeginGrid(UiState, TabBounds, 1, 1);
                     {
-                        Button(UiState, 0, 0, String("Fourth tab selected"));
-                    } break;
-                    case PropertiesTab_Customize:
+                        Button(UiState, 0, 0, String("Apparently files have version control"));
+                    }
+                    EndGrid(UiState);
+                } break;
+                case PropertiesTab_Customize:
+                {
+                    BeginGrid(UiState, TabBounds, 1, 1);
                     {
-                        Button(UiState, 0, 0, String("Fifth tab selected"));
-                    } break;
-                    
-                    default:
-                    {
-                        Button(UiState, 0, 0, String("Invalid tab selection"));
-                    } break;
-                }
+                        Button(UiState, 0, 0, String("Lets customize this"));
+                    }
+                    EndGrid(UiState);
+                } break;
+                
+                InvalidDefaultCase;
             }
-            
-            EndGrid(UiState);
             
             BeginGrid(UiState, GridGetCellBounds(UiState, 0, 1), 4, 1);
             {

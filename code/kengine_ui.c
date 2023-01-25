@@ -457,6 +457,30 @@ Slider(ui_state *UiState, u32 Column, u32 Row, ui_id Id, f32 *Target, string Tex
 }
 
 internal rectangle2
+GroupControl(ui_state *UiState, u32 Column, u32 Row, string Header)
+{
+    rectangle2 Result = GridGetCellBounds(UiState, Column, Row);
+    
+    ui_frame *Frame = UiState->Frame;
+    memory_arena *Arena = Frame->Arena;
+    render_group *RenderGroup = Frame->RenderGroup;
+    
+    Result.Min = V2Add(Result.Min, V2Set1(GlobalMargin));
+    v2 TextP = V2(Result.Min.X + GlobalMargin, Result.Min.Y);
+    rectangle2 TextBounds = GetTextBounds(UiState, TextP, 2.0f, 1.0f, GlobalFormTextColor, Header);
+    TextBounds.Min.X -= GlobalMargin*0.25f;
+    TextBounds.Max.X += GlobalMargin*0.25f;
+    PushRenderCommandRect(RenderGroup, TextBounds, 2.0f, GlobalFormColor);
+    DrawTextAt(UiState, TextP, 3.0f, 1.0f, GlobalFormTextColor,Header);
+    Result.Min.Y += GlobalMargin;
+    PushRenderCommandRectOutline(RenderGroup, Result, 1.0f,GlobalGroupBorder, 1.0f);
+    Result.Min.Y += GlobalMargin;
+    Result = Rectangle2AddRadiusTo(Result, -GlobalMargin);
+    
+    return Result;
+}
+
+internal rectangle2
 TabControl(ui_state *UiState, u32 Column, u32 Row, u32 *SelectedIndex, string *Labels, u32 LabelCount)
 {
     rectangle2 Result = GridGetCellBounds(UiState, Column, Row);
@@ -520,7 +544,6 @@ TabControl(ui_state *UiState, u32 Column, u32 Row, u32 *SelectedIndex, string *L
                                                   GlobalTabButtonBackground);
                         } break;
                     }
-                    
                     
                     PushRenderCommandRectOutline(RenderGroup, ButtonBounds, 2.0f, GlobalTabButtonBorder, 1.0f);
                     
