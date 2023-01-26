@@ -6,10 +6,11 @@ typedef enum text_op
 } text_op;
 
 internal rectangle2
-TextOp_(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text, text_op Op)
+TextOp_(ui_state *UiState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Color, string Text, text_op Op)
 {
     Scale = 0.5f;
-    rectangle2 Result = Rectangle2(Offset, Offset);
+    rectangle2 Result = Rectangle2(Bounds.Min, Bounds.Min);
+    v2 Offset = Bounds.Min;
     
     ui_frame *Frame = UiState->Frame;
     memory_arena *Arena = Frame->Arena;
@@ -27,34 +28,73 @@ TextOp_(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Tex
         if(CodePoint == '\n')
         {
             AtY += UiState->FontScale*UiState->FontAscent*Scale;
-            AtX = 0.0f;
+            AtX = Offset.X;
         }
         else
         {
-            glyph_info *Info = UiState->GlyphInfos + CodePoint;
-            
-            Assert(Info->CodePoint == CodePoint);
-            
-            v2 Size = V2(Scale*Info->Width, Scale*Info->Height);
-            
-            v2 GlyphOffset = V2(AtX, AtY + Info->YOffset*Scale);
-            if(Op == TextOp_Draw)
+            b32 WordWrap = false;
+            if(IsWhitespace(CodePoint))
             {
-                PushRenderCommandGlyph(RenderGroup, GlyphOffset, Depth, Size, Color, Info->UV);
+                f32 WordWidth = 0;
+                for(umm WordIndex = 1;
+                    (Index + WordIndex) < Text.Size;
+                    ++WordIndex)
+                {
+                    u32 WordCodePoint = Text.Data[Index + WordIndex];
+                    if(IsWhitespace(WordCodePoint))
+                    {
+                        break;
+                    }
+                    glyph_info *Info = UiState->GlyphInfos + WordCodePoint;
+                    Assert(Info->CodePoint == WordCodePoint);
+                    
+                    WordWidth += UiState->FontScale*Info->AdvanceWidth*Scale;
+                    
+                    if(Index < Text.Size)
+                    {
+                        s32 Kerning = stbtt_GetCodepointKernAdvance(&UiState->FontInfo, CodePoint, Text.Data[Index + 1]);
+                        if(Kerning > 0)
+                        {
+                            WordWidth += UiState->FontScale*Kerning*Scale;
+                        }
+                    }
+                    
+                }
+                WordWrap = (AtX + WordWidth) > Bounds.Max.X;
+            }
+            
+            if(WordWrap)
+            {
+                AtY += UiState->FontScale*UiState->FontAscent*Scale;
+                AtX = Offset.X;
             }
             else
-            {
-                Assert(Op == TextOp_Size);
-                Result = Rectangle2Union(Result, Rectangle2(GlyphOffset, V2Add(GlyphOffset, Size)));
+            {            
+                glyph_info *Info = UiState->GlyphInfos + CodePoint;
+                Assert(Info->CodePoint == CodePoint);
+                
+                v2 Size = V2(Scale*Info->Width, Scale*Info->Height);
+                
+                v2 GlyphOffset = V2(AtX, AtY + Info->YOffset*Scale);
+                if(Op == TextOp_Draw)
+                {
+                    PushRenderCommandGlyph(RenderGroup, GlyphOffset, Depth, Size, Color, Info->UV);
+                }
+                else
+                {
+                    Assert(Op == TextOp_Size);
+                    Result = Rectangle2Union(Result, Rectangle2(GlyphOffset, V2Add(GlyphOffset, Size)));
+                }
+                
+                AtX += UiState->FontScale*Info->AdvanceWidth*Scale;
+                
+                if(Index < Text.Size)
+                {
+                    s32 Kerning = stbtt_GetCodepointKernAdvance(&UiState->FontInfo, CodePoint, Text.Data[Index + 1]);
+                    AtX += UiState->FontScale*Kerning*Scale;
+                }
             }
             
-            AtX += UiState->FontScale*Info->AdvanceWidth*Scale;
-            
-            if(Index < Text.Size)
-            {
-                s32 Kerning = stbtt_GetCodepointKernAdvance(&UiState->FontInfo, CodePoint, Text.Data[Index + 1]);
-                AtX += UiState->FontScale*Kerning*Scale;
-            }
         }
     }
     
@@ -62,15 +102,15 @@ TextOp_(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Tex
 }
 
 internal void
-DrawTextAt(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text)
+DrawTextAt(ui_state *UiState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Color, string Text)
 {
-    TextOp_(UiState, Offset, Depth, Scale, Color, Text, TextOp_Draw);
+    TextOp_(UiState, Bounds, Depth, Scale, Color, Text, TextOp_Draw);
 }
 
 internal rectangle2
-GetTextBounds(ui_state *UiState, v2 Offset, f32 Depth, f32 Scale, v4 Color, string Text)
+GetTextBounds(ui_state *UiState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Color, string Text)
 {
-    rectangle2 Result = TextOp_(UiState, Offset, Depth, Scale, Color, Text, TextOp_Size);
+    rectangle2 Result = TextOp_(UiState, Bounds, Depth, Scale, Color, Text, TextOp_Size);
     return Result;
 }
 
@@ -354,14 +394,16 @@ Button_(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
         } break;
     }
     
-    rectangle2 TextBounds = GetTextBounds(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    rectangle2 TextBounds = GetTextBounds(UiState, Bounds, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
     
     v2 TextDim = Rectangle2GetDim(TextBounds);
     
     v2 TextOffset = V2Add(Bounds.Min,
                           V2Subtract(V2Multiply(Dim, V2Set1(0.5f)),
                                      V2Multiply(TextDim, V2Set1(0.5f))));
-    DrawTextAt(UiState, TextOffset, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    
+    DrawTextAt(UiState, Rectangle2(TextOffset, V2Add(TextOffset, TextDim))
+               , 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
     
     return Result;
 }
@@ -378,45 +420,7 @@ Label_(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
     
     rectangle2 Bounds = GridGetCellBounds(UiState, Column, Row);
     
-    ui_interaction Interaction =
-    {
-        .Id = Id,
-        .Type = UI_Interaction_NOP,
-        .Target = 0
-    };
-    
-    
-    if(Rectangle2IsIn(Bounds, UiState->MouseP))
-    {
-        UiState->NextHotInteraction = Interaction;
-        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, V4(0.5f, 0.5f, 0.0f, 1.0f));
-    }
-    else
-    {
-        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalFormColor);
-    }
-    
-    
-    PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, V4(1.0f, 0.5f, 0.0f, 1.0f), 1.0f);
-    
-    v2 Dim = Rectangle2GetDim(Bounds);
-    
-    rectangle2 TextBounds = GetTextBounds(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
-    
-    v2 TextDim = Rectangle2GetDim(TextBounds);
-    
-    v2 TextOffset = V2Add(Bounds.Min,
-                          V2Subtract(V2Multiply(Dim, V2Set1(0.5f)),
-                                     V2Multiply(TextDim, V2Set1(0.5f))));
-    
-#if 0    
-    PushRenderCommandRect(RenderGroup, Rectangle2(TextOffset, V2Add(TextOffset, TextDim)), 
-                          1.0f, V4(1, 0, 0, 1));
-    PushRenderCommandRectOutline(RenderGroup, Rectangle2(TextOffset, V2Add(TextOffset, TextDim)), 
-                                 2.0f, V4(0, 1, 0, 1), 3.0f);
-#endif
-    
-    DrawTextAt(UiState, TextOffset, 2.0f, 1.0f, GlobalFormTextColor, Text);
+    DrawTextAt(UiState, Bounds, 2.0f, 1.0f, GlobalFormTextColor, Text);
     
 }
 
@@ -438,7 +442,6 @@ Slider(ui_state *UiState, u32 Column, u32 Row, ui_id Id, f32 *Target, string Tex
         .Target = Target
     };
     
-    
     v4 ButtonColor = V4(1.0f, 0.5f, 0.0f, 1.0f);
     if(Rectangle2IsIn(Bounds, UiState->MouseP))
     {
@@ -453,7 +456,7 @@ Slider(ui_state *UiState, u32 Column, u32 Row, ui_id Id, f32 *Target, string Tex
     
     PushRenderCommandRect(RenderGroup, Bounds, 1.0f, ButtonColor);
     
-    DrawTextAt(UiState, Bounds.Min, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    DrawTextAt(UiState, Bounds, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
 }
 
 internal rectangle2
@@ -467,11 +470,13 @@ GroupControl(ui_state *UiState, u32 Column, u32 Row, string Header)
     
     Result.Min = V2Add(Result.Min, V2Set1(GlobalMargin));
     v2 TextP = V2(Result.Min.X + GlobalMargin, Result.Min.Y);
-    rectangle2 TextBounds = GetTextBounds(UiState, TextP, 2.0f, 1.0f, GlobalFormTextColor, Header);
+    rectangle2 TextBounds = GetTextBounds(UiState, Rectangle2(TextP, Result.Max),
+                                          2.0f, 1.0f, GlobalFormTextColor, Header);
     TextBounds.Min.X -= GlobalMargin*0.25f;
     TextBounds.Max.X += GlobalMargin*0.25f;
     PushRenderCommandRect(RenderGroup, TextBounds, 2.0f, GlobalFormColor);
-    DrawTextAt(UiState, TextP, 3.0f, 1.0f, GlobalFormTextColor,Header);
+    DrawTextAt(UiState, Rectangle2(TextP, Result.Max), 
+               3.0f, 1.0f, GlobalFormTextColor,Header);
     Result.Min.Y += GlobalMargin;
     PushRenderCommandRectOutline(RenderGroup, Result, 1.0f,GlobalGroupBorder, 1.0f);
     Result.Min.Y += GlobalMargin;
@@ -503,7 +508,8 @@ TabControl(ui_state *UiState, u32 Column, u32 Row, u32 *SelectedIndex, string *L
                 ++LabelIndex)
             {
                 string Text = Labels[LabelIndex];
-                rectangle2 TextBounds = GetTextBounds(UiState, At, 1.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+                rectangle2 TextBounds = GetTextBounds(UiState, Rectangle2(At, Bounds.Max), 
+                                                      1.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
                 TextBounds.Max.X += GlobalMargin;
                 if(LabelIndex == *SelectedIndex)
                 {
@@ -553,8 +559,7 @@ TabControl(ui_state *UiState, u32 Column, u32 Row, u32 *SelectedIndex, string *L
                     }
                 }
                 At.X += GlobalMargin/2.0f;
-                DrawTextAt(UiState, 
-                           V2(At.X, At.Y + 2.0f), 
+                DrawTextAt(UiState, Rectangle2(V2(At.X, At.Y + 2.0f), Bounds.Max), 
                            1.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
                 
                 At.X = TextBounds.Max.X;

@@ -45,7 +45,6 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
     {
         UiState = AppMemory->UiState = BootstrapPushStruct(ui_state, Arena);
         
-        
         // NOTE(kstandbridge): Loading a glyph sprite sheet
         {
             LogDebug("Loading a glyph sprite sheet");
@@ -246,8 +245,18 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
         RenderGroup->ClearColor = GlobalBackColor;
 #if 1
         
-#if 0        
+#if 0   
+        rectangle2 ScreenBounds = Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height));
+        ScreenBounds = Rectangle2AddRadiusTo(ScreenBounds, -GlobalMargin);
+        
+        BeginGrid(UiState, ScreenBounds, 1, 1);
+        {
+            Button(UiState, 0, 0, String("Test test"));
+        }
+        EndGrid(UiState);
+#if 0
         PushRenderCommandGlyph(RenderGroup, V2Set1(0.0f), 1.0f, V2(RenderGroup->Width, RenderGroup->Height), V4Set1(1.0f), V4(0.0f, 0.0f, 1.0f, 1.0f));
+#endif
 #else
         rectangle2 ScreenBounds = Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height));
         ScreenBounds = Rectangle2AddRadiusTo(ScreenBounds, -GlobalMargin);
@@ -262,7 +271,7 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
                 String("Sharing"),
                 String("Security"),
                 String("Previous Versions"),
-                String("Customize")
+                String("Customize"),
             };
             rectangle2 TabBounds = TabControl(UiState, 0, 0, (u32 *)&AppState->SelectedPropertyTab,
                                               TabLabels, ArrayCount(TabLabels));
@@ -284,8 +293,19 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
                                                               String("Network File and Folder Sharing"));
                         PushRenderCommandRect(RenderGroup, GroupBounds, 1.0f, GlobalTabButtonBackground);
                         
-                        GroupBounds = GroupControl(UiState, 0, 1, String("Advanced Sharing"));
-                        PushRenderCommandRect(RenderGroup, GroupBounds, 1.0f, GlobalTabButtonBackground);
+                        
+                        BeginGrid(UiState, GroupControl(UiState, 0, 1, String("Advanced Sharing")), 1, 2);
+                        {                        
+                            Label(UiState, 0, 0, String("Set custom permissions, create multiple shares, and set other advanced sharing options."));
+                            
+                            BeginGrid(UiState, GridGetCellBounds(UiState, 0, 1), 2, 1);
+                            {
+                                Button(UiState, 0, 0, String("Advanced Sharing..."));
+                            }
+                            EndGrid(UiState);
+                        }
+                        EndGrid(UiState);
+                        
                         
                     }
                     EndGrid(UiState);
