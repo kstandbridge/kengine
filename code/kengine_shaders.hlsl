@@ -68,7 +68,7 @@ float4 ps_sprite_main(PS_INPUT Input) : SV_Target
 {
 	float4 Sample = MyTexture.Sample(MySampler, Input.UV); 
 	float4 Result = Sample*Input.Color;
-
+	
 	return Result;
 }
 

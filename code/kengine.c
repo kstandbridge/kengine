@@ -150,7 +150,7 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
                         ++X)
                     {
                         u32 Alpha = (u32)GlyphInfo->Data[(Y*GlyphInfo->Width) + X];
-                        TextureBytes[(Y + AtY)*TotalWidth + (X + AtX)] = 0x00000000 | (u32)((Alpha) << 24);
+                        TextureBytes[(Y + AtY)*TotalWidth + (X + AtX)] = 0x00FFFFFF | (u32)((Alpha) << 24);
                     }
                 }
                 
@@ -247,23 +247,51 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
         
 #if 0   
         rectangle2 ScreenBounds = Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height));
-        ScreenBounds = Rectangle2AddRadiusTo(ScreenBounds, -GlobalMargin);
-        
-        BeginGrid(UiState, ScreenBounds, 1, 1);
+        ScreenBounds.Min = V2Add(ScreenBounds.Min, V2Set1(GlobalMargin));
+#if 0
+        BeginGrid(UiState, ScreenBounds, 3, 3);
         {
-            Button(UiState, 0, 0, String("Test test"));
+            for(u32 Y = 0; Y < 3; ++Y)
+            {
+                for(u32 X = 0; X < 3; ++X)
+                {
+                    if((X == 1) &&
+                       (Y == 1))
+                    {
+                        BeginGrid(UiState, GridGetCellBounds(UiState, 1, 1), 2, 2);
+                        {
+                            for(u32 Yi = 0; Yi < 2; ++Yi)
+                            {
+                                for(u32 Xi = 0; Xi < 2; ++Xi)
+                                {
+                                    GroupControl(UiState, Xi, Yi,
+                                                 FormatString(MemoryFlush.Arena, "%u, %u", Xi, Yi));
+                                }
+                            }
+                        }
+                        EndGrid(UiState);
+                    }
+                    else
+                    {
+                        GroupControl(UiState, X, Y, FormatString(MemoryFlush.Arena, "%u, %u", X, Y));
+                    }
+                }
+            }
         }
         EndGrid(UiState);
-#if 0
-        PushRenderCommandGlyph(RenderGroup, V2Set1(0.0f), 1.0f, V2(RenderGroup->Width, RenderGroup->Height), V4Set1(1.0f), V4(0.0f, 0.0f, 1.0f, 1.0f));
+#else
+        PushRenderCommandGlyph(RenderGroup, V2Set1(0.0f), 1.0f, V2(RenderGroup->Width, RenderGroup->Height), 
+                               V4(1.0f, 0.0f, 0.0f, 1.0f), 
+                               V4(0.0f, 0.0f, 1.0f, 1.0f));
 #endif
+        
 #else
         rectangle2 ScreenBounds = Rectangle2(V2Set1(0.0f), V2(RenderGroup->Width, RenderGroup->Height));
-        ScreenBounds = Rectangle2AddRadiusTo(ScreenBounds, -GlobalMargin);
+        ScreenBounds.Min = V2Add(ScreenBounds.Min, V2Set1(GlobalMargin));
         
         BeginGrid(UiState, ScreenBounds, 1, 2);
         {
-            GridSetRowHeight(UiState, 1, 32.0f);
+            GridSetRowHeight(UiState, 1, 30.0f);
             
             string TabLabels[] =
             {
@@ -281,7 +309,7 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
                 {
                     BeginGrid(UiState, TabBounds, 1, 1);
                     {
-                        Button(UiState, 0, 0, String("This should be the general tab"));
+                        Button(UiState, 0, 0, true, String("This should be the general tab"));
                     }
                     EndGrid(UiState);
                 } break;
@@ -289,18 +317,43 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
                 {
                     BeginGrid(UiState, TabBounds, 1, 3);
                     {
-                        rectangle2 GroupBounds = GroupControl(UiState, 0, 0, 
-                                                              String("Network File and Folder Sharing"));
-                        PushRenderCommandRect(RenderGroup, GroupBounds, 1.0f, GlobalTabButtonBackground);
+                        GridSetRowHeight(UiState, 0, 146.0f);
                         
+                        BeginGrid(UiState, GroupControl(UiState, 0, 0, 
+                                                        String("Network File and Folder Sharing")),
+                                  1, 2);
+                        {
+                            GridSetRowHeight(UiState, 0, 40.0f);
+                            
+                            BeginGrid(UiState, GridGetCellBounds(UiState, 0, 0), 2, 1);
+                            {
+                                GridSetColumnWidth(UiState, 0, 40.0f);
+                                
+                                Label(UiState, 1, 0, String("apps\nNot Shared"));
+                            }
+                            EndGrid(UiState);
+                            
+                            BeginGrid(UiState, GridGetCellBounds(UiState, 0, 1), 2, 2);
+                            {
+                                GridSetColumnWidth(UiState, 0, 80.0f);
+                                GridSetRowHeight(UiState, 1, 30.0f);
+                                
+                                Label(UiState, 0, 0, String("Network Path:\nNot Shared"));
+                                Button(UiState, 0, 1, true, String("Share..."));
+                            }
+                            EndGrid(UiState);
+                            
+                        }
+                        EndGrid(UiState);
                         
                         BeginGrid(UiState, GroupControl(UiState, 0, 1, String("Advanced Sharing")), 1, 2);
-                        {                        
+                        {       
+                            GridSetRowHeight(UiState, 1, 30.0f);
                             Label(UiState, 0, 0, String("Set custom permissions, create multiple shares, and set other advanced sharing options."));
                             
                             BeginGrid(UiState, GridGetCellBounds(UiState, 0, 1), 2, 1);
                             {
-                                Button(UiState, 0, 0, String("Advanced Sharing..."));
+                                Button(UiState, 0, 0, true, String("Advanced Sharing..."));
                             }
                             EndGrid(UiState);
                         }
@@ -314,7 +367,7 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
                 {
                     BeginGrid(UiState, TabBounds, 1, 1);
                     {
-                        Button(UiState, 0, 0, String("Here we have the security tab"));
+                        Button(UiState, 0, 0, true, String("Here we have the security tab"));
                     }
                     EndGrid(UiState);
                 } break;
@@ -322,7 +375,7 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
                 {
                     BeginGrid(UiState, TabBounds, 1, 1);
                     {
-                        Button(UiState, 0, 0, String("Apparently files have version control"));
+                        Button(UiState, 0, 0, true, String("Apparently files have version control"));
                     }
                     EndGrid(UiState);
                 } break;
@@ -330,7 +383,7 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
                 {
                     BeginGrid(UiState, TabBounds, 1, 1);
                     {
-                        Button(UiState, 0, 0, String("Lets customize this"));
+                        Button(UiState, 0, 0, true, String("Lets customize this"));
                     }
                     EndGrid(UiState);
                 } break;
@@ -342,15 +395,15 @@ AppTick_(app_memory *AppMemory, render_group *RenderGroup, app_input *Input)
             {
                 //Label(UiState, 0, 0, String("Space"));
                 
-                if(Button(UiState, 1, 0, String("OK")))
+                if(Button(UiState, 1, 0, true, String("OK")))
                 {
                     LogInfo("OK");
                 }
-                if(Button(UiState, 2, 0, String("Cancel")))
+                if(Button(UiState, 2, 0, true, String("Cancel")))
                 {
                     LogInfo("Cancel");
                 }
-                if(Button(UiState, 3, 0, String("Apply")))
+                if(Button(UiState, 3, 0, false, String("Apply")))
                 {
                     LogInfo("Apply");
                 }

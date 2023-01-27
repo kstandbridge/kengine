@@ -1042,7 +1042,7 @@ Win32RenderFrame(render_group *RenderGroup)
             
             ID3D11DeviceContext_PSSetShaderResources(GlobalWin32State.RenderContext, 0, 1, &GlobalWin32State.RenderGlyphTextureView);
             
-#if 0            
+#if 0
             ID3D11DeviceContext_PSSetShader(GlobalWin32State.RenderContext, GlobalWin32State.RenderGlyphPixelShader, 0, 0);
 #else
             ID3D11DeviceContext_PSSetShader(GlobalWin32State.RenderContext, GlobalWin32State.RenderSpritePixelShader, 0, 0);

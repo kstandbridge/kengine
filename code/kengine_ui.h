@@ -163,9 +163,13 @@ global f32 GlobalMargin = 7.0f;
 global v4 GlobalBackColor = RGB(240, 240, 240);
 global v4 GlobalFormColor = RGB(255, 255, 255);
 global v4 GlobalFormTextColor = RGB(0, 0, 0);
+global v4 GlobalFormDisabledTextColor = RGB(131, 131, 131);
 
 global v4 GlobalButtonBackColor = RGB(225, 225, 225);
 global v4 GlobalButtonBorderColor = RGB(173, 173, 173);
+
+global v4 GlobalButtonDisabledBackColor = RGB(204, 204, 204);
+global v4 GlobalButtonDisabledBorderColor = RGB(191, 191, 191);
 
 global v4 GlobalButtonHotBackColor = RGB(229, 241, 251);
 global v4 GlobalButtonHotBorderColor = RGB(0, 120, 215);

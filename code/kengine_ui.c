@@ -340,9 +340,9 @@ AddUIInteraction(ui_state *UiState, rectangle2 Bounds, ui_interaction Interactio
     return Result;
 }
 
-#define Button(UiState, Column, Row, Text) Button_(UiState, Column, Row, GenerateUIId(0), Text)
+#define Button(UiState, Column, Row, Enabled, Text) Button_(UiState, Column, Row, Enabled, Text, GenerateUIId(0))
 internal b32
-Button_(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
+Button_(ui_state *UiState, u32 Column, u32 Row, b32 Enabled, string Text, ui_id Id)
 {
     b32 Result = false;
     
@@ -352,49 +352,61 @@ Button_(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
     Assert(Frame->CurrentGrid);
     ui_grid *Grid = Frame->CurrentGrid;
     
-    ui_interaction Interaction =
-    {
-        .Id = Id,
-        .Type = UI_Interaction_ImmediateButton,
-        .Target = 0
-    };
-    
-    Result = InteractionsAreEqual(Interaction, UiState->ToExecute);
-    
     rectangle2 Bounds = GridGetCellBounds(UiState, Column, Row);
-    Bounds.Min = V2Add(Bounds.Min, V2Set1(GlobalMargin));
+    Bounds.Max = V2Subtract(Bounds.Max, V2Set1(GlobalMargin));
     
     v2 Dim = Rectangle2GetDim(Bounds);
     
-    ui_interaction_state InteractionState = AddUIInteraction(UiState, Bounds, Interaction);
-    switch(InteractionState)
+    v4 TextColor = GlobalFormTextColor;
+    
+    if(Enabled)
+    {    
+        ui_interaction Interaction =
+        {
+            .Id = Id,
+            .Type = UI_Interaction_ImmediateButton,
+            .Target = 0
+        };
+        
+        Result = InteractionsAreEqual(Interaction, UiState->ToExecute);
+        
+        
+        ui_interaction_state InteractionState = AddUIInteraction(UiState, Bounds, Interaction);
+        switch(InteractionState)
+        {
+            case UIInteractionState_HotClicked:
+            {
+                PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonClickedBackColor);
+                PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonClickedBorderColor, 1);
+            } break;
+            
+            case UIInteractionState_Hot:
+            {
+                PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonHotBackColor);
+                PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonHotBorderColor, 1);
+            } break;
+            
+            case UIInteractionState_Selected:
+            {
+                PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonBackColor);
+                PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonHotBorderColor, 2);
+            } break;
+            
+            default:
+            {
+                PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonBackColor);
+                PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonBorderColor, 1);
+            } break;
+        }
+    }
+    else
     {
-        case UIInteractionState_HotClicked:
-        {
-            PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonClickedBackColor);
-            PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonClickedBorderColor, 1);
-        } break;
-        
-        case UIInteractionState_Hot:
-        {
-            PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonHotBackColor);
-            PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonHotBorderColor, 1);
-        } break;
-        
-        case UIInteractionState_Selected:
-        {
-            PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonBackColor);
-            PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonHotBorderColor, 2);
-        } break;
-        
-        default:
-        {
-            PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonBackColor);
-            PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonBorderColor, 1);
-        } break;
+        TextColor = GlobalFormDisabledTextColor;
+        PushRenderCommandRect(RenderGroup, Bounds, 1.0f, GlobalButtonDisabledBackColor);
+        PushRenderCommandRectOutline(RenderGroup, Bounds, 1.0f, GlobalButtonDisabledBorderColor, 1);
     }
     
-    rectangle2 TextBounds = GetTextBounds(UiState, Bounds, 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+    rectangle2 TextBounds = GetTextBounds(UiState, Bounds, 2.0f, 1.0f, TextColor, Text);
     
     v2 TextDim = Rectangle2GetDim(TextBounds);
     
@@ -403,7 +415,7 @@ Button_(ui_state *UiState, u32 Column, u32 Row, ui_id Id, string Text)
                                      V2Multiply(TextDim, V2Set1(0.5f))));
     
     DrawTextAt(UiState, Rectangle2(TextOffset, V2Add(TextOffset, TextDim))
-               , 2.0f, 1.0f, V4(0.0f, 0.0f, 0.0f, 1.0f), Text);
+               , 2.0f, 1.0f, TextColor, Text);
     
     return Result;
 }
@@ -468,7 +480,6 @@ GroupControl(ui_state *UiState, u32 Column, u32 Row, string Header)
     memory_arena *Arena = Frame->Arena;
     render_group *RenderGroup = Frame->RenderGroup;
     
-    Result.Min = V2Add(Result.Min, V2Set1(GlobalMargin));
     v2 TextP = V2(Result.Min.X + GlobalMargin, Result.Min.Y);
     rectangle2 TextBounds = GetTextBounds(UiState, Rectangle2(TextP, Result.Max),
                                           2.0f, 1.0f, GlobalFormTextColor, Header);
@@ -478,6 +489,7 @@ GroupControl(ui_state *UiState, u32 Column, u32 Row, string Header)
     DrawTextAt(UiState, Rectangle2(TextP, Result.Max), 
                3.0f, 1.0f, GlobalFormTextColor,Header);
     Result.Min.Y += GlobalMargin;
+    Result.Max = V2Subtract(Result.Max, V2Set1(GlobalMargin));
     PushRenderCommandRectOutline(RenderGroup, Result, 1.0f,GlobalGroupBorder, 1.0f);
     Result.Min.Y += GlobalMargin;
     Result = Rectangle2AddRadiusTo(Result, -GlobalMargin);
@@ -570,10 +582,11 @@ TabControl(ui_state *UiState, u32 Column, u32 Row, u32 *SelectedIndex, string *L
         {
             Result = GridGetCellBounds(UiState, 0, 1);
             Result.Min.Y -= 1.0f;
+            Result.Max = V2Subtract(Result.Max, V2Set1(GlobalMargin));
             PushRenderCommandRect(RenderGroup, Result, 1.0f, GlobalFormColor);
             PushRenderCommandRectOutline(RenderGroup, Result, 2.0f, GlobalTabButtonBorder, 1.0f);
             Result.Min.Y += 1.0f;
-            Result.Max = V2Subtract(Result.Max, V2Set1(GlobalMargin));
+            Result.Min = V2Add(Result.Min, V2Set1(GlobalMargin));
         }
         
     }
