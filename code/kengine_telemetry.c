@@ -441,15 +441,15 @@ SendTimedHttpTelemetry(string Hostname, u32 Port, string Verb, string Template, 
         AppendTelemetryMessageStringField(String("category"), String("/timed_http"));
         AppendTelemetryMessageStringField(String("message"), String("timed_http"));
         AppendTelemetryMessageStringField(String("hostname"), Hostname);
-        AppendTelemetryMessageNumberField(String("port"), Port);
+        AppendTelemetryMessageNumberField(String("port"), (f32)Port);
         AppendTelemetryMessageStringField(String("template"), Template);
         AppendTelemetryMessageStringField(String("endpoint"), Endpoint);
         AppendTelemetryMessageStringField(String("verb"), Verb);
-        AppendTelemetryMessageNumberField(String("request_length"), RequestLength);
-        AppendTelemetryMessageNumberField(String("response_length"), ResponseLength);
-        AppendTelemetryMessageNumberField(String("status_code"), StatusCode);
+        AppendTelemetryMessageNumberField(String("request_length"), (f32)RequestLength);
+        AppendTelemetryMessageNumberField(String("response_length"), (f32)ResponseLength);
+        AppendTelemetryMessageNumberField(String("status_code"), (f32)StatusCode);
         AppendTelemetryMessageNumberField(String("duration_in_seconds"), DurationInSeconds);
-        AppendTelemetryMessageNumberField(String("duration_in_milliseconds"), (u32)(DurationInSeconds * 1000.0f));
+        AppendTelemetryMessageNumberField(String("duration_in_milliseconds"), (f32)(DurationInSeconds * 1000.0f));
         EndTelemetryMessage();
     }
     
@@ -536,7 +536,7 @@ SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string
 internal void
 SendLogTelemetry____(string FileLine, log_level_type LogLevel, char *Format, ...)
 {
-    u8 Buffer[512];
+    u8 Buffer[2048];
     umm BufferSize = sizeof(Buffer);
     format_string_state StringState = BeginFormatString();
     
@@ -558,29 +558,29 @@ LogDownloadProgress(u64 CurrentBytes, u64 TotalBytes)
     
     if(TotalBytes > Gigabytes(1))
     {
-        Total = TotalBytes / 1024.0 / 1024.0f / 1024.0f;
-        Current = CurrentBytes / 1024.0 / 1024.0f / 1024.0f;
+        Total = (f32)TotalBytes / 1024.0f / 1024.0f / 1024.0f;
+        Current = (f32)CurrentBytes / 1024.0f / 1024.0f / 1024.0f;
         LogVerbose("Downloaded (%.02f%%) %.02f / %.02f GB", 
                    (Current / Total)*100.0f, Current, Total);
     }
     else if(TotalBytes > Megabytes(1))
     {
-        Total = TotalBytes / 1024.0 / 1024.0f;
-        Current = CurrentBytes / 1024.0 / 1024.0f;
+        Total = (f32)TotalBytes / 1024.0f / 1024.0f;
+        Current = (f32)CurrentBytes / 1024.0f / 1024.0f;
         LogVerbose("Downloaded (%.02f%%) %.02f / %.02f MB", 
                    (Current / Total)*100.0f, Current, Total);
     }
     else if(TotalBytes > Kilobytes(1))
     {
-        Total = TotalBytes / 1024.0;
-        Current = CurrentBytes / 1024.0;
+        Total = (f32)TotalBytes / 1024.0f;
+        Current = (f32)CurrentBytes / 1024.0f;
         LogVerbose("Downloaded (%.02f%%) %u / %u KB", 
                    (Current / Total)*100.0f, (u32)Current, (u32)Total);
     }
     else if(TotalBytes > 0)
     {
-        Total = TotalBytes;
-        Current = CurrentBytes;
+        Total = (f32)TotalBytes;
+        Current = (f32)CurrentBytes;
         LogVerbose("Downloaded (%.02f%%) %u / %u Bytes", 
                    (Current / Total)*100.0f, (u32)Current, (u32)Total);
     }

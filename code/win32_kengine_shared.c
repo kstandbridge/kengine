@@ -1976,3 +1976,18 @@ Win32GetDateTimeFromTimestamp(u64 Timestamp)
     
     return Result;
 }
+
+internal b32
+Win32IsColorSchemeChangeMessage(LPARAM LParam)
+{
+	b32 Result = false;
+    
+    if (LParam && StringsAreEqual(CStringToString((char *)LParam), String("ImmersiveColorSet")))
+	{
+		Win32.RefreshImmersiveColorPolicyState();
+		Result = true;
+	}
+	Win32.GetIsImmersiveColorUsingHighContrast(IHCM_REFRESH);
+    
+	return Result;
+}

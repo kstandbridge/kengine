@@ -124,7 +124,7 @@ introspect(win32, Ws2_32, lowercase) typedef int WSAAPI wsa_shutdown(SOCKET s, i
 introspect(win32, Ws2_32) typedef int w_s_a_startup(WORD wVersionRequired, LPWSADATA lpWSAData);
 introspect(win32, Ws2_32) typedef int w_s_a_cleanup();
 
-introspect(win32, Winmm, lowerCamelCase) typedef void time_begin_period(UINT uPeriod);
+introspect(win32, Winmm, lowerCamelCase) typedef MMRESULT time_begin_period(UINT uPeriod);
 
 introspect(win32, Advapi32) typedef BOOL crypt_acquire_context_a(HCRYPTPROV *phProv, LPCSTR szContainer, 
                                                                  LPCSTR szProvider, DWORD dwProvType, DWORD dwFlags);

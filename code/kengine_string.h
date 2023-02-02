@@ -113,6 +113,50 @@ U64FromString(string *Text)
     return Result;
 }
 
+// TODO(kstandbridge): F32FromString
+internal f32
+F32FromZ(char *At)
+{
+    f32 Result = 0;
+    b32 DecimalFound = false;
+    f32 CurrentDecimal = 1;
+    
+    while(At[0])
+    {
+        if(*At >= '0' && *At <= '9')
+        {
+            s32 Value = *At - 48;
+            Assert(Value >= 0 && Value <= 9);
+            if(DecimalFound)
+            {
+                CurrentDecimal /= 10.0f;
+                Result += Value*CurrentDecimal;
+            }
+            else
+            {
+                Result *= 10;
+                Result += Value;
+            }
+        }
+        else if(*At == '.')
+        {
+            if(DecimalFound)
+            {
+                Assert(!"Additional Decimal found");
+            }
+            DecimalFound = true;
+        }
+        else
+        {
+            Assert(!"None float character");
+        }
+        ++At;
+    }
+    
+    return Result;
+}
+
+
 inline b32
 IsEndOfLine(char C)
 {
@@ -331,6 +375,57 @@ StringsAreEqual(string A, string B)
     return Result;
 }
 
+inline b32
+StringsAreEqualLowercase(string A, string B)
+{
+    b32 Result = (A.Size == B.Size);
+    
+    if(Result)
+    {
+        Result = true;
+        for(u32 Index = 0;
+            Index < A.Size;
+            ++Index)
+        {
+            if(CToLowercase(A.Data[Index]) != CToLowercase(B.Data[Index]))
+            {
+                Result = false;
+                break;
+            }
+        }
+    }
+    
+    return Result;
+}
+
+#if 0
+internal b32
+StringsAreEqualLowercase(memory_index ALength, char *A, memory_index BLength, char *B)
+{
+    b32 Result = (ALength == BLength);
+    
+    if(Result)
+    {
+        Result = true;
+        for(u32 Index = 0;
+            Index < ALength;
+            ++Index)
+        {
+            if(ToLowercase(A[Index]) != ToLowercase(B[Index]))
+            {
+                Result = false;
+                break;
+            }
+        }
+    }
+    
+    return Result;
+}
+#endif
+
+
+
+
 #define String(Str) String_(sizeof(Str) - 1, (u8 *)Str)
 inline string
 String_(umm Length, u8 *Data)
@@ -354,10 +449,184 @@ CStringToString(char *NullTerminatedString)
 inline b32
 StringBeginsWith(string Needle, string HayStack)
 {
-    b32 Result = StringsAreEqual(String_(Needle.Size, HayStack.Data), Needle);
+    string Prefix = String_(Needle.Size, HayStack.Data);
+    b32 Result = StringsAreEqual(Prefix, Needle);
     
     return Result;
 }
+
+// TODO(kstandbridge): Test StringEndsWith
+
+inline b32
+StringEndsWith(string Needle, string HayStack)
+{
+    string Suffix = String_(Needle.Size, HayStack.Data + HayStack.Size - Needle.Size);
+    b32 Result = StringsAreEqual(Suffix, Needle);
+    
+    return Result;
+}
+
+// TODO(kstandbridge): String FindFirstOccurrence
+internal char *
+FindFirstOccurrence(char *HayStack, char *Needle)
+{
+    char *Result = 0;
+    
+    char *At = HayStack;
+    char *Match = Needle;
+    while(*At)
+    {
+        if(*At == *Match)
+        {
+            if(Result == 0)
+            {
+                Result = At;
+            }
+            if(Match[+1] == '\0')
+            {
+                break;
+            }
+            Match++;
+        }
+        else
+        {
+            Match = Needle;
+            Result = 0;
+        }
+        ++At;
+    }
+    
+    return Result;
+}
+
+internal char *
+FindFirstOccurrenceLowercase(char *HayStack, char *Needle)
+{
+    char *Result = 0;
+    
+    char *At = HayStack;
+    char *Match = Needle;
+    while(*At)
+    {
+        if(CToLowercase(*At) == CToLowercase(*Match))
+        {
+            if(GetNullTerminiatedStringLength(At) < (GetNullTerminiatedStringLength(Match)))
+            {
+                Result = 0;
+                break;
+            }
+            if(Result == 0)
+            {
+                Result = At;
+            }
+            if(Match[+1] == '\0')
+            {
+                break;
+            }
+            Match++;
+        }
+        else if(Result != 0)
+        {
+            --At;
+            Match = Needle;
+            Result = 0;
+        }
+        else
+        {
+            Match = Needle;
+            Result = 0;
+        }
+        ++At;
+        
+    }
+    
+    return Result;
+}
+
+
+internal char *
+FindLastOccurrence(char *HayStack, char *Needle)
+{
+    char *Result = 0;
+    
+    char *At = HayStack;
+    char *Match = Needle;
+    char *CurrentMatch = 0;
+    while(*At)
+    {
+        if(*At == *Match)
+        {
+            if(CurrentMatch == 0)
+            {
+                CurrentMatch = At;
+            }
+            if(Match[+1] == '\0')
+            {
+                Result = CurrentMatch;
+            }
+            Match++;
+        }
+        else if(CurrentMatch != 0)
+        {
+            --At;
+            Match = Needle;
+            CurrentMatch = 0;
+        }
+        else
+        {
+            Match = Needle;
+            CurrentMatch = 0;
+        }
+        ++At;
+    }
+    
+    return Result;
+}
+
+internal b32
+ParsePercentFromZ(char *At, char *ResultBuffer, s32 ResultBufferSize)
+{
+    b32 Result = false;
+    while(*At)
+    {
+        
+        if(*At == '%')
+        {
+            Result = true;
+            break;
+        }
+        ++At;
+    }
+    if(Result)
+    {
+        --At;
+        while(At != ResultBuffer)
+        {
+            if((*At == '.') ||
+               (*At >= '0' && *At <= '9'))
+            {
+                --At;
+            }
+            else
+            {
+                ++At;
+                break;
+            }
+        }
+        char *Dest = ResultBuffer;
+        s32 Index = 0;
+        while(*At != '%')
+        {
+            *Dest++ = *At++;
+            Index++;
+            Assert(Index <= ResultBufferSize);
+        }
+        *Dest = '\0';
+    }
+    
+    return Result;
+}
+
 
 inline b32
 StringContains(string Needle, string HayStack)
@@ -378,12 +647,71 @@ StringContains(string Needle, string HayStack)
     return Result;
 }
 
+// TODO(kstandbridge): StringReplace
+internal void
+StringReplace(char *Result, char *HayStack, char *Needle, char *Replace)
+{
+    size_t Index;
+    size_t ReplaceLength = GetNullTerminiatedStringLength(Replace);
+    size_t NeedleLength = GetNullTerminiatedStringLength(Needle);
+    
+    for (Index = 0; HayStack[Index] != '\0'; Index++) 
+    {
+        if(FindFirstOccurrence(&HayStack[Index], Needle) == &HayStack[Index]) 
+        {
+            Index += NeedleLength - 1;
+        }
+    }
+    
+    Index = 0;
+    while(*HayStack) 
+    {
+        if(FindFirstOccurrence(HayStack, Needle) == HayStack) 
+        {
+            if(ReplaceLength != 0)
+            {
+                Copy(ReplaceLength + 1, Replace, &Result[Index]);
+            }
+            Index += ReplaceLength;
+            HayStack+= NeedleLength;
+        }
+        else
+        {
+            Result[Index++] = *HayStack++;
+        }
+    }
+    
+    Result[Index] = '\0';
+}
+
+
 inline s32
 StringComparison(string A, string B)
 {
     u32 IndexA = 0;
     u32 IndexB = 0;
     while(A.Data[IndexA] == B.Data[IndexB])
+    {
+        if((IndexA == A.Size - 1) ||
+           (IndexB == B.Size - 1))
+        {
+            break;
+        }
+        ++IndexA;
+        ++IndexB;
+    }
+    
+    s32 Result = A.Data[IndexA] - B.Data[IndexB];
+    
+    return Result;
+    
+}
+inline s32
+StringComparisonLowercase(string A, string B)
+{
+    u32 IndexA = 0;
+    u32 IndexB = 0;
+    while(CToLowercase(A.Data[IndexA]) == CToLowercase(B.Data[IndexB]))
     {
         if((IndexA == A.Size - 1) ||
            (IndexB == B.Size - 1))
@@ -407,7 +735,7 @@ PushString_(memory_arena *Arena, umm Length, u8 *Data)
     string Result;
     
     Result.Size = Length;
-    Result.Data = PushCopy(Arena, Result.Size, Data);
+    Result.Data = (u8 *)PushCopy(Arena, Result.Size, Data);
     
     return Result;
 }
@@ -419,7 +747,7 @@ PushEditableString(memory_arena *Arena, umm Size, string Text)
     
     Result.Size = Size;
     Result.Length = Text.Size;
-    Result.Data = PushSize(Arena, Size);
+    Result.Data = (u8 *)PushSize(Arena, Size);
     Copy(Text.Size, Text.Data, Result.Data);
     Result.SelectionStart = 3;
     Result.SelectionEnd = 70;
@@ -785,6 +1113,8 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                 ParsingParam = false;
                                 
                                 wchar_t *At = va_arg(ArgList, wchar_t *);
+                                // TODO(kstandbridge): We should probably convert the wchar_t to char for this copy
+#if 0                                
                                 if(PrecisionSpecified)
                                 {
                                     while(At[0] != '\0' && Precision--)
@@ -796,10 +1126,11 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                 {
                                     while(At[0] != '\0')
                                     {
-                                        // TODO(kstandbridge): We should probably convert the wchar_t to char for this copy
                                         *State->Tail++ = *At++;
                                     }
                                 }
+#endif
+                                
                             } break;
                             
                             case FormatStringToken_StringType:
@@ -1098,6 +1429,34 @@ ParseMonth(string Text)
     
     return Result;
 }
+
+// TODO(kstandbridge): TRIM string
+
+internal char *
+CStringLeftTrim(char *Value)
+{
+    while(IsWhitespace(*Value))
+    {
+        ++Value;
+    }
+    return Value;
+}
+
+internal char *
+CStringRightTrim(char *Value)
+{
+    char *Back = Value + GetNullTerminiatedStringLength(Value);
+    if(IsWhitespace(Back[-1]))
+    {       
+        while(IsWhitespace(*--Back))
+        {
+            *(Back+1) = '\0';
+        }
+    }
+    
+    return Value;
+}
+
 
 #define KENGINE_STRING_H
 #endif //KENGINE_STRING_H
