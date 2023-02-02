@@ -1991,3 +1991,665 @@ Win32IsColorSchemeChangeMessage(LPARAM LParam)
     
 	return Result;
 }
+
+internal void
+Win32DeleteHttpCache(char *Format, ...)
+{
+    format_string_state StringState = BeginFormatString();
+    
+    va_list ArgList;
+    va_start(ArgList, Format);
+    AppendFormatString_(&StringState, Format, ArgList);
+    va_end(ArgList);
+    
+    u8 CUrlName[MAX_URL];
+    string UrlName = EndFormatStringToBuffer(&StringState, CUrlName, sizeof(CUrlName));
+    CUrlName[UrlName.Size] = 0;
+    
+    b32 Success = Win32DeleteUrlCacheEntryA((char *)CUrlName);
+    if(Success)
+    {
+        LogDebug("Deleted Url cache entry for %S", UrlName);
+    }
+    else
+    {
+        LogDebug("Url cache entry not found %S", UrlName);
+    }
+}
+
+typedef struct win32_http_client
+{
+    HINTERNET Session;
+    HINTERNET Handle;
+    b32 SkipMetrics;
+    
+    memory_arena Arena;
+    DWORD Flags;
+    string Hostname;
+    string Username;
+    string Password;
+} win32_http_client;
+
+internal void
+Win32EndHttpClient(platform_http_client *PlatformClient)
+{
+    if(PlatformClient->Handle)
+    {
+        win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
+        Win32InternetCloseHandle(Win32Client->Handle);
+        Win32InternetCloseHandle(Win32Client->Session);
+        ClearArena(&Win32Client->Arena);
+    }
+    else
+    {
+        LogError("No http client handle to close");
+    }
+}
+
+internal platform_http_client
+Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string Password)
+{
+    platform_http_client Result;
+    ZeroStruct(Result);
+    
+    char CUsername_[256];
+    char *CUsername = 0;
+    if(!IsNullString(Username))
+    {
+        StringToCString(Username, sizeof(CUsername_), CUsername_);
+        CUsername = CUsername_;
+    }
+    
+    char CPassword_[256];
+    char *CPassword = 0;
+    if(!IsNullString(Password))
+    {
+        StringToCString(Password, sizeof(CPassword_), CPassword_);
+        CPassword = CPassword_;
+    }
+    
+    win32_http_client *Win32Client = BootstrapPushStruct(win32_http_client, Arena);
+    Result.Handle = Win32Client;
+    Win32Client->Username = Username;
+    Win32Client->Password = Password;
+    Win32Client->Session = Win32InternetOpenA("Default_User_Agent", INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, 0);
+    
+    char CHost_[2048];
+    StringToCString(Hostname, sizeof(CHost_), CHost_);
+    
+    INTERNET_PORT InternetPort = 0;
+    if(Port == 0)
+    {
+        InternetPort = INTERNET_DEFAULT_HTTP_PORT;
+        Win32Client->Hostname = FormatString(&Win32Client->Arena, "%S", Hostname);
+    }
+    else
+    {
+        Win32Client->Hostname = FormatString(&Win32Client->Arena, "%S:%u", Hostname, Port);
+    }
+    
+    char *CHost = CHost_;
+    if(StringBeginsWith(String("https"), Hostname))
+    {
+        Result.IsHttps = true;
+        CHost += 8;
+        if(Port == 0)
+        {
+            Port = INTERNET_DEFAULT_HTTPS_PORT;
+        }
+        Win32Client->Flags = INTERNET_FLAG_SECURE;
+    }
+    else if(StringBeginsWith(String("http"), Hostname))
+    {
+        Result.IsHttps = false;
+        CHost += 7;
+    }
+    
+    Result.Hostname = PushString_(&Win32Client->Arena, GetNullTerminiatedStringLength(CHost), (u8 *)CHost);
+    Result.Port = Port;
+    LogDebug("Opening connection to %s:%u", CHost, Port);
+    // TODO(kstandbridge): Can I ditch CUsername and CPassword since they are specified as options above?
+    // Then we can pass a string instead as the option takes a length
+    Win32Client->Handle = Win32InternetConnectA(Win32Client->Session, CHost, Port, CUsername, CPassword,
+                                                INTERNET_SERVICE_HTTP, 0, 0);
+    
+    if(Win32Client->Handle)
+    {
+        Result.NoErrors = true;
+    }
+    else
+    {
+        Result.NoErrors = false;
+    }
+    
+    return Result;
+}
+
+internal platform_http_client
+Win32BeginHttpClient(string Hostname, u32 Port)
+{
+    platform_http_client Result = Win32BeginHttpClientWithCreds(Hostname, Port, NullString(), NullString());
+    return Result;
+}
+
+internal void
+Win32SkipHttpMetrics(platform_http_client *PlatformClient)
+{
+    if(PlatformClient->Handle)
+    {
+        win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
+        Win32Client->SkipMetrics = true;
+    }
+    else
+    {
+        LogError("No http client handle to set skip metrics on");
+    }
+}
+
+internal void
+Win32SetHttpClientTimeout(platform_http_client *PlatformClient, u32 TimeoutMs)
+{
+    if(PlatformClient->Handle)
+    {
+        win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
+        if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_RECEIVE_TIMEOUT, &TimeoutMs, sizeof(TimeoutMs)))
+        {
+            Win32LogError("Failed to set internet recieve timeout option");
+            PlatformClient->NoErrors = false;
+        }
+        if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_SEND_TIMEOUT, &TimeoutMs, sizeof(TimeoutMs)))
+        {
+            Win32LogError("Failed to set internet send timeout option");
+            PlatformClient->NoErrors = false;
+        }
+        if(!Win32InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_CONNECT_TIMEOUT, &TimeoutMs, sizeof(TimeoutMs)))
+        {
+            Win32LogError("Failed to set internet connect timeout option");
+            PlatformClient->NoErrors = false;
+        }
+    }
+    else
+    {
+        LogError("No http client handle to set timeout on");
+    }
+}
+
+typedef struct win32_http_request
+{
+    win32_http_client *Win32Client;
+    HINTERNET Handle;
+    LARGE_INTEGER BeginCounter;
+} win32_http_request;
+
+
+internal void
+Win32EndHttpRequest(platform_http_request *PlatformRequest)
+{
+    if(PlatformRequest->Handle)
+    {
+        LogDebug("Ending http request");
+        win32_http_request *Win32Request = (win32_http_request *)PlatformRequest->Handle;
+        Win32HttpEndRequestA(Win32Request->Handle, 0, 0, 0);
+        
+        if(!Win32Request->Win32Client->SkipMetrics)
+        {            
+            LARGE_INTEGER EndCounter = Win32GetWallClock();
+            f32 MeasuredSeconds = Win32GetSecondsElapsed(Win32Request->BeginCounter, EndCounter, 
+                                                         GlobalWin32State.PerfCountFrequency);
+            SendTimedHttpTelemetry(PlatformRequest->Hostname, PlatformRequest->Port, PlatformRequest->Verb, PlatformRequest->Template, PlatformRequest->Endpoint, PlatformRequest->RequestLength, PlatformRequest->ResponseLength, PlatformRequest->StatusCode,
+                                   MeasuredSeconds);
+        }
+        
+    }
+    else
+    {
+        LogError("No http request handle to close");
+    }
+}
+
+internal platform_http_request
+Win32BeginHttpRequest(platform_http_client *PlatformClient, http_verb_type Verb, char *Format, ...)
+{
+    platform_http_request Result;
+    ZeroStruct(Result);
+    Result.Hostname = PlatformClient->Hostname;
+    Result.Port = PlatformClient->Port;
+    
+    if(PlatformClient->Handle)
+    {
+        win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
+        memory_arena *Arena = &Win32Client->Arena;
+        win32_http_request *Win32Request = PushStruct(Arena, win32_http_request);
+        Win32Request->Win32Client = Win32Client;
+        Win32Request->BeginCounter = Win32GetWallClock();
+        Result.Handle = Win32Request;
+        
+        char *CVerb = 0;
+        switch(Verb)
+        {
+            case HttpVerb_Post:   { CVerb = "POST"; } break;
+            case HttpVerb_Get:    { CVerb = "GET"; } break;
+            case HttpVerb_Put:    { CVerb = "PUT"; } break;
+            case HttpVerb_Patch:  { CVerb = "PATCH"; } break;
+            case HttpVerb_Delete: { CVerb = "DELETE"; } break;
+            
+            InvalidDefaultCase;
+        }
+        
+        Result.Verb = PushString_(Arena, GetNullTerminiatedStringLength(CVerb), (u8 *)CVerb);
+        Result.Template = PushString_(Arena, GetNullTerminiatedStringLength(Format), (u8 *)Format);
+        
+        format_string_state StringState = BeginFormatString();
+        
+        va_list ArgList;
+        va_start(ArgList, Format);
+        AppendFormatString_(&StringState, Format, ArgList);
+        va_end(ArgList);
+        
+        Result.Endpoint = EndFormatString(&StringState, Arena);
+        
+        char CEndpoint[MAX_URL];
+        StringToCString(Result.Endpoint, sizeof(CEndpoint), CEndpoint);
+        
+        if(!Win32Client->SkipMetrics)
+        {
+            LogVerbose("Http %s request to %S:%u%s", CVerb, Win32Client->Hostname, PlatformClient->Port, CEndpoint);
+        }
+        Win32Request->Handle = Win32HttpOpenRequestA(Win32Client->Handle, CVerb, CEndpoint, 0, 0, 0, Win32Client->Flags, 0);
+        if(Win32Request->Handle)
+        {
+            Result.NoErrors = true;
+            
+        }
+        else
+        {
+            Result.NoErrors = false;
+        }
+    }
+    else
+    {
+        Result.NoErrors = false;
+        LogError("No http client handle to close");
+    }
+    
+    return Result;
+}
+
+internal void
+Win32SetHttpRequestHeaders(platform_http_request *PlatformRequest, string Headers)
+{
+    win32_http_request *Win32Request = PlatformRequest->Handle;
+    
+    // TODO(kstandbridge): Max header size?
+    char CHeaders[MAX_URL];
+    StringToCString(Headers, sizeof(CHeaders), CHeaders);
+    
+    if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, CHeaders, (DWORD) -1, HTTP_ADDREQ_FLAG_ADD))
+    {
+        PlatformRequest->NoErrors = false;
+    }
+    
+}
+
+internal u32
+Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File)
+{
+    u32 Result = 0;
+    
+    win32_http_request *Win32Request = PlatformRequest->Handle;
+    win32_http_client *Win32Client = Win32Request->Win32Client;
+    memory_arena *Arena = &Win32Client->Arena;
+    
+    char CFile[MAX_PATH];
+    StringToCString(File, MAX_PATH, CFile);
+    
+    HANDLE FileHandle = CreateFileA(CFile, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER LFileSize;
+        GetFileSizeEx(FileHandle, &LFileSize);
+        umm FileSize = LFileSize.QuadPart;
+        PlatformRequest->RequestLength = FileSize;
+        
+        u8 HeaderBuffer[256];
+        string Header = FormatStringToBuffer(HeaderBuffer, sizeof(HeaderBuffer), "Content-Length: %u\r\n", FileSize);
+        HeaderBuffer[Header.Size] = '\0';
+        Win32HttpAddRequestHeadersA(Win32Request->Handle, (char *)HeaderBuffer, 
+                                    (DWORD)-1, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE);
+        
+        b32 RetryOn401 = true;
+        for(;;)
+        {
+            if(Win32HttpSendRequestExA(Win32Request->Handle, 0, 0, HSR_INITIATE, 0))
+            {                
+                umm Offset = 0;
+                OVERLAPPED Overlapped;
+                ZeroStruct(Overlapped);
+                u8 Buffer[1024];
+                umm BufferSize = 1024;
+                do
+                {
+                    Overlapped.Offset = (u32)((Offset >> 0) & 0xFFFFFFFF);
+                    Overlapped.OffsetHigh = (u32)((Offset >> 32) & 0xFFFFFFFF);
+                    
+                    DWORD BytesRead = 0;
+                    if(ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
+                    {
+                        DWORD BytesSent = 0;
+                        DWORD TotalBytesSend = 0;
+                        do
+                        {
+                            if(!Win32InternetWriteFile(Win32Request->Handle, Buffer + TotalBytesSend, BytesRead, &BytesSent))
+                            {
+                                FileSize = 0;
+                                break;
+                            }
+                            TotalBytesSend += BytesSent;
+                        } while(TotalBytesSend < BytesRead);
+                        
+                        Offset += BytesRead;
+                    }
+                    else
+                    {
+                        Assert(!"Error reading file!");
+                    }
+                } while(Offset < FileSize);
+                
+                Win32HttpEndRequestA(Win32Request->Handle, 0, 0, 0);
+                
+                DWORD StatusCode = 0;
+                DWORD StatusCodeSize = sizeof(StatusCodeSize);
+                if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
+                {
+                    LogDebug("Received status code %u on http request", StatusCode);
+                    
+                    // NOTE(kstandbridge): HttpSendRequestEx will return 401 initially asking for creds, so try send the request again
+                    if((StatusCode == 401) 
+                       && RetryOn401)
+                    {
+                        RetryOn401 = false;
+                    }
+                    else
+                    {
+                        Result = StatusCode;
+                        break;
+                    }
+                }
+                else
+                {
+                    PlatformRequest->NoErrors = false;
+                    break;
+                }
+            }
+            else
+            {
+                PlatformRequest->NoErrors = false;
+                break;
+            }
+        }
+        
+    }
+    else
+    {
+        LogError("Unable to open file %S", File);
+    }
+    
+    PlatformRequest->StatusCode = Result;
+    return Result;
+}
+
+internal u32
+Win32SendHttpRequest(platform_http_request *PlatformRequest)
+{
+    u32 Result = 0;
+    
+    win32_http_request *Win32Request = PlatformRequest->Handle;
+    win32_http_client *Win32Client = Win32Request->Win32Client;
+    memory_arena *Arena = &Win32Client->Arena;
+    
+    if(!IsNullString(Win32Client->Username) &&
+       !IsNullString(Win32Client->Password))
+    {
+        u8 UserPassBuffer[MAX_URL];
+        string UserPass = FormatStringToBuffer(UserPassBuffer, sizeof(UserPassBuffer),
+                                               "%S:%S", Win32Client->Username, Win32Client->Password);
+        u8 AuthTokenBuffer[MAX_URL];
+        string AuthToken = String_(sizeof(AuthTokenBuffer), AuthTokenBuffer);
+        if(Win32CryptBinaryToStringA(UserPass.Data, UserPass.Size, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF,
+                                     (LPSTR)AuthToken.Data, (DWORD *)&AuthToken.Size))
+        {
+            u8 AuthHeaderBuffer[MAX_URL];
+            string AuthHeader = FormatStringToBuffer(AuthHeaderBuffer, sizeof(AuthHeaderBuffer),
+                                                     "Authorization: Basic %S\r\n", AuthToken);
+            if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, (LPCSTR)AuthHeader.Data, AuthHeader.Size, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE))
+            {
+                Win32LogError("Failed to add basic authorization header");
+            }
+        }
+        else
+        {
+            Win32LogError("Failed to generate auth token");
+        }
+    }
+    
+    PlatformRequest->RequestLength = PlatformRequest->Payload.Size;
+    if(Win32HttpSendRequestA(Win32Request->Handle, 0, 0, PlatformRequest->Payload.Data, PlatformRequest->Payload.Size))
+    {
+        DWORD StatusCode = 0;
+        DWORD StatusCodeSize = sizeof(StatusCodeSize);
+        if(Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_STATUS_CODE|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&StatusCode, &StatusCodeSize, 0))
+        {
+            LogDebug("Received status code %u on http request", StatusCode);
+            Result = StatusCode;
+        }
+        else
+        {
+            PlatformRequest->NoErrors = false;
+        }
+    }
+    else
+    {
+        DWORD ErrorCode = GetLastError();
+        if(ErrorCode == ERROR_INTERNET_TIMEOUT)
+        {
+            LogVerbose("Client timeout on http request");
+            Result = 408; // TODO(kstandbridge): status code enum?
+            PlatformRequest->NoErrors = false;
+        }
+    }
+    
+    PlatformRequest->StatusCode = Result;
+    
+    return Result;
+}
+
+internal umm
+Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
+{
+    umm Result = 0;
+    
+    win32_http_request *Win32Request = PlatformRequest->Handle;
+    win32_http_client *Win32Client = Win32Request->Win32Client;
+    memory_arena *Arena = &Win32Client->Arena;
+    
+    u64 ContentLength = 0;
+    u8 ContentLengthBuffer[MAX_URL];
+    DWORD ContentLengthSize = sizeof(ContentLengthBuffer);
+    char *Query = "Content-Length";
+    Copy(GetNullTerminiatedStringLength(Query) + 1, Query, ContentLengthBuffer);
+    
+    if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CUSTOM, (LPVOID)&ContentLengthBuffer, (LPDWORD)&ContentLengthSize, 0))
+    {
+        DWORD ErrorCode = GetLastError();
+        if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
+        {
+            PlatformRequest->NoErrors = false;
+        }
+    }
+    else
+    {
+        string ContentLengthText = String_(ContentLengthSize, ContentLengthBuffer);
+        ParseFromString(ContentLengthText, "%lu", &ContentLength);
+    }
+    
+    if(PlatformRequest->NoErrors)
+    {
+        u8 CFile[MAX_PATH];
+        StringToCString(File, sizeof(CFile), (char *)CFile);
+        HANDLE SaveHandle = CreateFileA((char *)CFile, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);;
+        u8 SaveBuffer[4096];
+        
+        LogVerbose("Downloading to file %s", CFile);
+        u64 TotalBytesRead = 0;
+        DWORD CurrentBytesRead;
+        LARGE_INTEGER LastCounter = Win32GetWallClock();
+        f32 SecondsSinceLastReport = 0.0f;
+        for(;;)
+        {
+            if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer, sizeof(SaveBuffer), &CurrentBytesRead))
+            {
+                TotalBytesRead += CurrentBytesRead;
+            }
+            else
+            {
+                DWORD ErrorCode = GetLastError();
+                if(ErrorCode == ERROR_INSUFFICIENT_BUFFER)
+                {
+                    LogError("InternetReadFile failed due to insufficent buffer size");
+                }
+                PlatformRequest->NoErrors = false;
+                break;
+            }
+            DWORD BytesWritten;
+            WriteFile(SaveHandle, SaveBuffer, CurrentBytesRead, &BytesWritten, 0);
+            
+            LARGE_INTEGER ThisCounter = Win32GetWallClock();
+            f32 SecondsElapsed = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
+            SecondsSinceLastReport += SecondsElapsed;
+            if(SecondsSinceLastReport > 3.0f)
+            {
+                if(!Win32Client->SkipMetrics)
+                {
+                    LogDownloadProgress(TotalBytesRead, ContentLength);
+                }
+                SecondsSinceLastReport = 0.0f;
+            }
+            if((TotalBytesRead == ContentLength) ||
+               (CurrentBytesRead == 0))
+            {
+                break;
+            }
+            LastCounter = ThisCounter;
+        }
+        
+        CloseHandle(SaveHandle);
+        
+        Result = TotalBytesRead;
+        
+        if(!Win32Client->SkipMetrics)
+        {
+            LogDownloadProgress(TotalBytesRead, TotalBytesRead);
+        }
+        
+    }
+    
+    PlatformRequest->ResponseLength = Result;
+    return Result;
+}
+
+internal string
+Win32GetHttpResponse(platform_http_request *PlatformRequest)
+{
+    string Result;
+    ZeroStruct(Result);
+    
+    win32_http_request *Win32Request = PlatformRequest->Handle;
+    win32_http_client *Win32Client = Win32Request->Win32Client;
+    memory_arena *Arena = &Win32Client->Arena;
+    
+    DWORD ContentLength = 0;
+    DWORD ContentLengthSize = sizeof(ContentLengthSize);
+    
+    if(!Win32HttpQueryInfoA(Win32Request->Handle, HTTP_QUERY_CONTENT_LENGTH|HTTP_QUERY_FLAG_NUMBER, (LPVOID)&ContentLength, &ContentLengthSize, 0))
+    {
+        DWORD ErrorCode = GetLastError();
+        if(ErrorCode != ERROR_HTTP_HEADER_NOT_FOUND)
+        {
+            PlatformRequest->NoErrors = false;
+        }
+    }
+    
+    if(PlatformRequest->NoErrors)
+    {
+        if(ContentLength == 0)
+        {
+            ContentLength = Arena->CurrentBlock->Size - Arena->CurrentBlock->Used;
+            if(ContentLength < Kilobytes(1536))
+            {
+                ContentLength = Kilobytes(1536);
+            }
+            LogDebug("Content-Length not specified so setting to %u", ContentLength);
+        }
+        
+        Result.Size = ContentLength;
+        Result.Data = PushSize_(Arena, ContentLength, DefaultArenaPushParams());
+        
+        u8 *SaveBuffer = Result.Data;
+        
+        DWORD TotalBytesRead = 0;
+        DWORD CurrentBytesRead;
+        LARGE_INTEGER LastCounter = Win32GetWallClock();
+        f32 SecondsSinceLastReport = 0.0f;
+        for(;;)
+        {
+            if(Win32InternetReadFile(Win32Request->Handle, SaveBuffer + TotalBytesRead, 4096, &CurrentBytesRead))
+            {
+                if(CurrentBytesRead == 0)
+                {
+                    break;
+                }
+                TotalBytesRead += CurrentBytesRead;
+                if(TotalBytesRead == ContentLength)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                DWORD ErrorCode = GetLastError();
+                if (ErrorCode == ERROR_INSUFFICIENT_BUFFER)
+                {
+                    LogError("InternetReadFile failed due to insufficent buffer size");
+                }
+                PlatformRequest->NoErrors = false;
+                break;
+            }
+            LARGE_INTEGER ThisCounter = Win32GetWallClock();
+            f32 SecondsElapsed = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock(), GlobalWin32State.PerfCountFrequency);
+            SecondsSinceLastReport += SecondsElapsed;
+            if(SecondsSinceLastReport > 3.0f)
+            {
+                if(!Win32Client->SkipMetrics)
+                {
+                    LogDownloadProgress(TotalBytesRead, ContentLength);
+                }
+                SecondsSinceLastReport = 0.0f;
+            }
+            LastCounter = ThisCounter;
+        }
+        
+        if(TotalBytesRead > ContentLength)
+        {
+            LogError("Buffer overflow during download!");
+        }
+        Result.Size = TotalBytesRead;
+        
+        if(!Win32Client->SkipMetrics)
+        {
+            LogDownloadProgress(TotalBytesRead, TotalBytesRead);
+        }
+    }
+    
+    PlatformRequest->ResponseLength = Result.Size;
+    return Result;
+}
