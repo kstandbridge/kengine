@@ -1457,6 +1457,21 @@ CStringRightTrim(char *Value)
     return Value;
 }
 
+internal void
+Path_GetDirectory(char *Result, size_t Size, char *Source)
+{
+    Copy(Size, Source, Result);
+    for(size_t Index = GetNullTerminiatedStringLength(Source);
+        Index > 0;
+        --Index)
+    {
+        if(Source[Index] == '\\')
+        {
+            Result[Index] = '\0';
+            break;
+        }
+    }
+}
 
 #define KENGINE_STRING_H
 #endif //KENGINE_STRING_H

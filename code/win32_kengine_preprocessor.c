@@ -907,7 +907,7 @@ ParseIntrospectable(string File)
 }
 
 s32 __stdcall
-mainCRTStartup()
+main()
 {
     memory_arena Arena_;
     ZeroStruct(Arena_);

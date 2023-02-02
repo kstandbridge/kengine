@@ -505,7 +505,10 @@ SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string
                         Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
                         ThreadId, Level, Message);
 #else
-    Platform.ConsoleOut("%S\n", Message);
+    if(LogLevel > LogLevel_Verbose)
+    {
+        Platform.ConsoleOut("%S\n", Message);
+    }
 #endif
     
     
