@@ -484,6 +484,18 @@ typedef enum log_level_type
 #define LogError(Format, ...) SendLogTelemetry_(__FILE__, __LINE__, LogLevel_Error, Format, __VA_ARGS__);
 #endif
 
+
+typedef void custom_logger(void *Context, date_time Date, log_level_type LogLevel, string Message);
+global custom_logger *CustomLoggerFunc_;
+global void *CustomLoggerContext_;
+
+internal void
+InitCustomLogger(void *CustomContext, custom_logger *AppCustomLogger)
+{
+    CustomLoggerFunc_ = AppCustomLogger;
+    CustomLoggerContext_ = CustomContext;
+}
+
 internal void
 SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string Message)
 {
@@ -498,10 +510,10 @@ SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string
         InvalidDefaultCase;
     }
     
-#if KENGINE_INTERNAL
     date_time Date = GetDateTime();
+#if KENGINE_INTERNAL
     u32 ThreadId = GetThreadID();
-    Platform.ConsoleOut("[%02d/%02d/%04d %02d:%02d:%02d] <Thread:%5u> (%S)\t%S\n", 
+    Platform.ConsoleOut("[%02d/%02d/%04d %02d:%02d:%02d] <%5u> (%S)\t%S\n", 
                         Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
                         ThreadId, Level, Message);
 #else
@@ -511,6 +523,10 @@ SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string
     }
 #endif
     
+    if(CustomLoggerFunc_)
+    {
+        CustomLoggerFunc_(CustomLoggerContext_, Date, LogLevel, Message);
+    }
     
     if(LogLevel > LogLevel_Verbose)
     {
