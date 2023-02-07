@@ -137,6 +137,8 @@ Win32AllocateMemory(umm Size, u64 Flags)
         ProtectOffset = PageSize + SizeRoundedUp;
     }
     
+    LogDebug("Allocating %u bytes", TotalSize);
+    
     win32_memory_block *Win32Block = (win32_memory_block *)VirtualAlloc(0, TotalSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     Assert(Win32Block);
     Win32Block->PlatformBlock.Base = (u8 *)Win32Block + BaseOffset;
@@ -175,6 +177,7 @@ Win32DeallocateMemory(platform_memory_block *Block)
     Win32Block->Next->Prev = Win32Block->Prev;
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
     
+    LogDebug("Freeing %u bytes", Block->Size);
     b32 IsFreed = VirtualFree(Win32Block, 0, MEM_RELEASE);
     Assert(IsFreed);
 }

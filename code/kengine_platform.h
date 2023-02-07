@@ -271,7 +271,7 @@ typedef struct app_memory
 typedef void app_handle_command(app_memory *Memory, string Command, u32 ArgCount, string *Args);
 
 #if defined(KENGINE_CONSOLE) || defined(KENGINE_HEADLESS)
-typedef void app_tick_(app_memory *Memory, f32 dtForFrame);
+typedef void app_tick_(app_memory *Memory, f32 DeltaTime);
 #else
 typedef void app_tick_(app_memory *Memory, struct render_group *RenderGroup, app_input *Input);
 #endif
