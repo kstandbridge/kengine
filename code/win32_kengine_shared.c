@@ -1427,7 +1427,7 @@ Win32UnzipToDirectory(string SourceZip, string DestFolder)
 internal b32
 Win32WriteTextToFile(string Text, string FilePath)
 {
-    LogVerbose("Writing to %S", FilePath);
+    LogVerbose("Writing text to file %S", FilePath);
     
     char CFilePath[MAX_PATH];
     StringToCString(FilePath, MAX_PATH, CFilePath);
