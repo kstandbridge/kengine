@@ -252,16 +252,13 @@ Win32PermanentDeleteFile(string Path)
 }
 
 internal void
-Win32ConsoleOut(char *Format, ...)
+Win32ConsoleOut_(char *Format, va_list ArgList)
 {
     u8 Buffer[4096];
     umm BufferSize = sizeof(Buffer);
     format_string_state StringState = BeginFormatString();
     
-    va_list ArgList;
-    va_start(ArgList, Format);
     AppendFormatString_(&StringState, Format, ArgList);
-    va_end(ArgList);
     
     string Text = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
     Text;
@@ -278,6 +275,18 @@ Win32ConsoleOut(char *Format, ...)
     Buffer[Text.Size] = '\0';
     OutputDebugStringA((char *)Buffer);
 #endif
+}
+
+internal void
+Win32ConsoleOut(char *Format, ...)
+{
+    va_list ArgList;
+    va_start(ArgList, Format);
+    
+    Win32ConsoleOut_(Format, ArgList);
+    
+    va_end(ArgList);
+    
 }
 
 internal FILETIME
@@ -1983,14 +1992,18 @@ Win32GetDateTimeFromTimestamp(u64 Timestamp)
 internal b32
 Win32IsColorSchemeChangeMessage(LPARAM LParam)
 {
+    // TODO(kstandbridge): Win32IsColorSchemeChangeMessage
+    
 	b32 Result = false;
     
+#if 0    
     if (LParam && StringsAreEqual(CStringToString((char *)LParam), String("ImmersiveColorSet")))
 	{
 		Win32.RefreshImmersiveColorPolicyState();
 		Result = true;
 	}
 	Win32.GetIsImmersiveColorUsingHighContrast(IHCM_REFRESH);
+#endif
     
 	return Result;
 }

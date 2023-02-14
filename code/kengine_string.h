@@ -167,12 +167,20 @@ IsEndOfLine(char C)
 }
 
 inline b32
-IsWhitespace(char C)
+IsSpacing(char C)
 {
     b32 Result = ((C == ' ') ||
                   (C == '\t') ||
                   (C == '\v') ||
-                  (C == '\f') ||
+                  (C == '\f'));
+    
+    return Result;
+}
+
+inline b32
+IsWhitespace(char C)
+{
+    b32 Result = (IsSpacing(C) || 
                   IsEndOfLine(C));
     
     return Result;
@@ -1471,6 +1479,26 @@ Path_GetDirectory(char *Result, size_t Size, char *Source)
             break;
         }
     }
+}
+
+internal u8 *
+StringAdvance(string *Text, umm Count)
+{
+    u8 *Result = 0;
+    
+    if(Text->Size >= Count)
+    {
+        Result = Text->Data;
+        Text->Data += Count;
+        Text->Size -= Count;
+    }
+    else
+    {
+        Text->Data += Text->Size;
+        Text->Size = 0;
+    }
+    
+    return Result;
 }
 
 #define KENGINE_STRING_H
