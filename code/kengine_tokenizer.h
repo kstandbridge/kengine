@@ -11,8 +11,12 @@ typedef enum token_type
     Token_OpenAngleBracket,
     Token_CloseAngleBracket,
     Token_Equals,
-    Token_Identifier,
     Token_ForwardSlash,
+    Token_QuestionMark,
+    Token_ExcalationMark,
+    Token_Dash,
+    
+    Token_Identifier,
     
     Token_String,
     
@@ -36,6 +40,10 @@ GetTokenTypeName(token_type Type)
         case Token_CloseAngleBracket: {Result = String("close angle bracket");} break;
         case Token_Equals:            {Result = String("equals");} break;
         case Token_ForwardSlash:      {Result = String("forward slash");} break;
+        case Token_QuestionMark:      {Result = String("question mark");} break;
+        case Token_ExcalationMark:    {Result = String("excalation mark");} break;
+        case Token_Dash:              {Result = String("dash");} break;
+        
         case Token_Identifier:        {Result = String("identifier");} break;
         
         case Token_String:            {Result = String("string");} break;
@@ -54,7 +62,7 @@ typedef struct tokenizer
     s32 ColumnNumber;
     s32 LineNumber;
     
-    string Input;
+    string FileData;
     char At[2];
     
     b32 HasErrors;
@@ -81,22 +89,22 @@ inline void
 TokenizerAdvance(tokenizer *Tokenizer, u32 Count)
 {
     Tokenizer->ColumnNumber += Count;
-    StringAdvance(&Tokenizer->Input, Count);
+    StringAdvance(&Tokenizer->FileData, Count);
     
-    if(Tokenizer->Input.Size == 0)
+    if(Tokenizer->FileData.Size == 0)
     {
         Tokenizer->At[0] = 0;
         Tokenizer->At[1] = 0;
     }
-    else if(Tokenizer->Input.Size == 1)
+    else if(Tokenizer->FileData.Size == 1)
     {
-        Tokenizer->At[0] = Tokenizer->Input.Data[0];
+        Tokenizer->At[0] = Tokenizer->FileData.Data[0];
         Tokenizer->At[1] = 0;
     }
     else
     {
-        Tokenizer->At[0] = Tokenizer->Input.Data[0];
-        Tokenizer->At[1] = Tokenizer->Input.Data[1];
+        Tokenizer->At[0] = Tokenizer->FileData.Data[0];
+        Tokenizer->At[1] = Tokenizer->FileData.Data[1];
     }
 }
 
@@ -108,7 +116,7 @@ GetToken_(tokenizer *Tokenizer)
         .FileName = Tokenizer->FileName,
         .ColumnNumber = Tokenizer->ColumnNumber,
         .LineNumber = Tokenizer->LineNumber,
-        .Text = Tokenizer->Input
+        .Text = Tokenizer->FileData
     };
     
     char C = Tokenizer->At[0];
@@ -120,6 +128,9 @@ GetToken_(tokenizer *Tokenizer)
         case '>': {Result.Type = Token_CloseAngleBracket;} break;
         case '=': {Result.Type = Token_Equals;} break;
         case '/': {Result.Type = Token_ForwardSlash;} break;
+        case '?': {Result.Type = Token_QuestionMark;} break;
+        case '!': {Result.Type = Token_ExcalationMark;} break;
+        case '-': {Result.Type = Token_Dash;} break;
         
         case '"': 
         {
@@ -187,7 +198,7 @@ GetToken_(tokenizer *Tokenizer)
         } break;
     }
     
-    Result.Text.Size = (Tokenizer->Input.Data - Result.Text.Data);
+    Result.Text.Size = (Tokenizer->FileData.Data - Result.Text.Data);
     
     return Result;
     
@@ -301,6 +312,20 @@ PeekTokenType(tokenizer *Tokenizer, token_type DesiredType)
     return Result;
 }
 
+internal b32
+PeekIdentifierToken(tokenizer *Tokenizer, string Match)
+{
+    b32 Result = false;
+    
+    token Token = PeekToken(Tokenizer);
+    if(Token.Type == Token_Identifier)
+    {
+        Result = StringsAreEqual(Token.Text, Match);
+    }
+    
+    return Result;
+}
+
 inline b32
 Parsing(tokenizer *Tokenizer)
 {
@@ -311,14 +336,14 @@ Parsing(tokenizer *Tokenizer)
 }
 
 internal tokenizer
-Tokenize(string Input, string FileName)
+Tokenize(string FileData, string FileName)
 {
     tokenizer Result =
     {
         .FileName = FileName,
         .ColumnNumber = 1,
         .LineNumber = 1,
-        .Input = Input,
+        .FileData = FileData,
     };
     TokenizerAdvance(&Result, 0);
     

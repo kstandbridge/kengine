@@ -42,6 +42,32 @@ GetXmlAttribute(xml_element *Parent, string Key)
     return Result;
 }
 
+internal string
+GetXmlElementValue(xml_element Parent)
+{
+    string Result = String("");
+    
+    tokenizer Tokenizer_ = Parent.Tokenizer;
+    tokenizer *Tokenizer = &Tokenizer_;
+    
+    
+    while(Parsing(Tokenizer))
+    {
+        token Token = GetToken(Tokenizer);
+        if(Token.Type == Token_ForwardSlash)
+        {
+            if(PeekIdentifierToken(Tokenizer, Parent.Name))
+            {
+                Result.Data = Parent.Tokenizer.FileData.Data;
+                Result.Size = Tokenizer->FileData.Data - Parent.Tokenizer.FileData.Data - 2;
+                break;
+            }
+        }
+    }
+    
+    return Result;
+}
+
 internal xml_element
 GetXmlElement(xml_element Parent, string Name)
 {
@@ -56,57 +82,92 @@ GetXmlElement(xml_element Parent, string Name)
     
     while(Parsing(Tokenizer))
     {
-        RequireToken(Tokenizer, Token_OpenAngleBracket);
-        
-        if(PeekTokenType(Tokenizer, Token_ForwardSlash))
-        {
-            RequireToken(Tokenizer, Token_ForwardSlash);
-            RequireToken(Tokenizer, Token_Identifier);
-            RequireToken(Tokenizer, Token_CloseAngleBracket);
-        }
-        else
-        {            
-            token Identifier = RequireToken(Tokenizer, Token_Identifier);
-            b32 IsMatch = StringsAreEqual(Identifier.Text, Name);
+        token Token = GetToken(Tokenizer);
+        if(Token.Type == Token_OpenAngleBracket)
             
-            // NOTE(kstandbridge): Parse attributes
+        {        
+            if(PeekTokenType(Tokenizer, Token_ForwardSlash))
             {
-                while(Parsing(Tokenizer) &&
-                      !PeekTokenType(Tokenizer, Token_ForwardSlash) &&
-                      !PeekTokenType(Tokenizer, Token_CloseAngleBracket))
-                {
-                    token Key = RequireToken(Tokenizer, Token_Identifier);
-                    RequireToken(Tokenizer, Token_Equals);
-                    token Value = RequireToken(Tokenizer, Token_String);
-                    
-                    if(IsMatch)
-                    {
-                        xml_attribute *Attribute = Result.CurrentAttribute;
-                        if(Attribute == 0)
-                        {
-                            Attribute = Result.CurrentAttribute = Result.Attributes = PushStruct(Result.Arena, xml_attribute);
-                        }
-                        else
-                        {
-                            Result.CurrentAttribute->Next = PushStruct(Result.Arena, xml_attribute);
-                            Attribute = Result.CurrentAttribute = Result.CurrentAttribute->Next;
-                            
-                        }
-                        Attribute->Key = Key.Text;
-                        Attribute->Value = Value.Text;
-                    }
-                    
-                }
-                token Closing = GetToken(Tokenizer);
-                if(Closing.Type == Token_ForwardSlash)
-                {
-                    Closing = GetToken(Tokenizer);
-                }
+                RequireToken(Tokenizer, Token_ForwardSlash);
+                RequireToken(Tokenizer, Token_Identifier);
+                RequireToken(Tokenizer, Token_CloseAngleBracket);
             }
-            
-            if(IsMatch)
+            else if(PeekTokenType(Tokenizer, Token_QuestionMark))
             {
-                break;
+                token HeaderToken = GetToken(Tokenizer);
+                HeaderToken = GetToken(Tokenizer);
+                while(Parsing(Tokenizer) &&
+                      (HeaderToken.Type != Token_QuestionMark))
+                {
+                    HeaderToken = GetToken(Tokenizer);
+                }
+                RequireToken(Tokenizer, Token_CloseAngleBracket);
+            }
+            else if(PeekTokenType(Tokenizer, Token_ExcalationMark))
+            {
+                token CommentToken = GetToken(Tokenizer);
+                RequireToken(Tokenizer, Token_Dash);
+                RequireToken(Tokenizer, Token_Dash);
+                CommentToken = GetToken(Tokenizer);
+                while(Parsing(Tokenizer))
+                {
+                    if((CommentToken.Type == Token_Dash) &&
+                       PeekTokenType(Tokenizer, Token_Dash))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        CommentToken = GetToken(Tokenizer);
+                    }
+                }
+                RequireToken(Tokenizer, Token_Dash);
+                RequireToken(Tokenizer, Token_CloseAngleBracket);
+            }
+            else
+            {            
+                token Identifier = RequireToken(Tokenizer, Token_Identifier);
+                b32 IsMatch = StringsAreEqual(Identifier.Text, Name);
+                
+                // NOTE(kstandbridge): Parse attributes
+                {
+                    while(Parsing(Tokenizer) &&
+                          !PeekTokenType(Tokenizer, Token_ForwardSlash) &&
+                          !PeekTokenType(Tokenizer, Token_CloseAngleBracket))
+                    {
+                        token Key = RequireToken(Tokenizer, Token_Identifier);
+                        RequireToken(Tokenizer, Token_Equals);
+                        token Value = RequireToken(Tokenizer, Token_String);
+                        
+                        if(IsMatch)
+                        {
+                            xml_attribute *Attribute = Result.CurrentAttribute;
+                            if(Attribute == 0)
+                            {
+                                Attribute = Result.CurrentAttribute = Result.Attributes = PushStruct(Result.Arena, xml_attribute);
+                            }
+                            else
+                            {
+                                Result.CurrentAttribute->Next = PushStruct(Result.Arena, xml_attribute);
+                                Attribute = Result.CurrentAttribute = Result.CurrentAttribute->Next;
+                                
+                            }
+                            Attribute->Key = Key.Text;
+                            Attribute->Value = Value.Text;
+                        }
+                        
+                    }
+                    token Closing = GetToken(Tokenizer);
+                    if(Closing.Type == Token_ForwardSlash)
+                    {
+                        Closing = GetToken(Tokenizer);
+                    }
+                }
+                
+                if(IsMatch)
+                {
+                    break;
+                }
             }
         }
     }
@@ -135,6 +196,17 @@ GetXmlElements(xml_element Parent, string Name)
             if(StringsAreEqual(EndToken.Text, Parent.Name))
             {
                 break;
+            }
+            RequireToken(Tokenizer, Token_CloseAngleBracket);
+        }
+        else if(PeekTokenType(Tokenizer, Token_QuestionMark))
+        {
+            token HeaderToken = GetToken(Tokenizer);
+            HeaderToken = GetToken(Tokenizer);
+            while(Parsing(Tokenizer) &&
+                  (HeaderToken.Type != Token_QuestionMark))
+            {
+                HeaderToken = GetToken(Tokenizer);
             }
             RequireToken(Tokenizer, Token_CloseAngleBracket);
         }
@@ -208,13 +280,13 @@ GetXmlElements(xml_element Parent, string Name)
 }
 
 internal xml_element
-ParseXmlDocument(memory_arena *Arena, string Input, string FileName)
+ParseXmlDocument(memory_arena *Arena, string FileData, string FileName)
 {
     xml_element Result =
     {
         .Arena = Arena,
         .Name = String("<root>"),
-        .Tokenizer = Tokenize(Input, FileName),
+        .Tokenizer = Tokenize(FileData, FileName),
     };
     
     return Result;
