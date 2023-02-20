@@ -662,6 +662,119 @@ RunLinkedListMergeSortTests(memory_arena *Arena)
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next->Next == 0);
 }
 
+inline void
+RunParseXmlTest(memory_arena *Arena)
+{
+    {
+        string FileName = String("/dev/null");
+        string FileData = String("<Config>\n"
+                                 "<Source>SomeSource</Source>\n"
+                                 "<Name>SomeName</Name>\n"
+                                 "</Config>");
+        xml_element DocElement = ParseXmlDocument(Arena, FileData, FileName);
+        xml_element *ConfigElement = GetXmlElement(&DocElement, String("Config"));
+        ASSERT(ConfigElement);
+        
+        xml_element *SourceElement = GetXmlElement(ConfigElement, String("Source"));
+        ASSERT(SourceElement);
+        string SourceElementValue = GetXmlElementValue(SourceElement);
+        AssertEqualString(String("SomeSource"), SourceElementValue);
+        
+        xml_element *NameElement = GetXmlElement(ConfigElement, String("Name"));
+        ASSERT(NameElement);
+        string NameElementValue = GetXmlElementValue(NameElement);
+        AssertEqualString(String("SomeName"), NameElementValue);
+        
+        
+    }
+    
+    {
+        string FileName = String("/dev/null");
+        string FileData = String("<foo>"
+                                 "bar"
+                                 "</foo>");
+        xml_element DocElement = ParseXmlDocument(Arena, FileData, FileName);
+        xml_element *FooElement = GetXmlElement(&DocElement, String("foo"));
+        ASSERT(FooElement);
+        string Value = GetXmlElementValue(FooElement);
+        AssertEqualString(String("bar"), Value);
+    }
+    
+    {
+        string FileName = String("/dev/null");
+        string FileData = String("<foo abc=\"123\" cba=\"321\">"
+                                 "bar"
+                                 "</foo>");
+        xml_element DocElement = ParseXmlDocument(Arena, FileData, FileName);
+        xml_element *FooElement = GetXmlElement(&DocElement, String("foo"));
+        ASSERT(FooElement);
+        string Value = GetXmlElementValue(FooElement);
+        AssertEqualString(String("bar"), Value);
+        xml_attribute *CbaAttribute = GetXmlAttribute(FooElement, String("cba"));
+        AssertEqualString(String("321"), CbaAttribute->Value);
+        xml_attribute *AbcAttribute = GetXmlAttribute(FooElement, String("abc"));
+        AssertEqualString(String("123"), AbcAttribute->Value);
+    }
+    
+    
+    {
+        string FileName = String("/dev/null");
+        string FileData = String("<foo>"
+                                 "\t<bar A=\"1\" />"
+                                 "\t<bar A=\"2\" />"
+                                 "\t<bar A=\"3\" />"
+                                 "</foo>");
+        xml_element DocElement = ParseXmlDocument(Arena, FileData, FileName);
+        xml_element *FooElement = GetXmlElement(&DocElement, String("foo"));
+        ASSERT(FooElement);
+        
+        xml_element *BarElement = GetXmlElements(FooElement, String("bar"));
+        ASSERT(BarElement);
+        xml_attribute *AAttribute = GetXmlAttribute(BarElement, String("A"));
+        ASSERT(AAttribute);
+        AssertEqualString(String("1"), AAttribute->Value);
+        
+        BarElement = BarElement->Next;
+        ASSERT(BarElement);
+        AAttribute = GetXmlAttribute(BarElement, String("A"));
+        ASSERT(AAttribute);
+        AssertEqualString(String("2"), AAttribute->Value);
+        
+        BarElement = BarElement->Next;
+        ASSERT(BarElement);
+        AAttribute = GetXmlAttribute(BarElement, String("A"));
+        ASSERT(AAttribute);
+        AssertEqualString(String("3"), AAttribute->Value);
+    }
+    
+    {
+        string FileName = String("/dev/null");
+        string FileData = String("<foo>"
+                                 "<bar>1</bar>"
+                                 "<bar>2</bar>"
+                                 "<bar>3</bar>"
+                                 "</foo>");
+        xml_element DocElement = ParseXmlDocument(Arena, FileData, FileName);
+        xml_element *FooElement = GetXmlElement(&DocElement, String("foo"));
+        ASSERT(FooElement);
+        
+        xml_element *BarElement = GetXmlElements(FooElement, String("bar"));
+        ASSERT(BarElement);
+        string Value = GetXmlElementValue(BarElement);
+        AssertEqualString(String("1"), Value);
+        
+        BarElement = BarElement->Next;
+        ASSERT(BarElement);
+        Value = GetXmlElementValue(BarElement);
+        AssertEqualString(String("2"), Value);
+        
+        BarElement = BarElement->Next;
+        ASSERT(BarElement);
+        Value = GetXmlElementValue(BarElement);
+        AssertEqualString(String("3"), Value);
+    }
+}
+
 internal b32
 RunAllTests(memory_arena *Arena)
 {
@@ -690,6 +803,8 @@ RunAllTests(memory_arena *Arena)
     RunEdDSATests(Arena);
     
     RunLinkedListMergeSortTests(Arena);
+    
+    RunParseXmlTest(Arena);
     
     b32 Result = (FailedTests == 0);
     return Result;
