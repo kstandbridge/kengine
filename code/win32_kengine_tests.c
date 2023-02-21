@@ -468,6 +468,17 @@ RunParseFromStringTests(memory_arena *Arena)
         AssertEqualU32(17, Hour);
         AssertEqualU32(52, Minute);
     }
+    
+    {
+        string Hostname = String("");
+        u32 Port = 0;
+        string Endpoint = String("");
+        ParseFromString(String("http://www.whatever.org:6231/foo/bar/bas/{ignmore}.html"),
+                        "http://%S:%u%S{ignore}.html", &Hostname, &Port, &Endpoint);
+        AssertEqualString(String("www.whatever.org"), Hostname);
+        AssertEqualU32(6231, Port);
+        AssertEqualString(String("/foo/bar/bas/"), Endpoint);
+    }
 }
 
 internal string
@@ -663,13 +674,76 @@ RunLinkedListMergeSortTests(memory_arena *Arena)
 }
 
 inline void
+RunParseHtmlTest(memory_arena *Arena)
+{
+    string HtmlData = String("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n"
+                             "<html>\n"
+                             "\t<head>\n"
+                             "\t\t<title>The title goes here</title>\n"
+                             "\t</head>\n"
+                             "\t<body>\n"
+                             "\t\t<h1>The header goes here</h1>\n"
+                             "\t\t<ul>\n"
+                             "\t\t\t<li><a href=\"/Parent/\"> Parent Directory</a></li>\n"
+                             "\t\t\t<li><a href=\"foo.img\"> foo image</a></li>\n"
+                             "\t\t\t<li><a href=\"bar.txt\"> bar text</a></li>\n"
+                             "\t\t\t<li><a href=\"bas.wav\"> bas soundl</a></li>\n"
+                             "\t\t</ul>\n"
+                             "\t</body>\n"
+                             "</html>");
+    
+    xml_element DocElement = ParseXmlDocument(Arena, HtmlData, String("DummyFile.html"));
+    xml_element *HtmlElement = GetXmlElement(&DocElement, String("html"));
+    ASSERT(HtmlElement);
+    xml_element *BodyElement = GetXmlElement(HtmlElement, String("body"));
+    ASSERT(BodyElement);
+    
+    xml_element *UlElement = GetXmlElement(HtmlElement, String("ul"));
+    ASSERT(UlElement);
+    
+    xml_element *LiElements = GetXmlElements(UlElement, String("li"));
+    ASSERT(LiElements);
+    
+    xml_element *LiElement = LiElements;
+    xml_element *AElement = GetXmlElement(LiElement, String("a"));
+    ASSERT(AElement);
+    xml_attribute *HrefAttribute = GetXmlAttribute(AElement, String("href"));
+    ASSERT(HrefAttribute);
+    AssertEqualString(String("/Parent/"), HrefAttribute->Value);
+    
+    LiElement = LiElement->Next;
+    AElement = GetXmlElement(LiElement, String("a"));
+    ASSERT(AElement);
+    HrefAttribute = GetXmlAttribute(AElement, String("href"));
+    ASSERT(HrefAttribute);
+    AssertEqualString(String("foo.img"), HrefAttribute->Value);
+    
+    LiElement = LiElement->Next;
+    AElement = GetXmlElement(LiElement, String("a"));
+    ASSERT(AElement);
+    HrefAttribute = GetXmlAttribute(AElement, String("href"));
+    ASSERT(HrefAttribute);
+    AssertEqualString(String("bar.txt"), HrefAttribute->Value);
+    
+    LiElement = LiElement->Next;
+    AElement = GetXmlElement(LiElement, String("a"));
+    ASSERT(AElement);
+    HrefAttribute = GetXmlAttribute(AElement, String("href"));
+    ASSERT(HrefAttribute);
+    AssertEqualString(String("bas.wav"), HrefAttribute->Value);
+}
+
+inline void
 RunParseXmlTest(memory_arena *Arena)
 {
     {
         string FileName = String("/dev/null");
         string FileData = String("<Config>\n"
-                                 "<Source>SomeSource</Source>\n"
-                                 "<Name>SomeName</Name>\n"
+                                 "\t<Source>SomeSource</Source>\n"
+                                 "\t<!--\n"
+                                 "\t\tThis is a comment that should be entirely ignored\n"
+                                 "\t-->\n"
+                                 "\t<Name>SomeName</Name>\n"
                                  "</Config>");
         xml_element DocElement = ParseXmlDocument(Arena, FileData, FileName);
         xml_element *ConfigElement = GetXmlElement(&DocElement, String("Config"));
@@ -684,8 +758,6 @@ RunParseXmlTest(memory_arena *Arena)
         ASSERT(NameElement);
         string NameElementValue = GetXmlElementValue(NameElement);
         AssertEqualString(String("SomeName"), NameElementValue);
-        
-        
     }
     
     {
@@ -803,6 +875,8 @@ RunAllTests(memory_arena *Arena)
     RunEdDSATests(Arena);
     
     RunLinkedListMergeSortTests(Arena);
+    
+    RunParseHtmlTest(Arena);
     
     RunParseXmlTest(Arena);
     

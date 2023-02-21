@@ -2097,12 +2097,9 @@ Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string
     if(Port == 0)
     {
         InternetPort = INTERNET_DEFAULT_HTTP_PORT;
-        Win32Client->Hostname = FormatString(&Win32Client->Arena, "%S", Hostname);
     }
-    else
-    {
-        Win32Client->Hostname = FormatString(&Win32Client->Arena, "%S:%u", Hostname, Port);
-    }
+    
+    Win32Client->Hostname = FormatString(&Win32Client->Arena, "%S", Hostname);
     
     char *CHost = CHost_;
     if(StringBeginsWith(String("https"), Hostname))

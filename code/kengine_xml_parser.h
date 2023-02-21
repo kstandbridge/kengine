@@ -123,40 +123,58 @@ GetXmlElements_(xml_element *Parent, string Name, b32 FirstOnly)
             }
             else if(PeekTokenType(Tokenizer, Token_QuestionMark))
             {
-                token HeaderToken = GetToken(Tokenizer);
-                HeaderToken = GetToken(Tokenizer);
+                Token = GetToken(Tokenizer);
+                Token = GetToken(Tokenizer);
                 while(Parsing(Tokenizer) &&
-                      (HeaderToken.Type != Token_QuestionMark))
+                      (Token.Type != Token_QuestionMark))
                 {
-                    HeaderToken = GetToken(Tokenizer);
+                    Token = GetToken(Tokenizer);
                 }
                 RequireToken(Tokenizer, Token_CloseAngleBracket);
             }
             else if(PeekTokenType(Tokenizer, Token_ExcalationMark))
             {
-                token CommentToken = GetToken(Tokenizer);
-                RequireToken(Tokenizer, Token_Dash);
-                RequireToken(Tokenizer, Token_Dash);
-                CommentToken = GetToken(Tokenizer);
-                while(Parsing(Tokenizer))
+                Token = GetToken(Tokenizer);
+                Token = GetToken(Tokenizer);
+                if((Token.Type == Token_Identifier) &&
+                   (StringsAreEqual(String("DOCTYPE"), Token.Text)))
                 {
-                    if((CommentToken.Type == Token_Dash) &&
-                       PeekTokenType(Tokenizer, Token_Dash))
+                    while(Parsing(Tokenizer))
                     {
-                        break;
-                    }
-                    else
-                    {
-                        CommentToken = GetToken(Tokenizer);
+                        if(Token.Type == Token_CloseAngleBracket)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            Token = GetToken(Tokenizer);
+                        }
                     }
                 }
-                RequireToken(Tokenizer, Token_Dash);
-                RequireToken(Tokenizer, Token_CloseAngleBracket);
+                else
+                {
+                    RequireToken(Tokenizer, Token_Dash);
+                    Token = GetToken(Tokenizer);
+                    while(Parsing(Tokenizer))
+                    {
+                        if((Token.Type == Token_Dash) &&
+                           PeekTokenType(Tokenizer, Token_Dash))
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            Token = GetToken(Tokenizer);
+                        }
+                    }
+                    RequireToken(Tokenizer, Token_Dash);
+                    RequireToken(Tokenizer, Token_CloseAngleBracket);
+                }
             }
             else
             {            
-                token Identifier = RequireToken(Tokenizer, Token_Identifier);
-                b32 IsMatch = StringsAreEqual(Identifier.Text, Name);
+                Token = RequireToken(Tokenizer, Token_Identifier);
+                b32 IsMatch = StringsAreEqual(Token.Text, Name);
                 
                 if(IsMatch)
                 {
@@ -176,10 +194,10 @@ GetXmlElements_(xml_element *Parent, string Name, b32 FirstOnly)
                 
                 SkipXmlAttributes_(Tokenizer);
                 
-                token Closing = GetToken(Tokenizer);
-                if(Closing.Type == Token_ForwardSlash)
+                Token = GetToken(Tokenizer);
+                if(Token.Type == Token_ForwardSlash)
                 {
-                    Closing = GetToken(Tokenizer);
+                    Token = GetToken(Tokenizer);
                 }
                 
                 if(IsMatch && FirstOnly)
