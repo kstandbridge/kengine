@@ -151,6 +151,13 @@ typedef struct string
     u8 *Data;
 } string;
 
+introspect(linked_list) typedef struct string_list
+{
+    string Entry;
+    
+    struct string_list *Next;
+} string_list;
+
 #define NullString() String_(0, 0)
 #define IsNullString(Text) ((Text.Data == 0) || (Text.Size == 0))
 

@@ -1120,9 +1120,9 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                             {
                                 ParsingParam = false;
                                 
-                                wchar_t *At = va_arg(ArgList, wchar_t *);
                                 // TODO(kstandbridge): We should probably convert the wchar_t to char for this copy
 #if 0                                
+                                wchar_t *At = va_arg(ArgList, wchar_t *);
                                 if(PrecisionSpecified)
                                 {
                                     while(At[0] != '\0' && Precision--)
@@ -1496,6 +1496,19 @@ StringAdvance(string *Text, umm Count)
     {
         Text->Data += Text->Size;
         Text->Size = 0;
+    }
+    
+    return Result;
+}
+
+internal b32
+StringListMatch(string_list *A, string_list *B)
+{
+    b32 Result = (A && B);
+    
+    if(Result)
+    {
+        Result = StringsAreEqual(A->Entry, B->Entry);
     }
     
     return Result;

@@ -766,9 +766,9 @@ Win32SslClientHandshakeloop(SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandl
 }
 
 internal b32
-Win32RecieveDecryptedMessage(SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle, u8 *OutBuffer, umm OutBufferLength)
+Win32RecieveDecryptedMessage(SOCKET Socket, CredHandle *SSPICredHandle, CtxtHandle *SSPICtxtHandle, u8 *OutBuffer)
 {
-    umm Result = 0;
+    b32 Result = 0;
     SecPkgContext_StreamSizes StreamSizes;
     SECURITY_STATUS SecurityStatus = Win32SecurityFunctionTable->QueryContextAttributes(SSPICtxtHandle, SECPKG_ATTR_STREAM_SIZES, &StreamSizes);
     
@@ -777,10 +777,9 @@ Win32RecieveDecryptedMessage(SOCKET Socket, CredHandle *SSPICredHandle, CtxtHand
     
     if(SEC_E_OK == SecurityStatus)
     {    
-        
         DWORD BufferMaxLength = StreamSizes.cbHeader + StreamSizes.cbMaximumMessage + StreamSizes.cbTrailer;
-        
         Assert(BufferMaxLength < TLS_MAX_BUFSIZ);
+        
         char Buffer[TLS_MAX_BUFSIZ];
         ZeroSize(TLS_MAX_BUFSIZ, Buffer);
         DWORD BufferLength = 0;
@@ -1053,19 +1052,19 @@ Win32SslSocketConnect(string Hostname, string Port, CredHandle *SSPICredHandle, 
                         else
                         {
                             s32 ErrorCode = Win32WSAGetLastError();
-                            Assert(!"Connection error");
+                            Win32LogError_(ErrorCode, "Connection error");
                         }
                     }
                     else
                     {
                         s32 ErrorCode = Win32WSAGetLastError();
-                        Assert(!"Acquire credentials handle failed");
+                        Win32LogError_(ErrorCode, "Acquire credentials handle failed");
                     }
                 }
                 else
                 {
                     s32 ErrorCode = Win32WSAGetLastError();
-                    Assert(!"Could not create socket");
+                    Win32LogError_(ErrorCode, "Could not create socket");
                 }
                 
                 break;
@@ -1075,12 +1074,12 @@ Win32SslSocketConnect(string Hostname, string Port, CredHandle *SSPICredHandle, 
     else
     {
         s32 ErrorCode = Win32WSAGetLastError();
-        Assert(!"Hostname look up failed");
+        Win32LogError_(ErrorCode, "Hostname look up failed");
     }
     
     Win32FreeAddrInfo(AddressInfos);
     
-    return Result;
+    return (u32)Result;
 }
 
 internal u32
@@ -1108,24 +1107,24 @@ Win32SocketConnect(string Hostname, string Port)
             if(SOCKET_ERROR == Win32Connect(Result, AddressInfo->ai_addr, (s32)AddressInfo->ai_addrlen))
             {
                 s32 ErrorCode = Win32WSAGetLastError();
-                Assert(!"Connection error");
+                Win32LogError_(ErrorCode, "Connection error");
             }
         }
         else
         {
             s32 ErrorCode = Win32WSAGetLastError();
-            Assert(!"Could not create socket");
+            Win32LogError_(ErrorCode, "Could not create socket");
         }
     }
     else
     {
         s32 ErrorCode = Win32WSAGetLastError();
-        Assert(!"Hostname look up failed");
+        Win32LogError_(ErrorCode, "Hostname look up failed");
     }
     
     Win32FreeAddrInfo(AddressInfo);
     
-    return Result;
+    return (u32)Result;
 }
 
 internal void
@@ -1376,12 +1375,12 @@ Win32UnzipToDirectory(string SourceZip, string DestFolder)
     LogVerbose("Unzipping %S to %S", SourceZip, DestFolder);
     
     wchar_t CSourceZip[MAX_PATH];
-    MultiByteToWideChar(CP_UTF8, 0, (char *)SourceZip.Data, SourceZip.Size, CSourceZip, MAX_PATH);
+    MultiByteToWideChar(CP_UTF8, 0, (char *)SourceZip.Data, (int)SourceZip.Size, CSourceZip, MAX_PATH);
     CSourceZip[SourceZip.Size + 0] = '\0';
     CSourceZip[SourceZip.Size + 1] = '\0';
     
     wchar_t CDestFolder[MAX_PATH];
-    MultiByteToWideChar(CP_UTF8, 0, (char *)DestFolder.Data, DestFolder.Size, CDestFolder, MAX_PATH);
+    MultiByteToWideChar(CP_UTF8, 0, (char *)DestFolder.Data, (int)DestFolder.Size, CDestFolder, MAX_PATH);
     CDestFolder[DestFolder.Size + 0] = '\0';
     CDestFolder[DestFolder.Size + 1] = '\0';
     
@@ -1465,12 +1464,12 @@ Win32ZipDirectory(string SourceDirectory, string DestinationZip)
     }
     
     wchar_t CDestZip[MAX_PATH];
-    MultiByteToWideChar(CP_ACP, 0, (char *)DestinationZip.Data, DestinationZip.Size, CDestZip, MAX_PATH);
+    MultiByteToWideChar(CP_ACP, 0, (char *)DestinationZip.Data, (int)DestinationZip.Size, CDestZip, MAX_PATH);
     CDestZip[DestinationZip.Size + 0] = '\0';
     CDestZip[DestinationZip.Size + 1] = '\0';
     
     wchar_t CSourceFolder[MAX_PATH];
-    MultiByteToWideChar(CP_ACP, 0, (char *)SourceDirectory.Data, SourceDirectory.Size, CSourceFolder, MAX_PATH);
+    MultiByteToWideChar(CP_ACP, 0, (char *)SourceDirectory.Data, (int)SourceDirectory.Size, CSourceFolder, MAX_PATH);
     CSourceFolder[SourceDirectory.Size + 0] = '\0';
     CSourceFolder[SourceDirectory.Size + 1] = '\0';
     
@@ -1896,7 +1895,7 @@ Win32UploadFileToInternet(memory_arena *Arena, string Host, string Endpoint, cha
                         Overlapped.OffsetHigh = (u32)((Offset >> 32) & 0xFFFFFFFF);
                         
                         DWORD BytesRead = 0;
-                        if(ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
+                        if(ReadFile(FileHandle, Buffer, (int)BufferSize, &BytesRead, &Overlapped))
                         {
                             DWORD BytesSent = 0;
                             DWORD TotalBytesSend = 0;
@@ -1992,8 +1991,8 @@ Win32GetDateTimeFromTimestamp(u64 Timestamp)
 internal b32
 Win32IsColorSchemeChangeMessage(LPARAM LParam)
 {
+    LParam;
     // TODO(kstandbridge): Win32IsColorSchemeChangeMessage
-    
 	b32 Result = false;
     
 #if 0    
@@ -2123,7 +2122,7 @@ Win32BeginHttpClientWithCreds(string Hostname, u32 Port, string Username, string
     LogDebug("Opening connection to %s:%u", CHost, Port);
     // TODO(kstandbridge): Can I ditch CUsername and CPassword since they are specified as options above?
     // Then we can pass a string instead as the option takes a length
-    Win32Client->Handle = Win32InternetConnectA(Win32Client->Session, CHost, Port, CUsername, CPassword,
+    Win32Client->Handle = Win32InternetConnectA(Win32Client->Session, CHost, (INTERNET_PORT)Port, CUsername, CPassword,
                                                 INTERNET_SERVICE_HTTP, 0, 0);
     
     if(Win32Client->Handle)
@@ -2310,8 +2309,6 @@ Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File
     u32 Result = 0;
     
     win32_http_request *Win32Request = PlatformRequest->Handle;
-    win32_http_client *Win32Client = Win32Request->Win32Client;
-    memory_arena *Arena = &Win32Client->Arena;
     
     char CFile[MAX_PATH];
     StringToCString(File, MAX_PATH, CFile);
@@ -2346,7 +2343,7 @@ Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File
                     Overlapped.OffsetHigh = (u32)((Offset >> 32) & 0xFFFFFFFF);
                     
                     DWORD BytesRead = 0;
-                    if(ReadFile(FileHandle, Buffer, BufferSize, &BytesRead, &Overlapped))
+                    if(ReadFile(FileHandle, Buffer, (int)BufferSize, &BytesRead, &Overlapped))
                     {
                         DWORD BytesSent = 0;
                         DWORD TotalBytesSend = 0;
@@ -2418,7 +2415,6 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
     
     win32_http_request *Win32Request = PlatformRequest->Handle;
     win32_http_client *Win32Client = Win32Request->Win32Client;
-    memory_arena *Arena = &Win32Client->Arena;
     
     if(!IsNullString(Win32Client->Username) &&
        !IsNullString(Win32Client->Password))
@@ -2428,13 +2424,13 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
                                                "%S:%S", Win32Client->Username, Win32Client->Password);
         u8 AuthTokenBuffer[MAX_URL];
         string AuthToken = String_(sizeof(AuthTokenBuffer), AuthTokenBuffer);
-        if(Win32CryptBinaryToStringA(UserPass.Data, UserPass.Size, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF,
+        if(Win32CryptBinaryToStringA(UserPass.Data, (DWORD)UserPass.Size, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF,
                                      (LPSTR)AuthToken.Data, (DWORD *)&AuthToken.Size))
         {
             u8 AuthHeaderBuffer[MAX_URL];
             string AuthHeader = FormatStringToBuffer(AuthHeaderBuffer, sizeof(AuthHeaderBuffer),
                                                      "Authorization: Basic %S\r\n", AuthToken);
-            if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, (LPCSTR)AuthHeader.Data, AuthHeader.Size, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE))
+            if(!Win32HttpAddRequestHeadersA(Win32Request->Handle, (LPCSTR)AuthHeader.Data, (DWORD)AuthHeader.Size, HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE))
             {
                 Win32LogError("Failed to add basic authorization header");
             }
@@ -2446,7 +2442,7 @@ Win32SendHttpRequest(platform_http_request *PlatformRequest)
     }
     
     PlatformRequest->RequestLength = PlatformRequest->Payload.Size;
-    if(Win32HttpSendRequestA(Win32Request->Handle, 0, 0, PlatformRequest->Payload.Data, PlatformRequest->Payload.Size))
+    if(Win32HttpSendRequestA(Win32Request->Handle, 0, 0, PlatformRequest->Payload.Data, (DWORD)PlatformRequest->Payload.Size))
     {
         DWORD StatusCode = 0;
         DWORD StatusCodeSize = sizeof(StatusCodeSize);
@@ -2483,7 +2479,6 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
     
     win32_http_request *Win32Request = PlatformRequest->Handle;
     win32_http_client *Win32Client = Win32Request->Win32Client;
-    memory_arena *Arena = &Win32Client->Arena;
     
     u64 ContentLength = 0;
     u8 ContentLengthBuffer[MAX_URL];
@@ -2596,7 +2591,7 @@ Win32GetHttpResponse(platform_http_request *PlatformRequest)
     {
         if(ContentLength == 0)
         {
-            ContentLength = Arena->CurrentBlock->Size - Arena->CurrentBlock->Used;
+            ContentLength = (DWORD)(Arena->CurrentBlock->Size - Arena->CurrentBlock->Used);
             if(ContentLength < Kilobytes(1536))
             {
                 ContentLength = Kilobytes(1536);

@@ -54,6 +54,15 @@ Win32ConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%u'\n\t\t\tAct
 __FILE__, __LINE__, Expected, Actual);        \
 }
 
+#define AssertEqualS32(Expected, Actual) \
+++TotalTests; \
+if(Expected != Actual) \
+{ \
+++FailedTests; \
+Win32ConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%d'\n\t\t\tActual:      '%d'\n", \
+__FILE__, __LINE__, Expected, Actual);        \
+}
+
 #define AssertEqualU64(Expected, Actual) \
 ++TotalTests; \
 if(Expected != Actual) \
@@ -64,7 +73,7 @@ __FILE__, __LINE__, Expected, Actual);        \
 }
 
 inline void
-RunStringsAreEqualTests(memory_arena *Arena)
+RunStringsAreEqualTests()
 {
     ASSERT(StringsAreEqual(String("Foo"), String("Foo")));
     ASSERT(!StringsAreEqual(String("Bar"), String("Foo")));
@@ -75,7 +84,7 @@ RunStringsAreEqualTests(memory_arena *Arena)
 }
 
 inline void
-RunStringBeginsWithTests(memory_arena *Arena)
+RunStringBeginsWithTests()
 {
     string HayStack = String("Content-Length: 256");
     ASSERT(StringBeginsWith(String("Content-Length"), HayStack));
@@ -83,7 +92,7 @@ RunStringBeginsWithTests(memory_arena *Arena)
 }
 
 inline void
-RunStringContainsTests(memory_arena *Arena)
+RunStringContainsTests()
 {
     ASSERT(StringContains(String("foo"), String("Before foo after")));
     ASSERT(!StringContains(String("foo"), String("Before bar after")));
@@ -322,7 +331,7 @@ RunFormatStringDateTests(memory_arena *Arena)
 }
 
 inline void
-RunFormatStringWithoutArenaTests(memory_arena *Arena)
+RunFormatStringWithoutArenaTests()
 {
     {
         u8 Buffer[256];
@@ -345,7 +354,7 @@ RunFormatStringWithoutArenaTests(memory_arena *Arena)
 }
 
 inline void
-RunV2Tests(memory_arena *Arena)
+RunV2Tests()
 {
     {
         v2 A = V2(2.3f, 4.5f);
@@ -418,7 +427,7 @@ RunRadixSortTests(memory_arena *Arena)
     {
         debug_clock_entry *Entry = Entries + Index;
         ASSERT(Entry->Sum >= LastSum);
-        LastSum = Entry->Sum;
+        LastSum = (u32)Entry->Sum;
     }
     
     DebugClockEntryRadixSort(Count, Entries, TempEntries, Sort_Descending);
@@ -429,12 +438,12 @@ RunRadixSortTests(memory_arena *Arena)
     {
         debug_clock_entry *Entry = Entries + Index;
         ASSERT(Entry->Sum <= LastSum);
-        LastSum = Entry->Sum;
+        LastSum = (u32)Entry->Sum;
     }
 }
 
 inline void
-RunParseFromStringTests(memory_arena *Arena)
+RunParseFromStringTests()
 {
     {
         s32 First = 0;
@@ -517,10 +526,10 @@ DEBUGWin32ReadEntireFile(memory_arena *Arena, char *FilePath)
 }
 
 inline void
-RunSha512Tests(memory_arena *Arena)
+RunSha512Tests()
 {
     u8 Seed[32];
-    for(u32 Index = 0;
+    for(u8 Index = 0;
         Index < sizeof(Seed);
         ++Index)
     {
@@ -566,7 +575,7 @@ RunSha512Tests(memory_arena *Arena)
 }
 
 inline void
-RunEdDSATests(memory_arena *Arena)
+RunEdDSATests()
 {
     LARGE_INTEGER LastCounter;
     QueryPerformanceCounter(&LastCounter);
@@ -611,25 +620,25 @@ RunLinkedListMergeSortTests(memory_arena *Arena)
 {
     node *Head = 0;
     
-    node *FortyOne = NodePushBack(&Head, Arena);
+    node *FortyOne = PushbackNode(&Head, Arena);
     FortyOne->Value = 41;
-    node *Five = NodePushBack(&Head, Arena);
+    node *Five = PushbackNode(&Head, Arena);
     Five->Value = 5;
-    node *Seven = NodePushBack(&Head, Arena);
+    node *Seven = PushbackNode(&Head, Arena);
     Seven->Value = 7;
-    node *TwentyTwo = NodePushBack(&Head, Arena);
+    node *TwentyTwo = PushbackNode(&Head, Arena);
     TwentyTwo->Value = 22;
-    node *TwentyEight = NodePushBack(&Head, Arena);
+    node *TwentyEight = PushbackNode(&Head, Arena);
     TwentyEight->Value = 28;
-    node *SixtyThree = NodePushBack(&Head, Arena);
+    node *SixtyThree = PushbackNode(&Head, Arena);
     SixtyThree->Value = 63;
-    node *Four = NodePushBack(&Head, Arena);
+    node *Four = PushbackNode(&Head, Arena);
     Four->Value = 4;
-    node *Eight = NodePushBack(&Head, Arena);
+    node *Eight = PushbackNode(&Head, Arena);
     Eight->Value = 8;
-    node *Two = NodePushBack(&Head, Arena);
+    node *Two = PushbackNode(&Head, Arena);
     Two->Value = 2;
-    node *Eleven = NodePushBack(&Head, Arena);
+    node *Eleven = PushbackNode(&Head, Arena);
     Eleven->Value = 11;
     
     ASSERT(Head == FortyOne);
@@ -671,6 +680,118 @@ RunLinkedListMergeSortTests(memory_arena *Arena)
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next == Four);
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next == Two);
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next->Next == 0);
+}
+
+inline void
+RunNodeGetCountTests(memory_arena *Arena)
+{
+    node *Head = 0;
+    
+    node *FortyOne = PushbackNode(&Head, Arena);
+    FortyOne->Value = 41;
+    node *Five = PushbackNode(&Head, Arena);
+    Five->Value = 5;
+    node *Seven = PushbackNode(&Head, Arena);
+    Seven->Value = 7;
+    
+    ASSERT(Head == FortyOne);
+    ASSERT(Head->Next == Five);
+    ASSERT(Head->Next->Next == Seven);
+    
+    u32 Actual = GetNodeCount(Head);
+    AssertEqualU32(3, Actual);
+}
+
+inline void
+RunGetNodeByIndexTests(memory_arena *Arena)
+{
+    node *Head = 0;
+    
+    node *FortyOne = PushbackNode(&Head, Arena);
+    FortyOne->Value = 41;
+    node *Five = PushbackNode(&Head, Arena);
+    Five->Value = 5;
+    node *Seven = PushbackNode(&Head, Arena);
+    Seven->Value = 7;
+    
+    ASSERT(Head == FortyOne);
+    ASSERT(Head->Next == Five);
+    ASSERT(Head->Next->Next == Seven);
+    
+    node *Actual = GetNodeByIndex(Head, 0);
+    ASSERT(Actual == Head);
+    Actual = GetNodeByIndex(Head, 1);
+    ASSERT(Actual == Five);
+    Actual = GetNodeByIndex(Head, 2);
+    ASSERT(Actual == Seven);
+    Actual = GetNodeByIndex(Head, 3);
+    ASSERT(Actual == 0);
+}
+
+inline void
+RunGetIndexOfNodeTests(memory_arena *Arena)
+{
+    node *Head = 0;
+    
+    node *FortyOne = PushbackNode(&Head, Arena);
+    FortyOne->Value = 41;
+    node *Five = PushbackNode(&Head, Arena);
+    Five->Value = 5;
+    node *Seven = PushbackNode(&Head, Arena);
+    Seven->Value = 7;
+    node *DummyNode = PushStruct(Arena, node);
+    
+    ASSERT(Head == FortyOne);
+    ASSERT(Head->Next == Five);
+    ASSERT(Head->Next->Next == Seven);
+    
+    s32 Actual = GetIndexOfNode(Head, FortyOne);
+    AssertEqualS32(Actual, 0);
+    Actual = GetIndexOfNode(Head, Five);
+    AssertEqualS32(Actual, 1);
+    Actual = GetIndexOfNode(Head, Seven);
+    AssertEqualS32(Actual, 2);
+    Actual = GetIndexOfNode(Head, DummyNode);
+    AssertEqualS32(Actual, -1);
+    
+}
+
+internal b32
+NodeMatchPredicate(node *A, node *B)
+{
+    b32 Result = (A->Value == B->Value);
+    return Result;
+}
+
+inline void
+RunGetNodeTests(memory_arena *Arena)
+{
+    node *Head = 0;
+    
+    node *FortyOne = PushbackNode(&Head, Arena);
+    FortyOne->Value = 41;
+    node *Five = PushbackNode(&Head, Arena);
+    Five->Value = 5;
+    node *Seven = PushbackNode(&Head, Arena);
+    Seven->Value = 7;
+    node *DummyNode = PushStruct(Arena, node);
+    ASSERT(Head == FortyOne);
+    ASSERT(Head->Next == Five);
+    ASSERT(Head->Next->Next == Seven);
+    
+    node MatchNode = 
+    {
+        .Value = 41
+    };
+    node *Actual = GetNode(Head, NodeMatchPredicate, &MatchNode);
+    ASSERT(Actual == FortyOne);
+    
+    MatchNode.Value = 7;
+    Actual = GetNode(Head, NodeMatchPredicate, &MatchNode);
+    ASSERT(Actual == Seven);
+    
+    Actual = GetNode(Head, NodeMatchPredicate, DummyNode);
+    ASSERT(Actual == 0);
 }
 
 inline void
@@ -850,9 +971,9 @@ RunParseXmlTest(memory_arena *Arena)
 internal b32
 RunAllTests(memory_arena *Arena)
 {
-    RunStringsAreEqualTests(Arena);
-    RunStringBeginsWithTests(Arena);
-    RunStringContainsTests(Arena);
+    RunStringsAreEqualTests();
+    RunStringBeginsWithTests();
+    RunStringContainsTests();
     RunFormatStringSignedDecimalIntegerTests(Arena);
     RunFormatStringUnsignedDecimalIntegerTests(Arena);
     RunFormatStringDecimalFloatingPoint(Arena);
@@ -860,21 +981,25 @@ RunAllTests(memory_arena *Arena)
     RunFormatStringStringTypeTests(Arena);
     RunFormatStringPercentTests(Arena);
     RunFormatStringDateTests(Arena);
-    RunFormatStringWithoutArenaTests(Arena);
+    RunFormatStringWithoutArenaTests();
     
-    RunV2Tests(Arena);
+    RunV2Tests();
     
     RunUpperCamelCaseTests(Arena);
     
     RunRadixSortTests(Arena);
     
-    RunParseFromStringTests(Arena);
+    RunParseFromStringTests();
     
-    RunSha512Tests(Arena);
+    RunSha512Tests();
     
-    RunEdDSATests(Arena);
+    RunEdDSATests();
     
     RunLinkedListMergeSortTests(Arena);
+    RunNodeGetCountTests(Arena);
+    RunGetNodeByIndexTests(Arena);
+    RunGetIndexOfNodeTests(Arena);
+    RunGetNodeTests(Arena);
     
     RunParseHtmlTest(Arena);
     

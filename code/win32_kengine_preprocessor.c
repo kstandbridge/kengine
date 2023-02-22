@@ -369,6 +369,67 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     string FunctionName = FormatStringToBuffer(FunctionNameBuffer, sizeof(FunctionNameBuffer), "%S", Token.Str);
     ToUpperCamelCase(&FunctionName);
     
+    Win32PrintOutput("\ninline u32\nGet%SCount(%S *Head)\n", FunctionName, Type);
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("    u32 Result = 0;\n\n");
+    Win32PrintOutput("    while(Head != 0)\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        Head = Head->Next;\n");
+    Win32PrintOutput("        ++Result;\n");
+    Win32PrintOutput("    }\n\n");
+    Win32PrintOutput("    return Result;\n");
+    Win32PrintOutput("}\n");
+    
+    Win32PrintOutput("\ninline %S *\nGet%SByIndex(%S *Head, s32 Index)\n", Type, FunctionName, Type);
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("        %S *Result = Head;\n\n", Type);
+    Win32PrintOutput("        if(Result != 0)\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            while(Result && Index)\n");
+    Win32PrintOutput("            {\n");
+    Win32PrintOutput("                Result = Result->Next;\n");
+    Win32PrintOutput("            --Index;\n");
+    Win32PrintOutput("            }\n");
+    Win32PrintOutput("        }\n\n");
+    Win32PrintOutput("    return Result;\n");
+    Win32PrintOutput("}\n");
+    
+    Win32PrintOutput("\ninline s32\nGetIndexOf%S(%S *Head, %S *%S)\n", FunctionName, Type, Type, FunctionName);
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("    s32 Result = -1;\n\n");
+    Win32PrintOutput("    for(s32 Index = 0;\n");
+    Win32PrintOutput("        Head;\n");
+    Win32PrintOutput("        ++Index, Head = Head->Next)\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("        if(Head == %S)\n", FunctionName);
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            Result = Index;\n");
+    Win32PrintOutput("            break;\n");
+    Win32PrintOutput("        }\n");
+    Win32PrintOutput("    }\n\n");
+    Win32PrintOutput("    return Result;\n");
+    Win32PrintOutput("}\n");
+    
+    Win32PrintOutput("\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);
+    
+    Win32PrintOutput("\ninline %S *\nGet%S(%S *Head, %S_predicate *Predicate, %S *Match)\n", Type, FunctionName, Type, Type, Type);
+    Win32PrintOutput("{\n");
+    Win32PrintOutput("    %S *Result = 0;\n\n", Type);
+    Win32PrintOutput("    while(Head)\n");
+    Win32PrintOutput("    {\n");
+    Win32PrintOutput("        if(Predicate(Head, Match))\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            Result = Head;\n");
+    Win32PrintOutput("            break;\n");
+    Win32PrintOutput("        }\n");
+    Win32PrintOutput("        else\n");
+    Win32PrintOutput("        {\n");
+    Win32PrintOutput("            Head = Head->Next;\n");
+    Win32PrintOutput("        }\n");
+    Win32PrintOutput("    }\n\n");
+    Win32PrintOutput("    return Result;\n");
+    Win32PrintOutput("}\n");
+    
     Win32PrintOutput("\ninline %S *\nGet%STail(%S *Head)\n", Type, FunctionName, Type);
     Win32PrintOutput("{\n");
     Win32PrintOutput("    %S *Result = Head;\n\n", Type);
@@ -382,7 +443,7 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("    return Result;\n");
     Win32PrintOutput("}\n");
     
-    Win32PrintOutput("\ninline %S *\n%SPush(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
+    Win32PrintOutput("\ninline %S *\nPush%S(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
     Win32PrintOutput("{\n");
     Win32PrintOutput("    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
     Win32PrintOutput("    Result->Next = *HeadRef;\n");
@@ -390,7 +451,7 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("    return Result;\n");
     Win32PrintOutput("}\n");
     
-    Win32PrintOutput("\ninline %S *\n%SPushBack(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
+    Win32PrintOutput("\ninline %S *\nPushback%S(%S **HeadRef, memory_arena *Arena)\n", Type, FunctionName, Type);
     Win32PrintOutput("{\n");
     Win32PrintOutput("    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
     Win32PrintOutput("    Result->Next = 0;\n");
@@ -405,9 +466,6 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("    }\n\n");
     Win32PrintOutput("    return Result;\n");
     Win32PrintOutput("}\n");
-    
-    Win32PrintOutput("\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);
-    
     
     Win32PrintOutput("\ninline %S *\n%SMergeSort_(%S *Front, %S *Back, %S_predicate *Predicate, sort_type SortType)\n", 
                      Type, FunctionName, Type, Type, Type);
@@ -689,12 +747,12 @@ GenerateRadixSort(c_tokenizer *Tokenizer, string SortKey)
     Win32PrintOutput("            u32 RadixValue;\n");
     Win32PrintOutput("            if(SortType == Sort_Descending)\n");
     Win32PrintOutput("            {\n");
-    Win32PrintOutput("                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
+    Win32PrintOutput("                RadixValue = F32ToRadixValue((f32)-Source[Index].%S);\n", SortKey);
     Win32PrintOutput("            }\n");
     Win32PrintOutput("            else\n");
     Win32PrintOutput("            {\n");
     Win32PrintOutput("                Assert(SortType == Sort_Ascending);\n");
-    Win32PrintOutput("                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
+    Win32PrintOutput("                RadixValue = F32ToRadixValue((f32)Source[Index].%S);\n", SortKey);
     Win32PrintOutput("            }\n");
     Win32PrintOutput("            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
     Win32PrintOutput("            ++SortKeyOffsets[RadixPiece];\n");
@@ -716,12 +774,12 @@ GenerateRadixSort(c_tokenizer *Tokenizer, string SortKey)
     Win32PrintOutput("            u32 RadixValue;\n");
     Win32PrintOutput("            if(SortType == Sort_Descending)\n");
     Win32PrintOutput("            {\n");
-    Win32PrintOutput("                RadixValue = F32ToRadixValue(-Source[Index].%S);\n", SortKey);
+    Win32PrintOutput("                RadixValue = F32ToRadixValue((f32)-Source[Index].%S);\n", SortKey);
     Win32PrintOutput("            }\n");
     Win32PrintOutput("            else\n");
     Win32PrintOutput("            {\n");
     Win32PrintOutput("                Assert(SortType == Sort_Ascending);\n");
-    Win32PrintOutput("                RadixValue = F32ToRadixValue(Source[Index].%S);\n", SortKey);
+    Win32PrintOutput("                RadixValue = F32ToRadixValue((f32)Source[Index].%S);\n", SortKey);
     Win32PrintOutput("            }\n");
     Win32PrintOutput("            u32 RadixPiece = (RadixValue >> ByteIndex) & 0xFF;\n");
     Win32PrintOutput("            Dest[SortKeyOffsets[RadixPiece]++] = Source[Index];\n");
@@ -909,10 +967,6 @@ ParseIntrospectable(string File)
 s32 __stdcall
 main()
 {
-    memory_arena Arena_;
-    ZeroStruct(Arena_);
-    memory_arena *Arena = &Arena_;
-    
     char *CommandLingArgs = GetCommandLineA();
     Assert(CommandLingArgs);
     

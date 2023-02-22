@@ -75,6 +75,8 @@ telemetry_state *GlobalTelemetryState = &GlobalTelemetryState__;
 internal void
 PostTelemetryThread(void *Data)
 {
+    Data;
+    
     // NOTE(kstandbridge): Swap queues
     if((GlobalTelemetryState->CurrentState != TelemetryState_Uninitialized) &&
        (GlobalTelemetryState->CurrentState != TelemetryState_Initializing))
@@ -180,10 +182,9 @@ PostTelemetryThread(void *Data)
                                     // NOTE(kstandbridge): Any problems with the host we skip.
                                     break;
                                 }
-#if 1
+#if KENGINE_INTERNAL
                                 string Response = Platform.GetHttpResponse(&Request);
                                 Response;
-                                b32 BreakHere = true;
 #endif
                             }
                             Platform.EndHttpRequest(&Request);
