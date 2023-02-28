@@ -627,7 +627,11 @@ ParsePercentFromZ(char *At, char *ResultBuffer, s32 ResultBufferSize)
         {
             *Dest++ = *At++;
             Index++;
-            Assert(Index <= ResultBufferSize);
+            if(Index > ResultBufferSize)
+            {
+                InvalidCodePath;
+                break;
+            }
         }
         *Dest = '\0';
     }
@@ -1226,12 +1230,17 @@ EndFormatString(format_string_state *State, memory_arena *Arena)
 internal string
 EndFormatStringToBuffer(format_string_state *State, u8 *Buffer, umm BufferSize)
 {
-    Assert(State->BufferSize <= BufferSize);
-    
     string Result;
     Result.Size = State->BufferSize;
     Result.Data = Buffer;
-    Copy(Result.Size, State->Buffer, Result.Data);
+    if(State->BufferSize < BufferSize)
+    {
+        Copy(Result.Size, State->Buffer, Result.Data);
+    }
+    else
+    {
+        InvalidCodePath;
+    }
     
     return Result;
 }
@@ -1270,9 +1279,15 @@ FormatStringToBuffer(u8 *Buffer, umm BufferSize, char *Format, ...)
 inline void
 StringToCString(string Text, u32 BufferSize, char *Buffer)
 {
-    Assert(BufferSize >= Text.Size + 1);
-    Copy(Text.Size, Text.Data, Buffer);
-    Buffer[Text.Size] = '\0';
+    if(BufferSize >= Text.Size + 1)
+    {
+        Copy(Text.Size, Text.Data, Buffer);
+        Buffer[Text.Size] = '\0';
+    }
+    else
+    {
+        InvalidCodePath;
+    }
 }
 
 internal void

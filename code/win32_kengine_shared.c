@@ -149,7 +149,10 @@ Win32AllocateMemory(umm Size, u64 Flags)
     {
         DWORD OldProtect = 0;
         b32 IsProtected = VirtualProtect((u8 *)Win32Block + ProtectOffset, PageSize, PAGE_NOACCESS, &OldProtect);
-        Assert(IsProtected);
+        if(!IsProtected)
+        {
+            InvalidCodePath;
+        }
     }
     
     win32_memory_block *Sentinel = &GlobalWin32State.MemorySentinel;
@@ -179,7 +182,10 @@ Win32DeallocateMemory(platform_memory_block *Block)
     
     LogDebug("Freeing %u bytes", Block->Size);
     b32 IsFreed = VirtualFree(Win32Block, 0, MEM_RELEASE);
-    Assert(IsFreed);
+    if(!IsFreed)
+    {
+        InvalidCodePath;
+    }
 }
 
 internal platform_memory_stats
@@ -386,7 +392,10 @@ Win32WorkQueueThread(void *lpParameter)
     win32_work_queue *Win32Queue = (win32_work_queue *)lpParameter;
     
     u32 TestThreadId = GetThreadID();
-    Assert(TestThreadId == GetCurrentThreadId());
+    if(TestThreadId != GetCurrentThreadId())
+    {
+        InvalidCodePath;
+    }
     
     for(;;)
     {

@@ -2,7 +2,7 @@
 internal void
 PushStringToStringList(string_list **HeadRef, memory_arena *Arena, string Text)
 {
-    string_list *Result = PushStringList(HeadRef, Arena);
+    string_list *Result = PushbackStringList(HeadRef, Arena);
     Result->Entry = Text;
 }
 

@@ -215,7 +215,14 @@ EndTemporaryMemory(temporary_memory TempMem)
 inline void
 CheckArena(memory_arena *Arena)
 {
-    Assert(Arena->TempCount == 0);
+    if(Arena)
+    {
+        Assert(Arena->TempCount == 0);
+    }
+    else
+    {
+        InvalidCodePath;
+    }
 }
 
 inline void
