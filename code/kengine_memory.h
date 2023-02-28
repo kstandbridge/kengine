@@ -157,9 +157,9 @@ PushSize_(memory_arena *Arena, umm SizeInit, arena_push_params Params)
     return Result;
 }
 
-#define BootstrapPushStruct(type, Member) (type *)BootsrapPushsize_(sizeof(type), OffsetOf(type, Member), DefaultArenaPushParams())
+#define BootstrapPushStruct(type, Member) (type *)BootstrapPushsize_(sizeof(type), OffsetOf(type, Member), DefaultArenaPushParams())
 inline void *
-BootsrapPushsize_(umm StructSize, umm OffsetToArena, arena_push_params Params)
+BootstrapPushsize_(umm StructSize, umm OffsetToArena, arena_push_params Params)
 {
     memory_arena Arena;
     ZeroStruct(Arena);
