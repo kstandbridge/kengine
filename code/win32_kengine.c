@@ -69,7 +69,9 @@ Win32ProcessPendingMessages(app_input *Input)
         {
             case WM_QUIT:
             {
+#if KENGINE_INTERNAL
                 __debugbreak();
+#endif
             } break;
             
             case WM_MOUSEWHEEL:

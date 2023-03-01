@@ -94,7 +94,7 @@ introspect(win32, User32) typedef int message_box_w(HWND    hWnd,
                                                     LPCWSTR lpText,
                                                     LPCWSTR lpCaption,
                                                     UINT    uType);
-
+introspect(win32, Comdlg32) typedef BOOL get_save_file_name_a(LPOPENFILENAMEA unnamedParam1);
 
 introspect(win32, Ole32) typedef HRESULT co_initialize(LPVOID pvReserved);
 introspect(win32, Ole32) typedef HRESULT co_create_instance(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID *ppv);

@@ -1170,7 +1170,9 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                             case FormatStringToken_Unknown:
                             default:
                             {
+#if KENGINE_INTERNAL
                                 __debugbreak();
+#endif
                             } break;
                             
                         }
