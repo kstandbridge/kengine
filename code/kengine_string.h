@@ -1519,8 +1519,10 @@ StringAdvance(string *Text, umm Count)
 }
 
 internal b32
-StringListMatch(string_list *A, string_list *B)
+StringListMatch(void *Context, string_list *A, string_list *B)
 {
+    Context;
+    
     b32 Result = (A && B);
     
     if(Result)

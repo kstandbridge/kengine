@@ -12,7 +12,7 @@ GetStringFromStringList(string_list *Head, string Text)
     string *Result = 0;
     
     string_list Match = { .Entry = Text };
-    string_list *Found = GetStringList(Head, StringListMatch, &Match);
+    string_list *Found = GetStringList(Head, StringListMatch, 0, &Match);
     if(Found)
     {
         Result = &Found->Entry;
