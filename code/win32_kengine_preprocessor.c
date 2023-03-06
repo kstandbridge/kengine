@@ -410,14 +410,14 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("    return Result;\n");
     Win32PrintOutput("}\n");
     
-    Win32PrintOutput("\ntypedef b32 %S_predicate(%S *A, %S *B);\n", Type, Type, Type);
+    Win32PrintOutput("\ntypedef b32 %S_predicate(void *Context, %S *A, %S *B);\n", Type, Type, Type);
     
-    Win32PrintOutput("\ninline %S *\nGet%S(%S *Head, %S_predicate *Predicate, %S *Match)\n", Type, FunctionName, Type, Type, Type);
+    Win32PrintOutput("\ninline %S *\nGet%S(%S *Head, %S_predicate *Predicate, void *Context, %S *Match)\n", Type, FunctionName, Type, Type, Type);
     Win32PrintOutput("{\n");
     Win32PrintOutput("    %S *Result = 0;\n\n", Type);
     Win32PrintOutput("    while(Head)\n");
     Win32PrintOutput("    {\n");
-    Win32PrintOutput("        if(Predicate(Head, Match))\n");
+    Win32PrintOutput("        if(Predicate(Context, Head, Match))\n");
     Win32PrintOutput("        {\n");
     Win32PrintOutput("            Result = Head;\n");
     Win32PrintOutput("            break;\n");
@@ -467,7 +467,7 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("    return Result;\n");
     Win32PrintOutput("}\n");
     
-    Win32PrintOutput("\ninline %S *\n%SMergeSort_(%S *Front, %S *Back, %S_predicate *Predicate, sort_type SortType)\n", 
+    Win32PrintOutput("\ninline %S *\n%SMergeSort_(%S *Front, %S *Back, %S_predicate *Predicate, void *Context, sort_type SortType)\n", 
                      Type, FunctionName, Type, Type, Type);
     Win32PrintOutput("{\n");
     Win32PrintOutput("    %S *Result = 0;\n", Type);
@@ -481,7 +481,7 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("    }\n");
     Win32PrintOutput("    else\n");
     Win32PrintOutput("    {\n");
-    Win32PrintOutput("        b32 PredicateResult = Predicate(Front, Back);\n");
+    Win32PrintOutput("        b32 PredicateResult = Predicate(Context, Front, Back);\n");
     Win32PrintOutput("        if(SortType == Sort_Descending)\n");
     Win32PrintOutput("        {\n");
     Win32PrintOutput("            PredicateResult = !PredicateResult;\n");
@@ -493,12 +493,12 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("        if(PredicateResult)\n");
     Win32PrintOutput("        {\n");
     Win32PrintOutput("            Result = Front;\n");
-    Win32PrintOutput("            Result->Next = %SMergeSort_(Front->Next, Back, Predicate, SortType);\n", FunctionName);
+    Win32PrintOutput("            Result->Next = %SMergeSort_(Front->Next, Back, Predicate, Context, SortType);\n", FunctionName);
     Win32PrintOutput("        }\n");
     Win32PrintOutput("        else\n");
     Win32PrintOutput("        {\n");
     Win32PrintOutput("            Result = Back;\n");
-    Win32PrintOutput("            Back->Next = %SMergeSort_(Front, Back->Next, Predicate, SortType);\n", FunctionName);
+    Win32PrintOutput("            Back->Next = %SMergeSort_(Front, Back->Next, Predicate, Context, SortType);\n", FunctionName);
     Win32PrintOutput("        }\n");
     Win32PrintOutput("    }\n\n");
     Win32PrintOutput("    return Result;\n");
@@ -526,7 +526,7 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("}\n");
     
     
-    Win32PrintOutput("\ninline void\n%SMergeSort(%S **HeadRef, %S_predicate *Predicate, sort_type SortType)\n", FunctionName, Type, Type);
+    Win32PrintOutput("\ninline void\n%SMergeSort(%S **HeadRef, %S_predicate *Predicate, void *Context, sort_type SortType)\n", FunctionName, Type, Type);
     Win32PrintOutput("{\n");
     Win32PrintOutput("    %S *Head = *HeadRef;\n\n", Type);
     Win32PrintOutput("    if((Head!= 0) &&\n");
@@ -535,9 +535,9 @@ GenerateLinkedList(c_tokenizer *Tokenizer)
     Win32PrintOutput("        %S *Front;\n", Type);
     Win32PrintOutput("        %S *Back;\n", Type);
     Win32PrintOutput("        %SFrontBackSplit(Head, &Front, &Back);\n\n", FunctionName);
-    Win32PrintOutput("        %SMergeSort(&Front, Predicate, SortType);\n", FunctionName);
-    Win32PrintOutput("        %SMergeSort(&Back, Predicate, SortType);\n\n", FunctionName);
-    Win32PrintOutput("        *HeadRef = %SMergeSort_(Front, Back, Predicate, SortType);\n", FunctionName);
+    Win32PrintOutput("        %SMergeSort(&Front, Predicate, Context, SortType);\n", FunctionName);
+    Win32PrintOutput("        %SMergeSort(&Back, Predicate, Context, SortType);\n\n", FunctionName);
+    Win32PrintOutput("        *HeadRef = %SMergeSort_(Front, Back, Predicate, Context, SortType);\n", FunctionName);
     Win32PrintOutput("    }\n");
     Win32PrintOutput("}\n");
     

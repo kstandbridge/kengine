@@ -280,6 +280,7 @@ typedef enum sort_type
 introspect(linked_list) typedef struct node
 {
     u32 Value;
+    string Text;
     
     struct node *Next;
 } node;

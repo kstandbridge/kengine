@@ -608,10 +608,45 @@ RunEdDSATests()
     ASSERT(!SignVerify);
 }
 
-internal b32
-NodePredicate(node *A, node *B)
+typedef enum node_predicate_type
 {
-    b32 Result = (A->Value < B->Value);
+    NodePredicate_ByValue,
+    NodePredicate_MatchValue,
+    NodePredicate_MatchText
+} node_predicate_type;
+
+internal b32
+NodePredicate(node_predicate_type *Context, node *A, node *B)
+{
+    b32 Result = false;
+    
+    switch(*Context)
+    {
+        case NodePredicate_ByValue:
+        {
+            Result = (A->Value < B->Value);
+        } break;
+        
+        case NodePredicate_MatchValue:
+        {
+            Result = (A->Value == B->Value);
+        } break;
+        
+        case NodePredicate_MatchText:
+        {
+            s32 SortIndex = StringComparisonLowercase(A->Text, B->Text);
+            if(SortIndex > 0)
+            {
+                Result = false;
+            }
+            else
+            {
+                Result = true;
+            }
+        } break;
+        
+        InvalidDefaultCase;
+    }
     return Result;
 }
 
@@ -622,24 +657,43 @@ RunLinkedListMergeSortTests(memory_arena *Arena)
     
     node *FortyOne = PushbackNode(&Head, Arena);
     FortyOne->Value = 41;
+    FortyOne->Text = String("ddaa");
+    
     node *Five = PushbackNode(&Head, Arena);
     Five->Value = 5;
+    Five->Text = String("ee");
+    
     node *Seven = PushbackNode(&Head, Arena);
     Seven->Value = 7;
+    Seven->Text = String("gg");
+    
     node *TwentyTwo = PushbackNode(&Head, Arena);
     TwentyTwo->Value = 22;
+    TwentyTwo->Text = String("bbbb");
+    
     node *TwentyEight = PushbackNode(&Head, Arena);
     TwentyEight->Value = 28;
+    TwentyEight->Text = String("bbhh");
+    
     node *SixtyThree = PushbackNode(&Head, Arena);
     SixtyThree->Value = 63;
+    SixtyThree->Text = String("ffcc");
+    
     node *Four = PushbackNode(&Head, Arena);
     Four->Value = 4;
+    Four->Text = String("dd");
+    
     node *Eight = PushbackNode(&Head, Arena);
     Eight->Value = 8;
+    Eight->Text = String("hh");
+    
     node *Two = PushbackNode(&Head, Arena);
     Two->Value = 2;
+    Two->Text = String("bb");
+    
     node *Eleven = PushbackNode(&Head, Arena);
     Eleven->Value = 11;
+    Eleven->Text = String("aa");
     
     ASSERT(Head == FortyOne);
     ASSERT(Head->Next == Five);
@@ -653,7 +707,9 @@ RunLinkedListMergeSortTests(memory_arena *Arena)
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next == Eleven);
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next->Next == 0);
     
-    NodeMergeSort(&Head, NodePredicate, Sort_Ascending);
+    node_predicate_type PredicateType = NodePredicate_ByValue;
+    
+    NodeMergeSort(&Head, NodePredicate, &PredicateType, Sort_Ascending);
     
     ASSERT(Head == Two);
     ASSERT(Head->Next == Four);
@@ -667,7 +723,7 @@ RunLinkedListMergeSortTests(memory_arena *Arena)
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next == SixtyThree);
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next->Next == 0);
     
-    NodeMergeSort(&Head, NodePredicate, Sort_Descending);
+    NodeMergeSort(&Head, NodePredicate, &PredicateType, Sort_Descending);
     
     ASSERT(Head == SixtyThree);
     ASSERT(Head->Next == FortyOne);
@@ -680,6 +736,37 @@ RunLinkedListMergeSortTests(memory_arena *Arena)
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next == Four);
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next == Two);
     ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next->Next == 0);
+    
+    PredicateType = NodePredicate_MatchText;
+    
+    NodeMergeSort(&Head, NodePredicate, &PredicateType, Sort_Ascending);
+    
+    ASSERT(Head == Eleven);
+    ASSERT(Head->Next == TwentyTwo);
+    ASSERT(Head->Next->Next == TwentyEight);
+    ASSERT(Head->Next->Next->Next == Two);
+    ASSERT(Head->Next->Next->Next->Next == FortyOne);
+    ASSERT(Head->Next->Next->Next->Next->Next == Four);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next == Five);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next == SixtyThree);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next == Seven);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next == Eight);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next->Next == 0);
+    
+    NodeMergeSort(&Head, NodePredicate, &PredicateType, Sort_Descending);
+    
+    ASSERT(Head == Eight);
+    ASSERT(Head->Next == Seven);
+    ASSERT(Head->Next->Next == SixtyThree);
+    ASSERT(Head->Next->Next->Next == Five);
+    ASSERT(Head->Next->Next->Next->Next == Four);
+    ASSERT(Head->Next->Next->Next->Next->Next == FortyOne);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next == Two);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next == TwentyEight);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next == TwentyTwo);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next == Eleven);
+    ASSERT(Head->Next->Next->Next->Next->Next->Next->Next->Next->Next->Next == 0);
+    
 }
 
 inline void
@@ -756,13 +843,6 @@ RunGetIndexOfNodeTests(memory_arena *Arena)
     
 }
 
-internal b32
-NodeMatchPredicate(node *A, node *B)
-{
-    b32 Result = (A->Value == B->Value);
-    return Result;
-}
-
 inline void
 RunGetNodeTests(memory_arena *Arena)
 {
@@ -783,14 +863,16 @@ RunGetNodeTests(memory_arena *Arena)
     {
         .Value = 41
     };
-    node *Actual = GetNode(Head, NodeMatchPredicate, &MatchNode);
+    
+    node_predicate_type PredicateType = NodePredicate_MatchValue;
+    node *Actual = GetNode(Head, NodePredicate, &PredicateType, &MatchNode);
     ASSERT(Actual == FortyOne);
     
     MatchNode.Value = 7;
-    Actual = GetNode(Head, NodeMatchPredicate, &MatchNode);
+    Actual = GetNode(Head, NodePredicate, &PredicateType, &MatchNode);
     ASSERT(Actual == Seven);
     
-    Actual = GetNode(Head, NodeMatchPredicate, DummyNode);
+    Actual = GetNode(Head, NodePredicate, &PredicateType, DummyNode);
     ASSERT(Actual == 0);
 }
 
