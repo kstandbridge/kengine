@@ -696,7 +696,6 @@ StringReplace(char *Result, char *HayStack, char *Needle, char *Replace)
     Result[Index] = '\0';
 }
 
-
 inline s32
 StringComparison(string A, string B)
 {
@@ -716,25 +715,42 @@ StringComparison(string A, string B)
     s32 Result = A.Data[IndexA] - B.Data[IndexB];
     
     return Result;
-    
 }
+
 inline s32
 StringComparisonLowercase(string A, string B)
 {
     u32 IndexA = 0;
     u32 IndexB = 0;
-    while(CToLowercase(A.Data[IndexA]) == CToLowercase(B.Data[IndexB]))
-    {
-        if((IndexA == A.Size - 1) ||
-           (IndexB == B.Size - 1))
-        {
-            break;
-        }
-        ++IndexA;
-        ++IndexB;
-    }
     
-    s32 Result = A.Data[IndexA] - B.Data[IndexB];
+    s32 Result = 0;
+    if(!A.Size && !B.Size)
+    {
+        Result = 0;
+    } 
+    else if(!A.Size)
+    {
+        Result = -1;
+    } 
+    else if(!B.Size)
+    {
+        Result = 1;
+    }
+    else
+    {
+        while(CToLowercase(A.Data[IndexA]) == CToLowercase(B.Data[IndexB]))
+        {
+            if((IndexA == A.Size - 1) ||
+               (IndexB == B.Size - 1))
+            {
+                break;
+            }
+            ++IndexA;
+            ++IndexB;
+        }
+        
+        Result = A.Data[IndexA] - B.Data[IndexB];
+    }
     
     return Result;
     
