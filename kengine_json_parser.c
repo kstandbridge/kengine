@@ -1,35 +1,5 @@
-typedef enum json_token_type
-{
-    JsonToken_Unknown,
-    
-    JsonToken_OpenBracer,
-    JsonToken_CloseBracer,
-    
-    JsonToken_OpenBracket,
-    JsonToken_CloseBracket,
-    
-    JsonToken_Colon,
-    JsonToken_Comma,
-    
-    JsonToken_String,
-    
-    JsonToken_EndOfStream
-} json_token_type;
 
-typedef struct json_token
-{
-    json_token_type Type;
-    string Value;
-} json_token;
-
-typedef struct json_tokenizer
-{
-    memory_arena *Arena;
-    string Json;
-    umm Index;
-} json_tokenizer;
-
-internal json_token
+json_token
 GetNextJsonToken(json_tokenizer *Tokenizer)
 {
     // NOTE(kstandbridge): Eat all whitespace
@@ -103,7 +73,7 @@ GetNextJsonToken(json_tokenizer *Tokenizer)
     return Result;
 }
 
-inline b32
+b32
 RequireJsonToken(json_tokenizer *Tokenizer, json_token_type DesiredType)
 {
     json_token Token = GetNextJsonToken(Tokenizer);
@@ -111,9 +81,7 @@ RequireJsonToken(json_tokenizer *Tokenizer, json_token_type DesiredType)
     return Result;
 }
 
-typedef void *parse_json_callback(memory_arena *Arena, json_tokenizer *Tokenizer);
-
-internal void *
+void *
 ParseJson(memory_arena *Arena, string Json, parse_json_callback *Callback)
 {
     json_tokenizer Tokenizer;

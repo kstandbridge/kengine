@@ -1,3 +1,5 @@
+#ifndef KENGINE_RANDOM_H
+
 typedef struct random_state
 {
     u32 Value;
@@ -16,3 +18,6 @@ RandomU32(random_state *State)
     
     return Result;
 }
+
+#define KENGINE_RANDOM_H
+#endif //KENGINE_RANDOM_H

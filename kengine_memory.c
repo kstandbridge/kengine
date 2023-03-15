@@ -1,8 +1,5 @@
-#ifndef KENGINE_MEMORY_H
 
-#define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
-#define ZeroArray(Count, Pointer) ZeroSize(Count*sizeof((Pointer)[0]), Pointer)
-inline void
+internal void
 ZeroSize(u64 Size, void *Ptr)
 {
     u8 *Byte = (u8 *)Ptr;
@@ -11,23 +8,17 @@ ZeroSize(u64 Size, void *Ptr)
         *Byte++ = 0;
     }
 }
-
-typedef struct memory_arena
+arena_push_params
+DefaultArenaPushParams()
 {
-    platform_memory_block *CurrentBlock;
-    umm MinimumBlockSize;
-    u32 AllocationFlags;
-    u32 TempCount;
-} memory_arena;
+    arena_push_params Result;
+    Result.Flags = ArenaPushFlag_ClearToZero;
+    Result.Alignment = 4;
+    return Result;
+}
 
-typedef struct temporary_memory
-{
-    memory_arena *Arena;
-    platform_memory_block *Block;
-    umm Used;
-} temporary_memory;
 
-inline umm
+internal umm
 GetAlignmentOffset(memory_arena *Arena, umm Alignment)
 {
     umm Result = 0;
@@ -42,51 +33,7 @@ GetAlignmentOffset(memory_arena *Arena, umm Alignment)
     return Result;
 }
 
-
-inline void *
-Copy(umm Size, void *SourceInit, void *DestInit)
-{
-    u8 *Source = (u8 *)SourceInit;
-    u8 *Dest = (u8 *)DestInit;
-    while(Size--) {*Dest++ = *Source++;}
-    
-    return DestInit;
-}
-
-typedef enum arena_push_flags
-{
-    ArenaPushFlag_ClearToZero = 0x1
-} arena_push_flags;
-
-typedef struct arena_push_params
-{
-    u32 Flags;
-    u32 Alignment;
-} arena_push_params;
-
-inline arena_push_params
-DefaultArenaPushParams()
-{
-    arena_push_params Result;
-    Result.Flags = ArenaPushFlag_ClearToZero;
-    Result.Alignment = 4;
-    return Result;
-}
-
-inline arena_push_params
-NoClearArenaPushParams()
-{
-    arena_push_params Result = DefaultArenaPushParams();
-    Result.Flags &= ~ArenaPushFlag_ClearToZero;
-    return Result;
-}
-
-#define MEMORY_ALIGNMENT 4
-#define PushStruct(Arena, type) (type *)PushSize_(Arena, sizeof(type), DefaultArenaPushParams())
-#define PushArray(Arena, Count, type) (type *)PushSize_(Arena, (Count)*sizeof(type), DefaultArenaPushParams())
-#define PushSize(Arena, Size) PushSize_(Arena, Size, DefaultArenaPushParams())
-#define PushCopy(Arena, Size, Source) Copy(Size, Source, PushSize_(Arena, Size, DefaultArenaPushParams()))
-inline void *
+void *
 PushSize_(memory_arena *Arena, umm SizeInit, arena_push_params Params)
 {
     void *Result = 0;
@@ -129,7 +76,7 @@ PushSize_(memory_arena *Arena, umm SizeInit, arena_push_params Params)
         
         umm BlockSize = Maximum(Size, Arena->MinimumBlockSize);
         
-        platform_memory_block *NewBlock = Platform.AllocateMemory(BlockSize, Arena->AllocationFlags);
+        platform_memory_block *NewBlock = PlatformAllocateMemory(BlockSize, Arena->AllocationFlags);
         NewBlock->Prev = Arena->CurrentBlock;
         Arena->CurrentBlock = NewBlock;
         // TODO(kstandbridge): Debug block allocation event
@@ -157,19 +104,26 @@ PushSize_(memory_arena *Arena, umm SizeInit, arena_push_params Params)
     return Result;
 }
 
-#define BootstrapPushStruct(type, Member) (type *)BootstrapPushsize_(sizeof(type), OffsetOf(type, Member), DefaultArenaPushParams())
-inline void *
-BootstrapPushsize_(umm StructSize, umm OffsetToArena, arena_push_params Params)
+void *
+Copy(umm Size, void *SourceInit, void *DestInit)
 {
-    memory_arena Arena;
-    ZeroStruct(Arena);
-    void *Result = PushSize_(&Arena, StructSize, Params);
-    *(memory_arena *)((u8 *)Result + OffsetToArena) = Arena;
+    u8 *Source = (u8 *)SourceInit;
+    u8 *Dest = (u8 *)DestInit;
+    while(Size--) {*Dest++ = *Source++;}
     
-    return Result;
+    return DestInit;
 }
 
-inline temporary_memory
+internal void
+FreeLastArenaBlock(memory_arena *Arena)
+{
+    platform_memory_block *Free = Arena->CurrentBlock;
+    // TODO(kstandbridge): Debug event block free
+    Arena->CurrentBlock = Free->Prev;
+    PlatformDeallocateMemory(Free);
+}
+
+temporary_memory
 BeginTemporaryMemory(memory_arena *Arena)
 {
     temporary_memory Result;
@@ -183,28 +137,19 @@ BeginTemporaryMemory(memory_arena *Arena)
     return(Result);
 }
 
-inline void
-FreeLastArenaBlock(memory_arena *Arena)
+void
+EndTemporaryMemory(temporary_memory MemoryFlush)
 {
-    platform_memory_block *Free = Arena->CurrentBlock;
-    // TODO(kstandbridge): Debug event block free
-    Arena->CurrentBlock = Free->Prev;
-    Platform.DeallocateMemory(Free);
-}
-
-inline void
-EndTemporaryMemory(temporary_memory TempMem)
-{
-    memory_arena *Arena = TempMem.Arena;
-    while(Arena->CurrentBlock != TempMem.Block)
+    memory_arena *Arena = MemoryFlush.Arena;
+    while(Arena->CurrentBlock != MemoryFlush.Block)
     {
         FreeLastArenaBlock(Arena);
     }
     
     if(Arena->CurrentBlock)
     {
-        Assert(Arena->CurrentBlock->Used >= TempMem.Used);
-        Arena->CurrentBlock->Used = TempMem.Used;
+        Assert(Arena->CurrentBlock->Used >= MemoryFlush.Used);
+        Arena->CurrentBlock->Used = MemoryFlush.Used;
         // TODO(kstandbridge): Debug event block truncate?
     }
     
@@ -212,20 +157,7 @@ EndTemporaryMemory(temporary_memory TempMem)
     --Arena->TempCount;
 }
 
-inline void
-CheckArena(memory_arena *Arena)
-{
-    if(Arena)
-    {
-        Assert(Arena->TempCount == 0);
-    }
-    else
-    {
-        InvalidCodePath;
-    }
-}
-
-inline void
+void
 ClearArena(memory_arena *Arena)
 {
     while(Arena->CurrentBlock)
@@ -239,6 +171,3 @@ ClearArena(memory_arena *Arena)
         }
     }
 }
-
-#define KENGINE_MEMORY_H
-#endif //KENGINE_MEMORY_H

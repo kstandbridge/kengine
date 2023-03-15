@@ -1,18 +1,4 @@
-// NOTE(kstandbridge): This is based on http://ed25519.cr.yp.to/
-
-// Heavily inspired by https://github.com/orlp/ed25519 however the code has been
-// modified extensively and does not represent the work of the origional author
-
-typedef u8 ed25519_private_key[64];
-typedef u8 ed25519_public_key[32];
-typedef u8 ed25519_signature[64];
 typedef s32 ed25519_field_element[10];
-
-typedef struct ed25519_key_pair
-{
-    ed25519_public_key Public;
-    ed25519_private_key Private;
-} ed25519_key_pair;
 
 typedef struct ed25519_group_element_projective
 {
@@ -4105,7 +4091,7 @@ Ed25519GroupElementDoubleScalarMultipleVartime(ed25519_group_element_projective 
     }
 }
 
-internal ed25519_key_pair
+ed25519_key_pair
 Ed25519CreateKeyPair(ed25519_private_key Persistent)
 {
     ed25519_key_pair Result;
@@ -4123,7 +4109,7 @@ Ed25519CreateKeyPair(ed25519_private_key Persistent)
     return Result;
 }
 
-internal void
+void
 Ed25519Sign(ed25519_signature Signature, string Message, ed25519_key_pair KeyPair)
 {
     sha512_state State = Sha512Create();
@@ -4150,7 +4136,7 @@ Ed25519Sign(ed25519_signature Signature, string Message, ed25519_key_pair KeyPai
 }
 
 
-internal b32
+b32
 Ed25519Verify(ed25519_signature Signature, string Message, ed25519_public_key Public)
 {
     b32 Result = false;

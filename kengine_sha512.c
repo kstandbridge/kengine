@@ -301,7 +301,7 @@ Sha512Final(sha512_state *State, u8 *Output)
     return Result;
 }
 
-internal b32 
+b32 
 Sha512(u8 *Message, u64 Length, u8 *Output)
 {
     sha512_state State = Sha512Create();

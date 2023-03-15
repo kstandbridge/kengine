@@ -66,6 +66,7 @@ typedef unsigned __int64 umm;
 
 #define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
 #define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
+
 inline u32 
 AtomicCompareExchangeU32(u32 volatile *Value, u32 New, u32 Expected)
 {
@@ -145,97 +146,11 @@ EndTicketMutex(ticket_mutex *Mutex)
     AtomicAddU64(&Mutex->Serving, 1);
 }
 
-typedef struct string
+typedef enum sort_type
 {
-    umm Size;
-    u8 *Data;
-} string;
-
-introspect(linked_list) typedef struct string_list
-{
-    string Entry;
-    
-    struct string_list *Next;
-} string_list;
-
-#define NullString() String_(0, 0)
-#define IsNullString(Text) ((Text.Data == 0) || (Text.Size == 0))
-
-typedef struct editable_string
-{
-    umm Size;
-    umm Length;
-    u8 *Data;
-    
-    u32 SelectionStart;
-    u32 SelectionEnd;
-    
-} editable_string;
-
-introspect(ctor, set1, math) typedef struct
-{
-    f32 X;
-    f32 Y;
-} v2;
-
-introspect(ctor, set1, math) typedef struct
-{
-    s32 X;
-    s32 Y;
-} v2i;
-
-introspect(ctor, set1, math) typedef struct
-{
-    f32 X;
-    f32 Y;
-    f32 Z;
-} v3;
-
-introspect(ctor, set1, math) typedef struct
-{
-    f32 R;
-    f32 G;
-    f32 B;
-    f32 A;
-} v4;
-
-introspect(ctor) typedef struct
-{
-    v2 Min;
-    v2 Max;
-} rectangle2;
-
-introspect(ctor) typedef struct
-{
-    s32 MinX;
-    s32 MaxX;
-    s32 MinY;
-    s32 MaxY;
-} rectangle2i;
-
-typedef struct m4x4
-{
-    f32 E[4][4];
-} m4x4;
-
-introspect(ctor) typedef struct
-{
-    v4 Text;
-    v4 HotText;
-    v4 ClickedText;
-    v4 SelectedText;
-    
-    v4 Background;
-    v4 HotBackground;
-    v4 ClickedBackground;
-    v4 SelectedBackground;
-    
-    v4 Border;
-    v4 HotBorder;
-    v4 ClickedBorder;
-    v4 SelectedBorder;
-    
-} element_colors;
+    Sort_Ascending,
+    Sort_Descending
+} sort_type;
 
 typedef struct date_time
 {
@@ -249,53 +164,5 @@ typedef struct date_time
     u16 Milliseconds;
 } date_time;
 
-// TODO(kstandbridge): Where should loaded_bitmap live?
-#define BITMAP_BYTES_PER_PIXEL 4
-typedef struct
-{
-    void *Memory;
-    v2 AlignPercentage;
-    s32 Width;
-    s32 Height;
-    f32 WidthOverHeight;
-    
-    s32 Pitch;
-    void *TextureHandle;
-} loaded_bitmap;
-
-typedef struct
-{
-    loaded_bitmap Bitmap;
-    f32 KerningChange;
-} loaded_glyph;
-
-typedef enum sort_type
-{
-    Sort_Ascending,
-    Sort_Descending
-} sort_type;
-
-
-// TODO(kstandbridge): Replace this with something we actually use
-introspect(linked_list) typedef struct node
-{
-    u32 Value;
-    string Text;
-    
-    struct node *Next;
-} node;
-
-
-// TODO(kstandbridge): move this to types.h
-typedef struct path_node_link
-{
-    struct path_node *Node;
-    
-    struct path_node_link *Prev;
-    struct path_node_link *Next;
-} path_node_link;
-
 #define KENGINE_TYPES_H
 #endif //KENGINE_TYPES_H
-
-
