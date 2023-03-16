@@ -76,12 +76,15 @@ typedef struct platform_state
 
 #ifdef KENGINE_HEADLESS
 
-void
-InitApp(app_memory *AppMemory);
-
 #ifndef IDI_ICON
 #define IDI_ICON       1000
 #endif
+
+void
+InitApp(app_memory *AppMemory, HWND Window);
+
+LRESULT
+HandleMessage(app_memory *AppMemory, u32 Message, WPARAM WParam, LPARAM LParam);
 
 internal LRESULT CALLBACK
 Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
@@ -92,7 +95,7 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
     {
         case WM_CREATE:
         {
-            InitApp(GlobalAppMemory);
+            InitApp(GlobalAppMemory, Window);
         } break;
         
         case WM_DESTROY:
@@ -102,7 +105,10 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
         
         default:
         {
-            Result = DefWindowProcW(Window, Message, WParam, LParam);
+            if(!HandleMessage(GlobalAppMemory, Message, WParam, LParam))
+            {
+                Result = DefWindowProcW(Window, Message, WParam, LParam);
+            }
         } break;
     }
     
