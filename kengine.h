@@ -10,13 +10,16 @@
 
 #ifdef KENGINE_WIN32
 #pragma comment(lib, "Crypt32.lib")
+#pragma comment(lib, "HttpApi.lib")
 #pragma comment(lib, "Shell32.lib")
 #pragma comment(lib, "Ole32.lib")
 #pragma comment(lib, "OleAut32.lib")
 #pragma comment(lib, "User32.lib")
 #pragma comment(lib, "Wininet.lib")
 
+#include <WS2tcpip.h>
 #include <Windows.h>
+#include <http.h>
 #include <Shlobj.h>
 #include <tlhelp32.h>
 #include <Wininet.h>
@@ -34,6 +37,27 @@
 #include "kengine_eddsa.h"
 #include "kengine_random.h"
 
+typedef void platform_work_queue_callback(void *Data);
+
+typedef struct platform_work_queue_entry
+{
+    platform_work_queue_callback *Callback;
+    void *Data;
+} platform_work_queue_entry;
+
+typedef struct platform_work_queue 
+{
+    platform_work_queue_entry Entries[256];
+} platform_work_queue;
+
+typedef struct app_memory
+{
+    struct platform_state *PlatformState;
+    struct app_state *AppState;
+} app_memory;
+
+extern app_memory GlobalAppMemory;
+
 #ifdef KENGINE_WIN32
 #include "kengine_win32.h"
 #endif
@@ -46,15 +70,6 @@ GetDateTime()
     
     return Result;
 }
-
-typedef struct app_memory
-{
-    struct platform_state *PlatformState;
-    struct app_state *AppState;
-} app_memory;
-
-global app_memory GlobalAppMemory_;
-global app_memory *GlobalAppMemory = &GlobalAppMemory_;
 
 typedef struct platform_state
 {
@@ -95,7 +110,7 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
     {
         case WM_CREATE:
         {
-            InitApp(GlobalAppMemory, Window);
+            InitApp(&GlobalAppMemory, Window);
         } break;
         
         case WM_DESTROY:
@@ -105,7 +120,7 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
         
         default:
         {
-            if(!HandleMessage(GlobalAppMemory, Message, WParam, LParam))
+            if(!HandleMessage(&GlobalAppMemory, Message, WParam, LParam))
             {
                 Result = DefWindowProcW(Window, Message, WParam, LParam);
             }
@@ -204,13 +219,11 @@ main(s32 ArgCount, char **Args)
         QueryPerformanceFrequency(&PerfCountFrequencyResult);
         GlobalWin32State.PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
     }
-    app_memory AppMemory_ = {0};
-    app_memory *AppMemory = &AppMemory_;
     
-    platform_state *PlatformState = AppMemory->PlatformState;
+    platform_state *PlatformState = GlobalAppMemory.PlatformState;
     if(PlatformState == 0)
     {
-        PlatformState = AppMemory->PlatformState = BootstrapPushStruct(platform_state, Arena);
+        PlatformState = GlobalAppMemory.PlatformState = BootstrapPushStruct(platform_state, Arena);
     }
     
     string *Arguments = PushArray(&PlatformState->Arena, ArgCount, string);
@@ -221,7 +234,7 @@ main(s32 ArgCount, char **Args)
         Arguments[ArgIndex] = String_(GetNullTerminiatedStringLength(Args[ArgIndex]), (u8 *)Args[ArgIndex]);
     }
     
-    Result = MainLoop(AppMemory, ArgCount, Arguments);
+    Result = MainLoop(&GlobalAppMemory, ArgCount, Arguments);
     
     return Result;
 }

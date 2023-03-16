@@ -159,20 +159,42 @@ u32
 Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File);
 
 #define PlatformRequestCloseProcess(FileName) Win32RequestCloseProcess(FileName)
-internal b32
+b32
 Win32RequestCloseProcess(string FileName);
 
 #define PlatformKillProcess(FileName) Win32KillProcess(FileName)
-internal b32
+b32
 Win32KillProcess(string FileName);
 
 #define PlatformCheckForProcess(FileName) Win32CheckForProcess(FileName)
-internal b32
+b32
 Win32CheckForProcess(string FileName);
 
 #define PlatformExecuteProcess(Path, Args, WorkingDirectory) Win32ExecuteProcess(Path, Args, WorkingDirectory)
 void
 Win32ExecuteProcess(string Path, string Args, string WorkingDirectory);
+
+#define PlatformMakeWorkQueue(Arena, ThreadCount) Win32MakeWorkQueue(Arena, ThreadCount)
+platform_work_queue *
+Win32MakeWorkQueue(memory_arena *Arena, u32 ThreadCount);
+
+#define PlatformCompleteAllWork(PlatformQueue) Win32CompleteAllWork(PlatformQueue)
+void
+Win32CompleteAllWork(platform_work_queue *PlatformQueue);
+
+#define PlatformAddWorkEntry(PlatformQueue, Callback, Data) Win32AddWorkEntry(PlatformQueue, Callback, Data)
+void
+Win32AddWorkEntry(platform_work_queue *PlatformQueue, platform_work_queue_callback *Callback, void *Data);
+
+typedef platform_http_response http_request_callback(app_memory *Memory, memory_arena *Arena, platform_http_request Request);
+
+#define PlatformBeginHttpServer(Arena, Callback) Win32BeginHttpServer(Arena, Callback)
+void *
+Win32BeginHttpServer(memory_arena *Arena, http_request_callback *Callback);
+
+#define PlatformEndHttpServer(Handle) Win32EndHttpServer(Handle)
+void
+Win32EndHttpServer(void *Handle);
 
 #define KENGINE_WIN32_H
 #endif //KENGINE_WIN32_H

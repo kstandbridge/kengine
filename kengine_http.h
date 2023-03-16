@@ -26,6 +26,12 @@ typedef struct platform_http_request
     
 } platform_http_request;
 
+typedef struct platform_http_response
+{
+    u16 StatusCode;
+    string Payload;
+} platform_http_response;
+
 typedef struct platform_http_client
 {
     void *Handle;
