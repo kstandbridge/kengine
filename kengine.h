@@ -9,11 +9,15 @@
 #endif // VERSION
 
 #ifdef KENGINE_WIN32
+#pragma comment(lib, "Comctl32.lib")
+#pragma comment(lib, "Comdlg32.lib")
 #pragma comment(lib, "Crypt32.lib")
+#pragma comment(lib, "Gdi32.lib")
 #pragma comment(lib, "HttpApi.lib")
 #pragma comment(lib, "Shell32.lib")
 #pragma comment(lib, "Ole32.lib")
 #pragma comment(lib, "OleAut32.lib")
+#pragma comment(lib, "Urlmon.lib")
 #pragma comment(lib, "User32.lib")
 #pragma comment(lib, "Wininet.lib")
 
@@ -24,6 +28,7 @@
 #include <tlhelp32.h>
 #include <Wininet.h>
 #include <Wincrypt.h>
+
 #endif
 
 #define introspect(...)
@@ -36,6 +41,8 @@
 #include "kengine_sha512.h"
 #include "kengine_eddsa.h"
 #include "kengine_random.h"
+#include "kengine_tokenizer.h"
+#include "kengine_xml_parser.h"
 
 typedef void platform_work_queue_callback(void *Data);
 
@@ -76,53 +83,148 @@ typedef struct platform_state
     memory_arena Arena;
 } platform_state;
 
-
 #ifdef KENGINE_IMPLEMENTATION
 #include "kengine_memory.c"
 #include "kengine_log.c"
 #include "kengine_string.c"
 #include "kengine_sha512.c"
 #include "kengine_eddsa.c"
+#include "kengine_tokenizer.c"
 #include "kengine_json_parser.c"
 
 #ifdef KENGINE_WIN32
 #include "kengine_win32.c"
 #endif
 
-#ifdef KENGINE_HEADLESS
+#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
 
 #ifndef IDI_ICON
 #define IDI_ICON       1000
 #endif
 
 void
-InitApp(app_memory *AppMemory, HWND Window);
+InitApp(app_memory *AppMemory, HWND Window, char *CommandLine);
 
 LRESULT
-HandleMessage(app_memory *AppMemory, u32 Message, WPARAM WParam, LPARAM LParam);
+MainWindowCallback(app_memory *AppMemory, HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
+
+char *GlobalCommandLine;
 
 internal LRESULT CALLBACK
 Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
 {
     LRESULT Result = 0;
     
+    COLORREF LightBkColor = 0xFFFFFF;
+    COLORREF DarkBkColor = 0x383838;
+    COLORREF DarkTextColor = 0xFFFFFF;
+    local_persist HBRUSH DarkBkBrush = 0;
+    local_persist HBRUSH LightBkBrush = 0;
+    
     switch(Message)
     {
         case WM_CREATE:
         {
-            InitApp(&GlobalAppMemory, Window);
+            if(DarkApi.IsDarkModeSupported)
+            {
+                DarkApi.SetWindowTheme(Window, L"DarkMode_Explorer", 0);
+                DarkApi.AllowDarkModeForWindow(Window, DarkApi.IsDarkModeEnabled);
+                Win32RefreshTitleBarThemeColor(Window);
+            }
+            
+            InitApp(&GlobalAppMemory, Window, GlobalCommandLine);
+            
         } break;
+        
+        case WM_CTLCOLORMSGBOX:
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORBTN:
+        case WM_CTLCOLORDLG:
+        case WM_CTLCOLORSCROLLBAR:
+        case WM_CTLCOLORSTATIC:
+        {
+            if (DarkApi.IsDarkModeSupported && DarkApi.IsDarkModeEnabled)
+            {
+                HDC Hdc = (HDC)WParam;
+                SetTextColor(Hdc, DarkTextColor);
+                SetBkColor(Hdc, DarkBkColor);
+                if (!DarkBkBrush)
+                {
+                    DarkBkBrush = CreateSolidBrush(DarkBkColor);
+                }
+                Result = (LRESULT)DarkBkBrush;
+            }
+        } break;
+        
+        case WM_ERASEBKGND:
+        {
+            RECT Rect;
+            GetClientRect(Window, &Rect);
+            if (DarkApi.IsDarkModeSupported && DarkApi.IsDarkModeEnabled)
+            {
+                if (!DarkBkBrush)
+                {
+                    DarkBkBrush = CreateSolidBrush(DarkBkColor);
+                }
+                FillRect((HDC)WParam, &Rect, DarkBkBrush);
+            }
+            else
+            {
+                if (!LightBkBrush)
+                {
+                    LightBkBrush = CreateSolidBrush(LightBkColor);
+                }
+                FillRect((HDC)WParam, &Rect, LightBkBrush);
+            }
+            Result = 0;
+            
+        } break;
+        
+        case WM_SETTINGCHANGE:
+        {
+            // TODO(kstandbridge): Win32IsColorSchemeChangeMessage
+#if 0            
+            if(Win32IsColorSchemeChangeMessage(LParam))
+            {
+                Win32.IsDarkModeEnabled = Win32.ShouldAppsUseDarkMode() && !IsHighContrast();
+                RefreshTitleBarThemeColor(Window);
+                
+                // NOTE(kstandbridge): Pass through to dll layer
+                if(GlobalGalaQCode.MainWindowCallback)
+                {
+                    Result = GlobalGalaQCode.MainWindowCallback(&GlobalAppMemory, Window, Message, WParam, LParam);
+                }
+                
+                RECT Rect;
+                Win32.GetClientRect(Window, &Rect);
+                Win32.InvalidateRect(Window, &Rect, true);
+            }
+#endif
+            
+        } break;
+        
         
         case WM_DESTROY:
         {
+            if (DarkBkBrush)
+            {
+                DeleteObject(DarkBkBrush);
+                DarkBkBrush = 0;
+            }
+            
             PostQuitMessage(0);
         } break;
         
         default:
         {
-            if(!HandleMessage(&GlobalAppMemory, Message, WParam, LParam))
+            if(GlobalAppMemory.AppState)
             {
-                Result = DefWindowProcW(Window, Message, WParam, LParam);
+                Result = MainWindowCallback(&GlobalAppMemory, Window, Message, WParam, LParam);
+            }
+            else
+            {
+                Result = DefWindowProcA(Window, Message, WParam, LParam);
             }
         } break;
     }
@@ -139,6 +241,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
     
     s32 Result = 0;
     
+    CoInitialize(0);
+    
+    GlobalCommandLine = CmdLine;
+    
     GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
     GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
     {
@@ -147,55 +253,73 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
         GlobalWin32State.PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
     }
     
-    WNDCLASSEXW WindowClass =
+    InitDarkApi();
+    
+    WNDCLASSEX WindowClass =
     {
         .cbSize = sizeof(WindowClass),
         .lpfnWndProc = Win32WindowProc,
         .hInstance = Instance,
         .hIcon = LoadIconA(Instance, MAKEINTRESOURCE(IDI_ICON)),
         .hCursor = LoadCursorA(NULL, IDC_ARROW),
-        .lpszClassName = L"KengineWindowClass",
+        .lpszClassName = "KengineWindowClass",
     };
     LogDebug("Registering %ls window class", WindowClass.lpszClassName);
-    if(RegisterClassExW(&WindowClass))
+    if(RegisterClassExA(&WindowClass))
     {
-        HWND Window = CreateWindowExW(WS_EX_APPWINDOW, WindowClass.lpszClassName, L"kengine",
-                                      WS_DISABLED, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+        HWND Window = CreateWindowExA(0, WindowClass.lpszClassName, "kengine",
+#ifdef KENGINE_HEADLESS
+                                      WS_DISABLED, 
+#else
+                                      WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+#endif
+                                      
+                                      CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                                       0, 0, WindowClass.hInstance, 0);
         if(Window)
         {
             LogDebug("Begin application loop");
+            
+#ifdef KENGINE_WINDOW
+            
+            if(DarkApi.IsDarkModeSupported)
+            {
+                DarkApi.AllowDarkModeForWindow(Window, DarkApi.IsDarkModeEnabled);
+                Win32RefreshTitleBarThemeColor(Window);
+            }
+#endif
+            
+            b32 HasMessage = false;
+            MSG Msg;
+            while((HasMessage = GetMessageA(&Msg, 0, 0, 0)) != 0)
+            {
+                if(HasMessage == -1)
+                {
+                    Win32LogError("Failed to get message");
+                    break;
+                }
+                else
+                {
+                    TranslateMessage(&Msg);
+                    DispatchMessageA(&Msg);
+                }
+            }
         }
         else
         {
             Win32LogError("Failed to create window");
         }
         
-        UpdateWindow(Window);
-        
-        b32 HasMessage = false;
-        MSG Msg;
-        while((HasMessage = GetMessageW(&Msg, 0, 0, 0)) != 0)
-        {
-            if(HasMessage == -1)
-            {
-                Win32LogError("Failed to get message");
-                break;
-            }
-            else
-            {
-                TranslateMessage(&Msg);
-                DispatchMessage(&Msg);
-            }
-        }
         
         LogDebug("Unregistering %ls window class", WindowClass.lpszClassName);
-        UnregisterClassW(WindowClass.lpszClassName, WindowClass.hInstance);
+        UnregisterClass(WindowClass.lpszClassName, WindowClass.hInstance);
     }
     else
     {
         Win32LogError("Failed to register window class");
     }
+    
+    CoUninitialize();
     
     return Result;
 }

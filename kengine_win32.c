@@ -2236,3 +2236,117 @@ Win32EndHttpServer(void *Handle)
     Win32UnitializeHttpServer(HttpState);
     Win32UninitializeIoCompletionContext(HttpState);
 }
+
+b32
+Win32SetClipboardText(char *Buffer, s64 Length)
+{
+    b32 Result = false;
+    
+    if(OpenClipboard(0))
+    {
+        if(EmptyClipboard())
+        {
+            HGLOBAL GlobalCopy = GlobalAlloc(GMEM_MOVEABLE, (Length + 1) * sizeof(char));
+            Assert(GlobalCopy);
+            LPTSTR StringCopy = (LPTSTR)GlobalLock(GlobalCopy);
+            Copy(Length * sizeof(char), Buffer, StringCopy);
+            StringCopy[Length] = '\0';
+            GlobalUnlock(GlobalCopy);
+            
+            HANDLE CopyHandle = SetClipboardData(CF_TEXT, GlobalCopy);
+            if(CopyHandle)
+            {
+                Result = true;
+            }
+            else
+            {
+                InvalidCodePath;
+            }
+            
+            CloseClipboard();
+        }
+    }
+    
+    return Result;
+}
+
+
+internal b32 
+Win32IsHighContrast()
+{
+    b32 Result = false;
+    
+	HIGHCONTRASTW HighContrast = {sizeof(HighContrast)};
+	if (SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(HighContrast), &HighContrast, FALSE))
+    {
+		Result = HighContrast.dwFlags & HCF_HIGHCONTRASTON;
+    }
+    
+	return Result;
+}
+
+global dark_api DarkApi;
+
+internal void
+Win32RefreshTitleBarThemeColor(HWND Window)
+{
+    BOOL IsDark = FALSE;
+	if (DarkApi.IsDarkModeAllowedForWindow(Window) &&
+		DarkApi.ShouldAppsUseDarkMode() &&
+		!Win32IsHighContrast())
+	{
+		IsDark = TRUE;
+	}
+    SetPropA(Window, "UseImmersiveDarkModeColors", (HANDLE)((INT_PTR)IsDark));
+    if(DarkApi.SetWindowCompositionAttribute)
+	{
+		WINDOWCOMPOSITIONATTRIBDATA AttribData = { WCA_USEDARKMODECOLORS, &IsDark, sizeof(IsDark) };
+		DarkApi.SetWindowCompositionAttribute(Window, &AttribData);
+	}
+}
+
+internal void
+InitDarkApi()
+{
+    DarkApi.UxThemeLibrary = LoadLibraryEx("UxTheme.dll", 0, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (DarkApi.UxThemeLibrary)
+    {
+        DarkApi.OpenThemeData = (open_theme_data *)GetProcAddress(DarkApi.UxThemeLibrary, "OpenThemeData");
+        Assert(DarkApi.OpenThemeData);
+        DarkApi.CloseThemeData = (close_theme_data *)GetProcAddress(DarkApi.UxThemeLibrary, "CloseThemeData");
+        Assert(DarkApi.CloseThemeData);
+        DarkApi.SetWindowTheme = (set_window_theme *)GetProcAddress(DarkApi.UxThemeLibrary, "SetWindowTheme");
+        Assert(DarkApi.SetWindowTheme);
+        DarkApi.GetThemeColor = (get_theme_color *)GetProcAddress(DarkApi.UxThemeLibrary, "GetThemeColor");
+        Assert(DarkApi.GetThemeColor);
+        
+        DarkApi.OpenNcThemeData = (open_nc_theme_data *)(GetProcAddress(DarkApi.UxThemeLibrary, MAKEINTRESOURCEA(49)));
+        DarkApi.RefreshImmersiveColorPolicyState = (refresh_immersive_color_policy_state *)(GetProcAddress(DarkApi.UxThemeLibrary, MAKEINTRESOURCEA(104)));
+        DarkApi.GetIsImmersiveColorUsingHighContrast = (get_is_immersive_color_using_high_contrast *)(GetProcAddress(DarkApi.UxThemeLibrary, MAKEINTRESOURCEA(106)));
+        DarkApi.ShouldAppsUseDarkMode = (should_apps_use_dark_mode *)(GetProcAddress(DarkApi.UxThemeLibrary, MAKEINTRESOURCEA(132)));
+        DarkApi.AllowDarkModeForWindow = (allow_dark_mode_for_window *)(GetProcAddress(DarkApi.UxThemeLibrary, MAKEINTRESOURCEA(133)));
+        
+        void *ord135 = (void *)GetProcAddress(DarkApi.UxThemeLibrary, MAKEINTRESOURCEA(135));
+        DarkApi.AllowDarkModeForApp = (allow_dark_mode_for_app *)(ord135);
+        DarkApi.SetPreferredAppMode = (set_preferred_app_mode*)(ord135);
+        
+        DarkApi.IsDarkModeAllowedForWindow = (is_dark_mode_allowed_for_window *)(GetProcAddress(DarkApi.UxThemeLibrary, MAKEINTRESOURCEA(137)));
+        
+        DarkApi.SetWindowCompositionAttribute = (set_window_composition_attribute *)(GetProcAddress(GetModuleHandleW(L"user32.dll"), "SetWindowCompositionAttribute"));
+        
+        if (DarkApi.OpenNcThemeData &&
+            DarkApi.RefreshImmersiveColorPolicyState &&
+            DarkApi.ShouldAppsUseDarkMode &&
+            DarkApi.AllowDarkModeForWindow &&
+            (DarkApi.AllowDarkModeForApp || DarkApi.SetPreferredAppMode) &&
+            DarkApi.IsDarkModeAllowedForWindow)
+        {
+            DarkApi.IsDarkModeSupported = true;
+            
+            DarkApi.AllowDarkModeForApp(true);
+            DarkApi.RefreshImmersiveColorPolicyState();
+            
+            DarkApi.IsDarkModeEnabled = DarkApi.ShouldAppsUseDarkMode() && !Win32IsHighContrast();
+        }
+    }
+}
