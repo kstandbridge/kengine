@@ -169,7 +169,7 @@ Win32ConsoleOut(char *Format, ...)
 umm
 Win32GetAppConfigDirectory(u8 *Buffer, umm BufferMaxSize)
 {
-    DWORD Result = ExpandEnvironmentStringsA("%AppData%", (char *)Buffer, BufferMaxSize);
+    DWORD Result = ExpandEnvironmentStringsA("%AppData%", (char *)Buffer, (DWORD)BufferMaxSize);
     
     if(Result == 0)
     {
@@ -187,7 +187,7 @@ Win32GetAppConfigDirectory(u8 *Buffer, umm BufferMaxSize)
 umm
 Win32GetHomeDirectory(u8 *Buffer, umm BufferMaxSize)
 {
-    DWORD Result = ExpandEnvironmentStringsA("%UserProfile%", (char *)Buffer, BufferMaxSize);
+    DWORD Result = ExpandEnvironmentStringsA("%UserProfile%", (char *)Buffer, (DWORD)BufferMaxSize);
     
     if(Result == 0)
     {
@@ -1180,7 +1180,7 @@ Win32UnzipToDirectory(string SourceZip, string DestFolder)
 umm
 Win32GetHostname(u8 *Buffer, umm BufferMaxSize)
 {
-    DWORD Result = BufferMaxSize;
+    DWORD Result = (DWORD)BufferMaxSize;
     
     if(!GetComputerNameA((char *)Buffer, &Result))
     {
@@ -1193,7 +1193,7 @@ Win32GetHostname(u8 *Buffer, umm BufferMaxSize)
 umm
 Win32GetUsername(u8 *Buffer, umm BufferMaxSize)
 {
-    umm Result = GetEnvironmentVariableA("Username", (char *)Buffer, BufferMaxSize);
+    umm Result = GetEnvironmentVariableA("Username", (char *)Buffer, (DWORD)BufferMaxSize);
     
     if(Result == 0)
     {
@@ -1327,4 +1327,102 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File)
     
     PlatformRequest->ResponseLength = Result;
     return Result;
+}
+
+
+typedef enum iterate_processes_op
+{
+    IterateProcesses_None,
+    IterateProcesses_Terminate,
+    IterateProcesses_RequestClose
+} iterate_processes_op;
+
+internal b32
+Win32IterateProcesses_(string Name, iterate_processes_op Op)
+{
+    b32 Result = false;
+    
+    HANDLE Snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPALL, 0);
+    PROCESSENTRY32 Entry = {0};
+    Entry.dwSize = sizeof(PROCESSENTRY32);
+    b32 ProcessFound = Process32First(Snapshot, &Entry);
+    while(ProcessFound)
+    {
+        if(StringsAreEqual(CStringToString(Entry.szExeFile), Name))
+        {
+            HANDLE Process = OpenProcess(PROCESS_TERMINATE, false, Entry.th32ProcessID);
+            if(Process != 0)
+            {
+                Result = true;
+                if(Op == IterateProcesses_RequestClose)
+                {
+                    u8 CPipe[MAX_PATH];
+                    string Pipe = FormatStringToBuffer(CPipe, sizeof(CPipe),  "\\\\.\\pipe\\close-request-pipe-%d", Entry.th32ProcessID);
+                    CPipe[Pipe.Size] = '\0';
+                    HANDLE PipeHandle = CreateFileA((char *)CPipe, 0, 0, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
+                    
+                    // NOTE(kstandbridge): Give it 3 seconds to close
+                    Sleep(3000); 
+                    CloseHandle(PipeHandle);
+                    
+                    // NOTE(kstandbridge): Kill it anyway
+                    TerminateProcess(Process, 0);
+                }
+                else if(Op == IterateProcesses_Terminate)
+                {                    
+                    TerminateProcess(Process, 0);
+                }
+                else
+                {
+                    Assert(Op == IterateProcesses_None);
+                }
+                CloseHandle(Process);
+                break;
+            }
+            else
+            {
+                Assert(!"Lack PROCESS_TERMINATE access to Firebird.exe");
+            }
+        }
+        ProcessFound = Process32Next(Snapshot, &Entry);
+    }
+    CloseHandle(Snapshot);
+    
+    return Result;
+}
+
+b32
+Win32RequestCloseProcess(string FileName)
+{
+    b32 Result = Win32IterateProcesses_(FileName, IterateProcesses_RequestClose);
+    return Result;
+}
+
+b32
+Win32KillProcess(string Name)
+{
+    b32 Result = Win32IterateProcesses_(Name, IterateProcesses_Terminate);
+    return Result;
+}
+
+b32
+Win32CheckForProcess(string Name)
+{
+    b32 Result = Win32IterateProcesses_(Name, IterateProcesses_None);
+    return Result;
+}
+
+void
+Win32ExecuteProcess(string Path, string Args, string WorkingDirectory)
+{
+    char CPath[MAX_PATH];
+    StringToCString(Path, MAX_PATH, CPath);
+    
+    char CArgs[MAX_PATH];
+    StringToCString(Args, MAX_PATH, CArgs);
+    
+    char CWorkingDirectory[MAX_PATH];
+    StringToCString(WorkingDirectory, MAX_PATH, CWorkingDirectory);
+    
+    ShellExecuteA(0, "open", CPath, CArgs, CWorkingDirectory, 0);
 }

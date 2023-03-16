@@ -158,5 +158,21 @@ Win32GetHttpResponseToFile(platform_http_request *PlatformRequest, string File);
 u32
 Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File);
 
+#define PlatformRequestCloseProcess(FileName) Win32RequestCloseProcess(FileName)
+internal b32
+Win32RequestCloseProcess(string FileName);
+
+#define PlatformKillProcess(FileName) Win32KillProcess(FileName)
+internal b32
+Win32KillProcess(string FileName);
+
+#define PlatformCheckForProcess(FileName) Win32CheckForProcess(FileName)
+internal b32
+Win32CheckForProcess(string FileName);
+
+#define PlatformExecuteProcess(Path, Args, WorkingDirectory) Win32ExecuteProcess(Path, Args, WorkingDirectory)
+void
+Win32ExecuteProcess(string Path, string Args, string WorkingDirectory);
+
 #define KENGINE_WIN32_H
 #endif //KENGINE_WIN32_H

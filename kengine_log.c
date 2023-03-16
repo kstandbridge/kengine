@@ -140,7 +140,7 @@ SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string
 #else
     if(LogLevel > LogLevel_Verbose)
     {
-        Platform.ConsoleOut("%S\n", Message);
+        PlatformConsoleOut("%S\n", Message);
     }
 #endif
     

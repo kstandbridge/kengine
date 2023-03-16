@@ -120,5 +120,13 @@ StringToCString(string Text, u32 BufferSize, char *Buffer)
 u32
 GetNullTerminiatedStringLength(char *Str);
 
+inline string
+CStringToString(char *NullTerminatedString)
+{
+    string Result = String_(GetNullTerminiatedStringLength(NullTerminatedString),
+                            (u8 *)NullTerminatedString);
+    return Result;
+}
+
 #define KENGINE_STRING_H
 #endif //KENGINE_STRING_H
