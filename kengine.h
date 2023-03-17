@@ -58,9 +58,14 @@ typedef struct platform_work_queue
     platform_work_queue_entry Entries[256];
 } platform_work_queue;
 
+typedef struct platform_state
+{
+    memory_arena Arena;
+} platform_state;
+
 typedef struct app_memory
 {
-    struct platform_state *PlatformState;
+    platform_state *PlatformState;
     struct app_state *AppState;
 } app_memory;
 
@@ -78,11 +83,6 @@ GetDateTime()
     
     return Result;
 }
-
-typedef struct platform_state
-{
-    memory_arena Arena;
-} platform_state;
 
 #ifdef KENGINE_IMPLEMENTATION
 #include "kengine_memory.c"
@@ -205,7 +205,6 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
             
         } break;
         
-        
         case WM_DESTROY:
         {
             if (DarkBkBrush)
@@ -274,7 +273,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
 #else //KENGINE_HEADLESS
                                       WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 #endif //KENGINE_HEADLESS
-                                      
                                       CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                                       0, 0, WindowClass.hInstance, 0);
         if(Window)
@@ -282,14 +280,12 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
             LogDebug("Begin application loop");
             
 #ifdef KENGINE_WINDOW
-            
             if(DarkApi.IsDarkModeSupported)
             {
                 DarkApi.AllowDarkModeForWindow(Window, DarkApi.IsDarkModeEnabled);
                 Win32RefreshTitleBarThemeColor(Window);
             }
 #endif //KENGINE_WINDOW
-            
             b32 HasMessage = false;
             MSG Msg;
             while((HasMessage = GetMessageA(&Msg, 0, 0, 0)) != 0)
@@ -310,7 +306,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
         {
             Win32LogError("Failed to create window");
         }
-        
         
         LogDebug("Unregistering %ls window class", WindowClass.lpszClassName);
         UnregisterClass(WindowClass.lpszClassName, WindowClass.hInstance);
@@ -364,7 +359,6 @@ main(s32 ArgCount, char **Args)
     return Result;
 }
 #endif //KENGINE_CONSOLE
-
 
 #endif //KENGINE_IMPLEMENTATION
 
