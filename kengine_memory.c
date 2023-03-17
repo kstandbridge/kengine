@@ -41,12 +41,15 @@ PushSize_(memory_arena *Arena, umm SizeInit, arena_push_params Params)
     Assert(Params.Alignment <= 128);
     Assert(IsPow2(Params.Alignment));
     
-    // NOTE(kstandbridge): Only one can be enabled at a time
-#if 0
+#if defined(KENGINE_OVERFLOW) && defined(KENGINE_UNDERFLOW)
+#error Must define either KENGINE_OVERFLOW or KENGINE_UNDERFLOW for memory checks, not both
+#endif
+    
+#if defined(KENGINE_OVERFLOW)
     Arena->AllocationFlags = PlatformMemoryBlockFlag_OverflowCheck;
 #endif
     
-#if 0
+#if defined(KENGINE_UNDERFLOW)
     Arena->AllocationFlags = PlatformMemoryBlockFlag_UnderflowCheck;
 #endif
     
