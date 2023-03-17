@@ -138,10 +138,7 @@ SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string
                        Date.Day, Date.Month, Date.Year, Date.Hour, Date.Minute, Date.Second,
                        ThreadId, Level, Message);
 #else
-    if(LogLevel > LogLevel_Verbose)
-    {
-        PlatformConsoleOut("%S\n", Message);
-    }
+    PlatformConsoleOut("%S\n", Message);
 #endif
     
     if(CustomLoggerFunc_)

@@ -1,12 +1,13 @@
 #ifndef KENGINE_H
-#define KENGINE_H
+
+#pragma warning( disable : 4115 4116 4127 4201 )
 
 #include <stdarg.h>
 #include <intrin.h>
 
 #ifndef VERSION
 #define VERSION 0
-#endif // VERSION
+#endif //VERSION
 
 #ifdef KENGINE_WIN32
 #pragma comment(lib, "Comctl32.lib")
@@ -29,7 +30,7 @@
 #include <Wininet.h>
 #include <Wincrypt.h>
 
-#endif
+#endif //KENGINE_WIN32
 
 #define introspect(...)
 #include "kengine_types.h"
@@ -67,7 +68,7 @@ extern app_memory GlobalAppMemory;
 
 #ifdef KENGINE_WIN32
 #include "kengine_win32.h"
-#endif
+#endif //KENGINE_WIN32
 
 inline date_time
 GetDateTime()
@@ -94,13 +95,13 @@ typedef struct platform_state
 
 #ifdef KENGINE_WIN32
 #include "kengine_win32.c"
-#endif
+#endif //KENGINE_WIN32
 
 #if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
 
 #ifndef IDI_ICON
 #define IDI_ICON       1000
-#endif
+#endif //IDI_ICON
 
 void
 InitApp(app_memory *AppMemory, HWND Window, char *CommandLine);
@@ -200,7 +201,7 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
                 Win32.GetClientRect(Window, &Rect);
                 Win32.InvalidateRect(Window, &Rect, true);
             }
-#endif
+#endif //0
             
         } break;
         
@@ -270,9 +271,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
         HWND Window = CreateWindowExA(0, WindowClass.lpszClassName, "kengine",
 #ifdef KENGINE_HEADLESS
                                       WS_DISABLED, 
-#else
+#else //KENGINE_HEADLESS
                                       WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-#endif
+#endif //KENGINE_HEADLESS
                                       
                                       CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                                       0, 0, WindowClass.hInstance, 0);
@@ -287,7 +288,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                 DarkApi.AllowDarkModeForWindow(Window, DarkApi.IsDarkModeEnabled);
                 Win32RefreshTitleBarThemeColor(Window);
             }
-#endif
+#endif //KENGINE_WINDOW
             
             b32 HasMessage = false;
             MSG Msg;
@@ -324,7 +325,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
     return Result;
 }
 
-#endif
+#endif //defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
 
 #ifdef KENGINE_CONSOLE
 
@@ -362,9 +363,10 @@ main(s32 ArgCount, char **Args)
     
     return Result;
 }
-#endif
+#endif //KENGINE_CONSOLE
 
 
-#endif
+#endif //KENGINE_IMPLEMENTATION
 
+#define KENGINE_H
 #endif //KENGINE_H
