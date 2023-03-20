@@ -21,6 +21,7 @@ typedef struct win32_state
     char **Args;
 #else
     char *CmdLine;
+    HWND Window;
 #endif
     
 } win32_state;

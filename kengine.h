@@ -22,6 +22,13 @@
 #pragma comment(lib, "User32.lib")
 #pragma comment(lib, "Wininet.lib")
 
+#ifdef KENGINE_DIRECTX
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dxguid.lib")
+#pragma comment(lib, "d3d11.lib")
+#endif
+
+#define COBJMACROS
 #include <WS2tcpip.h>
 #include <Windows.h>
 #include <http.h>
@@ -29,6 +36,20 @@
 #include <tlhelp32.h>
 #include <Wininet.h>
 #include <Wincrypt.h>
+
+#ifdef KENGINE_DIRECTX
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#define STB_TRUETYPE_IMPLEMENTATION 
+#include "stb_truetype.h"
+
+#include <d3d11_1.h>
+#include <dxgi1_4.h>
+#include <d3dcompiler.h>
+
+#endif
 
 #endif //KENGINE_WIN32
 
@@ -44,6 +65,7 @@
 #include "kengine_random.h"
 #include "kengine_tokenizer.h"
 #include "kengine_xml_parser.h"
+#include "kengine_math.h"
 
 typedef void platform_work_queue_callback(void *Data);
 
@@ -67,14 +89,14 @@ typedef struct app_memory
 {
     platform_state *PlatformState;
     struct app_state *AppState;
-    
-#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
-    HWND Window;
-#endif
-    
 } app_memory;
 
 extern app_memory GlobalAppMemory;
+
+#ifdef KENGINE_DIRECTX
+#include "kengine_renderer.h"
+#include "kengine_directx.h"
+#endif
 
 #ifdef KENGINE_WIN32
 #include "kengine_win32.h"
@@ -99,8 +121,17 @@ GetDateTime()
 #include "kengine_json_parser.c"
 
 #ifdef KENGINE_WIN32
+#include "kengine_vertex_shader_generated.h"
+#include "kengine_glyph_pixel_shader_generated.h"
+#include "kengine_sprite_pixel_shader_generated.h"
+#include "kengine_rect_pixel_shader_generated.h"
 #include "kengine_win32.c"
 #endif //KENGINE_WIN32
+
+#ifdef KENGINE_DIRECTX
+#include "kengine_renderer.c"
+#include "kengine_directx.c"
+#endif // KENGINE_DIRECTX
 
 string_list *
 PlatformGetCommandLineArgs(memory_arena *Arena)
@@ -196,8 +227,15 @@ PlatformGetCommandLineArgs(memory_arena *Arena)
 void
 InitApp(app_memory *AppMemory);
 
+#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
 LRESULT
 MainWindowCallback(app_memory *AppMemory, HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
+#endif // defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
+
+#if defined(KENGINE_DIRECTX)
+void
+AppUpdateFrame(app_memory *AppMemory, render_group *RenderGroup);
+#endif // defined(KENGINE_DIRECTX)
 
 internal LRESULT CALLBACK
 Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
@@ -221,8 +259,16 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
                 Win32RefreshTitleBarThemeColor(Window);
             }
             
-#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
-            GlobalAppMemory.Window = Window;
+#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
+            GlobalWin32State.Window = Window;
+#endif
+            
+#if defined(KENGINE_DIRECTX)
+            if(FAILED(DirectXRenderCreate()))
+            {
+                Win32LogError("Failed to create renderer");
+                Result = -1;
+            }
 #endif
             
             InitApp(&GlobalAppMemory);
@@ -305,16 +351,33 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
                 DarkBkBrush = 0;
             }
             
+#if defined(KENGINE_DIRECTX)
+            DirectXRenderDestroy();
+#endif
+            
             PostQuitMessage(0);
         } break;
         
+#if defined(KENGINE_DIRECTX)
+        case WM_SIZE:
+        {
+            if(FAILED(DirectXRenderResize(LOWORD(LParam), HIWORD(LParam))))
+            {
+                DestroyWindow(Window);
+            }
+            
+        } break;
+#endif
+        
         default:
         {
+#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
             if(GlobalAppMemory.AppState)
             {
                 Result = MainWindowCallback(&GlobalAppMemory, Window, Message, WParam, LParam);
             }
             else
+#endif // defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
             {
                 Result = DefWindowProcA(Window, Message, WParam, LParam);
             }
@@ -370,13 +433,15 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
         {
             LogDebug("Begin application loop");
             
-#ifdef KENGINE_WINDOW
+#if defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
             if(DarkApi.IsDarkModeSupported)
             {
                 DarkApi.AllowDarkModeForWindow(Window, DarkApi.IsDarkModeEnabled);
                 Win32RefreshTitleBarThemeColor(Window);
             }
-#endif //KENGINE_WINDOW
+#endif // defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
+            
+#if defined(KENGINE_WINDOW) || defined(KENGINE_HEADLESS)
             b32 HasMessage = false;
             MSG Msg;
             while((HasMessage = GetMessageA(&Msg, 0, 0, 0)) != 0)
@@ -392,6 +457,60 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     DispatchMessageA(&Msg);
                 }
             }
+#endif //defined(KENGINE_WINDOW) || defined(KENGINE_HEADLESS
+            
+#if defined(KENGINE_DIRECTX)
+            
+            
+            render_command RenderCommands[10240];
+            u32 MaxRenderCommands = ArrayCount(RenderCommands);
+            
+            LogDebug("Begin application loop");
+            b32 Running = true;
+            while(Running)
+            {
+                MSG Msg;
+                while(PeekMessageA(&Msg, 0, 0, 0, PM_REMOVE))
+                {
+                    if(Msg.message == WM_QUIT)
+                    {
+                        Running = false;
+                    }
+                    TranslateMessage(&Msg);
+                    DispatchMessageA(&Msg);
+                }
+                
+                if(Running)
+                {
+                    render_group RenderGroup =
+                    {
+                        .Commands = RenderCommands,
+                        .CurrentCommand = 0,
+                        .MaxCommands = MaxRenderCommands,
+                        .Width = GlobalWindowWidth,
+                        .Height = GlobalWindowHeight,
+#if 1
+                        .ClearColor = { 0.1f, 0.2f, 0.6f, 1.0f },
+#else
+                        .ClearColor = { 1.0f, 1.0f, 1.0f, 1.0f },
+#endif
+                    };
+                    
+                    AppUpdateFrame(&GlobalAppMemory, &RenderGroup);
+                    
+                    DirectXRenderFrame(&RenderGroup);
+                    
+                    if(FAILED(DirectXRenderPresent()))
+                    {
+                        Running = false;
+                    }
+                }
+            }
+            LogDebug("End application loop");
+            
+#endif // defined(KENGINE_DIRECTX)
+            
+            
         }
         else
         {
