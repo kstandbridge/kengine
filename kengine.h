@@ -67,6 +67,7 @@ typedef struct app_memory
 {
     platform_state *PlatformState;
     struct app_state *AppState;
+    
 } app_memory;
 
 extern app_memory GlobalAppMemory;
@@ -97,6 +98,96 @@ GetDateTime()
 #include "kengine_win32.c"
 #endif //KENGINE_WIN32
 
+string_list *
+PlatformGetCommandLineArgs(memory_arena *Arena)
+{
+    string_list *Result = 0;
+    
+#if defined(KENGINE_CONSOLE)
+    for(u32 ArgIndex = 0;
+        ArgIndex < GlobalWin32State.ArgCount;
+        ++ArgIndex)
+    {
+        char *Arg = GlobalWin32State.Args[ArgIndex];
+        
+        string Entry = 
+        {
+            .Size = GetNullTerminiatedStringLength(Arg),
+            .Data = (u8 *)Arg
+        };
+        
+        string_list *New = PushbackStringList(&Result, Arena);
+        New->Entry = Entry;
+    }
+#else
+    
+#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
+    LPSTR Args = GlobalWin32State.CmdLine;
+    LPSTR At = Args;
+    for(;;)
+    {
+        char C = *At;
+        if(C == '"')
+        {
+            ++At;
+            Args = At;
+            while((*At != '\0') &&
+                  (*At != '"'))
+            {
+                ++At;
+            }
+            
+            string Entry = 
+            {
+                .Size = At - Args,
+                .Data = (u8 *)Args
+            };
+            
+            string_list *Arg = PushbackStringList(&Result, Arena);
+            Arg->Entry = Entry;
+            
+            At += 2;
+            Args = At;
+        }
+        else
+        {
+            if((C == ' ') ||
+               (C == '\0'))
+            {
+                
+                string Entry = 
+                {
+                    .Size = At - Args,
+                    .Data = (u8 *)Args
+                };
+                
+                string_list *Arg = PushbackStringList(&Result, Arena);
+                Arg->Entry = Entry;
+                
+                ++At;
+                Args = At;
+                
+                if(C == '\0')
+                {
+                    break;
+                }
+            }
+            else
+            {
+                ++At;
+            }
+        }
+        
+    };
+    
+#endif
+    
+#endif
+    
+    return Result;
+    
+}
+
 #if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
 
 #ifndef IDI_ICON
@@ -104,12 +195,10 @@ GetDateTime()
 #endif //IDI_ICON
 
 void
-InitApp(app_memory *AppMemory, HWND Window, char *CommandLine);
+InitApp(app_memory *AppMemory);
 
 LRESULT
 MainWindowCallback(app_memory *AppMemory, HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
-
-char *GlobalCommandLine;
 
 internal LRESULT CALLBACK
 Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
@@ -133,7 +222,9 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
                 Win32RefreshTitleBarThemeColor(Window);
             }
             
-            InitApp(&GlobalAppMemory, Window, GlobalCommandLine);
+            GlobalWin32State.Window = Window;
+            
+            InitApp(&GlobalAppMemory);
             
         } break;
         
@@ -243,8 +334,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
     
     CoInitialize(0);
     
-    GlobalCommandLine = CmdLine;
-    
     GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
     GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
     {
@@ -252,6 +341,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
         QueryPerformanceFrequency(&PerfCountFrequencyResult);
         GlobalWin32State.PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
     }
+    GlobalWin32State.CmdLine = CmdLine;
     
     InitDarkApi();
     
@@ -325,10 +415,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
 #ifdef KENGINE_CONSOLE
 
 s32
-MainLoop(app_memory *AppMemory, s32 ArgCount, string *Arguments);
+MainLoop(app_memory *AppMemory);
 
 s32
-main(s32 ArgCount, char **Args)
+main(u32 ArgCount, char **Args)
 {
     s32 Result = 0;
     
@@ -340,21 +430,10 @@ main(s32 ArgCount, char **Args)
         GlobalWin32State.PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
     }
     
-    platform_state *PlatformState = GlobalAppMemory.PlatformState;
-    if(PlatformState == 0)
-    {
-        PlatformState = GlobalAppMemory.PlatformState = BootstrapPushStruct(platform_state, Arena);
-    }
+    GlobalWin32State.ArgCount = ArgCount - 1;
+    GlobalWin32State.Args = Args + 1;
     
-    string *Arguments = PushArray(&PlatformState->Arena, ArgCount, string);
-    for(s32 ArgIndex = 0;
-        ArgIndex < ArgCount;
-        ++ArgIndex)
-    {
-        Arguments[ArgIndex] = String_(GetNullTerminiatedStringLength(Args[ArgIndex]), (u8 *)Args[ArgIndex]);
-    }
-    
-    Result = MainLoop(&GlobalAppMemory, ArgCount, Arguments);
+    Result = MainLoop(&GlobalAppMemory);
     
     return Result;
 }
