@@ -16,17 +16,11 @@ typedef struct win32_state
     
     s64 PerfCountFrequency;
     
-#ifdef KENGINE_WINDOW
-    HWND Window;
-#endif
-    
-#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
-    char *CmdLine;
-#endif
-    
 #ifdef KENGINE_CONSOLE
     u32 ArgCount;
     char **Args;
+#else
+    char *CmdLine;
 #endif
     
 } win32_state;

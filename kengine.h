@@ -68,6 +68,10 @@ typedef struct app_memory
     platform_state *PlatformState;
     struct app_state *AppState;
     
+#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
+    HWND Window;
+#endif
+    
 } app_memory;
 
 extern app_memory GlobalAppMemory;
@@ -120,8 +124,6 @@ PlatformGetCommandLineArgs(memory_arena *Arena)
         New->Entry = Entry;
     }
 #else
-    
-#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
     LPSTR Args = GlobalWin32State.CmdLine;
     LPSTR At = Args;
     for(;;)
@@ -182,13 +184,10 @@ PlatformGetCommandLineArgs(memory_arena *Arena)
     
 #endif
     
-#endif
-    
     return Result;
-    
 }
 
-#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
+#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
 
 #ifndef IDI_ICON
 #define IDI_ICON       1000
@@ -222,7 +221,9 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
                 Win32RefreshTitleBarThemeColor(Window);
             }
             
-            GlobalWin32State.Window = Window;
+#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
+            GlobalAppMemory.Window = Window;
+#endif
             
             InitApp(&GlobalAppMemory);
             
@@ -359,7 +360,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
     {
         HWND Window = CreateWindowExA(0, WindowClass.lpszClassName, "kengine",
 #ifdef KENGINE_HEADLESS
-                                      WS_DISABLED, 
+                                      WS_OVERLAPPEDWINDOW, 
 #else //KENGINE_HEADLESS
                                       WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 #endif //KENGINE_HEADLESS
@@ -410,7 +411,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
     return Result;
 }
 
-#endif //defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
+#endif //defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
 
 #ifdef KENGINE_CONSOLE
 
