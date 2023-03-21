@@ -3,6 +3,7 @@
 typedef enum c_type
 {
     C_B32,
+    C_F32,
     C_U32,
     C_String,
 } c_type;
@@ -15,6 +16,7 @@ GetCTypeName(c_type Type)
     switch(Type)
     {
         case C_B32:    { Result = String("boolean"); } break;
+        case C_F32:    { Result = String("32-bit float"); } break;
         case C_U32:    { Result = String("unsigned 32-bit integer"); } break;
         case C_String: { Result = String("string"); } break;
     }
@@ -25,6 +27,7 @@ GetCTypeName(c_type Type)
 typedef struct c_member
 {
     string Name;
+    string TypeName;
     c_type Type;
     
     struct c_member *Next;

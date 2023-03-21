@@ -1,22 +1,21 @@
 #ifndef KENGINE_MATH_H
 
+introspect(ctor, set1, math)
 typedef struct v2
 {
     f32 X;
     f32 Y;
 } v2;
-#define V2(X, Y) (v2){(f32)(X), (f32)(Y)}
-#define V2Set1(Value) (v2){(f32)(Value), (f32)(Value)}
 
-typedef struct
+introspect(ctor, set1, math)
+typedef struct v3
 {
     f32 X;
     f32 Y;
     f32 Z;
 } v3;
 
-#define V3(X, Y, Z) (v3){X, Y, Z}
-
+introspect(ctor, set1, math)
 typedef struct v4
 {
     f32 R;
@@ -24,7 +23,6 @@ typedef struct v4
     f32 B;
     f32 A;
 } v4;
-#define V4(R, G, B, A) (v4){R, G, B, A}
 
 typedef struct m4x4
 {
@@ -38,50 +36,6 @@ typedef struct rectangle2
 } rectangle2;
 
 #define Rectangle2(Min, Max) (rectangle2){Min, Max}
-
-inline v2
-V2Add(v2 A, v2 B)
-{
-    v2 Result;
-    
-    Result.X = A.X + B.X;
-    Result.Y = A.Y + B.Y;
-    
-    return Result;
-}
-
-inline v2
-V2Subtract(v2 A, v2 B)
-{
-    v2 Result;
-    
-    Result.X = A.X - B.X;
-    Result.Y = A.Y - B.Y;
-    
-    return Result;
-}
-
-inline v2
-V2Multiply(v2 A, v2 B)
-{
-    v2 Result;
-    
-    Result.X = A.X * B.X;
-    Result.Y = A.Y * B.Y;
-    
-    return Result;
-}
-
-inline v2
-V2Divide(v2 A, v2 B)
-{
-    v2 Result;
-    
-    Result.X = A.X / B.X;
-    Result.Y = A.Y / B.Y;
-    
-    return Result;
-}
 
 inline rectangle2
 Rectangle2Union(rectangle2 A, rectangle2 B)

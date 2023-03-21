@@ -19,12 +19,9 @@ typedef struct win32_state
 #if defined(KENGINE_CONSOLE)
     u32 ArgCount;
     char **Args;
-#endif // defined(KENGINE_CONSOLE)
-    
-#if defined(KENGINE_WINDOW)
+#else
     char *CmdLine;
-    HWND Window;
-#endif // defined(KENGINE_WINDOW)
+#endif // defined(KENGINE_CONSOLE)
     
 } win32_state;
 

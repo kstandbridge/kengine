@@ -11,11 +11,11 @@ ParseStruct(memory_arena *Arena, tokenizer *Tokenizer, string Name)
     c_member *CurrentMember = 0;
     ToUpperCamelCase(&Result.Name);
     
-    RequireToken(Tokenizer, Token_OpenCurlyBracer);
+    RequireToken(Tokenizer, Token_OpenCurlyBracket);
     while(Parsing(Tokenizer))
     {
         token Token = GetToken(Tokenizer);
-        if(Token.Type == Token_CloseCurlyBracer)
+        if(Token.Type == Token_CloseCurlyBracket)
         {
             break;
         }
@@ -33,9 +33,14 @@ ParseStruct(memory_arena *Arena, tokenizer *Tokenizer, string Name)
                 CurrentMember->Next = PushStruct(Arena, c_member);
                 CurrentMember = CurrentMember->Next;
             }
+            CurrentMember->TypeName = Token.Text;
             if(StringsAreEqual(String("b32"), Token.Text))
             {
                 CurrentMember->Type = C_B32;
+            }
+            else if(StringsAreEqual(String("f32"), Token.Text))
+            {
+                CurrentMember->Type = C_F32;
             }
             else if(StringsAreEqual(String("u32"), Token.Text))
             {

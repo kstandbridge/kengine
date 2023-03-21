@@ -17,10 +17,12 @@ GetToken_(tokenizer *Tokenizer)
         case '\0':{Result.Type = Token_EndOfStream;} break;
         case '(': {Result.Type = Token_OpenParenthesis;} break;
         case ')': {Result.Type = Token_CloseParenthesis;} break;
-        case '{': {Result.Type = Token_OpenCurlyBracer;} break;
-        case '}': {Result.Type = Token_CloseCurlyBracer;} break;
+        case '{': {Result.Type = Token_OpenCurlyBracket;} break;
+        case '}': {Result.Type = Token_CloseCurlyBracket;} break;
         case '<': {Result.Type = Token_OpenAngleBracket;} break;
         case '>': {Result.Type = Token_CloseAngleBracket;} break;
+        case '[': {Result.Type = Token_OpenBracket;} break;
+        case ']': {Result.Type = Token_CloseBracket;} break;
         case '=': {Result.Type = Token_Equals;} break;
         case '/': {Result.Type = Token_ForwardSlash;} break;
         case '?': {Result.Type = Token_QuestionMark;} break;
@@ -28,7 +30,13 @@ GetToken_(tokenizer *Tokenizer)
         case '-': {Result.Type = Token_Dash;} break;
         case '#': {Result.Type = Token_Hash;} break;
         case ',': {Result.Type = Token_Comma;} break;
+        case '*': {Result.Type = Token_Asterisk;} break;
         case ';': {Result.Type = Token_SemiColon;} break;
+        case ':': {Result.Type = Token_Colon;} break;
+        case '+': {Result.Type = Token_Plus;} break;;
+        case '&': {Result.Type = Token_Ampersand;} break;;
+        case '~': {Result.Type = Token_Tilde;} break;;
+        case '.': {Result.Type = Token_Period;} break;;
         
         case '"': 
         {
@@ -77,13 +85,25 @@ GetToken_(tokenizer *Tokenizer)
                 Tokenizer->ColumnNumber = 1;
                 ++Tokenizer->LineNumber;
             }
-            else if(IsAlpha(C))
+            else if(IsAlpha(C) ||
+                    (C == '_'))
             {
                 Result.Type = Token_Identifier;
                 
                 while(IsAlpha(Tokenizer->At[0]) ||
                       IsNumber(Tokenizer->At[0]) ||
                       (Tokenizer->At[0] == '_'))
+                {
+                    TokenizerAdvance(Tokenizer, 1);
+                }
+            }
+            else if(IsNumber(C))
+            {
+                Result.Type = Token_Number;
+                
+                while(IsNumber(Tokenizer->At[0]) ||
+                      IsAlpha(Tokenizer->At[0]) ||
+                      (Tokenizer->At[0] == '.'))
                 {
                     TokenizerAdvance(Tokenizer, 1);
                 }

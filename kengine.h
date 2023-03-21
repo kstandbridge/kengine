@@ -67,6 +67,7 @@
 #include "kengine_xml_parser.h"
 #include "kengine_c_parser.h"
 #include "kengine_math.h"
+#include "kengine_generated.h"
 
 typedef void platform_work_queue_callback(void *Data);
 
@@ -81,15 +82,14 @@ typedef struct platform_work_queue
     platform_work_queue_entry Entries[256];
 } platform_work_queue;
 
-typedef struct platform_state
-{
-    memory_arena Arena;
-} platform_state;
-
 typedef struct app_memory
 {
-    platform_state *PlatformState;
     struct app_state *AppState;
+    
+#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
+    char *CmdLine;
+    HWND Window;
+#endif // defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
 } app_memory;
 
 extern app_memory GlobalAppMemory;
@@ -264,7 +264,7 @@ Win32WindowProc(HWND Window, u32 Message, WPARAM WParam, LPARAM LParam)
             }
             
 #if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
-            GlobalWin32State.Window = Window;
+            GlobalAppMemory.Window = Window;
 #endif
             
 #if defined(KENGINE_DIRECTX)
@@ -677,7 +677,7 @@ typedef struct preprocessor_state
 } preprocessor_state;
 
 void
-GenerateCodeFor(c_struct Struct);
+GenerateCodeFor(c_struct Struct, string_list *Options);
 
 internal void
 PreprocessSourceFile(memory_arena *Arena, string FileName, string FileData)
@@ -700,6 +700,8 @@ PreprocessSourceFile(memory_arena *Arena, string FileName, string FileData)
                 {
                     Token = RequireToken(Tokenizer, Token_OpenParenthesis);
                     
+                    string_list *Options = 0;
+                    
                     while(Parsing(Tokenizer))
                     {
                         Token = GetToken(Tokenizer);
@@ -712,7 +714,8 @@ PreprocessSourceFile(memory_arena *Arena, string FileName, string FileData)
                         }
                         else if(Token.Type == Token_Identifier)
                         {
-                            //LogVerbose("Found option: %S", Token.Text);
+                            string Option = Token.Text;
+                            PushStringToStringList(&Options, Arena, Option);
                         }
                         else
                         {
@@ -727,7 +730,7 @@ PreprocessSourceFile(memory_arena *Arena, string FileName, string FileData)
                     
                     if(Parsing(Tokenizer))
                     {
-                        GenerateCodeFor(Struct);
+                        GenerateCodeFor(Struct, Options);
                     }
                 }
             }
@@ -756,8 +759,6 @@ main(u32 ArgCount, char **Args)
     {    
         preprocessor_state *PreprocessorState = BootstrapPushStruct(preprocessor_state, Arena);
         
-        //PlatformConsoleOut("/*\n\tDO NOT EDIT!!!\n\n\tThis code was generated using a preprocessor!\n\n*/\n");
-        
         for(u32 ArgIndex = 1;
             ArgIndex < ArgCount;
             ++ArgIndex)
@@ -766,7 +767,7 @@ main(u32 ArgCount, char **Args)
             string FileName = String_(GetNullTerminiatedStringLength(Arg), (u8 *)Arg);
             if(PlatformFileExists(FileName))
             {
-                //PlatformConsoleOut("\n// %S\n", FileName);
+                PlatformConsoleOut("\n// %S\n", FileName);
                 
                 temporary_memory MemoryFlush = BeginTemporaryMemory(&PreprocessorState->Arena);
                 

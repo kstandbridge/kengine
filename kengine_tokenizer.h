@@ -10,10 +10,12 @@ typedef enum token_type
     
     Token_OpenParenthesis,
     Token_CloseParenthesis,
-    Token_OpenCurlyBracer,
-    Token_CloseCurlyBracer,
+    Token_OpenCurlyBracket,
+    Token_CloseCurlyBracket,
     Token_OpenAngleBracket,
     Token_CloseAngleBracket,
+    Token_OpenBracket,
+    Token_CloseBracket,
     Token_Equals,
     Token_ForwardSlash,
     Token_QuestionMark,
@@ -21,12 +23,18 @@ typedef enum token_type
     Token_Dash,
     Token_Hash,
     Token_Comma,
-    
+    Token_Asterisk,
+    Token_Colon,
     Token_SemiColon,
+    Token_Plus,
+    Token_Ampersand,
+    Token_Tilde,
+    Token_Period,
     
     Token_Identifier,
     
     Token_String,
+    Token_Number,
     
     Token_EndOfStream
 } token_type;
@@ -46,8 +54,8 @@ GetTokenTypeName(token_type Type)
         
         case Token_OpenParenthesis:   {Result = String("open parenthesis");} break;
         case Token_CloseParenthesis:  {Result = String("close parenthesis");} break;
-        case Token_OpenCurlyBracer:   {Result = String("open curly bracer");} break;
-        case Token_CloseCurlyBracer:  {Result = String("close curly bracer");} break;
+        case Token_OpenCurlyBracket:  {Result = String("open curly bracer");} break;
+        case Token_CloseCurlyBracket: {Result = String("close curly bracer");} break;
         case Token_OpenAngleBracket:  {Result = String("open angle bracket");} break;
         case Token_CloseAngleBracket: {Result = String("close angle bracket");} break;
         case Token_Equals:            {Result = String("equals");} break;
@@ -57,11 +65,18 @@ GetTokenTypeName(token_type Type)
         case Token_Dash:              {Result = String("dash");} break;
         case Token_Hash:              {Result = String("hash");} break;
         case Token_Comma:             {Result = String("comma");} break;
+        case Token_Asterisk:          {Result = String("asterisk");} break;
+        case Token_Colon:             {Result = String("colon");} break;
         case Token_SemiColon:         {Result = String("semi colon");} break;
+        case Token_Plus:              {Result = String("plus");} break;
+        case Token_Ampersand:         {Result = String("ampersand");} break;
+        case Token_Tilde:             {Result = String("tilde");} break;
+        case Token_Period:            {Result = String("period");} break;
         
         case Token_Identifier:        {Result = String("identifier");} break;
         
         case Token_String:            {Result = String("string");} break;
+        case Token_Number:            {Result = String("number");} break;
         
         case Token_EndOfStream:       {Result = String("end of stream");} break;
         

@@ -33,7 +33,6 @@ String_(umm Length, u8 *Data)
     return Result;
 }
 
-
 #define PushString(Arena, Str) PushString_(Arena, sizeof(Str) - 1, (u8 *)Str)
 string
 PushString_(memory_arena *Arena, umm Length, u8 *Data);

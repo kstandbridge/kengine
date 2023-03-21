@@ -184,7 +184,7 @@ DirectXRenderCreate()
                     .Quality = 0
                 },
                 .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
-                .OutputWindow = GlobalWin32State.Window,
+                .OutputWindow = GlobalAppMemory.Window,
                 .Windowed = TRUE,
             };
             
@@ -222,7 +222,7 @@ DirectXRenderCreate()
             
             if(SUCCEEDED(HResult))
             {
-                if(FAILED(HResult = IDXGIFactory_MakeWindowAssociation(Factory, GlobalWin32State.Window, DXGI_MWA_NO_WINDOW_CHANGES | DXGI_MWA_NO_ALT_ENTER)))
+                if(FAILED(HResult = IDXGIFactory_MakeWindowAssociation(Factory, GlobalAppMemory.Window, DXGI_MWA_NO_WINDOW_CHANGES | DXGI_MWA_NO_ALT_ENTER)))
                 {
                     Win32LogError_(HResult, "Make window association failed");
                 }
@@ -768,7 +768,7 @@ DirectXRenderPresent()
         else
         {
             RECT Rect;
-            if(!GetClientRect(GlobalWin32State.Window, &Rect))
+            if(!GetClientRect(GlobalAppMemory.Window, &Rect))
             {
                 LogError("Failed to get window rect");
             }
