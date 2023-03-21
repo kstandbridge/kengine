@@ -6,6 +6,7 @@ typedef struct v2
     f32 Y;
 } v2;
 #define V2(X, Y) (v2){(f32)(X), (f32)(Y)}
+#define V2Set1(Value) (v2){(f32)(Value), (f32)(Value)}
 
 typedef struct
 {
@@ -56,6 +57,28 @@ V2Subtract(v2 A, v2 B)
     
     Result.X = A.X - B.X;
     Result.Y = A.Y - B.Y;
+    
+    return Result;
+}
+
+inline v2
+V2Multiply(v2 A, v2 B)
+{
+    v2 Result;
+    
+    Result.X = A.X * B.X;
+    Result.Y = A.Y * B.Y;
+    
+    return Result;
+}
+
+inline v2
+V2Divide(v2 A, v2 B)
+{
+    v2 Result;
+    
+    Result.X = A.X / B.X;
+    Result.Y = A.Y / B.Y;
     
     return Result;
 }

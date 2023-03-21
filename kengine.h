@@ -581,9 +581,26 @@ if(!(Expression)) \
 PlatformConsoleOut("%s(%d): expression assert fail.\n", __FILE__, __LINE__); \
 }
 
+#define AssertFalse(Expression) \
+++GlobalTestState_->TotalTests; \
+if((Expression)) \
+{ \
+++GlobalTestState_->FailedTests; \
+PlatformConsoleOut("%s(%d): expression assert fail.\n", __FILE__, __LINE__); \
+}
+
 #define AssertEqualString(Expected, Actual) \
 ++GlobalTestState_->TotalTests; \
 if(!StringsAreEqual(Expected, Actual)) \
+{ \
+++GlobalTestState_->FailedTests; \
+PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%S'\n\t\t\tActual:      '%S'\n", \
+__FILE__, __LINE__, Expected, Actual);        \
+}
+
+#define AssertNotEqualString(Expected, Actual) \
+++GlobalTestState_->TotalTests; \
+if(StringsAreEqual(Expected, Actual)) \
 { \
 ++GlobalTestState_->FailedTests; \
 PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%S'\n\t\t\tActual:      '%S'\n", \
@@ -609,7 +626,7 @@ __FILE__, __LINE__, Expected, Actual);        \
 }
 
 #define AssertEqualU64(Expected, Actual) \
-++TotalTests; \
+++GlobalTestState_->TotalTests; \
 if(Expected != Actual) \
 { \
 ++GlobalTestState_->FailedTests; \
