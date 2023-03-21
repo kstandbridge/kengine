@@ -8,6 +8,10 @@ typedef enum token_type
     Token_EndOfLine,
     Token_Comment,
     
+    Token_OpenParenthesis,
+    Token_CloseParenthesis,
+    Token_OpenCurlyBracer,
+    Token_CloseCurlyBracer,
     Token_OpenAngleBracket,
     Token_CloseAngleBracket,
     Token_Equals,
@@ -15,6 +19,10 @@ typedef enum token_type
     Token_QuestionMark,
     Token_ExcalationMark,
     Token_Dash,
+    Token_Hash,
+    Token_Comma,
+    
+    Token_SemiColon,
     
     Token_Identifier,
     
@@ -36,6 +44,10 @@ GetTokenTypeName(token_type Type)
         case Token_EndOfLine:         {Result = String("end of line");} break;
         case Token_Comment:           {Result = String("comment");} break;
         
+        case Token_OpenParenthesis:   {Result = String("open parenthesis");} break;
+        case Token_CloseParenthesis:  {Result = String("close parenthesis");} break;
+        case Token_OpenCurlyBracer:   {Result = String("open curly bracer");} break;
+        case Token_CloseCurlyBracer:  {Result = String("close curly bracer");} break;
         case Token_OpenAngleBracket:  {Result = String("open angle bracket");} break;
         case Token_CloseAngleBracket: {Result = String("close angle bracket");} break;
         case Token_Equals:            {Result = String("equals");} break;
@@ -43,6 +55,9 @@ GetTokenTypeName(token_type Type)
         case Token_QuestionMark:      {Result = String("question mark");} break;
         case Token_ExcalationMark:    {Result = String("excalation mark");} break;
         case Token_Dash:              {Result = String("dash");} break;
+        case Token_Hash:              {Result = String("hash");} break;
+        case Token_Comma:             {Result = String("comma");} break;
+        case Token_SemiColon:         {Result = String("semi colon");} break;
         
         case Token_Identifier:        {Result = String("identifier");} break;
         

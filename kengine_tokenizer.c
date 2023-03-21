@@ -15,6 +15,10 @@ GetToken_(tokenizer *Tokenizer)
     switch(C)
     {
         case '\0':{Result.Type = Token_EndOfStream;} break;
+        case '(': {Result.Type = Token_OpenParenthesis;} break;
+        case ')': {Result.Type = Token_CloseParenthesis;} break;
+        case '{': {Result.Type = Token_OpenCurlyBracer;} break;
+        case '}': {Result.Type = Token_CloseCurlyBracer;} break;
         case '<': {Result.Type = Token_OpenAngleBracket;} break;
         case '>': {Result.Type = Token_CloseAngleBracket;} break;
         case '=': {Result.Type = Token_Equals;} break;
@@ -22,6 +26,9 @@ GetToken_(tokenizer *Tokenizer)
         case '?': {Result.Type = Token_QuestionMark;} break;
         case '!': {Result.Type = Token_ExcalationMark;} break;
         case '-': {Result.Type = Token_Dash;} break;
+        case '#': {Result.Type = Token_Hash;} break;
+        case ',': {Result.Type = Token_Comma;} break;
+        case ';': {Result.Type = Token_SemiColon;} break;
         
         case '"': 
         {
@@ -139,7 +146,7 @@ internal void
 TokenError_(tokenizer *Tokenizer, token OnToken, char *Format, va_list ArgList)
 {
     PlatformConsoleOut("%S(%d): Column(%d): ", OnToken.FileName, OnToken.LineNumber, OnToken.ColumnNumber);
-    PlatformConsoleOut(Format, ArgList);
+    PlatformConsoleOut_(Format, ArgList);
     PlatformConsoleOut("\n");
     
     Tokenizer->HasErrors = true;

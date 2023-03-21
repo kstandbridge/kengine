@@ -259,7 +259,7 @@ Win32ConsoleOut_(char *Format, va_list ArgList)
     
     string Text = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
     Text;
-#if defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
+#if defined(KENGINE_CONSOLE) || defined(KENGINE_TEST) || defined(KENGINE_PREPROCESSOR)
     HANDLE OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     Assert(OutputHandle != INVALID_HANDLE_VALUE);
     

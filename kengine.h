@@ -65,6 +65,7 @@
 #include "kengine_random.h"
 #include "kengine_tokenizer.h"
 #include "kengine_xml_parser.h"
+#include "kengine_c_parser.h"
 #include "kengine_math.h"
 
 typedef void platform_work_queue_callback(void *Data);
@@ -119,6 +120,7 @@ GetDateTime()
 #include "kengine_eddsa.c"
 #include "kengine_tokenizer.c"
 #include "kengine_json_parser.c"
+#include "kengine_c_parser.c"
 
 #ifdef KENGINE_WIN32
 #include "kengine_vertex_shader_generated.h"
@@ -133,12 +135,14 @@ GetDateTime()
 #include "kengine_directx.c"
 #endif // KENGINE_DIRECTX
 
+#if defined(KENGINE_CONSOLE) || defined(KENGINE_WINDOW)
+
 string_list *
 PlatformGetCommandLineArgs(memory_arena *Arena)
 {
     string_list *Result = 0;
     
-#if defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
+#if defined(KENGINE_CONSOLE)
     for(u32 ArgIndex = 0;
         ArgIndex < GlobalWin32State.ArgCount;
         ++ArgIndex)
@@ -154,7 +158,7 @@ PlatformGetCommandLineArgs(memory_arena *Arena)
         string_list *New = PushbackStringList(&Result, Arena);
         New->Entry = Entry;
     }
-#else // defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
+#else
     LPSTR Args = GlobalWin32State.CmdLine;
     LPSTR At = Args;
     for(;;)
@@ -212,11 +216,11 @@ PlatformGetCommandLineArgs(memory_arena *Arena)
         }
         
     };
-    
-#endif // defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
-    
+#endif // defined(KENGINE_CONSOLE)
     return Result;
 }
+
+#endif // defined(KENGINE_CONSOLE) || defined(KENGINE_WINDOW)
 
 #if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
 
@@ -638,7 +642,7 @@ void
 RunAllTests(memory_arena *Arena);
 
 s32
-main(u32 ArgCount, char **Args)
+main()
 {
     s32 Result = 0;
     
@@ -649,9 +653,6 @@ main(u32 ArgCount, char **Args)
         QueryPerformanceFrequency(&PerfCountFrequencyResult);
         GlobalWin32State.PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
     }
-    
-    GlobalWin32State.ArgCount = ArgCount - 1;
-    GlobalWin32State.Args = Args + 1;
     
     GlobalTestState_ = BootstrapPushStruct(test_state, Arena);
     
@@ -667,6 +668,125 @@ main(u32 ArgCount, char **Args)
     return Result;
 }
 #endif //KENGINE_CONSOLE
+
+#if defined(KENGINE_PREPROCESSOR)
+
+typedef struct preprocessor_state
+{
+    memory_arena Arena;
+} preprocessor_state;
+
+void
+GenerateCodeFor(c_struct Struct);
+
+internal void
+PreprocessSourceFile(memory_arena *Arena, string FileName, string FileData)
+{
+    tokenizer Tokenizer_ = Tokenize(FileData, FileName);
+    tokenizer *Tokenizer = &Tokenizer_;
+    
+    while(Parsing(Tokenizer))
+    {
+        token Token = GetToken(Tokenizer);
+        if(Token.Type == Token_Unknown)
+        {
+            TokenError(Tokenizer, Token, "Unknown token: \"%S\"", Token.Text);
+        }
+        else
+        {
+            if(Token.Type == Token_Identifier)
+            {
+                if(StringsAreEqual(Token.Text, String("introspect")))
+                {
+                    Token = RequireToken(Tokenizer, Token_OpenParenthesis);
+                    
+                    while(Parsing(Tokenizer))
+                    {
+                        Token = GetToken(Tokenizer);
+                        if(Token.Type == Token_CloseParenthesis)
+                        {
+                            break;
+                        }
+                        else if(Token.Type == Token_Comma)
+                        {
+                        }
+                        else if(Token.Type == Token_Identifier)
+                        {
+                            //LogVerbose("Found option: %S", Token.Text);
+                        }
+                        else
+                        {
+                            TokenError(Tokenizer, Token, "Expecting parameter list for introspect");
+                        }
+                    }
+                    RequireIdentifierToken(Tokenizer, String("typedef"));
+                    RequireIdentifierToken(Tokenizer, String("struct"));
+                    Token = RequireToken(Tokenizer, Token_Identifier);
+                    
+                    c_struct Struct = ParseStruct(Arena, Tokenizer, Token.Text);
+                    
+                    if(Parsing(Tokenizer))
+                    {
+                        GenerateCodeFor(Struct);
+                    }
+                }
+            }
+        }
+    }
+}
+
+s32
+main(u32 ArgCount, char **Args)
+{
+    s32 Result = 0;
+    
+    GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
+    GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
+    {
+        LARGE_INTEGER PerfCountFrequencyResult;
+        QueryPerformanceFrequency(&PerfCountFrequencyResult);
+        GlobalWin32State.PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+    }
+    
+    if(ArgCount == 1)
+    {
+        PlatformConsoleOut("#error No input file specified\n");
+    }
+    else
+    {    
+        preprocessor_state *PreprocessorState = BootstrapPushStruct(preprocessor_state, Arena);
+        
+        //PlatformConsoleOut("/*\n\tDO NOT EDIT!!!\n\n\tThis code was generated using a preprocessor!\n\n*/\n");
+        
+        for(u32 ArgIndex = 1;
+            ArgIndex < ArgCount;
+            ++ArgIndex)
+        {
+            char *Arg = Args[ArgIndex];
+            string FileName = String_(GetNullTerminiatedStringLength(Arg), (u8 *)Arg);
+            if(PlatformFileExists(FileName))
+            {
+                //PlatformConsoleOut("\n// %S\n", FileName);
+                
+                temporary_memory MemoryFlush = BeginTemporaryMemory(&PreprocessorState->Arena);
+                
+                string FileData = PlatformReadEntireFile(MemoryFlush.Arena, FileName);
+                
+                PreprocessSourceFile(MemoryFlush.Arena, FileName, FileData);
+                
+                EndTemporaryMemory(MemoryFlush);
+            }
+            else
+            {
+                PlatformConsoleOut("\n#error invalid filename specified: %S\n", FileName);
+            }
+        }
+    }
+    
+    return Result;
+}
+
+#endif // defined(KENGINE_PREPROCESSOR)
 
 
 #endif //KENGINE_IMPLEMENTATION

@@ -16,13 +16,15 @@ typedef struct win32_state
     
     s64 PerfCountFrequency;
     
-#if defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
+#if defined(KENGINE_CONSOLE)
     u32 ArgCount;
     char **Args;
-#else // defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
+#endif // defined(KENGINE_CONSOLE)
+    
+#if defined(KENGINE_WINDOW)
     char *CmdLine;
     HWND Window;
-#endif // defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
+#endif // defined(KENGINE_WINDOW)
     
 } win32_state;
 
@@ -103,6 +105,10 @@ Win32GetDateTimeFromTimestamp(u64 Timestamp);
 #define PlatformConsoleOut(Format, ...) Win32ConsoleOut(Format, __VA_ARGS__)
 internal void
 Win32ConsoleOut(char *Format, ...);
+
+#define PlatformConsoleOut_(Format, ArgsList) Win32ConsoleOut_(Format, ArgsList)
+internal void
+Win32ConsoleOut_(char *Format, va_list ArgsList);
 
 string
 Win32ReadEntireFile(memory_arena *Arena, string FilePath);
