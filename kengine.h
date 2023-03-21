@@ -138,7 +138,7 @@ PlatformGetCommandLineArgs(memory_arena *Arena)
 {
     string_list *Result = 0;
     
-#if defined(KENGINE_CONSOLE)
+#if defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
     for(u32 ArgIndex = 0;
         ArgIndex < GlobalWin32State.ArgCount;
         ++ArgIndex)
@@ -154,7 +154,7 @@ PlatformGetCommandLineArgs(memory_arena *Arena)
         string_list *New = PushbackStringList(&Result, Arena);
         New->Entry = Entry;
     }
-#else
+#else // defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
     LPSTR Args = GlobalWin32State.CmdLine;
     LPSTR At = Args;
     for(;;)
@@ -213,7 +213,7 @@ PlatformGetCommandLineArgs(memory_arena *Arena)
         
     };
     
-#endif
+#endif // defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
     
     return Result;
 }
@@ -558,6 +558,99 @@ main(u32 ArgCount, char **Args)
     return Result;
 }
 #endif //KENGINE_CONSOLE
+
+
+#ifdef KENGINE_TEST
+
+typedef struct test_state
+{
+    memory_arena Arena;
+    
+    s32 TotalTests;
+    s32 FailedTests;
+    
+} test_state;
+
+global test_state *GlobalTestState_;
+
+#define AssertTrue(Expression) \
+++GlobalTestState_->TotalTests; \
+if(!(Expression)) \
+{ \
+++GlobalTestState_->FailedTests; \
+PlatformConsoleOut("%s(%d): expression assert fail.\n", __FILE__, __LINE__); \
+}
+
+#define AssertEqualString(Expected, Actual) \
+++GlobalTestState_->TotalTests; \
+if(!StringsAreEqual(Expected, Actual)) \
+{ \
+++GlobalTestState_->FailedTests; \
+PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%S'\n\t\t\tActual:      '%S'\n", \
+__FILE__, __LINE__, Expected, Actual);        \
+}
+
+#define AssertEqualU32(Expected, Actual) \
+++GlobalTestState_->TotalTests; \
+if(Expected != Actual) \
+{ \
+++GlobalTestState_->FailedTests; \
+PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%u'\n\t\t\tActual:      '%u'\n", \
+__FILE__, __LINE__, Expected, Actual);        \
+}
+
+#define AssertEqualS32(Expected, Actual) \
+++GlobalTestState_->TotalTests; \
+if(Expected != Actual) \
+{ \
+++GlobalTestState_->FailedTests; \
+PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%d'\n\t\t\tActual:      '%d'\n", \
+__FILE__, __LINE__, Expected, Actual);        \
+}
+
+#define AssertEqualU64(Expected, Actual) \
+++TotalTests; \
+if(Expected != Actual) \
+{ \
+++GlobalTestState_->FailedTests; \
+PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%lu'\n\t\t\tActual:      '%lu'\n", \
+__FILE__, __LINE__, Expected, Actual);        \
+}
+
+void
+RunAllTests(memory_arena *Arena);
+
+s32
+main(u32 ArgCount, char **Args)
+{
+    s32 Result = 0;
+    
+    GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
+    GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
+    {
+        LARGE_INTEGER PerfCountFrequencyResult;
+        QueryPerformanceFrequency(&PerfCountFrequencyResult);
+        GlobalWin32State.PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+    }
+    
+    GlobalWin32State.ArgCount = ArgCount - 1;
+    GlobalWin32State.Args = Args + 1;
+    
+    GlobalTestState_ = BootstrapPushStruct(test_state, Arena);
+    
+    RunAllTests(&GlobalTestState_->Arena);
+    
+    Result = (GlobalTestState_->FailedTests == 0);
+    
+    PlatformConsoleOut("Unit Tests %s: %d/%d passed.\n", 
+                       Result ? "Successful" : "Failed"
+                       , GlobalTestState_->TotalTests - GlobalTestState_->FailedTests, 
+                       GlobalTestState_->TotalTests);
+    
+    return Result;
+}
+#endif //KENGINE_CONSOLE
+
 
 #endif //KENGINE_IMPLEMENTATION
 

@@ -259,19 +259,19 @@ Win32ConsoleOut_(char *Format, va_list ArgList)
     
     string Text = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
     Text;
-#ifdef KENGINE_CONSOLE
+#if defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
     HANDLE OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     Assert(OutputHandle != INVALID_HANDLE_VALUE);
     
     DWORD NumberOfBytesWritten;
     WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&NumberOfBytesWritten, 0);
     Assert(NumberOfBytesWritten == Text.Size);
-#endif
+#endif // defined(KENGINE_CONSOLE) || defined(KENGINE_TEST)
     
 #if KENGINE_INTERNAL
     Buffer[Text.Size] = '\0';
     OutputDebugStringA((char *)Buffer);
-#endif
+#endif // KENGINE_INTERNAL
 }
 
 void
@@ -2183,7 +2183,6 @@ Win32BeginHttpServer(memory_arena *Arena, http_request_callback *Callback)
     }
     
     LogVerbose("Set request count to %u", RequestCount);
-    
     
     HttpState->ResponseCount = RequestCount;
     HttpState->NextResponseIndex = 0;

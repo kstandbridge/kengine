@@ -480,7 +480,7 @@ PostTelemetryThread(void *Data)
                             Message = Message->Next)
                             
                         {
-                            // NOTE(kstandbridge): We don't want two telemtry messages to have the same timestamp as the index will be the same
+                            // NOTE(kstandbridge): We don't want two telemetry messages to have the same timestamp as the index will be the same
                             // Linked list adds messages to the head so they are technically in reserve, so we subtract time not add
                             u64 NewTimeStamp = Message->TimeStamp;
                             while(NewTimeStamp >= LastTimeStamp)
