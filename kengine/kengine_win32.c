@@ -1122,7 +1122,7 @@ Win32SendHttpRequestFromFile(platform_http_request *PlatformRequest, string File
 }
 
 u32
-Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory, platform_execute_process_callback *Callback)
+Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory, platform_execute_process_callback *Callback, void *Context, void **ProcessHandle)
 {
     u32 Result = 0;
     
@@ -1164,18 +1164,23 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory,
             if(CreateProcessA(CPath, CArgs, &SecurityAttributes, 0, true, DETACHED_PROCESS, 
                               0, CWorkingDirectory, &StartupInfo, &ProcessInformation))
             {
-#define BUFFER_SIZE 1024
+                if(ProcessHandle)
+                {
+                    *ProcessHandle = ProcessInformation.hProcess;
+                }
+                
+#define BUFFER_SIZE 65536
                 CloseHandle(OutPipeWrite);
                 CloseHandle(InPipeRead);
                 
-                char ReadingBuffer[BUFFER_SIZE];
+                char ReadingBuffer[BUFFER_SIZE] = {0};
                 DWORD ReadIndex = 0;
                 b32 IsReading = ReadFile(OutPipeRead, ReadingBuffer, BUFFER_SIZE, &ReadIndex, 0);
                 while(IsReading)
                 {
                     ReadingBuffer[ReadIndex] = '\0';
                     u32 OutputIndex = 0;
-                    char OutputBuffer[BUFFER_SIZE];
+                    char OutputBuffer[BUFFER_SIZE] = {0};
                     for(u32 Index = 0;
                         Index <= ReadIndex;
                         ++Index)
@@ -1189,7 +1194,7 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory,
                             if(OutputIndex > 0)
                             {
                                 string Output = String_(OutputIndex, (u8 *)OutputBuffer);
-                                Callback(Output);
+                                Callback(Context, Output);
                             }
                             OutputIndex = 0;
                         }
@@ -1223,6 +1228,11 @@ Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory,
     else
     {
         Win32LogError("Failed to create pipe for process: %s %s", CPath, CArgs);
+    }
+    
+    if(ProcessHandle)
+    {
+        *ProcessHandle = 0;
     }
     
     return Result;
@@ -1544,7 +1554,7 @@ Win32ExecuteProcess(string Path, string Args, string WorkingDirectory)
     char CWorkingDirectory[MAX_PATH];
     StringToCString(WorkingDirectory, MAX_PATH, CWorkingDirectory);
     
-    ShellExecuteA(0, "open", CPath, CArgs, CWorkingDirectory, 0);
+    ShellExecuteA(0, "open", CPath, CArgs, CWorkingDirectory, SW_SHOWNORMAL);
 }
 
 typedef void win32_http_completion_function(struct win32_http_io_context *pIoContext, PTP_IO IoThreadpool, u32 IoResult);

@@ -56,10 +56,10 @@ Win32CreateDirectory(string Path);
 b32
 Win32FileExists(string Path);
 
-typedef void platform_execute_process_callback(string Message);
-#define PlatformExecuteProcessWithOutput(Path, Args, WorkingDirectory, Callback) Win32ExecuteProcessWithOutput(Path, Args, WorkingDirectory, Callback)
+typedef void platform_execute_process_callback(void *Context, string Message);
+#define PlatformExecuteProcessWithOutput(Path, Args, WorkingDirectory, Callback, Context, ProcessHandle) Win32ExecuteProcessWithOutput(Path, Args, WorkingDirectory, Callback, Context, ProcessHandle)
 u32
-Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory, platform_execute_process_callback *Callback);
+Win32ExecuteProcessWithOutput(string Path, string Args, string WorkingDirectory, platform_execute_process_callback *Callback, void *Context, void **ProcessHandle);
 
 #define PlatformUnzipToDirectory(SourceZip, DestFolder) Win32UnzipToDirectory(SourceZip, DestFolder)
 void
