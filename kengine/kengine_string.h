@@ -42,7 +42,7 @@ StringBeginsWith(string Needle, string HayStack);
 
 typedef struct format_string_state
 {
-    u8 Buffer[65536];
+    u8 Buffer[4096];
     umm BufferSize;
     char *Tail;
     char *At;

@@ -40,10 +40,10 @@
 #ifdef KENGINE_DIRECTX
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "kengine/stb_image.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION 
-#include "stb_truetype.h"
+#include "kengine/stb_truetype.h"
 
 #include <d3d11_1.h>
 #include <dxgi1_4.h>
@@ -239,7 +239,7 @@ MainWindowCallback(app_memory *AppMemory, HWND Window, UINT Message, WPARAM WPar
 
 #if defined(KENGINE_DIRECTX)
 void
-AppUpdateFrame(app_memory *AppMemory, render_group *RenderGroup);
+AppUpdateFrame(app_memory *AppMemory, render_group *RenderGroup, f32 DeltaTime);
 #endif // defined(KENGINE_DIRECTX)
 
 internal LRESULT CALLBACK
@@ -423,7 +423,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
         .hCursor = LoadCursorA(NULL, IDC_ARROW),
         .lpszClassName = "KengineWindowClass",
     };
-    LogDebug("Registering %ls window class", WindowClass.lpszClassName);
+    LogDebug("Registering %s window class", WindowClass.lpszClassName);
     if(RegisterClassExA(&WindowClass))
     {
         HWND Window = CreateWindowExA(0, WindowClass.lpszClassName, "kengine",
@@ -470,7 +470,8 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
             render_command RenderCommands[10240];
             u32 MaxRenderCommands = ArrayCount(RenderCommands);
             
-            LogDebug("Begin application loop");
+            LARGE_INTEGER LastCounter = Win32GetWallClock();
+            
             b32 Running = true;
             while(Running)
             {
@@ -501,7 +502,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
 #endif
                     };
                     
-                    AppUpdateFrame(&GlobalAppMemory, &RenderGroup);
+                    LARGE_INTEGER EndCounter = Win32GetWallClock();
+                    f32 DeltaTime = Win32GetSecondsElapsed(LastCounter, EndCounter);
+                    AppUpdateFrame(&GlobalAppMemory, &RenderGroup, DeltaTime);
                     
                     DirectXRenderFrame(&RenderGroup);
                     
@@ -509,6 +512,8 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     {
                         Running = false;
                     }
+                    
+                    LastCounter = EndCounter;
                 }
             }
             LogDebug("End application loop");
