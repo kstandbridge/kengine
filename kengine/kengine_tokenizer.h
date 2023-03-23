@@ -6,7 +6,6 @@ typedef enum token_type
     
     Token_Spacing,
     Token_EndOfLine,
-    Token_Comment,
     
     Token_OpenParenthesis,
     Token_CloseParenthesis,
@@ -51,7 +50,6 @@ GetTokenTypeName(token_type Type)
         
         case Token_Spacing:           {Result = String("spacing");} break;
         case Token_EndOfLine:         {Result = String("end of line");} break;
-        case Token_Comment:           {Result = String("comment");} break;
         
         case Token_OpenParenthesis:   {Result = String("open parenthesis");} break;
         case Token_CloseParenthesis:  {Result = String("close parenthesis");} break;

@@ -132,8 +132,7 @@ GetToken(tokenizer *Tokenizer)
     {
         Result = GetToken_(Tokenizer);
         if((Result.Type == Token_Spacing) ||
-           (Result.Type == Token_EndOfLine) ||
-           (Result.Type == Token_Comment))
+           (Result.Type == Token_EndOfLine))
         {
             // NOTE(kstandbridge): Ignore these tokens
         }

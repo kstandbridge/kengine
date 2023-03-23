@@ -22,6 +22,17 @@ ParseStruct(memory_arena *Arena, tokenizer *Tokenizer, string Name)
         else if(Token.Type == Token_SemiColon)
         {
         }
+        else if(Token.Type == Token_ForwardSlash)
+        {
+            if(Tokenizer->At[0] == '/')
+            {
+                while((Tokenizer->At[0]) &&
+                      (!IsEndOfLine(Tokenizer->At[0])))
+                {
+                    TokenizerAdvance(Tokenizer, 1);
+                }
+            }
+        }
         else if(Token.Type == Token_Identifier)
         {
             if(CurrentMember == 0)
@@ -34,12 +45,7 @@ ParseStruct(memory_arena *Arena, tokenizer *Tokenizer, string Name)
                 CurrentMember = CurrentMember->Next;
             }
             CurrentMember->TypeName = Token.Text;
-            if(StringsAreEqual(String("struct"), Token.Text))
-            {
-                Token = RequireToken(Tokenizer, Token_Identifier);
-                CurrentMember->Type = C_Struct;
-            }
-            else if(StringsAreEqual(String("b32"), Token.Text))
+            if(StringsAreEqual(String("b32"), Token.Text))
             {
                 CurrentMember->Type = C_B32;
             }
@@ -57,7 +63,11 @@ ParseStruct(memory_arena *Arena, tokenizer *Tokenizer, string Name)
             }
             else
             {
-                TokenError(Tokenizer, Token, "type not supported %S", Token.Text);
+                if(StringsAreEqual(String("struct"), Token.Text))
+                {
+                    Token = RequireToken(Tokenizer, Token_Identifier);
+                }
+                CurrentMember->Type = C_Custom;
             }
             Token = GetToken(Tokenizer);
             if(Token.Type == Token_Asterisk)
@@ -78,7 +88,7 @@ ParseStruct(memory_arena *Arena, tokenizer *Tokenizer, string Name)
         }
         else
         {
-            TokenError(Tokenizer, Token, "Expecting struct members");
+            TokenError(Tokenizer, Token, "Expecting struct members but got %S \"%S\"", GetTokenTypeName(Token.Type), Token.Text);
         }
     }
     

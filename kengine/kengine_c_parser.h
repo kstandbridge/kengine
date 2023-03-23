@@ -2,11 +2,11 @@
 
 typedef enum c_type
 {
-    C_Struct,
     C_B32,
     C_F32,
     C_U32,
     C_String,
+    C_Custom,
 } c_type;
 
 inline string
