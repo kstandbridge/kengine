@@ -969,7 +969,11 @@ DirectXRenderFrame(render_group *RenderGroup)
         {
             ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderGlyphTextureView);
             
+#if 0            
             ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderGlyphPixelShader, 0, 0);
+#else
+            ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderSpritePixelShader, 0, 0);
+#endif
             
             ID3D11DeviceContext_DrawInstanced(GlobalDirectXState.RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
         }

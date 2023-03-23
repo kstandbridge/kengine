@@ -55,8 +55,8 @@
 #define introspect(...)
 #include "kengine/kengine_types.h"
 #include "kengine/kengine_memory.h"
-#include "kengine/kengine_math.h"
 #include "kengine/kengine_generated.h"
+#include "kengine/kengine_math.h"
 #include "kengine/kengine_string.h"
 #include "kengine/kengine_json_parser.h"
 #include "kengine/kengine_log.h"
@@ -237,8 +237,60 @@ MainWindowCallback(app_memory *AppMemory, HWND Window, UINT Message, WPARAM WPar
 #endif // defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW)
 
 #if defined(KENGINE_DIRECTX)
+
+// TODO(kstandbridge): Relocate this
+
+typedef struct app_button_state
+{
+    s32 HalfTransitionCount;
+    b32 EndedDown;
+} app_button_state;
+
+typedef enum mouse_button_type
+{
+    MouseButton_Left,
+    MouseButton_Middle,
+    MouseButton_Right,
+    MouseButton_Extended0,
+    MouseButton_Extended1,
+    
+    MouseButton_Count,
+} mouse_button_type;
+
+typedef struct app_input
+{
+    app_button_state MouseButtons[MouseButton_Count];
+    v2 MouseP;
+    f32 MouseWheel;
+    
+    b32 ShiftDown;
+    b32 AltDown;
+    b32 ControlDown;
+    b32 FKeyPressed[13];
+} app_input;
+
+inline b32 
+WasPressed(app_button_state State)
+{
+    b32 Result = ((State.HalfTransitionCount > 1) ||
+                  ((State.HalfTransitionCount == 1) && (State.EndedDown)));
+    
+    return Result;
+}
+
+inline void
+ProcessInputMessage(app_button_state *NewState, b32 IsDown)
+{
+    if(NewState->EndedDown != IsDown)
+    {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
+    }
+}
+
+
 void
-AppUpdateFrame(app_memory *AppMemory, render_group *RenderGroup, f32 DeltaTime);
+AppUpdateFrame(app_memory *AppMemory, render_group *RenderGroup, app_input *Input, f32 DeltaTime);
 #endif // defined(KENGINE_DIRECTX)
 
 internal LRESULT CALLBACK
@@ -466,10 +518,14 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
 #if defined(KENGINE_DIRECTX)
             
             
-            render_command RenderCommands[10240];
+            render_command RenderCommands[10240] = {0};
             u32 MaxRenderCommands = ArrayCount(RenderCommands);
             
             LARGE_INTEGER LastCounter = Win32GetWallClock();
+            
+            app_input Input[2] = {0};
+            app_input *NewInput = Input;
+            app_input *OldInput = Input + 1;
             
             b32 Running = true;
             while(Running)
@@ -503,7 +559,46 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     
                     LARGE_INTEGER EndCounter = Win32GetWallClock();
                     f32 DeltaTime = Win32GetSecondsElapsed(LastCounter, EndCounter);
-                    AppUpdateFrame(&GlobalAppMemory, &RenderGroup, DeltaTime);
+                    
+                    POINT Point;
+                    if(!GetCursorPos(&Point))
+                    {
+                        Win32LogError("Failed to get cursor position");
+                    }
+                    else
+                    {
+                        if(!ScreenToClient(Window, &Point))
+                        {
+                            Win32LogError("Failed to convert cursor position to client coordinates");
+                        }
+                        else
+                        {
+                            NewInput->MouseP = V2(Point.x, Point.y);
+                        }
+                    }
+                    
+                    DWORD Win32ButtonIds[MouseButton_Count] =
+                    {
+                        VK_LBUTTON,
+                        VK_MBUTTON,
+                        VK_RBUTTON,
+                        VK_XBUTTON1,
+                        VK_XBUTTON2,
+                    };
+                    for(u32 ButtonIndex = 0;
+                        ButtonIndex < MouseButton_Count;
+                        ++ButtonIndex)
+                    {
+                        NewInput->MouseButtons[ButtonIndex] = OldInput->MouseButtons[ButtonIndex];
+                        NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
+                        
+                        ProcessInputMessage(&NewInput->MouseButtons[ButtonIndex],
+                                            GetKeyState(Win32ButtonIds[ButtonIndex]) & (1 << 15));
+                    }
+                    
+                    
+                    
+                    AppUpdateFrame(&GlobalAppMemory, &RenderGroup, NewInput, DeltaTime);
                     
                     DirectXRenderFrame(&RenderGroup);
                     
@@ -513,7 +608,12 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     }
                     
                     LastCounter = EndCounter;
+                    
+                    app_input *TempInput = NewInput;
+                    NewInput = OldInput;
+                    OldInput = TempInput;
                 }
+                
             }
             LogDebug("End application loop");
             
@@ -709,7 +809,14 @@ GenerateCtor(c_struct Struct)
         {
             PlatformConsoleOut(", ");
         }
-        PlatformConsoleOut("(%S)(%S)", Member->TypeName, Member->Name);
+        if(Member->Type == C_Custom)
+        {
+            PlatformConsoleOut("(%S)", Member->Name);
+        }
+        else
+        {
+            PlatformConsoleOut("(%S)(%S)", Member->TypeName, Member->Name);
+        }
         First = false;
     }
     PlatformConsoleOut("}");
@@ -1092,6 +1199,7 @@ main(u32 ArgCount, char **Args)
 
 
 #endif //KENGINE_IMPLEMENTATION
+
 
 #define KENGINE_H
 #endif //KENGINE_H

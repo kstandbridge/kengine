@@ -67,62 +67,7 @@ typedef unsigned __int64 umm;
 #define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
 #define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
 
-inline u32 
-AtomicCompareExchangeU32(u32 volatile *Value, u32 New, u32 Expected)
-{
-    u32 Result = _InterlockedCompareExchange((long volatile *)Value, New, Expected);
-    
-    return Result;
-}
-
-inline u32
-AtomicIncrementU32(u32 volatile *Value)
-{
-    u32 Result = _InterlockedIncrement((long volatile *)Value);
-    
-    return Result;
-}
-
-inline u32 
-AtomicExchange(u32 volatile *Value, u32 New)
-{
-    u32 Result = (u32)_InterlockedExchange((long volatile *)Value, New);
-    
-    return Result;
-}
-
-inline u64 
-AtomicExchangeU64(u64 volatile *Value, u64 New)
-{
-    u64 Result = (u64)_InterlockedExchange64((__int64 volatile *)Value, New);
-    
-    return Result;
-}
-
-inline u32 
-AtomicAddU32(u32 volatile *Value, u32 Addend)
-{
-    u32 Result = (u32)_InterlockedExchangeAdd((long volatile *)Value, Addend);
-    
-    return Result;
-}    
-
-inline u64 
-AtomicAddU64(u64 volatile *Value, u64 Addend)
-{
-    u64 Result = _InterlockedExchangeAdd64((__int64 volatile *)Value, Addend);
-    
-    return Result;
-}    
-
-inline u32 
-GetThreadID()
-{
-    u8 *ThreadLocalStorage = (u8 *)__readgsqword(0x30);
-    u32 ThreadID = *(u32 *)(ThreadLocalStorage + 0x48);
-    
-    return ThreadID;
-}
+#include "kengine_intrinsics.h"
 
 typedef struct ticket_mutex
 {
@@ -164,7 +109,6 @@ typedef struct date_time
     u16 Milliseconds;
 } date_time;
 
-
 typedef struct string
 {
     umm Size;
@@ -180,6 +124,59 @@ typedef struct string_list
     
     struct string_list *Next;
 } string_list;
+
+introspect(ctor, set1, math)
+typedef struct v2
+{
+    f32 X;
+    f32 Y;
+} v2;
+
+introspect(ctor, set1, math)
+typedef struct v2i
+{
+    s32 X;
+    s32 Y;
+} v2i;
+
+introspect(ctor, set1, math)
+typedef struct v3
+{
+    f32 X;
+    f32 Y;
+    f32 Z;
+} v3;
+
+introspect(ctor, set1, math)
+typedef struct v4
+{
+    f32 R;
+    f32 G;
+    f32 B;
+    f32 A;
+} v4;
+
+introspect(ctor)
+typedef struct rectangle2
+{
+    v2 Min;
+    v2 Max;
+} rectangle2;
+
+introspect(ctor)
+typedef struct rectangle2i
+{
+    s32 MinX;
+    s32 MaxX;
+    s32 MinY;
+    s32 MaxY;
+} rectangle2i;
+
+
+typedef struct m4x4
+{
+    f32 E[4][4];
+} m4x4;
 
 #define KENGINE_TYPES_H
 #endif //KENGINE_TYPES_H
