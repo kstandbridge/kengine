@@ -18,7 +18,6 @@
 #pragma comment(lib, "Shell32.lib")
 #pragma comment(lib, "Ole32.lib")
 #pragma comment(lib, "OleAut32.lib")
-#pragma comment(lib, "Urlmon.lib")
 #pragma comment(lib, "User32.lib")
 #pragma comment(lib, "Wininet.lib")
 
@@ -990,43 +989,47 @@ PreprocessSourceFile(memory_arena *Arena, string FileName, string FileData)
                             TokenError(Tokenizer, Token, "Expecting parameter list for introspect");
                         }
                     }
-                    RequireIdentifierToken(Tokenizer, String("typedef"));
-                    RequireIdentifierToken(Tokenizer, String("struct"));
-                    Token = RequireToken(Tokenizer, Token_Identifier);
-                    
-                    c_struct Struct = ParseStruct(Arena, Tokenizer, Token.Text);
                     
                     if(Parsing(Tokenizer))
                     {
-                        string_list *CustomOptions = 0;
+                        RequireIdentifierToken(Tokenizer, String("typedef"));
+                        RequireIdentifierToken(Tokenizer, String("struct"));
+                        Token = RequireToken(Tokenizer, Token_Identifier);
                         
-                        for(string_list *Option = Options;
-                            Option;
-                            Option = Option->Next)
-                        {
-                            if(StringsAreEqual(String("ctor"), Option->Entry))
+                        if(Parsing(Tokenizer))
+                        {                    
+                            c_struct Struct = ParseStruct(Arena, Tokenizer, Token.Text);
+                            
+                            string_list *CustomOptions = 0;
+                            
+                            for(string_list *Option = Options;
+                                Option;
+                                Option = Option->Next)
                             {
-                                GenerateCtor(Struct);
+                                if(StringsAreEqual(String("ctor"), Option->Entry))
+                                {
+                                    GenerateCtor(Struct);
+                                }
+                                else if(StringsAreEqual(String("set1"), Option->Entry))
+                                {
+                                    GenerateSet1(Struct);
+                                }
+                                else if(StringsAreEqual(String("math"), Option->Entry))
+                                {
+                                    GenerateMath(Struct);
+                                }
+                                else if(StringsAreEqual(String("linked_list"), Option->Entry))
+                                {
+                                    GenerateLinkedList(Struct);
+                                }
+                                else
+                                {
+                                    PushStringToStringList(&CustomOptions, Arena, Option->Entry);
+                                }
                             }
-                            else if(StringsAreEqual(String("set1"), Option->Entry))
-                            {
-                                GenerateSet1(Struct);
-                            }
-                            else if(StringsAreEqual(String("math"), Option->Entry))
-                            {
-                                GenerateMath(Struct);
-                            }
-                            else if(StringsAreEqual(String("linked_list"), Option->Entry))
-                            {
-                                GenerateLinkedList(Struct);
-                            }
-                            else
-                            {
-                                PushStringToStringList(&CustomOptions, Arena, Option->Entry);
-                            }
+                            
+                            GenerateCodeFor(Arena, Struct, CustomOptions);
                         }
-                        
-                        GenerateCodeFor(Arena, Struct, CustomOptions);
                         
                         PlatformConsoleOut("\n");
                     }
