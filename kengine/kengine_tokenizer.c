@@ -37,6 +37,7 @@ GetToken_(tokenizer *Tokenizer)
         case '&': {Result.Type = Token_Ampersand;} break;;
         case '~': {Result.Type = Token_Tilde;} break;;
         case '.': {Result.Type = Token_Period;} break;;
+        case '|': {Result.Type = Token_Pipe;} break;;
         
         case '"': 
         {

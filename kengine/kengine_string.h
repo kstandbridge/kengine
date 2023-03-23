@@ -1,20 +1,5 @@
 #ifndef KENGINE_STRING_H
 
-typedef struct string
-{
-    umm Size;
-    u8 *Data;
-} string;
-#define NullString() String_(0, 0)
-#define IsNullString(Text) ((Text.Data == 0) || (Text.Size == 0))
-
-typedef struct string_list
-{
-    string Entry;
-    
-    struct string_list *Next;
-} string_list;
-
 b32 IsNumber(char C);
 b32 IsSpacing(char C);
 b32 IsWhitespace(char C);
@@ -506,78 +491,6 @@ StringsAreEqualLowercase(string A, string B)
     return Result;
 }
 
-inline u32
-GetStringListCount(string_list *Head)
-{
-    u32 Result = 0;
-    
-    while(Head != 0)
-    {
-        Head = Head->Next;
-        ++Result;
-    }
-    
-    return Result;
-}
-
-typedef b32 string_list_predicate(void *Context, string_list *A, string_list *B);
-
-inline string_list *
-GetStringList(string_list *Head, string_list_predicate *Predicate, void *Context, string_list *Match)
-{
-    string_list *Result = 0;
-    
-    while(Head)
-    {
-        if(Predicate(Context, Head, Match))
-        {
-            Result = Head;
-            break;
-        }
-        else
-        {
-            Head = Head->Next;
-        }
-    }
-    
-    return Result;
-}
-
-inline string_list *
-GetStringListTail(string_list *Head)
-{
-    string_list *Result = Head;
-    
-    if(Result != 0)
-    {
-        while(Result->Next != 0)
-        {
-            Result = Result->Next;
-        }
-    }
-    
-    return Result;
-}
-
-inline string_list *
-PushbackStringList(string_list **HeadRef, memory_arena *Arena)
-{
-    string_list *Result = PushStruct(Arena, string_list);
-    
-    Result->Next = 0;
-    if(*HeadRef == 0)
-    {
-        *HeadRef = Result;
-    }
-    else
-    {
-        string_list *Tail = GetStringListTail(*HeadRef);
-        Tail->Next = Result;
-    }
-    
-    return Result;
-}
-
 internal void
 PushStringToStringList(string_list **HeadRef, memory_arena *Arena, string Text)
 {
@@ -610,23 +523,6 @@ GetStringFromStringList(string_list *Head, string Text)
     if(Found)
     {
         Result = &Found->Entry;
-    }
-    
-    return Result;
-}
-
-inline string_list *
-GetStringListByIndex(string_list *Head, s32 Index)
-{
-    string_list *Result = Head;
-    
-    if(Result != 0)
-    {
-        while(Result && Index)
-        {
-            Result = Result->Next;
-            --Index;
-        }
     }
     
     return Result;

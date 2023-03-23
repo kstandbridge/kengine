@@ -164,5 +164,22 @@ typedef struct date_time
     u16 Milliseconds;
 } date_time;
 
+
+typedef struct string
+{
+    umm Size;
+    u8 *Data;
+} string;
+#define NullString() String_(0, 0)
+#define IsNullString(Text) ((Text.Data == 0) || (Text.Size == 0))
+
+introspect(linked_list)
+typedef struct string_list
+{
+    string Entry;
+    
+    struct string_list *Next;
+} string_list;
+
 #define KENGINE_TYPES_H
 #endif //KENGINE_TYPES_H

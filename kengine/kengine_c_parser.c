@@ -34,7 +34,12 @@ ParseStruct(memory_arena *Arena, tokenizer *Tokenizer, string Name)
                 CurrentMember = CurrentMember->Next;
             }
             CurrentMember->TypeName = Token.Text;
-            if(StringsAreEqual(String("b32"), Token.Text))
+            if(StringsAreEqual(String("struct"), Token.Text))
+            {
+                Token = RequireToken(Tokenizer, Token_Identifier);
+                CurrentMember->Type = C_Struct;
+            }
+            else if(StringsAreEqual(String("b32"), Token.Text))
             {
                 CurrentMember->Type = C_B32;
             }
@@ -54,8 +59,22 @@ ParseStruct(memory_arena *Arena, tokenizer *Tokenizer, string Name)
             {
                 TokenError(Tokenizer, Token, "type not supported %S", Token.Text);
             }
-            Token = RequireToken(Tokenizer, Token_Identifier);
-            CurrentMember->Name = Token.Text;
+            Token = GetToken(Tokenizer);
+            if(Token.Type == Token_Asterisk)
+            {
+                CurrentMember->IsPointer = true;
+                Token = GetToken(Tokenizer);
+            }
+            
+            if(Token.Type == Token_Identifier)
+            {
+                CurrentMember->Name = Token.Text;
+            }
+            else
+            {
+                TokenError(Tokenizer, Token, "Expected member name");
+            }
+            
         }
         else
         {

@@ -54,20 +54,21 @@
 #endif //KENGINE_WIN32
 
 #define introspect(...)
-#include "kengine_types.h"
-#include "kengine_memory.h"
-#include "kengine_string.h"
-#include "kengine_json_parser.h"
-#include "kengine_log.h"
-#include "kengine_http.h"
-#include "kengine_sha512.h"
-#include "kengine_eddsa.h"
-#include "kengine_random.h"
-#include "kengine_tokenizer.h"
-#include "kengine_xml_parser.h"
-#include "kengine_c_parser.h"
-#include "kengine_math.h"
-#include "kengine_generated.h"
+#include "kengine/kengine_types.h"
+#include "kengine/kengine_memory.h"
+#include "kengine/kengine_math.h"
+#include "kengine/kengine_generated.h"
+#include "kengine/kengine_string.h"
+#include "kengine/kengine_json_parser.h"
+#include "kengine/kengine_log.h"
+#include "kengine/kengine_http.h"
+#include "kengine/kengine_sha512.h"
+#include "kengine/kengine_eddsa.h"
+#include "kengine/kengine_random.h"
+#include "kengine/kengine_tokenizer.h"
+#include "kengine/kengine_xml_parser.h"
+#include "kengine/kengine_c_parser.h"
+
 
 typedef void platform_work_queue_callback(void *Data);
 
@@ -95,12 +96,12 @@ typedef struct app_memory
 extern app_memory GlobalAppMemory;
 
 #ifdef KENGINE_DIRECTX
-#include "kengine_renderer.h"
-#include "kengine_directx.h"
+#include "kengine/kengine_renderer.h"
+#include "kengine/kengine_directx.h"
 #endif
 
 #ifdef KENGINE_WIN32
-#include "kengine_win32.h"
+#include "kengine/kengine_win32.h"
 #endif //KENGINE_WIN32
 
 inline date_time
@@ -113,26 +114,26 @@ GetDateTime()
 }
 
 #ifdef KENGINE_IMPLEMENTATION
-#include "kengine_memory.c"
-#include "kengine_log.c"
-#include "kengine_string.c"
-#include "kengine_sha512.c"
-#include "kengine_eddsa.c"
-#include "kengine_tokenizer.c"
-#include "kengine_json_parser.c"
-#include "kengine_c_parser.c"
+#include "kengine/kengine_memory.c"
+#include "kengine/kengine_log.c"
+#include "kengine/kengine_string.c"
+#include "kengine/kengine_sha512.c"
+#include "kengine/kengine_eddsa.c"
+#include "kengine/kengine_tokenizer.c"
+#include "kengine/kengine_json_parser.c"
+#include "kengine/kengine_c_parser.c"
 
 #ifdef KENGINE_WIN32
-#include "kengine_vertex_shader_generated.h"
-#include "kengine_glyph_pixel_shader_generated.h"
-#include "kengine_sprite_pixel_shader_generated.h"
-#include "kengine_rect_pixel_shader_generated.h"
-#include "kengine_win32.c"
+#include "kengine/kengine_vertex_shader_generated.h"
+#include "kengine/kengine_glyph_pixel_shader_generated.h"
+#include "kengine/kengine_sprite_pixel_shader_generated.h"
+#include "kengine/kengine_rect_pixel_shader_generated.h"
+#include "kengine/kengine_win32.c"
 #endif //KENGINE_WIN32
 
 #ifdef KENGINE_DIRECTX
-#include "kengine_renderer.c"
-#include "kengine_directx.c"
+#include "kengine/kengine_renderer.c"
+#include "kengine/kengine_directx.c"
 #endif // KENGINE_DIRECTX
 
 #if defined(KENGINE_CONSOLE) || defined(KENGINE_WINDOW)

@@ -30,6 +30,7 @@ typedef enum token_type
     Token_Ampersand,
     Token_Tilde,
     Token_Period,
+    Token_Pipe,
     
     Token_Identifier,
     
@@ -72,6 +73,7 @@ GetTokenTypeName(token_type Type)
         case Token_Ampersand:         {Result = String("ampersand");} break;
         case Token_Tilde:             {Result = String("tilde");} break;
         case Token_Period:            {Result = String("period");} break;
+        case Token_Pipe:              {Result = String("pipe");} break;
         
         case Token_Identifier:        {Result = String("identifier");} break;
         

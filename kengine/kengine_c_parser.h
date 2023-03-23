@@ -2,6 +2,7 @@
 
 typedef enum c_type
 {
+    C_Struct,
     C_B32,
     C_F32,
     C_U32,
@@ -26,6 +27,7 @@ GetCTypeName(c_type Type)
 
 typedef struct c_member
 {
+    b32 IsPointer;
     string Name;
     string TypeName;
     c_type Type;

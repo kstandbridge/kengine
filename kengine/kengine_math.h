@@ -29,13 +29,13 @@ typedef struct m4x4
     f32 E[4][4];
 } m4x4;
 
+#define Rectangle2(Min, Max) (rectangle2){Min, Max}
+
 typedef struct rectangle2
 {
     v2 Min;
     v2 Max;
 } rectangle2;
-
-#define Rectangle2(Min, Max) (rectangle2){Min, Max}
 
 inline rectangle2
 Rectangle2Union(rectangle2 A, rectangle2 B)
