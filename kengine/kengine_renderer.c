@@ -2,22 +2,10 @@
 inline render_command *
 PushRenderCommandRect(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Color)
 {
-    render_command *Result = 0;
+    render_command *Result = GetRenderCommand(Group, RenderCommand_Rect);
     
-    if(Group->CurrentCommand >= Group->MaxCommands)
-    {
-        Group->CurrentCommand = 0;
-        LogWarning("Render commands buffer wrapped around");
-    }
-    
-    Result = Group->Commands + Group->CurrentCommand;
-    
-    ++Group->CurrentCommand;
-    Result->Type = RenderCommand_Rect;
-    Result->Offset = Bounds.Min;
-    Result->Depth = Depth;
-    Result->Size = V2Subtract(Bounds.Max, Bounds.Min);
-    Result->Color = Color;
+    AddVertexInstance(Group, Result, V3(Bounds.Min.X, Bounds.Min.Y, Depth),
+                      V2Subtract(Bounds.Max, Bounds.Min), Color, V4(0, 0, 1, 1));
     
     return Result;
 }
@@ -34,25 +22,22 @@ PushRenderCommandRectOutline(render_group *Group, rectangle2 Bounds, f32 Depth, 
 }
 
 inline render_command *
+PushRenderCommandSprite(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 Color, v4 UV)
+{
+    render_command *Result = GetRenderCommand(Group, RenderCommand_Sprite);
+    
+    AddVertexInstance(Group, Result, V3(Offset.X, Offset.Y, Depth), Size, Color, UV);
+    
+    return Result;
+}
+
+inline render_command *
 PushRenderCommandGlyph(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 Color, v4 UV)
 {
-    render_command *Result;
+    render_command *Result = GetRenderCommand(Group, RenderCommand_Glyph);
     
-    if(Group->CurrentCommand >= Group->MaxCommands)
-    {
-        Group->CurrentCommand = 0;
-        LogWarning("Render commands buffer wrapped around");
-    }
-    
-    Result = Group->Commands + Group->CurrentCommand;
-    
-    ++Group->CurrentCommand;
-    Result->Type = RenderCommand_Glyph;
-    Result->Offset = Offset;
-    Result->Depth = Depth;
-    Result->Size = Size;
-    Result->Color = Color;
-    Result->UV = UV;
+    AddVertexInstance(Group, Result, V3(Offset.X, Offset.Y, Depth), 
+                      Size, Color, UV);
     
     return Result;
 }

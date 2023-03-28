@@ -517,10 +517,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
             
 #if defined(KENGINE_DIRECTX)
             
-            
-            render_command RenderCommands[10240] = {0};
-            u32 MaxRenderCommands = ArrayCount(RenderCommands);
-            
             LARGE_INTEGER LastCounter = Win32GetWallClock();
             
             app_input Input[2] = {0};
@@ -528,6 +524,11 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
             app_input *OldInput = Input + 1;
             
             b32 Running = true;
+            
+            // TODO(kstandbridge): Platform arena?
+            memory_arena Arena = {0};
+            render_group *RenderGroup = PushStruct(&Arena, render_group);
+            
             while(Running)
             {
                 MSG Msg;
@@ -543,19 +544,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                 
                 if(Running)
                 {
-                    render_group RenderGroup =
-                    {
-                        .Commands = RenderCommands,
-                        .CurrentCommand = 0,
-                        .MaxCommands = MaxRenderCommands,
-                        .Width = GlobalWindowWidth,
-                        .Height = GlobalWindowHeight,
-#if 1
-                        .ClearColor = { 0.1f, 0.2f, 0.6f, 1.0f },
-#else
-                        .ClearColor = { 1.0f, 1.0f, 1.0f, 1.0f },
-#endif
-                    };
+                    RenderGroup->CurrentCommand = 0;
+                    RenderGroup->Width = GlobalWindowWidth;
+                    RenderGroup->Height = GlobalWindowHeight;
+                    RenderGroup->VertexBufferAt = 0;
                     
                     LARGE_INTEGER EndCounter = Win32GetWallClock();
                     f32 DeltaTime = Win32GetSecondsElapsed(LastCounter, EndCounter);
@@ -598,9 +590,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                     
                     
                     
-                    AppUpdateFrame(&GlobalAppMemory, &RenderGroup, NewInput, DeltaTime);
+                    AppUpdateFrame(&GlobalAppMemory, RenderGroup, NewInput, DeltaTime);
                     
-                    DirectXRenderFrame(&RenderGroup);
+                    DirectXRenderFrame(RenderGroup);
                     
                     if(FAILED(DirectXRenderPresent()))
                     {

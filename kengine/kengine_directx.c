@@ -5,38 +5,6 @@ global directx_state GlobalDirectXState;
 global s32 GlobalWindowWidth;
 global s32 GlobalWindowHeight;
 
-typedef struct vertex_instance
-{
-    v3 Offset;
-    v2 Size;
-    v4 Color;
-    v4 SpriteUV;
-} vertex_instance;
-
-#define MAX_VERTEX_INSTANCES 10240
-global vertex_instance VertexInstances[MAX_VERTEX_INSTANCES];
-global u32 CurrentVertexInstanceIndex;
-
-inline void
-PushVertexInstance(v3 Offset, v2 Size, v4 Color, v4 SpriteUV)
-{
-    if(CurrentVertexInstanceIndex < MAX_VERTEX_INSTANCES)
-    {
-        vertex_instance *Vertex = VertexInstances + CurrentVertexInstanceIndex;
-        CurrentVertexInstanceIndex++;
-        
-        Vertex->Offset = Offset;
-        Vertex->Size = Size;
-        Vertex->Color = Color;
-        Vertex->SpriteUV = SpriteUV;
-    }
-    else
-    {
-        CurrentVertexInstanceIndex = 0;
-        LogWarning("Go easy on the verticies!");
-    }
-}
-
 v2
 TransformV2(m4x4 Matrix, v2 Vector)
 {
@@ -49,16 +17,16 @@ TransformV2(m4x4 Matrix, v2 Vector)
 }
 
 internal m4x4
-M4x4OrthographicOffCenterLH(float ViewLeft,
-                            float ViewRight,
-                            float ViewBottom,
-                            float ViewTop,
-                            float NearZ,
-                            float FarZ)
+M4x4OrthographicOffCenterLH(f32 ViewLeft,
+                            f32 ViewRight,
+                            f32 ViewBottom,
+                            f32 ViewTop,
+                            f32 NearZ,
+                            f32 FarZ)
 {
-    float ReciprocalWidth = 1.0f / (ViewRight - ViewLeft);
-    float ReciprocalHeight = 1.0f / (ViewTop - ViewBottom);
-    float fRange = 1.0f / (FarZ - NearZ);
+    f32 ReciprocalWidth = 1.0f / (ViewRight - ViewLeft);
+    f32 ReciprocalHeight = 1.0f / (ViewTop - ViewBottom);
+    f32 fRange = 1.0f / (FarZ - NearZ);
     
     m4x4 Result;
     Result.E[0][0] = ReciprocalWidth + ReciprocalWidth;
@@ -437,7 +405,7 @@ DirectXRenderCreate()
         LogDebug("Creating vertex instance buffer");
         D3D11_BUFFER_DESC BufferDesc =
         {
-            .ByteWidth = sizeof(VertexInstances),
+            .ByteWidth = VertexBufferSize,
             .Usage = D3D11_USAGE_DYNAMIC,
             .BindFlags = D3D11_BIND_VERTEX_BUFFER,
             .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
@@ -823,8 +791,9 @@ DirectXRenderFrame(render_group *RenderGroup)
         
         {        
             // NOTE(kstandbridge): Clear background
+            v4 Color = V4(0.1f, 0.2f, 0.6f, 1.0f);
             ID3D11DeviceContext_ClearRenderTargetView(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderTargetView,
-                                                      (f32 *)&RenderGroup->ClearColor.R);
+                                                      (f32 *)&Color);
         }
         
         // NOTE(kstandbridge): Map the constant buffer which has our orthographic matrix in
@@ -865,120 +834,89 @@ DirectXRenderFrame(render_group *RenderGroup)
             
         }
         
-        // NOTE(kstandbridge): Populate Rects
+        // NOTE(kstandbridge): Iterate commands
         {
-            CurrentVertexInstanceIndex = 0;
             for(u32 CommandIndex = 0;
-                CommandIndex < RenderGroup->CurrentCommand;
+                CommandIndex <= RenderGroup->CurrentCommand;
                 ++CommandIndex)
             {
                 render_command *Command = RenderGroup->Commands + CommandIndex;
-                if(Command->Type == RenderCommand_Rect)
+                
+                switch(Command->Type)
                 {
-                    PushVertexInstance(V3(Command->Offset.X, Command->Offset.Y, Command->Depth), Command->Size,
-                                       Command->Color, V4(0.0f, 0.0f, 1.0f, 1.0f));
-                }
-            }
-        }
-        
-        // NOTE(kstandbridge): Copy Rect data
-        {            
-            D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-            ID3D11DeviceContext_Map(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 
-                                    0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
-            vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
-            
-            memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
-            
-            ID3D11DeviceContext_Unmap(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 0);
-        }
-        
-        // NOTE(kstandbridge): Draw rects
-        {        
-            ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderRectPixelShader, 0, 0);
-            
-            ID3D11DeviceContext_DrawInstanced(GlobalDirectXState.RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
-        }
-        
-        // NOTE(kstandbridge): Populate Sprites
-        {          
-            CurrentVertexInstanceIndex = 0;
-            for(u32 CommandIndex = 0;
-                CommandIndex < RenderGroup->CurrentCommand;
-                ++CommandIndex)
-            {
-                render_command *Command = RenderGroup->Commands + CommandIndex;
-                if(Command->Type == RenderCommand_Sprite)
-                {
-                    PushVertexInstance(V3(Command->Offset.X, Command->Offset.Y, Command->Depth), Command->Size,
-                                       Command->Color, Command->UV);
-                }
-            }
-        }
-        
-        // NOTE(kstandbridge): Copy sprite data
-        {            
-            D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-            ID3D11DeviceContext_Map(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 
-                                    0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
-            vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
-            
-            memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
-            
-            ID3D11DeviceContext_Unmap(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 0);
-        }
-        
-        // NOTE(kstandbridge): Draw sprite data
-        {
-            ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderSpriteTextureView);
-            
-            ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderSpritePixelShader, 0, 0);
-            
-            ID3D11DeviceContext_DrawInstanced(GlobalDirectXState.RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
-        }
-        
-        // NOTE(kstandbridge): Populate Glyphs
-        {          
-            CurrentVertexInstanceIndex = 0;
-            for(u32 CommandIndex = 0;
-                CommandIndex < RenderGroup->CurrentCommand;
-                ++CommandIndex)
-            {
-                render_command *Command = RenderGroup->Commands + CommandIndex;
-                if(Command->Type == RenderCommand_Glyph)
-                {
-                    PushVertexInstance(V3(Command->Offset.X, Command->Offset.Y, Command->Depth), Command->Size,
-                                       Command->Color, Command->UV);
-                }
-            }
-        }
-        
-        // NOTE(kstandbridge): Copy glyph data
-        {            
-            D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-            ID3D11DeviceContext_Map(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 
-                                    0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
-            vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
-            
-            memcpy(DataGPU, VertexInstances, sizeof(vertex_instance) * CurrentVertexInstanceIndex);
-            
-            ID3D11DeviceContext_Unmap(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 0);
-        }
-        
-        // NOTE(kstandbridge): Draw Glyph data
-        {
-            ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderGlyphTextureView);
-            
-#if 0            
-            ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderGlyphPixelShader, 0, 0);
+                    case RenderCommand_Rect:
+                    {
+                        D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+                        ID3D11DeviceContext_Map(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 
+                                                0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+                        vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
+                        
+                        u8 *VertexBuffer = RenderGroup->VertexBuffer;
+                        VertexBuffer += Command->VertexBufferOffset;
+                        
+                        umm SizeInBytes = VertexInstanceSize * Command->VertexCount;
+                        Assert(SizeInBytes < VertexBufferSize);
+                        
+                        memcpy(DataGPU, VertexBuffer, SizeInBytes);
+                        
+                        ID3D11DeviceContext_Unmap(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 0);
+                        
+                        ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderRectPixelShader, 0, 0);
+                        
+                        ID3D11DeviceContext_DrawInstanced(GlobalDirectXState.RenderContext, 6, Command->VertexCount, 0, 0);
+                        
+                    } break;
+                    
+                    case RenderCommand_Sprite:
+                    {
+                        D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+                        ID3D11DeviceContext_Map(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 
+                                                0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+                        vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
+                        
+                        u8 *VertexBuffer = RenderGroup->VertexBuffer;
+                        VertexBuffer += Command->VertexBufferOffset;
+                        
+                        memcpy(DataGPU, VertexBuffer, VertexInstanceSize * Command->VertexCount);
+                        
+                        ID3D11DeviceContext_Unmap(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 0);
+                        
+                        ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderSpriteTextureView);
+                        
+                        ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderSpritePixelShader, 0, 0);
+                        
+                        ID3D11DeviceContext_DrawInstanced(GlobalDirectXState.RenderContext, 6, Command->VertexCount, 0, 0);
+                    } break;
+                    
+                    case RenderCommand_Glyph:
+                    {
+                        D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+                        ID3D11DeviceContext_Map(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 
+                                                0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+                        vertex_instance *DataGPU = (vertex_instance *)MappedSubresource.pData;
+                        
+                        u8 *VertexBuffer = RenderGroup->VertexBuffer;
+                        VertexBuffer += Command->VertexBufferOffset;
+                        
+                        memcpy(DataGPU, VertexBuffer, VertexInstanceSize * Command->VertexCount);
+                        
+                        ID3D11DeviceContext_Unmap(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 0);
+                        
+                        ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderGlyphTextureView);
+                        
+#if 0
+                        ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderGlyphPixelShader, 0, 0);
 #else
-            ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderSpritePixelShader, 0, 0);
+                        ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderSpritePixelShader, 0, 0);
 #endif
-            
-            ID3D11DeviceContext_DrawInstanced(GlobalDirectXState.RenderContext, 6, CurrentVertexInstanceIndex, 0, 0);
+                        
+                        ID3D11DeviceContext_DrawInstanced(GlobalDirectXState.RenderContext, 6, Command->VertexCount, 0, 0);
+                        
+                    } break;
+                }
+                
+            }
         }
-        
-        
     }
 }
 

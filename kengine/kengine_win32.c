@@ -61,6 +61,7 @@ Win32AllocateMemory(umm Size, u64 Flags)
     Assert(sizeof(win32_memory_block) == 64);
     
     // NOTE(kstandbridge): Raymond Chen on page sizes: https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200
+    // TODO(kstandbridge): GetSystemInfo > dwPageSize
     umm PageSize = Kilobytes(4);
     umm TotalSize = Size + sizeof(win32_memory_block);
     umm BaseOffset = sizeof(win32_memory_block);
