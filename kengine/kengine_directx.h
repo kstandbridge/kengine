@@ -8,10 +8,11 @@ typedef struct directx_state
     ID3D11DeviceContext *RenderContext;
     ID3D11DeviceContext1 *RenderContext1;
     ID3D11RenderTargetView *RenderTargetView;
-    ID3D11DepthStencilView *RenderDepthStencilView;
     HANDLE RenderFrameLatencyWait;
     ID3D11RasterizerState *RenderRasterizerState;
+    ID3D11DepthStencilView *RenderDepthStencilView;
     ID3D11DepthStencilState *RenderDepthStencilState;
+    
     ID3D11BlendState *RenderBlendState;
     
     ID3D11VertexShader *RenderVertexShader;

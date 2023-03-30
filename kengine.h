@@ -544,6 +544,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, s32 CmdShow)
                 
                 if(Running)
                 {
+                    ZeroSize(sizeof(RenderGroup->Commands), RenderGroup->Commands);
                     RenderGroup->CurrentCommand = 0;
                     RenderGroup->Width = GlobalWindowWidth;
                     RenderGroup->Height = GlobalWindowHeight;

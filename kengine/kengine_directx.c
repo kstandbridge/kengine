@@ -280,7 +280,6 @@ DirectXRenderCreate()
         }
     }
     
-    
     if(SUCCEEDED(HResult))
     {
         LogDebug("Creating blend state");
@@ -559,9 +558,11 @@ DirectXRenderDestroy()
     D3D11SafeRelease(ID3D11PixelShader, GlobalDirectXState.RenderRectPixelShader);
     
     D3D11SafeRelease(ID3D11RasterizerState, GlobalDirectXState.RenderRasterizerState);
-    D3D11SafeRelease(ID3D11DepthStencilState, GlobalDirectXState.RenderDepthStencilState);
     D3D11SafeRelease(ID3D11BlendState, GlobalDirectXState.RenderBlendState);
+    
+    D3D11SafeRelease(ID3D11DepthStencilState, GlobalDirectXState.RenderDepthStencilState);
     D3D11SafeRelease(ID3D11DepthStencilView, GlobalDirectXState.RenderDepthStencilView);
+    
     D3D11SafeRelease(ID3D11RenderTargetView, GlobalDirectXState.RenderTargetView);
     D3D11SafeRelease(ID3D11Device, GlobalDirectXState.RenderDevice);
     D3D11SafeRelease(ID3D11DeviceContext, GlobalDirectXState.RenderContext);
@@ -801,6 +802,7 @@ DirectXRenderFrame(render_group *RenderGroup)
         
         // NOTE(kstandbridge): BeginDraw!
         {        
+            
             ID3D11DeviceContext_OMSetRenderTargets(GlobalDirectXState.RenderContext, 1, &GlobalDirectXState.RenderTargetView, GlobalDirectXState.RenderDepthStencilView);
             ID3D11DeviceContext_ClearDepthStencilView(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderDepthStencilView, 
                                                       D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
