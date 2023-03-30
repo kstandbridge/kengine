@@ -113,6 +113,24 @@ DirectXRenderCreate()
             }
         }
         
+#if KENGINE_INTERNAL
+        {
+            ID3D11Debug *Debug = 0;
+            ID3D11DeviceContext_QueryInterface(GlobalDirectXState.RenderDevice, &IID_ID3D11Debug, &Debug);
+            if(Debug)
+            {
+                ID3D11InfoQueue *InfoQueue = 0;
+                if(SUCCEEDED(ID3D11Debug_QueryInterface(Debug, &IID_ID3D11InfoQueue, &InfoQueue)))
+                {
+                    ID3D11InfoQueue_SetBreakOnSeverity(InfoQueue, D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
+                    ID3D11InfoQueue_SetBreakOnSeverity(InfoQueue, D3D11_MESSAGE_SEVERITY_ERROR, true);
+                    ID3D11InfoQueue_Release(Debug);
+                }
+                ID3D11Debug_Release(Debug);
+            }
+        }
+#endif
+        
         if(SUCCEEDED(HResult))
         {
             if(SUCCEEDED(HResult = ID3D11DeviceContext_QueryInterface(GlobalDirectXState.RenderContext, &IID_ID3D11DeviceContext1, &GlobalDirectXState.RenderContext1)))
@@ -791,9 +809,8 @@ DirectXRenderFrame(render_group *RenderGroup)
         
         {        
             // NOTE(kstandbridge): Clear background
-            v4 Color = V4(0.1f, 0.2f, 0.6f, 1.0f);
             ID3D11DeviceContext_ClearRenderTargetView(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderTargetView,
-                                                      (f32 *)&Color);
+                                                      (f32 *)&RenderGroup->ClearColor);
         }
         
         // NOTE(kstandbridge): Map the constant buffer which has our orthographic matrix in
@@ -825,7 +842,6 @@ DirectXRenderFrame(render_group *RenderGroup)
             
             ID3D11DeviceContext_IASetPrimitiveTopology(GlobalDirectXState.RenderContext, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             ID3D11DeviceContext_VSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderVertexShader, 0, 0);
-            
             
             ID3D11DeviceContext_PSSetSamplers(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderSamplerState);
             
@@ -881,7 +897,11 @@ DirectXRenderFrame(render_group *RenderGroup)
                         
                         ID3D11DeviceContext_Unmap(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 0);
                         
+#if 1                        
                         ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderSpriteTextureView);
+#else
+                        ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderGlyphTextureView);
+#endif
                         
                         ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderSpritePixelShader, 0, 0);
                         
@@ -904,7 +924,7 @@ DirectXRenderFrame(render_group *RenderGroup)
                         
                         ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderGlyphTextureView);
                         
-#if 0
+#if 1
                         ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderGlyphPixelShader, 0, 0);
 #else
                         ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderSpritePixelShader, 0, 0);

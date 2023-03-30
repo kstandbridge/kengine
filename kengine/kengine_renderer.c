@@ -4,8 +4,8 @@ PushRenderCommandRect(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Colo
 {
     render_command *Result = GetRenderCommand(Group, RenderCommand_Rect);
     
-    AddVertexInstance(Group, Result, V3(Bounds.Min.X, Bounds.Min.Y, Depth),
-                      V2Subtract(Bounds.Max, Bounds.Min), Color, V4(0, 0, 1, 1));
+    Bounds; Depth; Color;
+    AddVertexInstance(Group, Result, V3(Bounds.Min.X, Bounds.Min.Y, Depth), V2Subtract(Bounds.Max, Bounds.Min), Color, V4(0, 0, 1, 1));
     
     return Result;
 }
