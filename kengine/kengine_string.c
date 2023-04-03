@@ -540,12 +540,12 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                             
                             case FormatStringToken_Binary:
                             {
-                                
-                                
                                 ParsingParam = false;
                                 
                                 *State->Tail++ = '0';
                                 *State->Tail++ = 'b';
+                                
+                                // TODO(kstandbridge): Padding with zeros? do we want to display 0b111 or 0b0000111
                                 
                                 u8 Value = ReadVarArgByte(ArgList);
                                 for(s32 Index = 7;
