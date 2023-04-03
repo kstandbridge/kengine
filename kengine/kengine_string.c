@@ -169,6 +169,7 @@ typedef enum format_string_token_type
     FormatStringToken_LongStringOfCharacters,
     FormatStringToken_StringOfCharacters,
     FormatStringToken_StringType,
+    FormatStringToken_Binary,
     
     FormatStringToken_PrecisionSpecifier,
     FormatStringToken_PrecisionArgSpecifier,
@@ -204,6 +205,7 @@ GetNextFormatStringToken(format_string_state *State)
         case 'f':  { Result.Type = FormatStringToken_DecimalFloatingPoint; } break;
         case 's':  { Result.Type = FormatStringToken_StringOfCharacters; } break;
         case 'S':  { Result.Type = FormatStringToken_StringType; } break; 
+        case 'b':  { Result.Type = FormatStringToken_Binary; } break; 
         
         case '.':  { Result.Type = FormatStringToken_PrecisionSpecifier; } break;
         case '*':  { Result.Type = FormatStringToken_PrecisionArgSpecifier; } break;
@@ -266,6 +268,7 @@ GetNextFormatStringToken(format_string_state *State)
 #define ReadVarArgUnsignedInteger(Length, ArgList) ((Length) == 8) ? va_arg(ArgList, u64) : (u64)va_arg(ArgList, u32)
 #define ReadVarArgSignedInteger(Length, ArgList) ((Length) == 8) ? va_arg(ArgList, s64) : (s64)va_arg(ArgList, s32)
 #define ReadVarArgFloat(Length, ArgList) va_arg(ArgList, f64)
+#define ReadVarArgByte(ArgList) va_arg(ArgList, u8)
 
 global char Digits[] = "0123456789";
 internal void
@@ -531,6 +534,26 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                         }
                                     }
                                     *State->Tail++ = Str.Data[Index];
+                                }
+                                
+                            } break;
+                            
+                            case FormatStringToken_Binary:
+                            {
+                                
+                                
+                                ParsingParam = false;
+                                
+                                *State->Tail++ = '0';
+                                *State->Tail++ = 'b';
+                                
+                                u8 Value = ReadVarArgByte(ArgList);
+                                for(s32 Index = 7;
+                                    Index >= 0;
+                                    --Index)
+                                {
+                                    char Digit = (Value & (1 << Index)) ? '1' : '0';
+                                    *State->Tail++ = Digit;
                                 }
                                 
                             } break;
