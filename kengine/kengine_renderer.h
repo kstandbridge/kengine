@@ -27,6 +27,8 @@ typedef struct render_command
 {
     render_command_type Type;
     
+    void *Context;
+    
     u32 VertexCount;
     umm VertexBufferOffset;
     

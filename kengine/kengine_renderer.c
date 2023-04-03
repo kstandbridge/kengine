@@ -22,9 +22,11 @@ PushRenderCommandRectOutline(render_group *Group, rectangle2 Bounds, f32 Depth, 
 }
 
 inline render_command *
-PushRenderCommandSprite(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 Color, v4 UV)
+PushRenderCommandSprite(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 Color, v4 UV, void *Texture)
 {
     render_command *Result = GetRenderCommand(Group, RenderCommand_Sprite);
+    // TODO(kstandbridge): Multiple sprite sheets?
+    Result->Context = Texture;
     
     AddVertexInstance(Group, Result, V3(Offset.X, Offset.Y, Depth), Size, Color, UV);
     
@@ -32,9 +34,11 @@ PushRenderCommandSprite(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 C
 }
 
 inline render_command *
-PushRenderCommandGlyph(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 Color, v4 UV)
+PushRenderCommandGlyph(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 Color, v4 UV, void *Texture)
 {
     render_command *Result = GetRenderCommand(Group, RenderCommand_Glyph);
+    // TODO(kstandbridge): Multiple sprite sheets?
+    Result->Context = Texture;
     
     AddVertexInstance(Group, Result, V3(Offset.X, Offset.Y, Depth), 
                       Size, Color, UV);

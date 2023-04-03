@@ -475,6 +475,7 @@ DirectXRenderCreate()
         
     }
     
+#if 0    
     if(SUCCEEDED(HResult))
     {
         LogDebug("Loading sprite texture");
@@ -527,6 +528,7 @@ DirectXRenderCreate()
             Win32LogError_(HResult, "Failed to create sprite texture");
         }
     }
+#endif
     
     return HResult;
 }
@@ -549,10 +551,13 @@ DirectXRenderDestroy()
     D3D11SafeRelease(ID3D11InputLayout, GlobalDirectXState.RenderInputLayout);
     D3D11SafeRelease(ID3D11VertexShader, GlobalDirectXState.RenderVertexShader);
     
-    D3D11SafeRelease(ID3D11ShaderResourceView, GlobalDirectXState.RenderGlyphTextureView);
     D3D11SafeRelease(ID3D11PixelShader, GlobalDirectXState.RenderGlyphPixelShader);
     
+#if 0    
+    D3D11SafeRelease(ID3D11ShaderResourceView, GlobalDirectXState.RenderGlyphTextureView);
     D3D11SafeRelease(ID3D11ShaderResourceView, GlobalDirectXState.RenderSpriteTextureView);
+#endif
+    
     D3D11SafeRelease(ID3D11PixelShader, GlobalDirectXState.RenderSpritePixelShader);
     
     D3D11SafeRelease(ID3D11PixelShader, GlobalDirectXState.RenderRectPixelShader);
@@ -899,11 +904,8 @@ DirectXRenderFrame(render_group *RenderGroup)
                         
                         ID3D11DeviceContext_Unmap(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 0);
                         
-#if 1                        
-                        ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderSpriteTextureView);
-#else
-                        ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderGlyphTextureView);
-#endif
+                        ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, 
+                                                                 (ID3D11ShaderResourceView * const *)&Command->Context);
                         
                         ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderSpritePixelShader, 0, 0);
                         
@@ -924,13 +926,10 @@ DirectXRenderFrame(render_group *RenderGroup)
                         
                         ID3D11DeviceContext_Unmap(GlobalDirectXState.RenderContext, (ID3D11Resource *)GlobalDirectXState.RenderInstanceBuffer, 0);
                         
-                        ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, &GlobalDirectXState.RenderGlyphTextureView);
+                        ID3D11DeviceContext_PSSetShaderResources(GlobalDirectXState.RenderContext, 0, 1, 
+                                                                 (ID3D11ShaderResourceView * const *)&Command->Context);
                         
-#if 1
                         ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderGlyphPixelShader, 0, 0);
-#else
-                        ID3D11DeviceContext_PSSetShader(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderSpritePixelShader, 0, 0);
-#endif
                         
                         ID3D11DeviceContext_DrawInstanced(GlobalDirectXState.RenderContext, 6, Command->VertexCount, 0, 0);
                         
@@ -942,9 +941,11 @@ DirectXRenderFrame(render_group *RenderGroup)
     }
 }
 
-internal void
+internal void *
 DirectXLoadTexture(s32 TotalWidth, s32 TotalHeight, u32 *TextureBytes)
 {
+    void *Result = 0;
+    
     s32 TextureBytesPerRow = 4 * TotalWidth;
     
     HRESULT HResult = S_OK;
@@ -975,10 +976,16 @@ DirectXLoadTexture(s32 TotalWidth, s32 TotalHeight, u32 *TextureBytes)
                  ID3D11Device_CreateTexture2D(GlobalDirectXState.RenderDevice, &TextureDesc, &SubresourceData, &Texture)))
     {
         
+        ID3D11ShaderResourceView *TextureView;
+        
         if(FAILED(HResult =
-                  ID3D11Device_CreateShaderResourceView(GlobalDirectXState.RenderDevice, (ID3D11Resource *)Texture, 0, &GlobalDirectXState.RenderGlyphTextureView)))
+                  ID3D11Device_CreateShaderResourceView(GlobalDirectXState.RenderDevice, (ID3D11Resource *)Texture, 0, &TextureView)))
         {
             Win32LogError_(HResult, "Failed to create glyph texture view");
+        }
+        else
+        {
+            Result = (void *)TextureView;
         }
         
         ID3D11Texture2D_Release(Texture);
@@ -987,4 +994,6 @@ DirectXLoadTexture(s32 TotalWidth, s32 TotalHeight, u32 *TextureBytes)
     {
         Win32LogError_(HResult, "Failed to create glyph texture");
     }
+    
+    return Result;
 }

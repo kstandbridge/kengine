@@ -19,10 +19,13 @@ typedef struct directx_state
     ID3D11InputLayout *RenderInputLayout;
     ID3D11Buffer *RenderInstanceBuffer;
     
-    ID3D11ShaderResourceView *RenderGlyphTextureView;
     ID3D11PixelShader *RenderGlyphPixelShader;
     
+#if 0    
+    ID3D11ShaderResourceView *RenderGlyphTextureView;
     ID3D11ShaderResourceView *RenderSpriteTextureView;
+#endif
+    
     ID3D11PixelShader *RenderSpritePixelShader;
     
     ID3D11PixelShader *RenderRectPixelShader;
