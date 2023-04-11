@@ -173,7 +173,7 @@ SendLogTelemetry_____(string SourceFilePlusLine, log_level_type LogLevel, string
 void
 SendLogTelemetry____(string FileLine, log_level_type LogLevel, char *Format, ...)
 {
-    u8 Buffer[2048];
+    u8 Buffer[4096];
     umm BufferSize = sizeof(Buffer);
     format_string_state StringState = BeginFormatString();
     
