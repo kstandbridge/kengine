@@ -502,7 +502,7 @@ Win32ZipDirectory(string SourceDirectory, string DestinationZip)
             
             // NOTE(kstandbridge): As much as I hate sleep, CopyHere creates a separate thread
             // which may not finish if this thread exist before completion. So 1000ms sleep.
-            Sleep(1000);
+            Sleep(3000);
             
             ToFolder->lpVtbl->Release(ToFolder);
             FromFolder->lpVtbl->Release(FromFolder);
@@ -704,6 +704,7 @@ Win32SetHttpClientTimeout(platform_http_client *PlatformClient, u32 TimeoutMs)
     if(PlatformClient->Handle)
     {
         win32_http_client *Win32Client = (win32_http_client *)PlatformClient->Handle;
+        
         if(!InternetSetOptionA(Win32Client->Session, INTERNET_OPTION_RECEIVE_TIMEOUT, &TimeoutMs, sizeof(TimeoutMs)))
         {
             Win32LogError("Failed to set internet recieve timeout option");
@@ -719,6 +720,7 @@ Win32SetHttpClientTimeout(platform_http_client *PlatformClient, u32 TimeoutMs)
             Win32LogError("Failed to set internet connect timeout option");
             PlatformClient->NoErrors = false;
         }
+        
     }
     else
     {
