@@ -4,91 +4,39 @@ typedef struct xml_attribute
 {
     string Key;
     string Value;
+    
+    struct xml_attribute *Next;
 } xml_attribute;
 
 typedef struct xml_element
 {
-    memory_arena *Arena;
-    
     string Name;
+    string Value;
     
-    tokenizer Tokenizer;
+    xml_attribute *Attributes;
     
+    struct xml_element *Children;
     struct xml_element *Next;
 } xml_element;
-
-internal xml_attribute *
-GetXmlAttribute(xml_element *Parent, string Name)
-{
-    xml_attribute *Result = 0;
-    
-    tokenizer Tokenizer_ = Parent->Tokenizer;
-    tokenizer *Tokenizer = &Tokenizer_;
-    
-    while(Parsing(Tokenizer) &&
-          !PeekTokenType(Tokenizer, Token_ForwardSlash) &&
-          !PeekTokenType(Tokenizer, Token_CloseAngleBracket))
-    {
-        token Key = RequireToken(Tokenizer, Token_Identifier);
-        RequireToken(Tokenizer, Token_Equals);
-        token Value = RequireToken(Tokenizer, Token_String);
-        
-        if(StringsAreEqual(Key.Text, Name))
-        {
-            Result = PushStruct(Parent->Arena, xml_attribute);
-            Result->Key = Key.Text;
-            Result->Value = Value.Text;
-        }
-        
-    }
-    
-    return Result;
-}
-
-internal void
-SkipXmlAttributes_(tokenizer *Tokenizer)
-{
-    while(Parsing(Tokenizer) &&
-          !PeekTokenType(Tokenizer, Token_ForwardSlash) &&
-          !PeekTokenType(Tokenizer, Token_CloseAngleBracket))
-    {
-        RequireToken(Tokenizer, Token_Identifier);
-        RequireToken(Tokenizer, Token_Equals);
-        RequireToken(Tokenizer, Token_String);
-    }
-}
 
 internal string
 GetXmlElementValue(xml_element *Parent)
 {
-    string Result = String("");
-    
-    tokenizer Tokenizer_ = Parent->Tokenizer;
-    tokenizer *Tokenizer = &Tokenizer_;
-    
-    SkipXmlAttributes_(Tokenizer);
-    
-    token Closing = GetToken(Tokenizer);
-    if(Closing.Type == Token_ForwardSlash)
+    string Result = Parent->Value;
+    return Result;
+}
+
+internal xml_attribute *
+GetXmlAttribute(xml_element *Element, string Key)
+{
+    xml_attribute *Result;
+    for(Result = Element->Attributes;
+        Result;
+        Result = Result->Next)
     {
-        Closing = GetToken(Tokenizer);
-    }
-    else
-    {
-        u8 *Start = Tokenizer->FileData.Data;
-        
-        while(Parsing(Tokenizer))
+        if(StringsAreEqual(Result->Key, Key))
         {
-            token Token = GetToken(Tokenizer);
-            if(Token.Type == Token_ForwardSlash)
-            {
-                if(PeekIdentifierToken(Tokenizer, Parent->Name))
-                {
-                    Result.Data = Start;
-                    Result.Size = Tokenizer->FileData.Data - Start - 2;
-                    break;
-                }
-            }
+            break;
         }
     }
     
@@ -96,15 +44,44 @@ GetXmlElementValue(xml_element *Parent)
 }
 
 internal xml_element *
-GetXmlElements_(xml_element *Parent, string Name, b32 FirstOnly)
+GetXmlElement(xml_element *Parent, string Name)
 {
-    xml_element *Result = 0;
+    xml_element *Result;
+    for(Result = Parent->Children;
+        Result;
+        Result = Result->Next)
+    {
+        if(StringsAreEqual(Result->Name, Name))
+        {
+            break;
+        }
+    }
     
-    xml_element *CurrentElement = 0;
+    return Result;
+}
+
+internal xml_element *
+GetNextXmlElement(xml_element *Parent, string Name)
+{
+    xml_element *Result;
+    for(Result = Parent->Next;
+        Result;
+        Result = Result->Next)
+    {
+        if(StringsAreEqual(Result->Name, Name))
+        {
+            break;
+        }
+    }
     
-    tokenizer Clone = Parent->Tokenizer;
-    tokenizer *Tokenizer = &Clone;
-    
+    return Result;
+}
+
+
+internal void
+ParseXmlElement(memory_arena *Arena, xml_element *Element, tokenizer *Tokenizer)
+{
+    xml_element *CurrentChild = 0;
     while(Parsing(Tokenizer))
     {
         token Token = GetToken(Tokenizer);
@@ -114,7 +91,7 @@ GetXmlElements_(xml_element *Parent, string Name, b32 FirstOnly)
             {
                 RequireToken(Tokenizer, Token_ForwardSlash);
                 token EndToken = RequireToken(Tokenizer, Token_Identifier);
-                if(StringsAreEqual(EndToken.Text, Parent->Name))
+                if(StringsAreEqual(EndToken.Text, Element->Name))
                 {
                     break;
                 }
@@ -173,68 +150,91 @@ GetXmlElements_(xml_element *Parent, string Name, b32 FirstOnly)
             else
             {            
                 Token = RequireToken(Tokenizer, Token_Identifier);
-                b32 IsMatch = StringsAreEqual(Token.Text, Name);
                 
-                if(IsMatch)
+                if(CurrentChild == 0)
                 {
-                    if(CurrentElement == 0)
+                    CurrentChild = Element->Children = PushStruct(Arena, xml_element);
+                }
+                else
+                {
+                    CurrentChild->Next = PushStruct(Arena, xml_element);
+                    CurrentChild = CurrentChild->Next;
+                }
+                CurrentChild->Name = Token.Text;
+                
+                
+                // NOTE(kstandbridge): Parse xml attributes
+                {
+                    xml_attribute *CurrentAttribute = 0;
+                    
+                    while(Parsing(Tokenizer) &&
+                          !PeekTokenType(Tokenizer, Token_ForwardSlash) &&
+                          !PeekTokenType(Tokenizer, Token_CloseAngleBracket))
                     {
-                        CurrentElement = Result = PushStruct(Parent->Arena, xml_element);
+                        token Key = RequireToken(Tokenizer, Token_Identifier);
+                        RequireToken(Tokenizer, Token_Equals);
+                        token Value = RequireToken(Tokenizer, Token_String);
+                        
+                        if(CurrentAttribute == 0)
+                        {
+                            CurrentAttribute = CurrentChild->Attributes = PushStruct(Arena, xml_attribute);
+                        }
+                        else
+                        {
+                            CurrentAttribute->Next = PushStruct(Arena, xml_attribute);
+                            CurrentAttribute = CurrentAttribute->Next;
+                        }
+                        
+                        CurrentAttribute->Key = Key.Text;
+                        CurrentAttribute->Value = Value.Text;
+                        
+                    }
+                }
+                
+                token Closing = GetToken(Tokenizer);
+                if(Closing.Type == Token_ForwardSlash)
+                {
+                    Closing = GetToken(Tokenizer);
+                }
+                else
+                {
+                    if(PeekTokenType(Tokenizer, Token_OpenAngleBracket))
+                    {
+                        ParseXmlElement(Arena, CurrentChild, Tokenizer);
                     }
                     else
                     {
-                        CurrentElement->Next = PushStruct(CurrentElement->Arena, xml_element);
-                        CurrentElement = CurrentElement->Next;
+                        u8 *Start = Tokenizer->FileData.Data;
+                        
+                        while(Parsing(Tokenizer))
+                        {
+                            Token = GetToken(Tokenizer);
+                            if(Token.Type == Token_ForwardSlash)
+                            {
+                                if(PeekIdentifierToken(Tokenizer, CurrentChild->Name))
+                                {
+                                    CurrentChild->Value.Data = Start;
+                                    CurrentChild->Value.Size = Tokenizer->FileData.Data - Start - 2;
+                                    break;
+                                }
+                            }
+                        }
                     }
-                    CurrentElement->Arena = Parent->Arena;
-                    CurrentElement->Name = Name;
-                    CurrentElement->Tokenizer = *Tokenizer;
-                }
-                
-                SkipXmlAttributes_(Tokenizer);
-                
-                Token = GetToken(Tokenizer);
-                if(Token.Type == Token_ForwardSlash)
-                {
-                    Token = GetToken(Tokenizer);
-                }
-                
-                if(IsMatch && FirstOnly)
-                {
-                    break;
                 }
             }
         }
     }
-    
-    return Result;
 }
 
 internal xml_element *
-GetXmlElements(xml_element *Parent, string Name)
-{
-    xml_element *Result = GetXmlElements_(Parent, Name, false);
-    
-    return Result;
-}
-
-internal xml_element *
-GetXmlElement(xml_element *Parent, string Name)
-{
-    xml_element *Result = GetXmlElements_(Parent, Name, true);
-    
-    return Result;
-}
-
-internal xml_element
 ParseXmlDocument(memory_arena *Arena, string FileData, string FileName)
 {
-    xml_element Result =
-    {
-        .Arena = Arena,
-        .Name = String("<root>"),
-        .Tokenizer = Tokenize(FileData, FileName),
-    };
+    xml_element *Result = PushStruct(Arena, xml_element);
+    Result->Name = String("<root>");
+    
+    tokenizer Tokenizer = Tokenize(FileData, FileName);
+    
+    ParseXmlElement(Arena, Result, &Tokenizer);
     
     return Result;
 }
