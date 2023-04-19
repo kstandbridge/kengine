@@ -718,6 +718,15 @@ PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%u'\n\t\t\t
 __FILE__, __LINE__, Expected, Actual);        \
 }
 
+#define AssertEqualBits(Expected, Actual) \
+++GlobalTestState_->TotalTests; \
+if(Expected != Actual) \
+{ \
+++GlobalTestState_->FailedTests; \
+PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%b'\n\t\t\tActual:      '%b'\n", \
+__FILE__, __LINE__, Expected, Actual);        \
+}
+
 #define AssertEqualS32(Expected, Actual) \
 ++GlobalTestState_->TotalTests; \
 if(Expected != Actual) \
