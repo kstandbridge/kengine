@@ -345,23 +345,31 @@ Win32DeleteDirectory(string Path)
     
     LogVerbose("Deleting directory %S", Path);
     
-    char CPath[MAX_PATH];
+    // NOTE(kstandbridge): SHFileOperationA can take multiple paths, this a double null terminator is required
+    char CPath[MAX_PATH] = {0};
     StringToCString(Path, MAX_PATH, CPath);
     
     SHFILEOPSTRUCTA FileOp =
     {
+        .hwnd = 0,
         .wFunc = FO_DELETE,
         .pFrom = CPath,
-        .fFlags = FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT
+        .pTo = 0,
+        .fFlags = FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT,
+        .fAnyOperationsAborted = false,
+        .hNameMappings = 0,
+        .lpszProgressTitle = 0
     };
     
-    switch(SHFileOperationA(&FileOp))
+    INT FileOpResult = SHFileOperationA(&FileOp);
+    switch(FileOpResult)
     {
         case 0:
         {
             Result = true;
         } break;
         
+        // NOTE(kstandbridge): These are pre-Win32 error codes and are no longer supported or defined in any public header file. 
         case 0x71:    { Assert(!"The source and destination files are the same file."); } break;
         case 0x72:    { Assert(!"Multiple file paths were specified in the source buffer, but only one destination file path."); } break;
         case 0x73:    { Assert(!"Rename operation was specified but the destination path is a different directory. Use the move operation instead."); } break;
@@ -386,14 +394,16 @@ Win32DeleteDirectory(string Path)
         case 0xB7:    { Assert(!"MAX_PATH was exceeded during the operation."); } break;
         case 0x10000: { Assert(!"An unspecified error occurred on the destination."); } break;
         case 0x10074: { Assert(!"Destination is a root directory and cannot be renamed."); } break;
-        
         case 0x402:
         {
             // NOTE(kstandbridge): This error does not occur on Windows Vista and later.
             Assert(!"An unknown error occurred. This is typically due to an invalid path in the source or destination.");
         } break; 
         
-        InvalidDefaultCase;
+        default:
+        {
+            Win32LogError_(FileOpResult, "Deleting directory failed");
+        }
     }
     
     return Result;
@@ -406,7 +416,7 @@ Win32CreateDirectory(string Path)
     
     LogVerbose("Creating directory %S", Path);
     
-    char CPath[MAX_PATH];
+    char CPath[MAX_PATH] = {0};
     StringToCString(Path, MAX_PATH, CPath);
     
     SECURITY_ATTRIBUTES SecurityAttributes;
