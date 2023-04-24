@@ -4,6 +4,41 @@
 // NOTE(kstandbridge): Scalar operations
 //
 
+inline u8
+GetBits(u8 Input, u8 Position, u8 Count)
+{
+    // NOTE(kstandbridge): Position 7 is far left, 0 is far right
+    u8 Result = (Input >> (Position + 1 - Count) & ~(~0 << Count));
+    return Result;
+}
+
+inline u16
+PackU16(u8 HighPart, u8 LowPart)
+{
+    u16 Result = ((HighPart & 0xFF) << 8) | (LowPart & 0xFF);
+    return Result;
+}
+
+inline u8
+UnpackU16High(u16 Value)
+{
+    u8 *LowByte = (u8 *)&Value;
+    u8 *HighByte = LowByte + 1;
+    
+    u8 Result = *HighByte;
+    return Result;
+}
+
+inline u8
+UnpackU16Low(u16 Value)
+{
+    u8 *LowByte = (u8 *)&Value;
+    //u8 *HighByte = LowByte + 1;
+    
+    u8 Result = *LowByte;
+    return Result;
+}
+
 inline u32
 F32ToRadixValue(f32 Value)
 {

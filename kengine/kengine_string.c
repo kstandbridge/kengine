@@ -170,6 +170,8 @@ typedef enum format_string_token_type
     FormatStringToken_StringOfCharacters,
     FormatStringToken_StringType,
     FormatStringToken_Binary,
+    FormatStringToken_HexUppercase,
+    FormatStringToken_HexLowercase,
     
     FormatStringToken_PrecisionSpecifier,
     FormatStringToken_PrecisionArgSpecifier,
@@ -206,6 +208,8 @@ GetNextFormatStringToken(format_string_state *State)
         case 's':  { Result.Type = FormatStringToken_StringOfCharacters; } break;
         case 'S':  { Result.Type = FormatStringToken_StringType; } break; 
         case 'b':  { Result.Type = FormatStringToken_Binary; } break; 
+        case 'X':  { Result.Type = FormatStringToken_HexUppercase; } break; 
+        case 'x':  { Result.Type = FormatStringToken_HexLowercase; } break; 
         
         case '.':  { Result.Type = FormatStringToken_PrecisionSpecifier; } break;
         case '*':  { Result.Type = FormatStringToken_PrecisionArgSpecifier; } break;
@@ -270,7 +274,6 @@ GetNextFormatStringToken(format_string_state *State)
 #define ReadVarArgFloat(Length, ArgList) va_arg(ArgList, f64)
 #define ReadVarArgByte(ArgList) va_arg(ArgList, u8)
 
-global char Digits[] = "0123456789";
 internal void
 FormatStringParseU64(format_string_state *State, u64 Value, u32 Width, b32 PadWithZeros)
 {
@@ -291,6 +294,7 @@ FormatStringParseU64(format_string_state *State, u64 Value, u32 Width, b32 PadWi
         --Width;
     }
     
+    char Digits[] = "0123456789";
     if(PrintValue)
     {
         char *Start = State->Tail;
@@ -343,6 +347,8 @@ FormatStringParseF64(format_string_state *State, f64 Value, u32 Width, u32 Preci
     
     *State->Tail++ = '.';
     
+    char Digits[] = "0123456789";
+    
     // TODO(kstandbridge): Note that this is NOT an accurate way to do this!
     for(u32 PrecisionIndex = 0;
         PrecisionIndex < Precision;
@@ -356,6 +362,55 @@ FormatStringParseF64(format_string_state *State, f64 Value, u32 Width, u32 Preci
     }
 }
 
+internal void
+FormatStringParseHex(format_string_state *State, u64 Value, u32 Width, b32 PadWithZeros, char *Digits, u32 DigitsLength)
+{
+    if(PadWithZeros)
+    {
+        *State->Tail++ = '0';
+        *State->Tail++ = 'x';
+    }
+    
+    u32 Base = 10;
+    u64 ValueLeft = Value;
+    while((ValueLeft > 0) && 
+          (Width > 0))
+    {
+        ValueLeft /= Base;
+        --Width;
+    }
+    while(Width > 0)
+    {
+        *State->Tail++ = PadWithZeros ? '0' : ' ';
+        --Width;
+    }
+    
+    if(!PadWithZeros)
+    {
+        *State->Tail++ = '0';
+        *State->Tail++ = 'x';
+    }
+    
+    b32 FirstDigit = true;
+    for(s32 Index = 63;
+        Index > 0;
+        Index -= 4)
+    {
+        u8 Part = (Value >> (Index + 1 - 4) & ~(~0 << 4));
+        if((!FirstDigit) ||
+           (Part > 0))
+        {
+            if(FirstDigit)
+            {
+                FirstDigit = false;
+            }
+            if(Part < DigitsLength)
+            {
+                *State->Tail++ = Digits[Part];
+            }
+        }
+    }
+}
 
 void
 AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
@@ -556,6 +611,20 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                     *State->Tail++ = Digit;
                                 }
                                 
+                            } break;
+                            
+                            case FormatStringToken_HexUppercase:
+                            case FormatStringToken_HexLowercase:
+                            {
+                                ParsingParam = false;
+                                
+                                char UpperDigits[] = "0123456789ABCDEF";
+                                char LowerDigits[] = "0123456789abcdef";
+                                Assert(ArrayCount(UpperDigits) == ArrayCount(LowerDigits));
+                                char *Digits = (ParamToken.Type == FormatStringToken_HexUppercase) ? UpperDigits : LowerDigits;
+                                
+                                u64 Value = ReadVarArgUnsignedInteger(IntegerLength, ArgList);
+                                FormatStringParseHex(State, Value, Width, PadWithZeros, Digits, ArrayCount(UpperDigits));
                             } break;
                             
                             case FormatStringToken_Unknown:
