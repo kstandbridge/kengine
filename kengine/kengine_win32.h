@@ -48,6 +48,10 @@ Win32GetHomeDirectory(u8 *Buffer, umm BufferMaxSize);
 b32
 Win32DirectoryExists(string Path);
 
+#define PlatformDeleteDirectory(Path) Win32DeleteDirectory(Path)
+b32
+Win32DeleteDirectory(string Path);
+
 #define PlatformCreateDirectory(Path) Win32CreateDirectory(Path)
 b32
 Win32CreateDirectory(string Path);

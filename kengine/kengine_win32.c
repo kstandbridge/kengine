@@ -339,6 +339,67 @@ Win32DirectoryExists(string Path)
 }
 
 b32
+Win32DeleteDirectory(string Path)
+{
+    b32 Result = false;
+    
+    LogVerbose("Deleting directory %S", Path);
+    
+    char CPath[MAX_PATH];
+    StringToCString(Path, MAX_PATH, CPath);
+    
+    SHFILEOPSTRUCTA FileOp =
+    {
+        .wFunc = FO_DELETE,
+        .pFrom = CPath,
+        .fFlags = FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT
+    };
+    
+    switch(SHFileOperationA(&FileOp))
+    {
+        case 0:
+        {
+            Result = true;
+        } break;
+        
+        case 0x71:    { Assert(!"The source and destination files are the same file."); } break;
+        case 0x72:    { Assert(!"Multiple file paths were specified in the source buffer, but only one destination file path."); } break;
+        case 0x73:    { Assert(!"Rename operation was specified but the destination path is a different directory. Use the move operation instead."); } break;
+        case 0x74:    { Assert(!"The source is a root directory, which cannot be moved or renamed."); } break;
+        case 0x75:    { Assert(!"The operation was canceled by the user, or silently canceled if the appropriate flags were supplied to SHFileOperation."); } break;
+        case 0x76:    { Assert(!"The destination is a subtree of the source."); } break;
+        case 0x78:    { Assert(!"Security settings denied access to the source."); } break;
+        case 0x79:    { Assert(!"The source or destination path exceeded or would exceed MAX_PATH."); } break;
+        case 0x7A:    { Assert(!"The operation involved multiple destination paths, which can fail in the case of a move operation."); } break;
+        case 0x7C:    { Assert(!"The path in the source or destination or both was invalid."); } break;
+        case 0x7D:    { Assert(!"The source and destination have the same parent folder."); } break;
+        case 0x7E:    { Assert(!"The destination path is an existing file."); } break;
+        case 0x80:    { Assert(!"The destination path is an existing folder."); } break;
+        case 0x81:    { Assert(!"The name of the file exceeds MAX_PATH."); } break;
+        case 0x82:    { Assert(!"The destination is a read-only CD-ROM, possibly unformatted."); } break;
+        case 0x83:    { Assert(!"The destination is a read-only DVD, possibly unformatted."); } break;
+        case 0x84:    { Assert(!"The destination is a writable CD-ROM, possibly unformatted."); } break;
+        case 0x85:    { Assert(!"The file involved in the operation is too large for the destination media or file system."); } break;
+        case 0x86:    { Assert(!"The source is a read-only CD-ROM, possibly unformatted."); } break;
+        case 0x87:    { Assert(!"The source is a read-only DVD, possibly unformatted."); } break;
+        case 0x88:    { Assert(!"The source is a writable CD-ROM, possibly unformatted."); } break;
+        case 0xB7:    { Assert(!"MAX_PATH was exceeded during the operation."); } break;
+        case 0x10000: { Assert(!"An unspecified error occurred on the destination."); } break;
+        case 0x10074: { Assert(!"Destination is a root directory and cannot be renamed."); } break;
+        
+        case 0x402:
+        {
+            // NOTE(kstandbridge): This error does not occur on Windows Vista and later.
+            Assert(!"An unknown error occurred. This is typically due to an invalid path in the source or destination.");
+        } break; 
+        
+        InvalidDefaultCase;
+    }
+    
+    return Result;
+}
+
+b32
 Win32CreateDirectory(string Path)
 {
     b32 Result = false;
