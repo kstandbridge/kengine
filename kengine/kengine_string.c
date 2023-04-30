@@ -597,16 +597,21 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                             {
                                 ParsingParam = false;
                                 
-                                *State->Tail++ = '0';
-                                *State->Tail++ = 'b';
-                                
-                                // TODO(kstandbridge): Padding with zeros? do we want to display 0b111 or 0b0000111
-                                
-                                u8 Value = ReadVarArgByte(ArgList);
-                                for(s32 Index = 7;
+                                if(Width == 0)
+                                {
+                                    Width = 8;
+                                }
+                                u32 Value = (u32)(ReadVarArgUnsignedInteger(IntegerLength, ArgList));
+                                for(s32 Index = Width - 1;
                                     Index >= 0;
                                     --Index)
                                 {
+                                    if((Index + 1) % 8 == 0)
+                                    {
+                                        *State->Tail++ = ' ';
+                                        *State->Tail++ = '0';
+                                        *State->Tail++ = 'b';
+                                    }
                                     char Digit = (Value & (1 << Index)) ? '1' : '0';
                                     *State->Tail++ = Digit;
                                 }

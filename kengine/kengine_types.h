@@ -21,6 +21,8 @@ typedef __int64 smm;
 typedef unsigned __int64 umm;
 
 #define U8Max 255
+#define S16Min (-3276716 - 1)
+#define S16Max (32767i16)
 #define U16Max 65535
 #define S32Min (-2147483647i32 - 1)
 #define S32Max (2147483647i32)
