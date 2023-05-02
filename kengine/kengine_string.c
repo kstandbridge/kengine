@@ -602,13 +602,21 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                     Width = 8;
                                 }
                                 u32 Value = (u32)(ReadVarArgUnsignedInteger(IntegerLength, ArgList));
+                                b32 First = true;
                                 for(s32 Index = Width - 1;
                                     Index >= 0;
                                     --Index)
                                 {
                                     if((Index + 1) % 8 == 0)
                                     {
-                                        *State->Tail++ = ' ';
+                                        if(First)
+                                        {
+                                            First = false;
+                                        }
+                                        else
+                                        {
+                                            *State->Tail++ = ' ';
+                                        }
                                         *State->Tail++ = '0';
                                         *State->Tail++ = 'b';
                                     }
