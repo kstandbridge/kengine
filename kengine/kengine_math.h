@@ -5,18 +5,6 @@
 //
 
 inline u8
-CountSetBits(u32 Value)
-{
-    u8 Result = 0;
-    while(Value)
-    {
-        Result += (Value & 1);
-        Value >>= 1;
-    }
-    return Result;
-}
-
-inline u8
 GetBits(u8 Input, u8 Position, u8 Count)
 {
     // NOTE(kstandbridge): Position 7 is far left, 0 is far right

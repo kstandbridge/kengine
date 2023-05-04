@@ -1,5 +1,12 @@
 #ifndef KENGINE_INTRINSICS_H
 
+inline u32
+CountSetBits(u32 Value)
+{
+    u32 Result = __popcnt(Value);
+    return Result;
+}
+
 inline u32 
 AtomicCompareExchangeU32(u32 volatile *Value, u32 New, u32 Expected)
 {

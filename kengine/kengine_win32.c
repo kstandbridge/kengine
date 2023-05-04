@@ -124,6 +124,7 @@ Win32DeallocateMemory(platform_memory_block *Block)
     EndTicketMutex(&GlobalWin32State.MemoryMutex);
     
     LogDebug("Freeing %u bytes", Block->Size);
+    
     b32 IsFreed = VirtualFree(Win32Block, 0, MEM_RELEASE);
     if(!IsFreed)
     {
