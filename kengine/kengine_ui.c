@@ -99,6 +99,7 @@ inline void
 ClearInteraction(ui_interaction *Interaction)
 {
     Interaction->Type = UI_Interaction_None;
+    Interaction->Target = 0;
     Interaction->Generic = 0;
 }
 
