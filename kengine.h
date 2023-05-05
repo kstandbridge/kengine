@@ -278,6 +278,9 @@ WasPressed(app_button_state State)
     return Result;
 }
 
+// TODO(kstandbridge): Relocate this above after input stuff is also relocated
+#include "kengine/kengine_ui.c"
+
 inline void
 ProcessInputMessage(app_button_state *NewState, b32 IsDown)
 {
@@ -287,7 +290,6 @@ ProcessInputMessage(app_button_state *NewState, b32 IsDown)
         ++NewState->HalfTransitionCount;
     }
 }
-
 
 void
 AppUpdateFrame(app_memory *AppMemory, render_group *RenderGroup, app_input *Input, f32 DeltaTime);
