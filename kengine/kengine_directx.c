@@ -157,7 +157,7 @@ DirectXRenderCreate()
             {
                 .BufferDesc =
                 {
-                    .Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+                    .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
                     .RefreshRate =
                     {
                         .Numerator = 60,
@@ -253,24 +253,10 @@ DirectXRenderCreate()
         {
             .DepthEnable = TRUE,
             .DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL,
-            .DepthFunc = D3D11_COMPARISON_LESS_EQUAL,
-            .StencilEnable = TRUE,
-            .StencilReadMask = 0xFF,
-            .StencilWriteMask = 0xFF,
-            .FrontFace = 
-            {
-                .StencilFailOp = D3D11_STENCIL_OP_KEEP,
-                .StencilDepthFailOp = D3D11_STENCIL_OP_INCR,
-                .StencilPassOp = D3D11_STENCIL_OP_KEEP,
-                .StencilFunc = D3D11_COMPARISON_ALWAYS,
-            },
-            .BackFace =
-            {
-                .StencilFailOp = D3D11_STENCIL_OP_KEEP,
-                .StencilDepthFailOp = D3D11_STENCIL_OP_INCR,
-                .StencilPassOp = D3D11_STENCIL_OP_KEEP,
-                .StencilFunc = D3D11_COMPARISON_ALWAYS,
-            }
+            .DepthFunc = D3D11_COMPARISON_LESS,
+            .StencilEnable = FALSE,
+            .StencilReadMask = 0,
+            .StencilWriteMask = 0,
         };
         
         if(FAILED(HResult =
@@ -290,14 +276,14 @@ DirectXRenderCreate()
             .RenderTarget =
             {
                 {
-                    .BlendEnable = true,
+                    .BlendEnable = FALSE,
                     
                     .SrcBlend = D3D11_BLEND_SRC_ALPHA,
                     .DestBlend = D3D11_BLEND_INV_SRC_ALPHA,
                     .BlendOp = D3D11_BLEND_OP_ADD,
                     
-                    .SrcBlendAlpha = D3D11_BLEND_ONE,
-                    .DestBlendAlpha = D3D11_BLEND_ONE,
+                    .SrcBlendAlpha = D3D11_BLEND_SRC_ALPHA,
+                    .DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA,
                     .BlendOpAlpha = D3D11_BLEND_OP_ADD,
                     
                     .RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL,
@@ -460,11 +446,12 @@ DirectXRenderCreate()
         D3D11_SAMPLER_DESC SamplerDesc =
         {
             .Filter         = D3D11_FILTER_MIN_MAG_MIP_LINEAR,
-            .AddressU       = D3D11_TEXTURE_ADDRESS_BORDER,
-            .AddressV       = D3D11_TEXTURE_ADDRESS_BORDER,
-            .AddressW       = D3D11_TEXTURE_ADDRESS_BORDER,
+            .AddressU       = D3D11_TEXTURE_ADDRESS_WRAP,
+            .AddressV       = D3D11_TEXTURE_ADDRESS_WRAP,
+            .AddressW       = D3D11_TEXTURE_ADDRESS_WRAP,
             .ComparisonFunc = D3D11_COMPARISON_NEVER,
-            .BorderColor    = { 1.0f, 1.0f, 1.0f, 1.0f },
+            .MinLOD = 0,
+            .MaxLOD = D3D11_FLOAT32_MAX,
         };
         
         if(FAILED(HResult =
@@ -495,7 +482,7 @@ DirectXRenderCreate()
             .Height = TotalHeight,
             .MipLevels = 1,
             .ArraySize = 1,
-            .Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+            .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
             .Usage = D3D11_USAGE_IMMUTABLE,
             .BindFlags = D3D11_BIND_SHADER_RESOURCE,
             .SampleDesc = 
@@ -956,7 +943,7 @@ DirectXLoadTexture(s32 TotalWidth, s32 TotalHeight, u32 *TextureBytes)
         .Height = TotalHeight,
         .MipLevels = 1,
         .ArraySize = 1,
-        .Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
         .Usage = D3D11_USAGE_IMMUTABLE,
         .BindFlags = D3D11_BIND_SHADER_RESOURCE,
         .SampleDesc = 

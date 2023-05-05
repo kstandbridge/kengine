@@ -11,14 +11,21 @@ PushRenderCommandRect(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Colo
 }
 
 inline void
-PushRenderCommandRectOutline(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Color, f32 Thickness)
+PushRenderCommandRectOutline(render_group *Group, rectangle2 Bounds, f32 Depth, f32 Thickness, v4 Color)
 {
     PushRenderCommandRect(Group, Rectangle2(Bounds.Min, V2(Bounds.Min.X + Thickness, Bounds.Max.Y)), Depth, Color);
     PushRenderCommandRect(Group, Rectangle2(V2(Bounds.Max.X - Thickness, Bounds.Min.Y), Bounds.Max), Depth, Color);
-    
     PushRenderCommandRect(Group, Rectangle2(Bounds.Min, V2(Bounds.Max.X, Bounds.Min.Y + Thickness)), Depth, Color);
-    
     PushRenderCommandRect(Group, Rectangle2(V2(Bounds.Min.X, Bounds.Max.Y - Thickness), Bounds.Max), Depth, Color);
+}
+
+inline void
+PushRenderCommandAlternateRectOutline(render_group *Group, rectangle2 Bounds, f32 Depth, f32 Thickness, v4 Color1, v4 Color2)
+{
+    PushRenderCommandRect(Group, Rectangle2(Bounds.Min, V2(Bounds.Min.X + Thickness, Bounds.Max.Y)), Depth, Color1);
+    PushRenderCommandRect(Group, Rectangle2(V2(Bounds.Max.X - Thickness, Bounds.Min.Y), Bounds.Max), Depth, Color2);
+    PushRenderCommandRect(Group, Rectangle2(Bounds.Min, V2(Bounds.Max.X, Bounds.Min.Y + Thickness)), Depth, Color1);
+    PushRenderCommandRect(Group, Rectangle2(V2(Bounds.Min.X, Bounds.Max.Y - Thickness), Bounds.Max), Depth, Color2);
 }
 
 inline render_command *

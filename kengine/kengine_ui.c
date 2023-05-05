@@ -318,8 +318,21 @@ GridSetRowHeight(ui_frame *Frame, u32 Row, f32 Height)
     Grid->RowHeights[Row] = Height;
 }
 
+internal void
+GridSetColumnWidth(ui_frame *Frame, u32 Column, f32 Width)
+{
+    Assert(Frame->CurrentGrid);
+    ui_grid *Grid = Frame->CurrentGrid;
+    Assert(Column <= Grid->Columns);
+    
+    // NOTE(kstandbridge): Sizes must be set before a control is drawn
+    Assert(!Grid->GridSizeCalculated);
+    
+    Grid->ColumnWidths[Column] = Width;
+}
+
 internal rectangle2
-GridGetCellBounds(ui_frame *Frame, u32 Column, u32 Row)
+GridGetCellBounds(ui_frame *Frame, u32 Column, u32 Row, f32 Margin)
 {
     Assert(Frame->CurrentGrid);
     ui_grid *Grid = Frame->CurrentGrid;
@@ -410,5 +423,50 @@ GridGetCellBounds(ui_frame *Frame, u32 Column, u32 Row)
     v2 Max = V2Add(Min, V2(Grid->ColumnWidths[Column], Grid->RowHeights[Row]));
     
     rectangle2 Result = Rectangle2(Min, Max);
+    if(Margin > 0.0f)
+    {
+        if(Grid->Columns == 1)
+        {
+            Result.Min.X += Margin;
+            Result.Max.X -= Margin;
+        }
+        else if(Column == 0)
+        {
+            Result.Min.X += Margin;
+            Result.Max.X -= Margin*0.5f;
+        }
+        else if((Column + 1) == Grid->Columns)
+        {
+            Result.Min.X += Margin*0.5f;
+            Result.Max.X -= Margin;
+        }
+        else
+        {
+            Result.Min.X += Margin*0.5f;
+            Result.Max.X -= Margin*0.5f;
+        }
+        
+        if(Grid->Rows == 1)
+        {
+            Result.Min.Y += Margin;
+            Result.Max.Y -= Margin;
+        }
+        else if(Row == 0)
+        {
+            Result.Min.Y += Margin;
+            Result.Max.Y -= Margin*0.5f;
+        }
+        
+        else if((Row + 1) == Grid->Rows)
+        {
+            Result.Min.Y += Margin*0.5f;
+            Result.Max.Y -= Margin;
+        }
+        else
+        {
+            Result.Min.Y += Margin;
+            Result.Max.Y -= Margin*0.5f;
+        }
+    }
     return Result;
 }
