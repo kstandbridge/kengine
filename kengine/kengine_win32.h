@@ -214,6 +214,10 @@ Win32EndHttpServer(void *Handle);
 b32
 Win32SetClipboardText(char *Buffer, s64 Length);
 
+#define PlatformSetWindowSize(Size) Win32SetWindowSize(Size)
+b32
+Win32SetWindowSize(v2 Size);
+
 // NOTE(kstandbridge): UxTheme.dll
 typedef enum IMMERSIVE_HC_CACHE_MODE
 {

@@ -2434,3 +2434,28 @@ InitDarkApi()
         }
     }
 }
+
+b32
+Win32SetWindowSize(v2 Size)
+{
+    RECT Rect =
+    {
+        .left = 0,
+        .top = 0,
+        .right = (LONG)Size.X,
+        .bottom = (LONG)Size.Y
+    };
+    b32 Result = AdjustWindowRect(&Rect, WS_TILEDWINDOW, FALSE);
+    
+    if(Result)
+    {
+        SetWindowPos(GlobalAppMemory.Window, HWND_TOP, 0, 0, (INT)Rect.right, (INT)Rect.bottom, SWP_NOMOVE);
+    }
+    
+    if(!Result)
+    {
+        Win32LogError("Failed to resize window");
+    }
+    
+    return Result;
+}
