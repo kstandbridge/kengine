@@ -928,7 +928,7 @@ DirectXRenderFrame(render_group *RenderGroup)
     }
 }
 
-internal void *
+void *
 DirectXLoadTexture(s32 TotalWidth, s32 TotalHeight, u32 *TextureBytes)
 {
     void *Result = 0;

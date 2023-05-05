@@ -1,5 +1,49 @@
 
+inline void
+AddVertexInstance(render_group *Group, render_command *Command, v3 Offset, v2 Size, v4 Color, v4 UV)
+{
+    if((Group->VertexBufferAt + VertexInstanceSize) < VertexBufferSize)
+    {
+        vertex_instance *Instance = (vertex_instance *)(Group->VertexBuffer + Group->VertexBufferAt);
+        Group->VertexBufferAt += VertexInstanceSize;
+        ++Command->VertexCount;
+        Instance->Offset = Offset;
+        Instance->Size = Size;
+        Instance->Color = Color;
+        Instance->UV = UV;
+    }
+    else
+    {
+        LogWarning("Vertex buffer full");
+    }
+}
+
 inline render_command *
+GetRenderCommand(render_group *Group, render_command_type Type)
+{
+    render_command *Result = Group->Commands + Group->CurrentCommand;
+    
+    if(Result->Type != Type)
+    {
+        if(Group->CurrentCommand >= MaxRenderCommands)
+        {
+            LogWarning("Render command wrapped");
+            Group->CurrentCommand = 0;
+            Result = Group->Commands + Group->CurrentCommand;
+        }
+        
+        ++Group->CurrentCommand;
+        Result = Group->Commands + Group->CurrentCommand;
+        Result->Type = Type;
+        Result->VertexCount = 0;
+        Result->VertexBufferOffset = Group->VertexBufferAt;
+        
+    }
+    
+    return Result;
+}
+
+render_command *
 PushRenderCommandRect(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Color)
 {
     render_command *Result = GetRenderCommand(Group, RenderCommand_Rect);
@@ -10,7 +54,7 @@ PushRenderCommandRect(render_group *Group, rectangle2 Bounds, f32 Depth, v4 Colo
     return Result;
 }
 
-inline void
+void
 PushRenderCommandRectOutline(render_group *Group, rectangle2 Bounds, f32 Depth, f32 Thickness, v4 Color)
 {
     PushRenderCommandRect(Group, Rectangle2(Bounds.Min, V2(Bounds.Min.X + Thickness, Bounds.Max.Y)), Depth, Color);
@@ -19,7 +63,7 @@ PushRenderCommandRectOutline(render_group *Group, rectangle2 Bounds, f32 Depth, 
     PushRenderCommandRect(Group, Rectangle2(V2(Bounds.Min.X, Bounds.Max.Y - Thickness), Bounds.Max), Depth, Color);
 }
 
-inline void
+void
 PushRenderCommandAlternateRectOutline(render_group *Group, rectangle2 Bounds, f32 Depth, f32 Thickness, v4 Color1, v4 Color2)
 {
     PushRenderCommandRect(Group, Rectangle2(Bounds.Min, V2(Bounds.Min.X + Thickness, Bounds.Max.Y)), Depth, Color1);
@@ -28,7 +72,7 @@ PushRenderCommandAlternateRectOutline(render_group *Group, rectangle2 Bounds, f3
     PushRenderCommandRect(Group, Rectangle2(V2(Bounds.Min.X, Bounds.Max.Y - Thickness), Bounds.Max), Depth, Color2);
 }
 
-inline render_command *
+render_command *
 PushRenderCommandSprite(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 Color, v4 UV, void *Texture)
 {
     render_command *Result = GetRenderCommand(Group, RenderCommand_Sprite);
@@ -40,7 +84,7 @@ PushRenderCommandSprite(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 C
     return Result;
 }
 
-inline render_command *
+render_command *
 PushRenderCommandGlyph(render_group *Group, v2 Offset, f32 Depth, v2 Size, v4 Color, v4 UV, void *Texture)
 {
     render_command *Result = GetRenderCommand(Group, RenderCommand_Glyph);

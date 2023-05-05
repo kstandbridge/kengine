@@ -36,6 +36,9 @@ typedef struct directx_state
     
 } directx_state;
 
+void *
+DirectXLoadTexture(s32 TotalWidth, s32 TotalHeight, u32 *TextureBytes);
+
 
 #define KENGINE_DIRECTX_H
 #endif //KENGINE_DIRECTX_H

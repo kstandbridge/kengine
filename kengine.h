@@ -38,10 +38,11 @@
 
 #ifdef KENGINE_DIRECTX
 
+#ifdef KENGINE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
-#include "kengine/stb_image.h"
-
 #define STB_TRUETYPE_IMPLEMENTATION 
+#endif
+#include "kengine/stb_image.h"
 #include "kengine/stb_truetype.h"
 
 #include <d3d11_1.h>
@@ -67,7 +68,6 @@
 #include "kengine/kengine_tokenizer.h"
 #include "kengine/kengine_xml_parser.h"
 #include "kengine/kengine_c_parser.h"
-
 
 typedef void platform_work_queue_callback(void *Data);
 
@@ -97,6 +97,9 @@ extern app_memory GlobalAppMemory;
 #ifdef KENGINE_DIRECTX
 #include "kengine/kengine_renderer.h"
 #include "kengine/kengine_directx.h"
+#include "kengine/kengine_input.h"
+#include "kengine/kengine_ui.h"
+
 #endif
 
 #ifdef KENGINE_WIN32
@@ -133,6 +136,7 @@ GetDateTime()
 #ifdef KENGINE_DIRECTX
 #include "kengine/kengine_renderer.c"
 #include "kengine/kengine_directx.c"
+#include "kengine/kengine_ui.c"
 #endif // KENGINE_DIRECTX
 
 #if defined(KENGINE_CONSOLE) || defined(KENGINE_WINDOW)
@@ -238,49 +242,7 @@ MainWindowCallback(app_memory *AppMemory, HWND Window, UINT Message, WPARAM WPar
 
 #if defined(KENGINE_DIRECTX)
 
-// TODO(kstandbridge): Relocate this
-
-typedef struct app_button_state
-{
-    s32 HalfTransitionCount;
-    b32 EndedDown;
-} app_button_state;
-
-typedef enum mouse_button_type
-{
-    MouseButton_Left,
-    MouseButton_Middle,
-    MouseButton_Right,
-    MouseButton_Extended0,
-    MouseButton_Extended1,
-    
-    MouseButton_Count,
-} mouse_button_type;
-
-typedef struct app_input
-{
-    app_button_state MouseButtons[MouseButton_Count];
-    v2 MouseP;
-    f32 MouseWheel;
-    
-    b32 ShiftDown;
-    b32 AltDown;
-    b32 ControlDown;
-    b32 FKeyPressed[13];
-} app_input;
-
-inline b32 
-WasPressed(app_button_state State)
-{
-    b32 Result = ((State.HalfTransitionCount > 1) ||
-                  ((State.HalfTransitionCount == 1) && (State.EndedDown)));
-    
-    return Result;
-}
-
-// TODO(kstandbridge): Relocate this above after input stuff is also relocated
-#include "kengine/kengine_ui.c"
-
+// TODO(kstandbridge): Relocate this to kengine_input.c ??
 inline void
 ProcessInputMessage(app_button_state *NewState, b32 IsDown)
 {
