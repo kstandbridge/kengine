@@ -33,6 +33,26 @@ UnpackU8Low(u8 Value)
     return Result;
 }
 
+inline u8
+UnpackU16High(u16 Value)
+{
+    u8 *LowByte = (u8 *)&Value;
+    u8 *HighByte = LowByte + 1;
+    
+    u8 Result = *HighByte;
+    return Result;
+}
+
+inline u8
+UnpackU16Low(u16 Value)
+{
+    u8 *LowByte = (u8 *)&Value;
+    //u8 *HighByte = LowByte + 1;
+    
+    u8 Result = *LowByte;
+    return Result;
+}
+
 inline u16
 PackU16(u8 HighPart, u8 LowPart)
 {

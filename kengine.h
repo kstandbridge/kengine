@@ -86,10 +86,8 @@ typedef struct app_memory
 {
     struct app_state *AppState;
     
-#if defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
     char *CmdLine;
     HWND Window;
-#endif // defined(KENGINE_HEADLESS) || defined(KENGINE_WINDOW) || defined(KENGINE_DIRECTX)
 } app_memory;
 
 extern app_memory GlobalAppMemory;
