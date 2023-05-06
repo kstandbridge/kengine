@@ -12,30 +12,31 @@ GetBits(u8 Input, u8 Position, u8 Count)
     return Result;
 }
 
+inline u8
+PackU8(u8 HighPart, u8 LowPart)
+{
+    u8 Result = ((HighPart & 0xF) << 4) | (LowPart & 0xF);
+    return Result;
+}
+
+inline u8
+UnpackU8High(u8 Value)
+{
+    u8 Result = GetBits(Value, 7, 4);
+    return Result;
+}
+
+inline u8
+UnpackU8Low(u8 Value)
+{
+    u8 Result = GetBits(Value, 3, 4);
+    return Result;
+}
+
 inline u16
 PackU16(u8 HighPart, u8 LowPart)
 {
     u16 Result = ((HighPart & 0xFF) << 8) | (LowPart & 0xFF);
-    return Result;
-}
-
-inline u8
-UnpackU16High(u16 Value)
-{
-    u8 *LowByte = (u8 *)&Value;
-    u8 *HighByte = LowByte + 1;
-    
-    u8 Result = *HighByte;
-    return Result;
-}
-
-inline u8
-UnpackU16Low(u16 Value)
-{
-    u8 *LowByte = (u8 *)&Value;
-    //u8 *HighByte = LowByte + 1;
-    
-    u8 Result = *LowByte;
     return Result;
 }
 
