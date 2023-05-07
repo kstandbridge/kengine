@@ -98,6 +98,15 @@ EndUI(ui_state *State)
         
         switch(State->Interaction.Type)
         {
+            case UI_Interaction_Boolean:
+            {
+                if(MouseUp)
+                {
+                    *State->Interaction.Boolean = !(*State->Interaction.Boolean);
+                    EndInteraction = true;
+                }
+            } break;
+            
             case UI_Interaction_ImmediateButton:
             {
                 if(MouseUp)
@@ -464,18 +473,13 @@ MenuCheck_(ui_state *UIState, u32 Index, f32 Scale, string Text, b32 *Target, ui
     ui_interaction Interaction =
     {
         .Id = Id,
-        .Type = UI_Interaction_ImmediateButton,
-        .Target = 0
+        .Type = UI_Interaction_Boolean,
+        .Boolean = Target
     };
     
     ui_interaction_state InteractionState = AddUIInteraction(UIState, Bounds, Interaction);
-    
     if(InteractionState == UIInteractionState_Hot)
     {
-        if(WasPressed(UIState->Input->MouseButtons[MouseButton_Left]))
-        {
-            *Target = !(*Target);
-        }
         PushRenderCommandRect(UIState->RenderGroup, Bounds, 10.0f, RGBv4(128, 128, 128));
     }
     DrawTextAt(UIState, 

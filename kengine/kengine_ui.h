@@ -39,6 +39,8 @@ typedef enum ui_interaction_type
     UI_Interaction_Draggable,
     UI_Interaction_ImmediateButton,
     
+    UI_Interaction_Boolean,
+    
 } ui_interaction_type;
 
 typedef struct ui_interaction
@@ -50,6 +52,9 @@ typedef struct ui_interaction
     union
     {
         void *Generic;
+        
+        b32 *Boolean;
+        
         v2 *P;
     };
 } ui_interaction;
