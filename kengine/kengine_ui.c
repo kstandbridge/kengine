@@ -448,6 +448,41 @@ MenuButton_(ui_state *UIState, u32 Index, f32 Scale, string Text, ui_id Id)
     return Result;
 }
 
+inline void
+MenuCheck_(ui_state *UIState, u32 Index, f32 Scale, string Text, b32 *Target, ui_id Id)
+{
+    rectangle2 Bounds = GridGetCellBounds(UIState, 0, Index, 0);
+    
+    if(*Target)
+    {
+        // TODO(kstandbridge): support for unicode check 0x2713
+        DrawTextAt(UIState, 
+                   Rectangle2(Bounds.Min, V2(Bounds.Min.X + 26.0f, Bounds.Max.Y)),
+                   10.0f, Scale, V4(0, 0, 0, 1), String("X"));
+    }
+    
+    ui_interaction Interaction =
+    {
+        .Id = Id,
+        .Type = UI_Interaction_ImmediateButton,
+        .Target = 0
+    };
+    
+    ui_interaction_state InteractionState = AddUIInteraction(UIState, Bounds, Interaction);
+    
+    if(InteractionState == UIInteractionState_Hot)
+    {
+        if(WasPressed(UIState->Input->MouseButtons[MouseButton_Left]))
+        {
+            *Target = !(*Target);
+        }
+        PushRenderCommandRect(UIState->RenderGroup, Bounds, 10.0f, RGBv4(128, 128, 128));
+    }
+    DrawTextAt(UIState, 
+               Rectangle2(V2(Bounds.Min.X + 26.0f, Bounds.Min.Y), Bounds.Max), 
+               10.0f, Scale, V4(0, 0, 0, 1), Text);
+}
+
 inline b32
 Menu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, ui_id Id)
 {
@@ -477,7 +512,7 @@ Menu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, ui_id Id)
 }
 
 inline b32
-BeginMenu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, u32 Entries, ui_id Id)
+BeginMenu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, u32 Entries, f32 Width, ui_id Id)
 {
     b32 Result = false;
     
@@ -492,9 +527,7 @@ BeginMenu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, u32 Ent
         v2 MenuBoundsMin = V2(Bounds.Min.X, Bounds.Max.Y);
         rectangle2 MenuBounds = Rectangle2(MenuBoundsMin, 
                                            V2Add(MenuBoundsMin,
-                                                 V2(120, 
-                                                    (Entries + 1)*UIState->FontScale*UIState->FontAscent*Scale)));
-        
+                                                 V2(Width, (Entries + 1)*UIState->FontScale*UIState->FontAscent*Scale)));
         PushRenderCommandRect(UIState->RenderGroup, MenuBounds, 10.0f, RGBv4(192, 192, 192));
         PushRenderCommandAlternateRectOutline(UIState->RenderGroup, MenuBounds, 10.0f, 1.0f,
                                               RGBv4(128, 128, 128), RGBv4(255, 255, 255));

@@ -242,9 +242,14 @@ GetTextBounds(ui_state *UIState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Col
 inline b32
 MenuButton_(ui_state *UIState, u32 Index, f32 Scale, string Text, ui_id Id);
 
-#define BeginMenu(UIState, Bounds, Scale, Text, Entries) BeginMenu_(UIState, Bounds, Scale, Text, Entries, GenerateUIId(0))
+#define MenuCheck(UIState, Index, Scale, Text, Target) MenuCheck_(UIState, Index, Scale, Text, Target, GenerateUIId(0))
+inline void
+MenuCheck_(ui_state *UIState, u32 Index, f32 Scale, string Text, b32 *Target, ui_id Id);
+
+#define BeginMenu(UIState, Bounds, Scale, Text, Entries, Width)  \
+BeginMenu_(UIState, Bounds, Scale, Text, Entries, Width, GenerateUIId(0))
 inline b32
-BeginMenu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, u32 Entries, ui_id Id);
+BeginMenu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, u32 Entries, f32 Width, ui_id Id);
 
 #define EndMenu(UIState) EndGrid(UIState)
 
