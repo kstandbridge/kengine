@@ -33,27 +33,29 @@ AddUIInteraction(ui_state *State, rectangle2 Bounds, ui_interaction Interaction)
     return Result;
 }
 
-ui_frame
-BeginUI(ui_state *State, app_input *Input, memory_arena *Arena)
+void
+InitUI(ui_state **State)
 {
-    ui_frame Result =
-    {
-        .Arena = Arena,
-        .CurrentGrid = 0
-    };
-    
-    
+    *State = BootstrapPushStruct(ui_state, Arena);
+#if KENGINE_INTERNAL
+    (*State)->IsInitialized = true;
+#endif
+}
+
+void
+BeginUI(ui_state *State, app_input *Input)
+{
+    Assert(State->IsInitialized);
+    State->MemoryFlush = BeginTemporaryMemory(&State->Arena);
     State->LastMouseP = State->MouseP;
     State->MouseP = Input->MouseP;
     State->dMouseP = V2Subtract(State->MouseP, State->LastMouseP);
-    
-    
-    return Result;
 }
 
 void
 EndUI(ui_state *State, app_input *Input)
 {
+    Assert(State->IsInitialized);
     State->ToExecute = State->NextToExecute;
     ClearInteraction(&State->NextToExecute);
     
@@ -131,16 +133,19 @@ EndUI(ui_state *State, app_input *Input)
     }
     
     ClearInteraction(&State->NextHotInteraction);
+    
+    EndTemporaryMemory(State->MemoryFlush);
+    CheckArena(&State->Arena);
 }
 
 void
-BeginGrid(ui_frame *Frame, rectangle2 Bounds, u32 Columns, u32 Rows)
+BeginGrid(ui_state *UIState, rectangle2 Bounds, u32 Columns, u32 Rows)
 {
-    memory_arena *Arena = Frame->Arena;
+    memory_arena *Arena = UIState->MemoryFlush.Arena;
     
     ui_grid *Grid = PushStruct(Arena, ui_grid);
-    Grid->Prev = Frame->CurrentGrid;
-    Frame->CurrentGrid = Grid;
+    Grid->Prev = UIState->CurrentGrid;
+    UIState->CurrentGrid = Grid;
     
     Grid->Bounds = Bounds;
     Grid->Columns = Columns;
@@ -165,17 +170,17 @@ BeginGrid(ui_frame *Frame, rectangle2 Bounds, u32 Columns, u32 Rows)
 }
 
 void
-EndGrid(ui_frame *Frame)
+EndGrid(ui_state *UIState)
 {
-    Assert(Frame->CurrentGrid);
-    Frame->CurrentGrid = Frame->CurrentGrid->Prev;
+    Assert(UIState->CurrentGrid);
+    UIState->CurrentGrid = UIState->CurrentGrid->Prev;
 }
 
 rectangle2
-GridGetCellBounds(ui_frame *Frame, u32 Column, u32 Row, f32 Margin)
+GridGetCellBounds(ui_state *UIState, u32 Column, u32 Row, f32 Margin)
 {
-    Assert(Frame->CurrentGrid);
-    ui_grid *Grid = Frame->CurrentGrid;
+    Assert(UIState->CurrentGrid);
+    ui_grid *Grid = UIState->CurrentGrid;
     
     if(!Grid->GridSizeCalculated)
     {
