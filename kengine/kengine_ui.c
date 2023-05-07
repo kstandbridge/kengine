@@ -4,30 +4,33 @@ ui_interaction_state
 AddUIInteraction(ui_state *State, rectangle2 Bounds, ui_interaction Interaction)
 {
     ui_interaction_state Result = UIInteractionState_None;
-    
     Assert(Interaction.Type);
     
-    if(Rectangle2IsIn(Bounds, State->MouseP))
-    {
-        State->NextHotInteraction = Interaction;
-    }
-    
-    if(InteractionsAreEqual(Interaction, State->Interaction) &&
-       InteractionsAreEqual(Interaction, State->NextHotInteraction))
-    {
-        Result = UIInteractionState_HotClicked;
-    }
-    else if(InteractionsAreEqual(Interaction, State->HotInteraction))
-    {
-        Result = UIInteractionState_Hot;
-    }
-    else if(InteractionsAreEqual(Interaction, State->SelectedInteration))
-    {
-        Result = UIInteractionState_Selected;
-    }
-    else
-    {
-        Result = UIInteractionState_None;
+    if((!State->MenuOpen) ||
+       (State->MenuGrid == State->CurrentGrid))
+    {    
+        if(Rectangle2IsIn(Bounds, State->MouseP))
+        {
+            State->NextHotInteraction = Interaction;
+        }
+        
+        if(InteractionsAreEqual(Interaction, State->Interaction) &&
+           InteractionsAreEqual(Interaction, State->NextHotInteraction))
+        {
+            Result = UIInteractionState_HotClicked;
+        }
+        else if(InteractionsAreEqual(Interaction, State->HotInteraction))
+        {
+            Result = UIInteractionState_Hot;
+        }
+        else if(InteractionsAreEqual(Interaction, State->SelectedInteration))
+        {
+            Result = UIInteractionState_Selected;
+        }
+        else
+        {
+            Result = UIInteractionState_None;
+        }
     }
     
     return Result;
@@ -51,6 +54,8 @@ BeginUI(ui_state *State, app_input *Input, render_group *RenderGroup)
     State->MouseP = Input->MouseP;
     State->dMouseP = V2Subtract(State->MouseP, State->LastMouseP);
     
+    State->MenuOpen = false;
+    State->MenuGrid = 0;
     State->CurrentGrid = 0;
     State->Input = Input;
     State->RenderGroup = RenderGroup;
@@ -478,6 +483,8 @@ BeginMenu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, u32 Ent
     
     if(Menu_(UIState, Bounds, Scale, Text, Id))
     {
+        Assert(!UIState->MenuOpen);
+        
         Result = true;
         PushRenderCommandAlternateRectOutline(UIState->RenderGroup, Bounds, 1.0f, 1.0f,
                                               RGBv4(128, 128, 128), RGBv4(255, 255, 255));
@@ -492,6 +499,8 @@ BeginMenu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, u32 Ent
         PushRenderCommandAlternateRectOutline(UIState->RenderGroup, MenuBounds, 10.0f, 1.0f,
                                               RGBv4(128, 128, 128), RGBv4(255, 255, 255));
         BeginGrid(UIState, MenuBounds, 1, Entries);
+        UIState->MenuOpen = true;
+        UIState->MenuGrid = UIState->CurrentGrid;
     }
     
     return Result;

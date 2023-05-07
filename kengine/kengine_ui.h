@@ -117,6 +117,8 @@ typedef struct ui_state
     void *GlyphSheetHandle;
     
     // NOTE(kstandbridge): Transient
+    b32 MenuOpen;
+    ui_grid *MenuGrid;
     ui_grid *CurrentGrid;
     app_input *Input;
     render_group *RenderGroup;
