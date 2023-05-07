@@ -69,6 +69,24 @@ typedef struct ui_grid
     struct ui_grid *Prev;
 } ui_grid;
 
+typedef struct glyph_info
+{
+    u8 *Data;
+    
+    u32 CodePoint;
+    
+    s32 Width;
+    s32 Height;
+    s32 XOffset;
+    s32 YOffset;
+    
+    s32 AdvanceWidth;
+    s32 LeftSideBearing;
+    
+    v4 UV;
+    
+} glyph_info;
+
 typedef struct ui_state
 {
     memory_arena Arena;
@@ -88,8 +106,20 @@ typedef struct ui_state
     
     ui_interaction SelectedInteration;
     
+    // NOTE(kstandbridge): Font stuff
+    f32 FontScale;
+    s32 FontAscent;
+    s32 FontDescent;
+    s32 FontLineGap;
+    stbtt_fontinfo FontInfo;
+    glyph_info GlyphInfos[256];
+    v2 SpriteSheetSize;
+    void *GlyphSheetHandle;
+    
     // NOTE(kstandbridge): Transient
     ui_grid *CurrentGrid;
+    app_input *Input;
+    render_group *RenderGroup;
     
 #if KENGINE_INTERNAL
     b32 IsInitialized;
@@ -171,10 +201,10 @@ void
 InitUI(ui_state **State);
 
 void
-BeginUI(ui_state *State, app_input *Input);
+BeginUI(ui_state *State, app_input *Input, render_group *RenderGroup);
 
 void
-EndUI(ui_state *State, app_input *Input);
+EndUI(ui_state *State);
 
 void
 BeginGrid(ui_state *UIState, rectangle2 Bounds, u32 Columns, u32 Rows);
@@ -184,6 +214,31 @@ EndGrid(ui_state *UIState);
 
 rectangle2
 GridGetCellBounds(ui_state *UIState, u32 Column, u32 Row, f32 Margin);
+
+typedef enum text_op
+{
+    TextOp_Draw,
+    TextOp_Size
+} text_op;
+rectangle2
+TextOp_(ui_state *UIState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Color, string Text, text_op Op);
+
+inline void
+DrawTextAt(ui_state *UIState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Color, string Text)
+{
+    TextOp_(UIState, Bounds, Depth, Scale, Color, Text, TextOp_Draw);
+}
+
+inline rectangle2
+GetTextBounds(ui_state *UIState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Color, string Text)
+{
+    rectangle2 Result = TextOp_(UIState, Bounds, Depth, Scale, Color, Text, TextOp_Size);
+    return Result;
+}
+
+#define MenuButton(UIState, Bounds, Scale, Text) MenuButton_(UIState, Bounds, Scale, Text, GenerateUIId(0))
+inline b32
+MenuButton_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, ui_id Id);
 
 #define KENGINE_UI_H
 #endif //KENGINE_UI_H

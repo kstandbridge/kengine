@@ -6,6 +6,8 @@
 #define VertexInstanceSize sizeof(vertex_instance)
 #define VertexBufferSize MaxVertexCount*VertexInstanceSize
 
+#define RGBv4(R, G ,B) V4((f32)R/255.0f,(f32)G/255.0f,(f32)B/255.0f, 1.0f)
+
 typedef struct vertex_instance
 {
     v3 Offset;

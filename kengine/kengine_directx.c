@@ -228,13 +228,13 @@ DirectXRenderCreate()
         D3D11_RASTERIZER_DESC RasterizerDesc =
         {
             .FillMode = D3D11_FILL_SOLID,
-            .CullMode = D3D11_CULL_NONE,
-            .FrontCounterClockwise = FALSE,
-            .DepthBias = 0,
+            .CullMode = D3D11_CULL_BACK,
+            .FrontCounterClockwise = TRUE,
+            .DepthBias = FALSE,
             .DepthBiasClamp = 0,
             .SlopeScaledDepthBias = 0.0f,
             .DepthClipEnable = TRUE,
-            .ScissorEnable = FALSE,
+            .ScissorEnable = TRUE,
             .MultisampleEnable = FALSE,
             .AntialiasedLineEnable = FALSE,
         };
@@ -253,10 +253,24 @@ DirectXRenderCreate()
         {
             .DepthEnable = TRUE,
             .DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL,
-            .DepthFunc = D3D11_COMPARISON_LESS,
-            .StencilEnable = FALSE,
-            .StencilReadMask = 0,
-            .StencilWriteMask = 0,
+            .DepthFunc = D3D11_COMPARISON_LESS_EQUAL,
+            .StencilEnable = TRUE,
+            .StencilReadMask = 0xFF,
+            .StencilWriteMask = 0xFF,
+            .FrontFace = 
+            {
+                .StencilFailOp = D3D11_STENCIL_OP_KEEP,
+                .StencilDepthFailOp = D3D11_STENCIL_OP_INCR,
+                .StencilPassOp = D3D11_STENCIL_OP_KEEP,
+                .StencilFunc = D3D11_COMPARISON_ALWAYS,
+            },
+            .BackFace =
+            {
+                .StencilFailOp = D3D11_STENCIL_OP_KEEP,
+                .StencilDepthFailOp = D3D11_STENCIL_OP_INCR,
+                .StencilPassOp = D3D11_STENCIL_OP_KEEP,
+                .StencilFunc = D3D11_COMPARISON_ALWAYS,
+            }
         };
         
         if(FAILED(HResult =
@@ -276,17 +290,17 @@ DirectXRenderCreate()
             .RenderTarget =
             {
                 {
-                    .BlendEnable = FALSE,
+                    .BlendEnable = TRUE,
                     
                     .SrcBlend = D3D11_BLEND_SRC_ALPHA,
                     .DestBlend = D3D11_BLEND_INV_SRC_ALPHA,
                     .BlendOp = D3D11_BLEND_OP_ADD,
                     
-                    .SrcBlendAlpha = D3D11_BLEND_SRC_ALPHA,
-                    .DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA,
+                    .SrcBlendAlpha = D3D11_BLEND_ONE,
+                    .DestBlendAlpha = D3D11_BLEND_ZERO,
                     .BlendOpAlpha = D3D11_BLEND_OP_ADD,
                     
-                    .RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL,
+                    .RenderTargetWriteMask = 0x0f,
                 },
             },
         };
@@ -841,6 +855,9 @@ DirectXRenderFrame(render_group *RenderGroup)
             
             ID3D11DeviceContext_RSSetState(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderRasterizerState);
             ID3D11DeviceContext_OMSetBlendState(GlobalDirectXState.RenderContext, GlobalDirectXState.RenderBlendState, 0, 0xffffffff);
+            
+            D3D11_RECT ScissorRect = { 0, 0, RenderGroup->Width, RenderGroup->Height };
+            ID3D11DeviceContext_RSSetScissorRects(GlobalDirectXState.RenderContext, 1, &ScissorRect);
             
         }
         

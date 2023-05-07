@@ -43,19 +43,25 @@ InitUI(ui_state **State)
 }
 
 void
-BeginUI(ui_state *State, app_input *Input)
+BeginUI(ui_state *State, app_input *Input, render_group *RenderGroup)
 {
     Assert(State->IsInitialized);
     State->MemoryFlush = BeginTemporaryMemory(&State->Arena);
     State->LastMouseP = State->MouseP;
     State->MouseP = Input->MouseP;
     State->dMouseP = V2Subtract(State->MouseP, State->LastMouseP);
+    
+    State->CurrentGrid = 0;
+    State->Input = Input;
+    State->RenderGroup = RenderGroup;
 }
 
 void
-EndUI(ui_state *State, app_input *Input)
+EndUI(ui_state *State)
 {
     Assert(State->IsInitialized);
+    app_input *Input = State->Input;
+    
     State->ToExecute = State->NextToExecute;
     ClearInteraction(&State->NextToExecute);
     
@@ -313,5 +319,125 @@ GridGetCellBounds(ui_state *UIState, u32 Column, u32 Row, f32 Margin)
             Result.Max.Y -= Margin*0.5f;
         }
     }
+    return Result;
+}
+
+rectangle2
+TextOp_(ui_state *UIState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Color, string Text, text_op Op)
+{
+    rectangle2 Result = Rectangle2(Bounds.Min, Bounds.Min);
+    render_group *RenderGroup = UIState->RenderGroup;
+    v2 Offset = Bounds.Min;
+    
+    f32 AtX = Offset.X;
+    f32 AtY = Offset.Y + UIState->FontScale*UIState->FontAscent*Scale;
+    
+    for(umm Index = 0;
+        Index < Text.Size;
+        ++Index)
+    {
+        u32 CodePoint = Text.Data[Index];
+        
+        if(CodePoint == '\n')
+        {
+            AtY += UIState->FontScale*UIState->FontAscent*Scale;
+            AtX = Offset.X;
+        }
+        else
+        {
+            b32 WordWrap = false;
+            if(IsWhitespace((char)CodePoint))
+            {
+                f32 WordWidth = 0;
+                for(umm WordIndex = 1;
+                    (Index + WordIndex) < Text.Size;
+                    ++WordIndex)
+                {
+                    u32 WordCodePoint = Text.Data[Index + WordIndex];
+                    if(IsWhitespace((char)WordCodePoint))
+                    {
+                        break;
+                    }
+                    glyph_info *Info = UIState->GlyphInfos + WordCodePoint;
+                    Assert(Info->CodePoint == WordCodePoint);
+                    
+                    WordWidth += UIState->FontScale*Info->AdvanceWidth*Scale;
+                    
+                    if(Index < Text.Size)
+                    {
+                        s32 Kerning = stbtt_GetCodepointKernAdvance(&UIState->FontInfo, CodePoint, Text.Data[Index + 1]);
+                        if(Kerning > 0)
+                        {
+                            WordWidth += UIState->FontScale*Kerning*Scale;
+                        }
+                    }
+                    
+                }
+                WordWrap = (AtX + WordWidth) > Bounds.Max.X;
+            }
+            
+            if(WordWrap)
+            {
+                AtY += UIState->FontScale*UIState->FontAscent*Scale;
+                AtX = Offset.X;
+            }
+            else
+            {            
+                glyph_info *Info = UIState->GlyphInfos + CodePoint;
+                Assert(Info->CodePoint == CodePoint);
+                
+                v2 Size = V2(Scale*Info->Width, Scale*Info->Height);
+                
+                v2 GlyphOffset = V2(AtX, AtY + Info->YOffset*Scale);
+                if(Op == TextOp_Draw)
+                {
+                    PushRenderCommandGlyph(RenderGroup, GlyphOffset, Depth, Size, Color, Info->UV, UIState->GlyphSheetHandle);
+                }
+                else
+                {
+                    Assert(Op == TextOp_Size);
+                    Result = Rectangle2Union(Result, Rectangle2(GlyphOffset, V2Add(GlyphOffset, Size)));
+                }
+                
+                AtX += UIState->FontScale*Info->AdvanceWidth*Scale;
+                
+                if(Index < Text.Size)
+                {
+                    s32 Kerning = stbtt_GetCodepointKernAdvance(&UIState->FontInfo, CodePoint, Text.Data[Index + 1]);
+                    AtX += UIState->FontScale*Kerning*Scale;
+                }
+            }
+            
+        }
+    }
+    
+    return Result;
+}
+
+#define MenuButton(UIState, Bounds, Scale, Text) MenuButton_(UIState, Bounds, Scale, Text, GenerateUIId(0))
+inline b32
+MenuButton_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, ui_id Id)
+{
+    b32 Result = false;
+    
+    ui_interaction Interaction =
+    {
+        .Id = Id,
+        .Type = UI_Interaction_ImmediateButton,
+        .Target = 0
+    };
+    
+    ui_interaction_state InteractionState = AddUIInteraction(UIState, Bounds, Interaction);
+    
+    if(InteractionState == UIInteractionState_Hot)
+    {
+        if(WasPressed(UIState->Input->MouseButtons[MouseButton_Left]))
+        {
+            Result = true;
+        }
+        PushRenderCommandRect(UIState->RenderGroup, Bounds, 10.0f, RGBv4(128, 128, 128));
+    }
+    DrawTextAt(UIState, Bounds, 10.0f, Scale, V4(0, 0, 0, 1), Text);
+    
     return Result;
 }
