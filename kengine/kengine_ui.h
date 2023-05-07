@@ -236,9 +236,16 @@ GetTextBounds(ui_state *UIState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Col
     return Result;
 }
 
-#define MenuButton(UIState, Bounds, Scale, Text) MenuButton_(UIState, Bounds, Scale, Text, GenerateUIId(0))
+#define MenuButton(UIState, Index, Scale, Text) MenuButton_(UIState, Index, Scale, Text, GenerateUIId(0))
 inline b32
-MenuButton_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, ui_id Id);
+MenuButton_(ui_state *UIState, u32 Index, f32 Scale, string Text, ui_id Id);
+
+#define BeginMenu(UIState, Bounds, Scale, Text, Entries) BeginMenu_(UIState, Bounds, Scale, Text, Entries, GenerateUIId(0))
+inline b32
+BeginMenu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, u32 Entries, ui_id Id);
+
+#define EndMenu(UIState) EndGrid(UIState)
+
 
 #define KENGINE_UI_H
 #endif //KENGINE_UI_H
