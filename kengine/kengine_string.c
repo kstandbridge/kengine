@@ -391,22 +391,29 @@ FormatStringParseHex(format_string_state *State, u64 Value, u32 Width, b32 PadWi
         *State->Tail++ = 'x';
     }
     
-    b32 FirstDigit = true;
-    for(s32 Index = 63;
-        Index > 0;
-        Index -= 4)
+    if(Value == 0)
     {
-        u8 Part = (Value >> (Index + 1 - 4) & ~(~0 << 4));
-        if((!FirstDigit) ||
-           (Part > 0))
+        *State->Tail++ = Digits[0];
+    }
+    else
+    {
+        b32 FirstDigit = true;
+        for(s32 Index = 63;
+            Index > 0;
+            Index -= 4)
         {
-            if(FirstDigit)
+            u8 Part = (Value >> (Index + 1 - 4) & ~(~0 << 4));
+            if((!FirstDigit) ||
+               (Part > 0))
             {
-                FirstDigit = false;
-            }
-            if(Part < DigitsLength)
-            {
-                *State->Tail++ = Digits[Part];
+                if(FirstDigit)
+                {
+                    FirstDigit = false;
+                }
+                if(Part < DigitsLength)
+                {
+                    *State->Tail++ = Digits[Part];
+                }
             }
         }
     }

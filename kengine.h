@@ -745,7 +745,7 @@ main()
     
     RunAllTests(&GlobalTestState_->Arena);
     
-    Result = (GlobalTestState_->FailedTests == 0);
+    Result = (GlobalTestState_->FailedTests != 0);
     
     PlatformConsoleOut("Unit Tests %s: %d/%d passed.\n", 
                        Result ? "Successful" : "Failed"

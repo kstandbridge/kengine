@@ -421,7 +421,6 @@ TextOp_(ui_state *UIState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Color, st
                     AtX += UIState->FontScale*Kerning*Scale;
                 }
             }
-            
         }
     }
     

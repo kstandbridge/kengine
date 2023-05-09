@@ -117,6 +117,7 @@ typedef struct ui_state
     s32 FontDescent;
     s32 FontLineGap;
     stbtt_fontinfo FontInfo;
+    
     glyph_info GlyphInfos[256];
     v2 SpriteSheetSize;
     void *GlyphSheetHandle;
