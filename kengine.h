@@ -748,7 +748,7 @@ main()
     Result = (GlobalTestState_->FailedTests != 0);
     
     PlatformConsoleOut("Unit Tests %s: %d/%d passed.\n", 
-                       Result ? "Successful" : "Failed"
+                       Result ? "Failed" : "Successful"
                        , GlobalTestState_->TotalTests - GlobalTestState_->FailedTests, 
                        GlobalTestState_->TotalTests);
     
