@@ -461,14 +461,6 @@ MenuCheck_(ui_state *UIState, u32 Index, f32 Scale, string Text, b32 *Target, ui
 {
     rectangle2 Bounds = GridGetCellBounds(UIState, 0, Index, 0);
     
-    if(*Target)
-    {
-        // TODO(kstandbridge): support for unicode check 0x2713
-        DrawTextAt(UIState, 
-                   Rectangle2(Bounds.Min, V2(Bounds.Min.X + 26.0f, Bounds.Max.Y)),
-                   10.0f, Scale, V4(0, 0, 0, 1), String("X"));
-    }
-    
     ui_interaction Interaction =
     {
         .Id = Id,
@@ -481,6 +473,15 @@ MenuCheck_(ui_state *UIState, u32 Index, f32 Scale, string Text, b32 *Target, ui
     {
         PushRenderCommandRect(UIState->RenderGroup, Bounds, 10.0f, RGBv4(128, 128, 128));
     }
+    
+    if(*Target)
+    {
+        // TODO(kstandbridge): support for unicode check 0x2713
+        DrawTextAt(UIState, 
+                   Rectangle2(Bounds.Min, V2(Bounds.Min.X + 26.0f, Bounds.Max.Y)),
+                   10.0f, Scale, V4(0, 0, 0, 1), String("X"));
+    }
+    
     DrawTextAt(UIState, 
                Rectangle2(V2(Bounds.Min.X + 26.0f, Bounds.Min.Y), Bounds.Max), 
                10.0f, Scale, V4(0, 0, 0, 1), Text);
