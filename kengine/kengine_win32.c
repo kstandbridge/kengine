@@ -205,6 +205,7 @@ Win32CompleteAllWork(platform_work_queue *PlatformQueue)
         temporary_memory MemoryFlush = BeginTemporaryMemory(&TransientArena);
         Win32DoNextWorkQueueEntry(PlatformQueue, MemoryFlush.Arena);
         EndTemporaryMemory(MemoryFlush);
+        CheckArena(&TransientArena);
     }
     
     Win32Queue->CompletionGoal = 0;
@@ -234,6 +235,7 @@ Win32WorkQueueThread(void *lpParameter)
             WaitForSingleObjectEx(Win32Queue->SemaphoreHandle, INFINITE, false);
         }
         EndTemporaryMemory(MemoryFlush);
+        CheckArena(&TransientArena);
     }
 }
 
