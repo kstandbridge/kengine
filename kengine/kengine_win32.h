@@ -196,9 +196,9 @@ Win32MakeWorkQueue(memory_arena *Arena, u32 ThreadCount);
 void
 Win32CompleteAllWork(platform_work_queue *PlatformQueue);
 
-#define PlatformAddWorkEntry(PlatformQueue, Callback, Data) Win32AddWorkEntry(PlatformQueue, Callback, Data)
+#define PlatformAddWorkEntry(PlatformQueue, Callback, Context) Win32AddWorkEntry(PlatformQueue, Callback, Context)
 void
-Win32AddWorkEntry(platform_work_queue *PlatformQueue, platform_work_queue_callback *Callback, void *Data);
+Win32AddWorkEntry(platform_work_queue *PlatformQueue, platform_work_queue_callback *Callback, void *Context);
 
 typedef platform_http_response http_request_callback(app_memory *Memory, memory_arena *Arena, platform_http_request Request);
 

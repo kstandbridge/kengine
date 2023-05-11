@@ -132,8 +132,6 @@ Win32DeallocateMemory(platform_memory_block *Block)
     }
 }
 
-
-
 typedef struct win32_work_queue
 {
     platform_work_queue PlatformQueue;
@@ -147,14 +145,14 @@ typedef struct win32_work_queue
 } win32_work_queue;
 
 void
-Win32AddWorkEntry(platform_work_queue *PlatformQueue, platform_work_queue_callback *Callback, void *Data)
+Win32AddWorkEntry(platform_work_queue *PlatformQueue, platform_work_queue_callback *Callback, void *Context)
 {
     win32_work_queue *Win32Queue = (win32_work_queue *)PlatformQueue;
     u32 NewNextEntryToWrite = (Win32Queue->NextEntryToWrite + 1) % ArrayCount(Win32Queue->PlatformQueue.Entries);
     Assert(NewNextEntryToWrite != Win32Queue->NextEntryToRead);
     platform_work_queue_entry *Entry = Win32Queue->PlatformQueue.Entries + Win32Queue->NextEntryToWrite;
     Entry->Callback = Callback;
-    Entry->Data = Data;
+    Entry->Context = Context;
     ++Win32Queue->CompletionGoal;
     _WriteBarrier();
     Win32Queue->NextEntryToWrite = NewNextEntryToWrite;
@@ -162,7 +160,7 @@ Win32AddWorkEntry(platform_work_queue *PlatformQueue, platform_work_queue_callba
 }
 
 internal b32
-Win32DoNextWorkQueueEntry(platform_work_queue *PlatformQueue)
+Win32DoNextWorkQueueEntry(platform_work_queue *PlatformQueue, memory_arena *TransientArena)
 {
     win32_work_queue *Win32Queue = (win32_work_queue *)PlatformQueue;
     
@@ -178,7 +176,7 @@ Win32DoNextWorkQueueEntry(platform_work_queue *PlatformQueue)
         if(Index == OriginalNextEntryToRead)
         {        
             platform_work_queue_entry Entry = Win32Queue->PlatformQueue.Entries[Index];
-            Entry.Callback(Entry.Data);
+            Entry.Callback(TransientArena, Entry.Context);
             AtomicIncrementU32(&Win32Queue->CompletionCount);
         }
     }
@@ -195,9 +193,18 @@ Win32CompleteAllWork(platform_work_queue *PlatformQueue)
 {
     win32_work_queue *Win32Queue = (win32_work_queue *)PlatformQueue;
     
+    local_persist memory_arena TransientArena = {0};
+    // NOTE(kstandbridge): Hack to initialize memory
+    if(TransientArena.CurrentBlock == 0)
+    {
+        PushSize(&TransientArena, 1);
+    }
+    
     while(Win32Queue->CompletionGoal != Win32Queue->CompletionCount)
     {
-        Win32DoNextWorkQueueEntry(PlatformQueue);
+        temporary_memory MemoryFlush = BeginTemporaryMemory(&TransientArena);
+        Win32DoNextWorkQueueEntry(PlatformQueue, MemoryFlush.Arena);
+        EndTemporaryMemory(MemoryFlush);
     }
     
     Win32Queue->CompletionGoal = 0;
@@ -215,12 +222,18 @@ Win32WorkQueueThread(void *lpParameter)
         InvalidCodePath;
     }
     
+    memory_arena TransientArena = {0};
+    // NOTE(kstandbridge): Hack to initialize memory
+    PushSize(&TransientArena, 1);
+    
     for(;;)
     {
-        if(Win32DoNextWorkQueueEntry((platform_work_queue *)Win32Queue))
+        temporary_memory MemoryFlush = BeginTemporaryMemory(&TransientArena);
+        if(Win32DoNextWorkQueueEntry((platform_work_queue *)Win32Queue, MemoryFlush.Arena))
         {
             WaitForSingleObjectEx(Win32Queue->SemaphoreHandle, INFINITE, false);
         }
+        EndTemporaryMemory(MemoryFlush);
     }
 }
 

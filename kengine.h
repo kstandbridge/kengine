@@ -69,12 +69,12 @@
 #include "kengine/kengine_xml_parser.h"
 #include "kengine/kengine_c_parser.h"
 
-typedef void platform_work_queue_callback(void *Data);
+typedef void platform_work_queue_callback(memory_arena *TransientArena, void *Data);
 
 typedef struct platform_work_queue_entry
 {
     platform_work_queue_callback *Callback;
-    void *Data;
+    void *Context;
 } platform_work_queue_entry;
 
 typedef struct platform_work_queue 
