@@ -37,18 +37,29 @@ AddUIInteraction(ui_state *State, rectangle2 Bounds, ui_interaction Interaction)
 }
 
 void
-InitUI(ui_state **State)
+InitUI(ui_state **State, app_assets *Assets)
 {
     *State = BootstrapPushStruct(ui_state, Arena);
 #if KENGINE_INTERNAL
+    Assert(Assets->IsInitialized);
     (*State)->IsInitialized = true;
 #endif
+    (*State)->Assets = Assets;
+    
+#if 1
+    (*State)->DefaultFont = String("C:\\Windows\\Fonts\\seguisym.ttf");
+#else
+    (*State)->DefaultFont = String("C:\\Windows\\Fonts\\segoeui.ttf");
+#endif
+    
 }
 
 void
 BeginUI(ui_state *State, app_input *Input, render_group *RenderGroup)
 {
+#if KENGINE_INTERNAL
     Assert(State->IsInitialized);
+#endif
     State->MemoryFlush = BeginTemporaryMemory(&State->Arena);
     State->LastMouseP = State->MouseP;
     State->MouseP = Input->MouseP;
@@ -64,7 +75,6 @@ BeginUI(ui_state *State, app_input *Input, render_group *RenderGroup)
 void
 EndUI(ui_state *State)
 {
-    Assert(State->IsInitialized);
     app_input *Input = State->Input;
     
     State->ToExecute = State->NextToExecute;
@@ -341,85 +351,114 @@ TextOp_(ui_state *UIState, rectangle2 Bounds, f32 Depth, f32 Scale, v4 Color, st
 {
     rectangle2 Result = Rectangle2(Bounds.Min, Bounds.Min);
     render_group *RenderGroup = UIState->RenderGroup;
+    app_assets *Assets = UIState->Assets;
     v2 Offset = Bounds.Min;
     
-    f32 AtX = Offset.X;
-    f32 AtY = Offset.Y + UIState->FontScale*UIState->FontAscent*Scale;
-    
-    for(umm Index = 0;
-        Index < Text.Size;
-        ++Index)
-    {
-        u32 CodePoint = Text.Data[Index];
+    font_asset *Font = GetFontInfo(Assets, UIState->DefaultFont);
+    if(Font)
+    {    
+        f32 AtX = Offset.X;
+        f32 AtY = Offset.Y + Font->Scale*Font->Ascent*Scale;
         
-        if(CodePoint == '\n')
+        for(umm Index = 0;
+            Index < Text.Size;
+            ++Index)
         {
-            AtY += UIState->FontScale*UIState->FontAscent*Scale;
-            AtX = Offset.X;
-        }
-        else
-        {
-            b32 WordWrap = false;
-            if(IsWhitespace((char)CodePoint))
-            {
-                f32 WordWidth = 0;
-                for(umm WordIndex = 1;
-                    (Index + WordIndex) < Text.Size;
-                    ++WordIndex)
-                {
-                    u32 WordCodePoint = Text.Data[Index + WordIndex];
-                    if(IsWhitespace((char)WordCodePoint))
-                    {
-                        break;
-                    }
-                    glyph_info *Info = UIState->GlyphInfos + WordCodePoint;
-                    Assert(Info->CodePoint == WordCodePoint);
-                    
-                    WordWidth += UIState->FontScale*Info->AdvanceWidth*Scale;
-                    
-                    if(Index < Text.Size)
-                    {
-                        s32 Kerning = stbtt_GetCodepointKernAdvance(&UIState->FontInfo, CodePoint, Text.Data[Index + 1]);
-                        if(Kerning > 0)
-                        {
-                            WordWidth += UIState->FontScale*Kerning*Scale;
-                        }
-                    }
-                    
-                }
-                WordWrap = (AtX + WordWidth) > Bounds.Max.X;
-            }
+            u32 CodePoint = Text.Data[Index];
             
-            if(WordWrap)
+            if(CodePoint == '\n')
             {
-                AtY += UIState->FontScale*UIState->FontAscent*Scale;
+                AtY += Font->Scale*Font->Ascent*Scale;
                 AtX = Offset.X;
             }
             else
-            {            
-                glyph_info *Info = UIState->GlyphInfos + CodePoint;
-                Assert(Info->CodePoint == CodePoint);
-                
-                v2 Size = V2(Scale*Info->Width, Scale*Info->Height);
-                
-                v2 GlyphOffset = V2(AtX, AtY + Info->YOffset*Scale);
-                if(Op == TextOp_Draw)
+            {
+                if(((Index + 5) << Text.Size) &&
+                   (Text.Data[Index + 0] == '\\') &&
+                   (Text.Data[Index + 1] == 'u') &&
+                   (IsHex(Text.Data[Index + 2])) &&
+                   (IsHex(Text.Data[Index + 3])) &&
+                   (IsHex(Text.Data[Index + 4])) &&
+                   (IsHex(Text.Data[Index + 5])))
                 {
-                    PushRenderCommandGlyph(RenderGroup, GlyphOffset, Depth, Size, Color, Info->UV, UIState->GlyphSheetHandle);
-                }
-                else
-                {
-                    Assert(Op == TextOp_Size);
-                    Result = Rectangle2Union(Result, Rectangle2(GlyphOffset, V2Add(GlyphOffset, Size)));
+                    CodePoint = ((GetHex(Text.Data[Index + 2]) << 12) |
+                                 (GetHex(Text.Data[Index + 3]) << 8) |
+                                 (GetHex(Text.Data[Index + 4]) << 4) |
+                                 (GetHex(Text.Data[Index + 5]) << 0));
+                    Index += 5;
+                    //__debugbreak();
                 }
                 
-                AtX += UIState->FontScale*Info->AdvanceWidth*Scale;
-                
-                if(Index < Text.Size)
-                {
-                    s32 Kerning = stbtt_GetCodepointKernAdvance(&UIState->FontInfo, CodePoint, Text.Data[Index + 1]);
-                    AtX += UIState->FontScale*Kerning*Scale;
+                glyph_sprite_sheet *Sprite = GetSpriteSheetForCodepoint(Assets, CodePoint);
+                if(Sprite)
+                {                
+                    b32 WordWrap = false;
+                    if(IsWhitespace((char)CodePoint))
+                    {
+                        f32 WordWidth = 0;
+                        for(umm WordIndex = 1;
+                            (Index + WordIndex) < Text.Size;
+                            ++WordIndex)
+                        {
+                            u32 WordCodePoint = Text.Data[Index + WordIndex];
+                            if(IsWhitespace((char)WordCodePoint))
+                            {
+                                break;
+                            }
+                            glyph_info *Info = Sprite->GlyphInfos + WordCodePoint;
+                            // TODO(kstandbridge): Enable this
+                            //Assert(Info->CodePoint == WordCodePoint);
+                            
+                            WordWidth += Font->Scale*Info->AdvanceWidth*Scale;
+                            
+                            if(Index < Text.Size)
+                            {
+                                s32 Kerning = stbtt_GetCodepointKernAdvance(&Font->Info, CodePoint, Text.Data[Index + 1]);
+                                if(Kerning > 0)
+                                {
+                                    WordWidth += Font->Scale*Kerning*Scale;
+                                }
+                            }
+                            
+                        }
+                        WordWrap = (AtX + WordWidth) > Bounds.Max.X;
+                    }
+                    
+                    if(WordWrap)
+                    {
+                        AtY += Font->Scale*Font->Ascent*Scale;
+                        AtX = Offset.X;
+                    }
+                    else
+                    {            
+                        u32 CodePointOffset = (CodePoint - Sprite->CodePointStartAt);
+                        glyph_info *Info = Sprite->GlyphInfos + CodePointOffset;
+                        // TODO(kstandbridge): Enable this
+                        //Assert(Info->CodePoint == CodePoint);
+                        
+                        v2 Size = V2(Scale*Info->Width, Scale*Info->Height);
+                        
+                        v2 GlyphOffset = V2(AtX, AtY + Info->YOffset*Scale);
+                        if(Op == TextOp_Draw)
+                        {
+                            PushRenderCommandGlyph(RenderGroup, GlyphOffset, Depth, Size, Color, Info->UV, Sprite->Handle);
+                        }
+                        else
+                        {
+                            Assert(Op == TextOp_Size);
+                            Result = Rectangle2Union(Result, Rectangle2(GlyphOffset, V2Add(GlyphOffset, Size)));
+                        }
+                        
+                        AtX += Font->Scale*Info->AdvanceWidth*Scale;
+                        
+                        if(Index < Text.Size)
+                        {
+                            s32 Kerning = stbtt_GetCodepointKernAdvance(&Font->Info, CodePoint, Text.Data[Index + 1]);
+                            AtX += Font->Scale*Kerning*Scale;
+                        }
+                    }
                 }
+                
             }
         }
     }
@@ -479,7 +518,7 @@ MenuCheck_(ui_state *UIState, u32 Index, f32 Scale, string Text, b32 *Target, ui
         // TODO(kstandbridge): support for unicode check 0x2713
         DrawTextAt(UIState, 
                    Rectangle2(Bounds.Min, V2(Bounds.Min.X + 26.0f, Bounds.Max.Y)),
-                   10.0f, Scale, V4(0, 0, 0, 1), String("X"));
+                   10.0f, Scale, V4(0, 0, 0, 1), String("\\u2714"));
     }
     
     DrawTextAt(UIState, 
@@ -520,24 +559,29 @@ BeginMenu_(ui_state *UIState, rectangle2 Bounds, f32 Scale, string Text, u32 Ent
 {
     b32 Result = false;
     
-    if(Menu_(UIState, Bounds, Scale, Text, Id))
-    {
-        Assert(!UIState->MenuOpen);
-        
-        Result = true;
-        PushRenderCommandAlternateRectOutline(UIState->RenderGroup, Bounds, 1.0f, 1.0f,
-                                              RGBv4(128, 128, 128), RGBv4(255, 255, 255));
-        
-        v2 MenuBoundsMin = V2(Bounds.Min.X, Bounds.Max.Y);
-        rectangle2 MenuBounds = Rectangle2(MenuBoundsMin, 
-                                           V2Add(MenuBoundsMin,
-                                                 V2(Width, (Entries + 1)*UIState->FontScale*UIState->FontAscent*Scale)));
-        PushRenderCommandRect(UIState->RenderGroup, MenuBounds, 10.0f, RGBv4(192, 192, 192));
-        PushRenderCommandAlternateRectOutline(UIState->RenderGroup, MenuBounds, 10.0f, 1.0f,
-                                              RGBv4(128, 128, 128), RGBv4(255, 255, 255));
-        BeginGrid(UIState, MenuBounds, 1, Entries);
-        UIState->MenuOpen = true;
-        UIState->MenuGrid = UIState->CurrentGrid;
+    font_asset *Font = GetFontInfo(UIState->Assets, UIState->DefaultFont);
+    if(Font)
+    {        
+        if(Menu_(UIState, Bounds, Scale, Text, Id))
+        {
+            Assert(!UIState->MenuOpen);
+            
+            Result = true;
+            PushRenderCommandAlternateRectOutline(UIState->RenderGroup, Bounds, 1.0f, 1.0f,
+                                                  RGBv4(128, 128, 128), RGBv4(255, 255, 255));
+            
+            v2 MenuBoundsMin = V2(Bounds.Min.X, Bounds.Max.Y);
+            
+            rectangle2 MenuBounds = Rectangle2(MenuBoundsMin, 
+                                               V2Add(MenuBoundsMin,
+                                                     V2(Width, (Entries + 1)*Font->Scale*Font->Ascent*Scale)));
+            PushRenderCommandRect(UIState->RenderGroup, MenuBounds, 10.0f, RGBv4(192, 192, 192));
+            PushRenderCommandAlternateRectOutline(UIState->RenderGroup, MenuBounds, 10.0f, 1.0f,
+                                                  RGBv4(128, 128, 128), RGBv4(255, 255, 255));
+            BeginGrid(UIState, MenuBounds, 1, Entries);
+            UIState->MenuOpen = true;
+            UIState->MenuGrid = UIState->CurrentGrid;
+        }
     }
     
     return Result;

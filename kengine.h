@@ -96,6 +96,7 @@ extern app_memory GlobalAppMemory;
 #include "kengine/kengine_renderer.h"
 #include "kengine/kengine_directx.h"
 #include "kengine/kengine_input.h"
+#include "kengine/kengine_assets.h"
 #include "kengine/kengine_ui.h"
 
 #endif
@@ -134,6 +135,7 @@ GetDateTime()
 #ifdef KENGINE_DIRECTX
 #include "kengine/kengine_renderer.c"
 #include "kengine/kengine_directx.c"
+#include "kengine/kengine_assets.c"
 #include "kengine/kengine_ui.c"
 #endif // KENGINE_DIRECTX
 

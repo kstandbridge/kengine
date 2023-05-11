@@ -74,28 +74,11 @@ typedef struct ui_grid
     struct ui_grid *Prev;
 } ui_grid;
 
-typedef struct glyph_info
-{
-    u8 *Data;
-    
-    u32 CodePoint;
-    
-    s32 Width;
-    s32 Height;
-    s32 XOffset;
-    s32 YOffset;
-    
-    s32 AdvanceWidth;
-    s32 LeftSideBearing;
-    
-    v4 UV;
-    
-} glyph_info;
-
 typedef struct ui_state
 {
     memory_arena Arena;
     temporary_memory MemoryFlush;
+    app_assets *Assets;
     
     v2 MouseP;
     v2 dMouseP;
@@ -111,6 +94,7 @@ typedef struct ui_state
     
     ui_interaction SelectedInteration;
     
+#if 0    
     // NOTE(kstandbridge): Font stuff
     f32 FontScale;
     s32 FontAscent;
@@ -121,6 +105,9 @@ typedef struct ui_state
     glyph_info GlyphInfos[256];
     v2 SpriteSheetSize;
     void *GlyphSheetHandle;
+#endif
+    
+    string DefaultFont;
     
     // NOTE(kstandbridge): Transient
     b32 MenuOpen;
@@ -206,7 +193,7 @@ ui_interaction_state
 AddUIInteraction(ui_state *State, rectangle2 Bounds, ui_interaction Interaction);
 
 void
-InitUI(ui_state **State);
+InitUI(ui_state **State, app_assets *Assets);
 
 void
 BeginUI(ui_state *State, app_input *Input, render_group *RenderGroup);
