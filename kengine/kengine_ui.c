@@ -503,7 +503,8 @@ MenuButton_(ui_state *UIState, u32 Index, f32 Scale, string Text, ui_id Id)
         PushRenderCommandRect(UIState->RenderGroup, Bounds, 10.0f, RGBv4(128, 128, 128));
     }
     
-    DrawTextAt(UIState, Bounds, 10.0f, Scale, V4(0, 0, 0, 1), Text);
+    DrawTextAt(UIState, Rectangle2(V2(Bounds.Min.X + 20.0f, Bounds.Min.Y), Bounds.Max), 
+               10.0f, Scale, V4(0, 0, 0, 1), Text);
     
     return Result;
 }
@@ -529,12 +530,12 @@ MenuCheck_(ui_state *UIState, u32 Index, f32 Scale, string Text, b32 *Target, ui
     if(*Target)
     {
         DrawTextAt(UIState, 
-                   Rectangle2(Bounds.Min, V2(Bounds.Min.X + 26.0f, Bounds.Max.Y)),
+                   Rectangle2(Bounds.Min, V2(Bounds.Min.X + 20.0f, Bounds.Max.Y)),
                    10.0f, Scale, V4(0, 0, 0, 1), String("\\u2714"));
     }
     
     DrawTextAt(UIState, 
-               Rectangle2(V2(Bounds.Min.X + 26.0f, Bounds.Min.Y), Bounds.Max), 
+               Rectangle2(V2(Bounds.Min.X + 20.0f, Bounds.Min.Y), Bounds.Max), 
                10.0f, Scale, V4(0, 0, 0, 1), Text);
 }
 
@@ -560,13 +561,25 @@ MenuOption_(ui_state *UIState, u32 Index, f32 Scale, string Text, u32 *Target, u
     if(*Target == Value)
     {
         DrawTextAt(UIState, 
-                   Rectangle2(Bounds.Min, V2(Bounds.Min.X + 26.0f, Bounds.Max.Y)),
+                   Rectangle2(Bounds.Min, V2(Bounds.Min.X + 20.0f, Bounds.Max.Y)),
                    10.0f, Scale, V4(0, 0, 0, 1), String("\\u2714"));
     }
     
     DrawTextAt(UIState, 
-               Rectangle2(V2(Bounds.Min.X + 26.0f, Bounds.Min.Y), Bounds.Max), 
+               Rectangle2(V2(Bounds.Min.X + 20.0f, Bounds.Min.Y), Bounds.Max), 
                10.0f, Scale, V4(0, 0, 0, 1), Text);
+}
+
+inline void
+MenuSplit(ui_state *UIState, u32 Index, f32 Scale)
+{
+    rectangle2 Bounds = GridGetCellBounds(UIState, 0, Index, 0);
+    
+    f32 HalfHeight = (Bounds.Max.Y - Bounds.Min.Y)*0.5f;
+    Bounds.Min.Y += HalfHeight - (1.0f*Scale);
+    Bounds.Max.Y -= HalfHeight + (1.0f*Scale);
+    
+    PushRenderCommandAlternateRectOutline(UIState->RenderGroup, Bounds, 10.0f, Scale * 0.5f, RGBv4(128, 128, 128), RGBv4(255, 255, 255));
 }
 
 inline b32
