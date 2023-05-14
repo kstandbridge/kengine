@@ -112,7 +112,18 @@ EndUI(ui_state *State)
             {
                 if(MouseUp)
                 {
-                    *State->Interaction.Boolean = !(*State->Interaction.Boolean);
+                    b32 *Current = (b32 *)State->Interaction.Target;
+                    *Current = !*Current;
+                    EndInteraction = true;
+                }
+            } break;
+            
+            case UI_Interaction_SetU32:
+            {
+                if(MouseUp)
+                {
+                    u32 *Current = (u32 *)State->Interaction.Target;
+                    *Current = State->Interaction.U32;
                     EndInteraction = true;
                 }
             } break;
@@ -480,16 +491,18 @@ MenuButton_(ui_state *UIState, u32 Index, f32 Scale, string Text, ui_id Id)
         .Target = 0
     };
     
+    if(InteractionsAreEqual(Interaction, UIState->ToExecute))
+    {
+        Result = true;
+    }
+    
     ui_interaction_state InteractionState = AddUIInteraction(UIState, Bounds, Interaction);
     
     if(InteractionState == UIInteractionState_Hot)
     {
-        if(WasPressed(UIState->Input->MouseButtons[MouseButton_Left]))
-        {
-            Result = true;
-        }
         PushRenderCommandRect(UIState->RenderGroup, Bounds, 10.0f, RGBv4(128, 128, 128));
     }
+    
     DrawTextAt(UIState, Bounds, 10.0f, Scale, V4(0, 0, 0, 1), Text);
     
     return Result;
@@ -504,7 +517,7 @@ MenuCheck_(ui_state *UIState, u32 Index, f32 Scale, string Text, b32 *Target, ui
     {
         .Id = Id,
         .Type = UI_Interaction_Boolean,
-        .Boolean = Target
+        .Target = Target
     };
     
     ui_interaction_state InteractionState = AddUIInteraction(UIState, Bounds, Interaction);
@@ -515,7 +528,37 @@ MenuCheck_(ui_state *UIState, u32 Index, f32 Scale, string Text, b32 *Target, ui
     
     if(*Target)
     {
-        // TODO(kstandbridge): support for unicode check 0x2713
+        DrawTextAt(UIState, 
+                   Rectangle2(Bounds.Min, V2(Bounds.Min.X + 26.0f, Bounds.Max.Y)),
+                   10.0f, Scale, V4(0, 0, 0, 1), String("\\u2714"));
+    }
+    
+    DrawTextAt(UIState, 
+               Rectangle2(V2(Bounds.Min.X + 26.0f, Bounds.Min.Y), Bounds.Max), 
+               10.0f, Scale, V4(0, 0, 0, 1), Text);
+}
+
+inline void
+MenuOption_(ui_state *UIState, u32 Index, f32 Scale, string Text, u32 *Target, u32 Value, ui_id Id)
+{
+    rectangle2 Bounds = GridGetCellBounds(UIState, 0, Index, 0);
+    
+    ui_interaction Interaction =
+    {
+        .Id = Id,
+        .Type = UI_Interaction_SetU32,
+        .Target = Target,
+        .U32 = Value
+    };
+    
+    ui_interaction_state InteractionState = AddUIInteraction(UIState, Bounds, Interaction);
+    if(InteractionState == UIInteractionState_Hot)
+    {
+        PushRenderCommandRect(UIState->RenderGroup, Bounds, 10.0f, RGBv4(128, 128, 128));
+    }
+    
+    if(*Target == Value)
+    {
         DrawTextAt(UIState, 
                    Rectangle2(Bounds.Min, V2(Bounds.Min.X + 26.0f, Bounds.Max.Y)),
                    10.0f, Scale, V4(0, 0, 0, 1), String("\\u2714"));

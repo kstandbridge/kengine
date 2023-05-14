@@ -40,6 +40,7 @@ typedef enum ui_interaction_type
     UI_Interaction_ImmediateButton,
     
     UI_Interaction_Boolean,
+    UI_Interaction_SetU32,
     
 } ui_interaction_type;
 
@@ -52,10 +53,7 @@ typedef struct ui_interaction
     union
     {
         void *Generic;
-        
-        b32 *Boolean;
-        
-        v2 *P;
+        u32 U32;
     };
 } ui_interaction;
 
@@ -238,6 +236,10 @@ MenuButton_(ui_state *UIState, u32 Index, f32 Scale, string Text, ui_id Id);
 #define MenuCheck(UIState, Index, Scale, Text, Target) MenuCheck_(UIState, Index, Scale, Text, Target, GenerateUIId(0))
 inline void
 MenuCheck_(ui_state *UIState, u32 Index, f32 Scale, string Text, b32 *Target, ui_id Id);
+
+#define MenuOption(UIState, Index, Scale, Text, Target, Value) MenuOption_(UIState, Index, Scale, Text, (u32 *)Target, Value, GenerateUIId(0))
+inline void
+MenuOption_(ui_state *UIState, u32 Index, f32 Scale, string Text, u32 *Target, u32 Value, ui_id Id);
 
 #define BeginMenu(UIState, Bounds, Scale, Text, Entries, Width)  \
 BeginMenu_(UIState, Bounds, Scale, Text, Entries, Width, GenerateUIId(0))
