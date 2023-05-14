@@ -491,15 +491,15 @@ MenuButton_(ui_state *UIState, u32 Index, f32 Scale, string Text, ui_id Id)
         .Target = 0
     };
     
-    if(InteractionsAreEqual(Interaction, UIState->ToExecute))
-    {
-        Result = true;
-    }
-    
     ui_interaction_state InteractionState = AddUIInteraction(UIState, Bounds, Interaction);
     
     if(InteractionState == UIInteractionState_Hot)
     {
+        if(WasPressed(UIState->Input->MouseButtons[MouseButton_Left]))
+        {
+            Result = true;
+        }
+        
         PushRenderCommandRect(UIState->RenderGroup, Bounds, 10.0f, RGBv4(128, 128, 128));
     }
     

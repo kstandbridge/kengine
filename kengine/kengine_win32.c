@@ -2474,3 +2474,9 @@ Win32SetWindowSize(v2 Size)
     
     return Result;
 }
+
+void
+Win32ExitApp(u32 ExitCode)
+{
+    PostQuitMessage(ExitCode);
+}

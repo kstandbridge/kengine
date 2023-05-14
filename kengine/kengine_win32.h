@@ -218,6 +218,10 @@ Win32SetClipboardText(char *Buffer, s64 Length);
 b32
 Win32SetWindowSize(v2 Size);
 
+#define PlatformExitApp(ExitCode) Win32ExitApp(ExitCode);
+void
+Win32ExitApp(u32 ExitCode);
+
 // NOTE(kstandbridge): UxTheme.dll
 typedef enum IMMERSIVE_HC_CACHE_MODE
 {
