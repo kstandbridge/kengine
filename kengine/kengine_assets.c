@@ -144,13 +144,15 @@ GenerateGlyphSpriteSheetThread(memory_arena *TransientArena, glyph_sprite_sheet 
 inline font_asset *
 GetFontInfo(app_assets *Assets, string Name)
 {
-    font_asset *Result = Assets->Font;
     
 #if KENGINE_INTERNAL
     Assert(Assets->IsInitialized);
 #endif
     
+    
     BeginTicketMutex(&Assets->AssetLock);
+    
+    font_asset *Result = Assets->Font;
     
     if(!Result)
     {
