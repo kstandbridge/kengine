@@ -93,7 +93,7 @@ Win32GetProcessId();
 void
 Win32ZipDirectory(string SourceDirectory, string DestinationZip);
 
-#define PlatformGetSystemTimestamp() Win32GetSystemTimestamp();
+#define PlatformGetSystemTimestamp() Win32GetSystemTimestamp()
 u64
 Win32GetSystemTimestamp();
 
