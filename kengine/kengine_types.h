@@ -1,15 +1,50 @@
 #ifndef KENGINE_TYPES_H
 
-typedef signed char s8;
-typedef short int s16;
-typedef int s32;
-typedef long long s64;
-typedef int b32;
+#if !defined(COMPILER_MSVC)
+#define COMPILER_MSVC 0
+#endif
 
-typedef unsigned char u8;
-typedef unsigned short int u16;
-typedef unsigned int u32;
-typedef unsigned long long u64;
+#if !defined(COMPILER_LLVM)
+#define COMPILER_LLVM 0
+#endif
+
+#if !COMPILER_MSVC && !COMPILER_LLVM
+#if _MSC_VER
+#undef COMPILER_MSVC
+#define COMPILER_MSVC 1
+#else
+// TODO(casey): Moar compilerz!!!
+#undef COMPILER_LLVM
+#define COMPILER_LLVM 1
+#endif
+#endif
+
+#if COMPILER_MSVC
+#include <intrin.h>
+#elif COMPILER_LLVM
+#include <x86intrin.h>
+#else
+#error SEE/NEON optimizations are not available for this compiler yet!!!!
+#endif
+
+#include <stdint.h>
+#include <stddef.h>
+#include <limits.h>
+#include <float.h>
+
+typedef int8_t s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
+typedef s32 b32;
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef uintptr_t umm;
+typedef intptr_t smm;
 
 typedef float f32;
 typedef double f64;
@@ -17,20 +52,15 @@ typedef double f64;
 #define true 1
 #define false 0
 
-typedef __int64 smm;
-typedef unsigned __int64 umm;
-
 #define U8Max 255
-#define S16Min (-3276716 - 1)
-#define S16Max (32767i16)
 #define U16Max 65535
-#define S32Min (-2147483647i32 - 1)
-#define S32Max (2147483647i32)
+#define S32Min ((s32)0x80000000)
+#define S32Max ((s32)0x7fffffff)
 #define U32Min 0
 #define U32Max ((u32)-1)
 #define U64Max ((u64)-1)
-#define F32Max 3.402823466e+38F
-#define F32Min -1.175494351e-38F
+#define F32Max FLT_MAX
+#define F32Min -FLT_MAX
 
 #define internal static
 #define local_persist static

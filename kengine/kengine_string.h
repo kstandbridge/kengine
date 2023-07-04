@@ -48,7 +48,7 @@ typedef struct format_string_state
     char *At;
 } format_string_state;
 
-inline format_string_state
+format_string_state
 BeginFormatString()
 {
     format_string_state Result = {0};
