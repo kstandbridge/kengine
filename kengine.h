@@ -1,4 +1,8 @@
-#ifndef KENGINE_LINUX_H
+#ifndef KENGINE_H
+
+#ifndef VERSION
+#define VERSION 0
+#endif //VERSION
 
 #ifdef KENGINE_IMPLEMENTATION
     #undef KENGINE_IMPLEMENTATION
@@ -25,7 +29,6 @@
 #include "kengine/kengine_types.h"
 #include "kengine/kengine_memory.h"
 #include "kengine/kengine_generated.h"
-#include "kengine/kengine_log.h"
 #include "kengine/kengine_math.h"
 #include "kengine/kengine_string.h"
 
@@ -38,7 +41,6 @@
 #if KENGINE_IMPLEMENTATION
     #include "kengine/kengine_memory.c"
     #include "kengine/kengine_string.c"
-
     #if KENGINE_WIN32
         #include "kengine/kengine_win32.c"
     #elif KENGINE_LINUX
@@ -47,5 +49,5 @@
 
 #endif
 
-#define KENGINE_LINUX_H
-#endif // KENGINE_LINUX_H
+#define KENGINE_H
+#endif // KENGINE_H
