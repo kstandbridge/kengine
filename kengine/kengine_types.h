@@ -13,7 +13,6 @@
 #undef COMPILER_MSVC
 #define COMPILER_MSVC 1
 #else
-// TODO(casey): Moar compilerz!!!
 #undef COMPILER_LLVM
 #define COMPILER_LLVM 1
 #endif

@@ -110,7 +110,10 @@ inline u32
 GetThreadID()
 {
     u32 ThreadID;
-#if defined(__i386__)
+#if COMPILER_MSVC
+    u8 *ThreadLocalStorage = (u8 *)__readgsqword(0x30);
+    ThreadID = *(u32 *)(ThreadLocalStorage + 0x48);
+#elif defined(__i386__)
     asm("mov %%gs:0x08,%0" : "=r"(ThreadID));
 #elif defined(__x86_64__)
     asm("mov %%fs:0x10,%0" : "=r"(ThreadID));
