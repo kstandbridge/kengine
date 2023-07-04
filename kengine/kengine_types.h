@@ -83,9 +83,13 @@ typedef double f64;
 #define IsPow2(Value) ((Value & ~(Value - 1)) == Value)
 
 #if KENGINE_SLOW
-#define Assert(Expression) if(!(Expression)) {__debugbreak();}
+    #if KENGINE_WIN32
+        #define Assert(Expression) if(!(Expression)) {__debugbreak();}
+    #elif KENGINE_LINUX
+        #define Assert(Expression) if(!(Expression)) {__builtin_trap();}
+    #endif
 #else
-#define Assert(...)
+    #define Assert(...)
 #endif
 
 #define InvalidCodePath Assert(!"InvalidCodePath")

@@ -648,13 +648,9 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                             } break;
                             
                             case FormatStringToken_Unknown:
-                            default:
-                            {
 #if KENGINE_INTERNAL
-                                __debugbreak();
+                            InvalidDefaultCase;                          
 #endif
-                            } break;
-                            
                         }
                     }
                     

@@ -73,7 +73,7 @@ LinuxAllocateMemory(umm Size, u64 Flags)
     Assert(Block);
     Block->Block.Base = (u8 *)Block + BaseOffset;
     Assert(Block->Block.Used == 0);
-    Assert(Block->Block.ArenaPrev == 0);
+    Assert(Block->Block.Prev == 0);
     
     if(Flags & (PlatformMemoryBlockFlag_UnderflowCheck|PlatformMemoryBlockFlag_OverflowCheck))
     {
