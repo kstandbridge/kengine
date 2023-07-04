@@ -6,21 +6,17 @@
 #endif
 
 #if !defined(KEGNINE_WIN32)
-    #define KEGINE_WIN32 0
+    #define KEGNINE_WIN32 0
+#else
+    #undef KENGINE_WIN32
+    #define KENGINE_WIN32 1
 #endif
 
-#if !defined(KEGNINE_LINUX)
-    #define KEGINE_LINUX 0
-#endif
-
-#if !KEGNINE_WIN32 && !KEGNINE_LINUX
-    #if _MSC_VER
-        #undef KENGINE_WIN32
-        #define KENGINE_WIN32 1
-    #else
-        #undef KEGNINE_LINUX
-        #define KEGNINE_LINUX 1
-    #endif
+#if !defined(KENGINE_LINUX)
+    #define KENGINE_LINUX 0
+#else
+    #undef KENGINE_LINUX
+    #define KENGINE_LINUX 1
 #endif
 
 #include <stdarg.h>
@@ -36,7 +32,7 @@
 #if KENGINE_WIN32
     #include "kengine/kengine_win32.h"
 #elif KENGINE_LINUX
-    #include "kengine_linux.h"
+    #include "kengine/kengine_linux.h"
 #endif
 
 #if KENGINE_IMPLEMENTATION
@@ -46,7 +42,7 @@
     #if KENGINE_WIN32
         #include "kengine/kengine_win32.c"
     #elif KENGINE_LINUX
-        #include "kengine_linux.c"
+        #include "kengine/kengine_linux.c"
     #endif
 
 #endif
