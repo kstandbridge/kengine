@@ -1,4 +1,3 @@
-
 internal token
 GetToken_(tokenizer *Tokenizer)
 {
@@ -167,7 +166,7 @@ TokenError_(tokenizer *Tokenizer, token OnToken, char *Format, va_list ArgList)
 {
     PlatformConsoleOut("%S(%d): Column(%d): ", OnToken.FileName, OnToken.LineNumber, OnToken.ColumnNumber);
     PlatformConsoleOut_(Format, ArgList);
-    PlatformConsoleOut("\n");
+    PlatformConsoleOut("\n", 0);
     
     Tokenizer->HasErrors = true;
 }

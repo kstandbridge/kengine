@@ -94,7 +94,7 @@ global u64 GlobalKArray[80] = {
 #endif
 
 
-inline sha512_state
+internal sha512_state
 Sha512Create()
 {
     sha512_state Result;

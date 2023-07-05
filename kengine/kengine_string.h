@@ -62,7 +62,7 @@ EndFormatString(format_string_state *State, memory_arena *Arena);
 void
 AppendFormatString_(format_string_state *State, char *Format, va_list ArgList);
 
-inline void
+internal void
 AppendFormatString(format_string_state *State, char *Format, ...)
 {
     va_list ArgList;
@@ -72,7 +72,7 @@ AppendFormatString(format_string_state *State, char *Format, ...)
     va_end(ArgList);
 }
 
-inline string
+internal string
 FormatString(memory_arena *Arena, char *Format, ...)
 {
     format_string_state StringState = BeginFormatString();
@@ -132,7 +132,7 @@ CToUppercase(char Char)
     return(Result);
 }
 
-inline void
+internal void
 ToUpperCamelCase(string *Text)
 {
     u32 ToSkip = 0;
@@ -185,7 +185,7 @@ CToLowercase(char Char)
     return(Result);
 }
 
-inline s32
+internal s32
 StringComparisonLowercase(string A, string B)
 {
     u32 IndexA = 0;

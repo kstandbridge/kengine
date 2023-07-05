@@ -39,7 +39,7 @@ typedef enum token_type
     Token_EndOfStream
 } token_type;
 
-inline string
+internal string
 GetTokenTypeName(token_type Type)
 {
     string Result = {0};
@@ -115,7 +115,7 @@ typedef struct token
     
 } token;
 
-inline void
+internal void
 TokenizerAdvance(tokenizer *Tokenizer, u32 Count)
 {
     Tokenizer->ColumnNumber += Count;
@@ -156,7 +156,7 @@ PeekIdentifierToken(tokenizer *Tokenizer, string Match);
 token
 PeekToken(tokenizer *Tokenizer);
 
-inline b32
+internal b32
 Parsing(tokenizer *Tokenizer)
 {
     b32 Result = (!Tokenizer->HasErrors && 

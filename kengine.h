@@ -41,6 +41,11 @@
 #include "kengine/kengine_generated.h"
 #include "kengine/kengine_math.h"
 #include "kengine/kengine_string.h"
+#include "kengine/kengine_random.h"
+#include "kengine/kengine_sha512.h"
+#include "kengine/kengine_eddsa.h"
+#include "kengine/kengine_tokenizer.h"
+#include "kengine/kengine_xml_parser.h"
 
 #if KENGINE_WIN32
     #include "kengine/kengine_win32.h"
@@ -51,6 +56,10 @@
 #if KENGINE_IMPLEMENTATION
     #include "kengine/kengine_memory.c"
     #include "kengine/kengine_string.c"
+    #include "kengine/kengine_sha512.c"
+    #include "kengine/kengine_eddsa.c"
+    #include "kengine/kengine_tokenizer.c"
+
     #if KENGINE_WIN32
         #include "kengine/kengine_win32.c"
     #elif KENGINE_LINUX

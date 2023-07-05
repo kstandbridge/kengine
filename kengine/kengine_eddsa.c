@@ -1430,7 +1430,7 @@ global ed25519_group_element_precompleted GlobalEd25519PrecomputedBase[32][8] = 
     },
 };
 
-inline u64 
+internal u64 
 Ed25519ScalarLoad3(const u8 *A) 
 {
     u64 Result;
@@ -1442,7 +1442,7 @@ Ed25519ScalarLoad3(const u8 *A)
     return Result;
 }
 
-inline u64 
+internal u64 
 Ed25519ScalarLoad4(const u8 *A) 
 {
     u64 Result;
@@ -2334,7 +2334,7 @@ Ed25519ScalarMultiplyAdd(u8 *Output, u8 *A, u8 *B, u8 *C)
     Output[31] = (u8) (Output11 >> 17);
 }
 
-inline void
+internal void
 Ed25519FieldElementSet0(ed25519_field_element FieldElement)
 {
     FieldElement[0] = 0;
@@ -2349,7 +2349,7 @@ Ed25519FieldElementSet0(ed25519_field_element FieldElement)
     FieldElement[9] = 0;
 }
 
-inline void
+internal void
 Ed25519FieldElementSet1(ed25519_field_element FieldElement)
 {
     FieldElement[0] = 1;
@@ -3452,7 +3452,7 @@ Ed25519FieldElementIsNonzero(ed25519_field_element A)
     return Result;
 }
 
-inline void
+internal void
 Ed25519GroupElementExtendedSet0(ed25519_group_element_extended *Extended)
 {
     Ed25519FieldElementSet0(Extended->X);
@@ -3461,7 +3461,7 @@ Ed25519GroupElementExtendedSet0(ed25519_group_element_extended *Extended)
     Ed25519FieldElementSet0(Extended->T);
 }
 
-inline void
+internal void
 Ed25519GroupElementProjectiveSet0(ed25519_group_element_projective *Projective)
 {
     Ed25519FieldElementSet0(Projective->X);
@@ -3469,7 +3469,7 @@ Ed25519GroupElementProjectiveSet0(ed25519_group_element_projective *Projective)
     Ed25519FieldElementSet1(Projective->Z);
 }
 
-inline u8
+internal u8
 Ed25519Equal(s8 A, s8 B)
 {
     u8 uA = A;
@@ -3481,7 +3481,7 @@ Ed25519Equal(s8 A, s8 B)
     return (u8) Y;
 }
 
-inline void
+internal void
 Ed25519PrecompletedMove(ed25519_group_element_precompleted *Precompleted, ed25519_group_element_precompleted *Precomputed, u8 B)
 {
     Ed25519FieldElementMove(Precompleted->YPlusX, Precomputed->YPlusX, B);
@@ -3489,7 +3489,7 @@ Ed25519PrecompletedMove(ed25519_group_element_precompleted *Precompleted, ed2551
     Ed25519FieldElementMove(Precompleted->XY2D, Precomputed->XY2D, B);
 }
 
-inline u8 
+internal u8 
 Ed25519Negative(s8 B) 
 {
     u64 Result = B; /* 18446744073709551361..18446744073709551615: yes; 0..255: no */
@@ -3521,7 +3521,7 @@ Ed25519GroupElementSelect(ed25519_group_element_precompleted *Precompleted, u32 
 }
 
 
-inline void
+internal void
 Ed25519GroupElementAdd(ed25519_group_element_completed *Completed, 
                        ed25519_group_element_extended *Extended,
                        ed25519_group_element_cached *Cached)
@@ -3540,7 +3540,7 @@ Ed25519GroupElementAdd(ed25519_group_element_completed *Completed,
     Ed25519FieldElementSubtract(Completed->T, t0, Completed->T);
 }
 
-inline void
+internal void
 Ed25519GroupElementSubtract(ed25519_group_element_completed *Completed, 
                             ed25519_group_element_extended *Extended,
                             ed25519_group_element_cached *Cached)
@@ -3560,7 +3560,7 @@ Ed25519GroupElementSubtract(ed25519_group_element_completed *Completed,
     Ed25519FieldElementAdd(Completed->T, t0, Completed->T);
 }
 
-inline void
+internal void
 Ed25519GroupElementMultiplyAdd(ed25519_group_element_completed *Completed, 
                                ed25519_group_element_extended *Extended,
                                ed25519_group_element_precompleted *Precompleted)
@@ -3578,7 +3578,7 @@ Ed25519GroupElementMultiplyAdd(ed25519_group_element_completed *Completed,
     Ed25519FieldElementSubtract(Completed->T, t0, Completed->T);
 }
 
-inline void
+internal void
 Ed25519GroupElementMultiplySubtract(ed25519_group_element_completed *Completed, 
                                     ed25519_group_element_extended *Extended,
                                     ed25519_group_element_precompleted *Precompleted)
@@ -3597,7 +3597,7 @@ Ed25519GroupElementMultiplySubtract(ed25519_group_element_completed *Completed,
     Ed25519FieldElementAdd(Completed->T, t0, Completed->T);
 }
 
-inline b32
+internal b32
 Ed25519FieldElementIsNegative(ed25519_field_element A)
 {
     u8 Output[32];
@@ -3608,7 +3608,7 @@ Ed25519FieldElementIsNegative(ed25519_field_element A)
     return Result;
 }
 
-inline void
+internal void
 Ed25519FieldElementFromBytes(ed25519_field_element A, u8 *Bytes)
 {
     s64 A0 = Ed25519ScalarLoad4(Bytes);
@@ -3794,7 +3794,7 @@ Ed25519FieldElementPow(ed25519_field_element Output, ed25519_field_element A)
     Ed25519FieldElementMultiply(Output, t0, A);
 }
 
-inline void
+internal void
 Ed25519GroupElementCompletedToExtended(ed25519_group_element_extended *Extended, ed25519_group_element_completed *Completed)
 {
     Ed25519FieldElementMultiply(Extended->X, Completed->X, Completed->T);
@@ -3803,7 +3803,7 @@ Ed25519GroupElementCompletedToExtended(ed25519_group_element_extended *Extended,
     Ed25519FieldElementMultiply(Extended->T, Completed->X, Completed->Y);
 }
 
-inline void
+internal void
 Ed25519GroupElementCompletedToProjective(ed25519_group_element_projective *Projective, ed25519_group_element_completed *Completed)
 {
     Ed25519FieldElementMultiply(Projective->X, Completed->X, Completed->T);
@@ -3811,7 +3811,7 @@ Ed25519GroupElementCompletedToProjective(ed25519_group_element_projective *Proje
     Ed25519FieldElementMultiply(Projective->Z, Completed->Z, Completed->T);
 }
 
-inline void
+internal void
 Ed25519GroupElementExtendedToProjective(ed25519_group_element_projective *Projective, ed25519_group_element_extended *Extended)
 {
     Ed25519FieldElementCopy(Projective->X, Extended->X);
@@ -3819,7 +3819,7 @@ Ed25519GroupElementExtendedToProjective(ed25519_group_element_projective *Projec
     Ed25519FieldElementCopy(Projective->Z, Extended->Z);
 }
 
-inline void
+internal void
 Ed25519GroupElementProjectiveDouble(ed25519_group_element_completed *Completed, ed25519_group_element_projective *Projective)
 {
     ed25519_field_element t0;
@@ -3835,7 +3835,7 @@ Ed25519GroupElementProjectiveDouble(ed25519_group_element_completed *Completed, 
     Ed25519FieldElementSubtract(Completed->T, Completed->T, Completed->Z);
 }
 
-inline void
+internal void
 Ed25519GroupElementExtendedDouble(ed25519_group_element_completed *Completed, ed25519_group_element_extended *Extended)
 {
     ed25519_group_element_projective Projective;
@@ -3843,7 +3843,7 @@ Ed25519GroupElementExtendedDouble(ed25519_group_element_completed *Completed, ed
     Ed25519GroupElementProjectiveDouble(Completed, &Projective);
 }
 
-inline void
+internal void
 Ed25519GroupElementExtendedToCached(ed25519_group_element_cached *Cached, ed25519_group_element_extended *Extended)
 {
     ed25519_field_element D2 = 
