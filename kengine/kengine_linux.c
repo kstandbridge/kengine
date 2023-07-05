@@ -34,6 +34,7 @@ typedef struct linux_memory_block
     platform_memory_block Block;
     struct linux_memory_block *Prev;
     struct linux_memory_block *Next;
+    u64 Padding;
 } linux_memory_block;
 
 typedef struct linux_state
@@ -47,6 +48,7 @@ global linux_state GlobalLinuxState;
 platform_memory_block *
 LinuxAllocateMemory(umm Size, u64 Flags)
 {
+    // NOTE(kstandbridge): Cache align
     Assert(sizeof(linux_memory_block) == 64);
     
     umm PageSize = sysconf(_SC_PAGESIZE);

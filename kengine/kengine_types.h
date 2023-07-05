@@ -110,7 +110,7 @@ typedef struct ticket_mutex
     u64 volatile Serving;
 } ticket_mutex;
 
-inline void
+internal void
 BeginTicketMutex(ticket_mutex *Mutex)
 {
     u64 Ticket = AtomicAddU64(&Mutex->Ticket, 1);

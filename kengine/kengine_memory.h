@@ -75,7 +75,7 @@ void *
 PushSize_(memory_arena *Arena, umm SizeInit, arena_push_params Params);
 
 #define BootstrapPushStruct(type, Member) (type *)BootstrapPushsize_(sizeof(type), OffsetOf(type, Member), DefaultArenaPushParams())
-inline void *
+internal void *
 BootstrapPushsize_(umm StructSize, umm OffsetToArena, arena_push_params Params)
 {
     memory_arena Arena = {0};
