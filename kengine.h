@@ -14,6 +14,11 @@
     #define KENGINE_CONSOLE 1
 #endif
 
+#ifdef KENGINE_TEST
+    #undef KENGINE_TEST
+    #define KENGINE_TEST 1
+#endif
+
 #if !defined(KEGNINE_WIN32)
     #define KEGNINE_WIN32 0
 #else
@@ -56,41 +61,11 @@
 
 #if KENGINE_CONSOLE
 
-typedef struct app_memory
-{
-    struct app_state *AppState;
+#include "kengine/kengine_console.c"
 
-#if KENGINE_CONSOLE
-    u32 ArgCount;
-    char **Args;
-#endif
+#elif KENGINE_TEST
 
-} app_memory;
-global app_memory GlobalAppMemory;
-
-s32
-MainLoop(app_memory *AppMemory);
-
-s32
-main(u32 ArgCount, char *Args[])
-{
-    s32 Result = 0;
-
-    GlobalAppMemory.ArgCount = ArgCount - 1;
-    GlobalAppMemory.Args = Args + 1;
-
-#if KENGINE_WIN32
-    GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
-    GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
-#elif KENGINE_LINUX
-    GlobalLinuxState.MemorySentinel.Prev = &GlobalLinuxState.MemorySentinel;
-    GlobalLinuxState.MemorySentinel.Next = &GlobalLinuxState.MemorySentinel;
-#endif
-
-    Result = MainLoop(&GlobalAppMemory);
-
-    return Result;
-}
+#include "kengine/kengine_test.c"
 
 #endif
 
