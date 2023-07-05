@@ -80,7 +80,8 @@ main(u32 ArgCount, char *Args[])
     GlobalAppMemory.Args = Args + 1;
 
 #if KENGINE_WIN32
-    #error TODO(kstandbridge): setup memory sentinel
+    GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
+    GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
 #elif KENGINE_LINUX
     GlobalLinuxState.MemorySentinel.Prev = &GlobalLinuxState.MemorySentinel;
     GlobalLinuxState.MemorySentinel.Next = &GlobalLinuxState.MemorySentinel;
