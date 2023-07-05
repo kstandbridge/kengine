@@ -450,7 +450,6 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                 {                
                     b32 ParsingParam = true;
                     u32 IntegerLength = 4;
-                    u32 FloatLength = 8;
                     s32 Precision = 6;
                     b32 PadWithZeros = false;
                     s32 Width = 0;
@@ -527,7 +526,6 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                             case FormatStringToken_DecimalFloatingPoint:
                             {
                                 ParsingParam = false;
-                                FloatLength; // NOTE(kstandbridge): local variable is initialized but not referenced.
                                 f64 Value = ReadVarArgFloat(FloatLength, ArgList);
                                 FormatStringParseF64(State, Value, Width, Precision, PadWithZeros);
                             } break;

@@ -14,7 +14,7 @@ s32
 MainLoop(app_memory *AppMemory);
 
 s32
-main(u32 ArgCount, char *Args[])
+main(int ArgCount, char *Args[])
 {
     s32 Result = 0;
 

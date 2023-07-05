@@ -107,7 +107,7 @@ void
 RunAllTests(memory_arena *Arena);
 
 s32
-main(u32 ArgCount, char *Args[])
+main(int ArgCount, char *Args[])
 {
     s32 Result = 0;
 

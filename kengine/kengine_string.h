@@ -501,8 +501,6 @@ PushStringToStringList(string_list **HeadRef, memory_arena *Arena, string Text)
 internal b32
 StringListMatch(void *Context, string_list *A, string_list *B)
 {
-    Context;
-    
     b32 Result = (A && B);
     
     if(Result)
