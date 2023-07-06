@@ -127,3 +127,56 @@ Win32DeallocateMemory(platform_memory_block *Block)
         InvalidCodePath;
     }
 }
+
+b32
+Win32FileExists(string Path)
+{
+    b32 Result;
+    
+    char CPath[MAX_PATH];
+    StringToCString(Path, MAX_PATH, CPath);
+    
+    u32 Attributes = GetFileAttributesA(CPath);
+    
+    Result = ((Attributes != INVALID_FILE_ATTRIBUTES) && 
+              !(Attributes & FILE_ATTRIBUTE_DIRECTORY));
+    
+    return Result;
+}
+
+string
+Win32ReadEntireFile(memory_arena *Arena, string FilePath)
+{
+    string Result = {0};
+    
+    char CFilePath[MAX_PATH];
+    StringToCString(FilePath, MAX_PATH, CFilePath);
+    
+    HANDLE FileHandle = CreateFileA(CFilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    Assert(FileHandle != INVALID_HANDLE_VALUE);
+    
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER FileSize;
+        b32 ReadResult = GetFileSizeEx(FileHandle, &FileSize);
+        Assert(ReadResult);
+        if(ReadResult)
+        {    
+            Result.Size = FileSize.QuadPart;
+            Result.Data = PushSize(Arena, Result.Size);
+            Assert(Result.Data);
+            
+            if(Result.Data)
+            {
+                u32 BytesRead;
+                ReadResult = ReadFile(FileHandle, Result.Data, (u32)Result.Size, (LPDWORD)&BytesRead, 0);
+                Assert(ReadResult);
+                Assert(BytesRead == Result.Size);
+            }
+        }
+        
+        CloseHandle(FileHandle);
+    }
+    
+    return Result;
+}

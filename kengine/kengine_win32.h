@@ -16,5 +16,13 @@ Win32AllocateMemory(umm Size, u64 Flags);
 void
 Win32DeallocateMemory(platform_memory_block *Block);
 
+#define PlatformFileExists(Path) Win32FileExists(Path)
+b32
+Win32FileExists(string Path);
+
+#define PlatformReadEntireFile(Arena, FilePath) Win32ReadEntireFile(Arena, FilePath)
+string
+Win32ReadEntireFile(memory_arena *Arena, string FilePath);
+
 #define KENGINE_WIN32_H
 #endif // KENGINE_WIN32_H
