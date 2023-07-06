@@ -104,7 +104,7 @@ GenerateLinkedList(c_struct Struct)
     string Name = Struct.Name;
     string Type = Struct.Type;
     
-    PlatformConsoleOut("\ninline u32\nGet%SCount(%S *Head)\n", Name, Type);
+    PlatformConsoleOut("\ninternal u32\nGet%SCount(%S *Head)\n", Name, Type);
     PlatformConsoleOut("{\n");
     PlatformConsoleOut("    u32 Result = 0;\n\n");
     PlatformConsoleOut("    while(Head != 0)\n");
@@ -116,7 +116,7 @@ GenerateLinkedList(c_struct Struct)
     PlatformConsoleOut("}\n");
     
     
-    PlatformConsoleOut("\ninline %S *\nGet%SByIndex(%S *Head, s32 Index)\n", Type, Name, Type);
+    PlatformConsoleOut("\ninternal %S *\nGet%SByIndex(%S *Head, s32 Index)\n", Type, Name, Type);
     PlatformConsoleOut("{\n");
     PlatformConsoleOut("        %S *Result = Head;\n\n", Type);
     PlatformConsoleOut("        if(Result != 0)\n");
@@ -130,7 +130,7 @@ GenerateLinkedList(c_struct Struct)
     PlatformConsoleOut("    return Result;\n");
     PlatformConsoleOut("}\n");
     
-    PlatformConsoleOut("\ninline s32\nGetIndexOf%S(%S *Head, %S *%S)\n", Name, Type, Type, Name);
+    PlatformConsoleOut("\ninternal s32\nGetIndexOf%S(%S *Head, %S *%S)\n", Name, Type, Type, Name);
     PlatformConsoleOut("{\n");
     PlatformConsoleOut("    s32 Result = -1;\n\n");
     PlatformConsoleOut("    for(s32 Index = 0;\n");
@@ -148,7 +148,7 @@ GenerateLinkedList(c_struct Struct)
     
     PlatformConsoleOut("\ntypedef b32 %S_predicate(void *Context, %S *A, %S *B);\n", Type, Type, Type);
     
-    PlatformConsoleOut("\ninline %S *\nGet%S(%S *Head, %S_predicate *Predicate, void *Context, %S *Match)\n", Type, Name, Type, Type, Type);
+    PlatformConsoleOut("\ninternal %S *\nGet%S(%S *Head, %S_predicate *Predicate, void *Context, %S *Match)\n", Type, Name, Type, Type, Type);
     PlatformConsoleOut("{\n");
     PlatformConsoleOut("    %S *Result = 0;\n\n", Type);
     PlatformConsoleOut("    while(Head)\n");
@@ -166,7 +166,7 @@ GenerateLinkedList(c_struct Struct)
     PlatformConsoleOut("    return Result;\n");
     PlatformConsoleOut("}\n");
     
-    PlatformConsoleOut("\ninline %S *\nGet%STail(%S *Head)\n", Type, Name, Type);
+    PlatformConsoleOut("\ninternal %S *\nGet%STail(%S *Head)\n", Type, Name, Type);
     PlatformConsoleOut("{\n");
     PlatformConsoleOut("    %S *Result = Head;\n\n", Type);
     PlatformConsoleOut("    if(Result != 0)\n");
@@ -179,7 +179,7 @@ GenerateLinkedList(c_struct Struct)
     PlatformConsoleOut("    return Result;\n");
     PlatformConsoleOut("}\n");
     
-    PlatformConsoleOut("\ninline %S *\nPush%S(%S **HeadRef, memory_arena *Arena)\n", Type, Name, Type);
+    PlatformConsoleOut("\ninternal %S *\nPush%S(%S **HeadRef, memory_arena *Arena)\n", Type, Name, Type);
     PlatformConsoleOut("{\n");
     PlatformConsoleOut("    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
     PlatformConsoleOut("    Result->Next = *HeadRef;\n");
@@ -187,7 +187,7 @@ GenerateLinkedList(c_struct Struct)
     PlatformConsoleOut("    return Result;\n");
     PlatformConsoleOut("}\n");
     
-    PlatformConsoleOut("\ninline %S *\nPushback%S(%S **HeadRef, memory_arena *Arena)\n", Type, Name, Type);
+    PlatformConsoleOut("\ninternal %S *\nPushback%S(%S **HeadRef, memory_arena *Arena)\n", Type, Name, Type);
     PlatformConsoleOut("{\n");
     PlatformConsoleOut("    %S *Result = PushStruct(Arena, %S);\n\n", Type, Type);
     PlatformConsoleOut("    Result->Next = 0;\n");
@@ -203,7 +203,7 @@ GenerateLinkedList(c_struct Struct)
     PlatformConsoleOut("    return Result;\n");
     PlatformConsoleOut("}\n");
     
-    PlatformConsoleOut("\ninline %S *\n%SMergeSort_(%S *Front, %S *Back, %S_predicate *Predicate, void *Context, sort_type SortType)\n", 
+    PlatformConsoleOut("\ninternal %S *\n%SMergeSort_(%S *Front, %S *Back, %S_predicate *Predicate, void *Context, sort_type SortType)\n", 
                        Type, Name, Type, Type, Type);
     PlatformConsoleOut("{\n");
     PlatformConsoleOut("    %S *Result = 0;\n", Type);
@@ -241,7 +241,7 @@ GenerateLinkedList(c_struct Struct)
     PlatformConsoleOut("}\n");
     
     
-    PlatformConsoleOut("\ninline void\n%SFrontBackSplit(%S *Head, %S **FrontRef, %S **BackRef)\n", Name, Type, Type);
+    PlatformConsoleOut("\ninternal void\n%SFrontBackSplit(%S *Head, %S **FrontRef, %S **BackRef)\n", Name, Type, Type, Type);
     PlatformConsoleOut("{\n");
     PlatformConsoleOut("    %S *Fast;\n", Type);
     PlatformConsoleOut("    %S *Slow;\n", Type);
@@ -262,7 +262,7 @@ GenerateLinkedList(c_struct Struct)
     PlatformConsoleOut("}\n");
     
     
-    PlatformConsoleOut("\ninline void\n%SMergeSort(%S **HeadRef, %S_predicate *Predicate, void *Context, sort_type SortType)\n", Name, Type, Type);
+    PlatformConsoleOut("\ninternal void\n%SMergeSort(%S **HeadRef, %S_predicate *Predicate, void *Context, sort_type SortType)\n", Name, Type, Type);
     PlatformConsoleOut("{\n");
     PlatformConsoleOut("    %S *Head = *HeadRef;\n\n", Type);
     PlatformConsoleOut("    if((Head!= 0) &&\n");

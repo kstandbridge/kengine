@@ -3,7 +3,7 @@
 
 // kengine_types.h
 
-inline u32
+internal u32
 GetStringListCount(string_list *Head)
 {
     u32 Result = 0;
@@ -17,7 +17,7 @@ GetStringListCount(string_list *Head)
     return Result;
 }
 
-inline string_list *
+internal string_list *
 GetStringListByIndex(string_list *Head, s32 Index)
 {
         string_list *Result = Head;
@@ -34,7 +34,7 @@ GetStringListByIndex(string_list *Head, s32 Index)
     return Result;
 }
 
-inline s32
+internal s32
 GetIndexOfStringList(string_list *Head, string_list *StringList)
 {
     s32 Result = -1;
@@ -55,7 +55,7 @@ GetIndexOfStringList(string_list *Head, string_list *StringList)
 
 typedef b32 string_list_predicate(void *Context, string_list *A, string_list *B);
 
-inline string_list *
+internal string_list *
 GetStringList(string_list *Head, string_list_predicate *Predicate, void *Context, string_list *Match)
 {
     string_list *Result = 0;
@@ -76,7 +76,7 @@ GetStringList(string_list *Head, string_list_predicate *Predicate, void *Context
     return Result;
 }
 
-inline string_list *
+internal string_list *
 GetStringListTail(string_list *Head)
 {
     string_list *Result = Head;
@@ -122,7 +122,7 @@ PushbackStringList(string_list **HeadRef, memory_arena *Arena)
     return Result;
 }
 
-inline string_list *
+internal string_list *
 StringListMergeSort_(string_list *Front, string_list *Back, string_list_predicate *Predicate, void *Context, sort_type SortType)
 {
     string_list *Result = 0;
@@ -160,7 +160,7 @@ StringListMergeSort_(string_list *Front, string_list *Back, string_list_predicat
     return Result;
 }
 
-inline void
+internal void
 StringListFrontBackSplit(string_list *Head, string_list **FrontRef, string_list **BackRef)
 {
     string_list *Fast;
@@ -183,7 +183,7 @@ StringListFrontBackSplit(string_list *Head, string_list **FrontRef, string_list 
     Slow->Next = 0;
 }
 
-inline void
+internal void
 StringListMergeSort(string_list **HeadRef, string_list_predicate *Predicate, void *Context, sort_type SortType)
 {
     string_list *Head = *HeadRef;
