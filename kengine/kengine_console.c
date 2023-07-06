@@ -8,6 +8,30 @@ typedef struct app_memory
 } app_memory;
 global app_memory GlobalAppMemory;
 
+string_list *
+PlatformGetCommandLineArgs(memory_arena *Arena)
+{
+    string_list *Result = 0;
+    
+    for(u32 ArgIndex = 0;
+        ArgIndex < GlobalAppMemory.ArgCount;
+        ++ArgIndex)
+    {
+        char *Arg = GlobalAppMemory.Args[ArgIndex];
+        
+        string Entry = 
+        {
+            .Size = GetNullTerminiatedStringLength(Arg),
+            .Data = (u8 *)Arg
+        };
+        
+        string_list *New = PushbackStringList(&Result, Arena);
+        New->Entry = Entry;
+    }
+    
+    return Result;
+}
+
 s32
 MainLoop(app_memory *AppMemory);
 
