@@ -2,10 +2,8 @@ typedef struct app_memory
 {
     struct app_state *AppState;
 
-#if KENGINE_CONSOLE
     u32 ArgCount;
     char **Args;
-#endif
 
 } app_memory;
 global app_memory GlobalAppMemory;

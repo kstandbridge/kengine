@@ -9,7 +9,7 @@ typedef enum c_type
     C_Custom,
 } c_type;
 
-inline string
+internal string
 GetCTypeName(c_type Type)
 {
     string Result = {0};
@@ -20,6 +20,8 @@ GetCTypeName(c_type Type)
         case C_F32:    { Result = String("32-bit float"); } break;
         case C_U32:    { Result = String("unsigned 32-bit integer"); } break;
         case C_String: { Result = String("string"); } break;
+        //NOTE(kstandbridge): ignored
+        case C_Custom: {  } break;
     }
     
     return Result;
@@ -43,7 +45,7 @@ typedef struct c_struct
     c_member *Members;
 } c_struct;
 
-c_struct
+internal c_struct
 ParseStruct(memory_arena *Arena, tokenizer *Tokenizer, string Name);
 
 #define KENGINE_C_PARSER_H

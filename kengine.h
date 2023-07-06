@@ -1,8 +1,8 @@
 #ifndef KENGINE_H
 
-#ifndef VERSION
-#define VERSION 0
-#endif //VERSION
+#if !defined(VERSION)
+    #define VERSION 0
+#endif
 
 #ifdef KENGINE_IMPLEMENTATION
     #undef KENGINE_IMPLEMENTATION
@@ -17,6 +17,12 @@
 #ifdef KENGINE_TEST
     #undef KENGINE_TEST
     #define KENGINE_TEST 1
+#endif
+
+
+#ifdef KENGINE_PREPROCESSOR
+    #undef KENGINE_PREPROCESSOR
+    #define KENGINE_PREPROCESSOR 1
 #endif
 
 #if !defined(KEGNINE_WIN32)
@@ -46,6 +52,7 @@
 #include "kengine/kengine_eddsa.h"
 #include "kengine/kengine_tokenizer.h"
 #include "kengine/kengine_xml_parser.h"
+#include "kengine/kengine_c_parser.h"
 
 #if KENGINE_WIN32
     #include "kengine/kengine_win32.h"
@@ -59,6 +66,7 @@
     #include "kengine/kengine_sha512.c"
     #include "kengine/kengine_eddsa.c"
     #include "kengine/kengine_tokenizer.c"
+    #include "kengine/kengine_c_parser.c"
 
     #if KENGINE_WIN32
         #include "kengine/kengine_win32.c"
@@ -75,6 +83,10 @@
 #elif KENGINE_TEST
 
 #include "kengine/kengine_test.c"
+
+#elif KENGINE_PREPROCESSOR
+
+#include "kengine/kengine_preprocessor.c"
 
 #endif
 

@@ -124,3 +124,54 @@ LinuxDeallocateMemory(platform_memory_block *Block)
     
     munmap(LinuxBlock, TotalSize);
 }
+
+b32
+LinuxFileExists(string Path)
+{
+    b32 Result;
+
+    char CPath[MAX_PATH];
+    StringToCString(Path, MAX_PATH, CPath);
+
+    Result = (access(CPath, F_OK) == 0);
+
+    return Result;
+}
+
+string
+LinuxReadEntireFile(memory_arena *Arena, string FilePath)
+{
+    string Result = {0};
+    
+    char CFilePath[MAX_PATH];
+    StringToCString(FilePath, MAX_PATH, CFilePath);
+
+    struct stat FileData;
+    u32 StatError = stat(CFilePath, &FileData);
+    if(StatError == 0)
+    {
+        Result.Size = FileData.st_size;
+        Result.Data = PushSize(Arena, Result.Size);
+        if(Result.Data)
+        {
+            s32 FileHandle = open(CFilePath, O_RDONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+            
+            s64 Offset = 0;
+            s64 BytesRead = pread(FileHandle, Result.Data, Result.Size, Offset);
+            
+            close(FileHandle);
+
+            Assert(Result.Size == BytesRead);
+        }
+        else
+        {
+            Assert(!"Failed to allocate data");
+        }
+    }
+    else
+    {
+        Assert(!"Failed to get file data");
+    }
+
+    return Result;
+}

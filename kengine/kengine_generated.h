@@ -92,7 +92,7 @@ GetStringListTail(string_list *Head)
     return Result;
 }
 
-inline string_list *
+internal string_list *
 PushStringList(string_list **HeadRef, memory_arena *Arena)
 {
     string_list *Result = PushStruct(Arena, string_list);
@@ -103,7 +103,7 @@ PushStringList(string_list **HeadRef, memory_arena *Arena)
     return Result;
 }
 
-inline string_list *
+internal string_list *
 PushbackStringList(string_list **HeadRef, memory_arena *Arena)
 {
     string_list *Result = PushStruct(Arena, string_list);

@@ -1,11 +1,14 @@
 #ifndef KENGINE_LINUX_H
 
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 //extern long write(int, const char *, unsigned long);
+//extern int open(const char *path, int oflag, ... );
 
-#define PlatformConsoleOut(Format, ...) LinuxConsoleOut(Format, __VA_ARGS__)
+#define PlatformConsoleOut(Format, ...) LinuxConsoleOut(Format, ##__VA_ARGS__)
 internal void
 LinuxConsoleOut(char *Format, ...);
 
@@ -21,6 +24,14 @@ LinuxAllocateMemory(umm Size, u64 Flags);
 #define PlatformDeallocateMemory(Block) LinuxDeallocateMemory(Block)
 void
 LinuxDeallocateMemory(platform_memory_block *Block);
+
+#define PlatformFileExists(Path) LinuxFileExists(Path)
+b32
+LinuxFileExists(string Path);
+
+#define PlatformReadEntireFile(Arena, FilePath) LinuxReadEntireFile(Arena, FilePath)
+string
+LinuxReadEntireFile(memory_arena *Arena, string FilePath);
 
 
 #define KENGINE_LINUX_H

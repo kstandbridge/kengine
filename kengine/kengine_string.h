@@ -94,7 +94,7 @@ EndFormatStringToBuffer(format_string_state *State, u8 *Buffer, umm BufferSize);
 string
 FormatStringToBuffer(u8 *Buffer, umm BufferSize, char *Format, ...);
 
-inline void
+void
 StringToCString(string Text, u32 BufferSize, char *Buffer)
 {
     if(BufferSize >= Text.Size + 1)
@@ -111,7 +111,7 @@ StringToCString(string Text, u32 BufferSize, char *Buffer)
 u32
 GetNullTerminiatedStringLength(char *Str);
 
-inline string
+string
 CStringToString(char *NullTerminatedString)
 {
     string Result = String_(GetNullTerminiatedStringLength(NullTerminatedString),

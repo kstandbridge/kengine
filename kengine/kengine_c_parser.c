@@ -1,5 +1,5 @@
 
-c_struct
+internal c_struct
 ParseStruct(memory_arena *Arena, tokenizer *Tokenizer, string Name)
 {
     c_struct Result = 

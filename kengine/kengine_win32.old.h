@@ -101,7 +101,6 @@ Win32GetSystemTimestamp();
 date_time
 Win32GetDateTimeFromTimestamp(u64 Timestamp);
 
-#define PlatformReadEntireFile(Arena, FilePath) Win32ReadEntireFile(Arena, FilePath)
 
 #define PlatformConsoleOut(Format, ...) Win32ConsoleOut(Format, __VA_ARGS__)
 internal void
@@ -111,6 +110,7 @@ Win32ConsoleOut(char *Format, ...);
 internal void
 Win32ConsoleOut_(char *Format, va_list ArgsList);
 
+#define PlatformReadEntireFile(Arena, FilePath) Win32ReadEntireFile(Arena, FilePath)
 string
 Win32ReadEntireFile(memory_arena *Arena, string FilePath);
 
