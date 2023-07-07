@@ -1,4 +1,4 @@
-#ifndef KENGINE_LINUX_H
+#ifndef LINUX_KENGINE_H
 
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -37,5 +37,5 @@ LinuxReadEntireFile(memory_arena *Arena, string FilePath);
 b32
 LinuxWriteTextToFile(string Text, string FilePath);
 
-#define KENGINE_LINUX_H
-#endif // KENGINE_LINUX_H
+#define LINUX_KENGINE_H
+#endif // LINUX_KENGINE_H

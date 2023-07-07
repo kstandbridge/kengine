@@ -55,9 +55,9 @@
 #include "kengine/kengine_c_parser.h"
 
 #if KENGINE_WIN32
-    #include "kengine/kengine_win32.h"
+    #include "kengine/win32_kengine.h"
 #elif KENGINE_LINUX
-    #include "kengine/kengine_linux.h"
+    #include "kengine/linux_kengine.h"
 #endif
 
 #if KENGINE_IMPLEMENTATION
@@ -69,9 +69,9 @@
     #include "kengine/kengine_c_parser.c"
 
     #if KENGINE_WIN32
-        #include "kengine/kengine_win32.c"
+        #include "kengine/win32_kengine.c"
     #elif KENGINE_LINUX
-        #include "kengine/kengine_linux.c"
+        #include "kengine/linux_kengine.c"
     #endif
 
 #endif

@@ -1,4 +1,4 @@
-#ifndef KENGINE_WIN32_H
+#ifndef WIN32_KENGINE_H
 
 #define PlatformConsoleOut(Format, ...) Win32ConsoleOut(Format, __VA_ARGS__)
 internal void
@@ -28,5 +28,5 @@ Win32ReadEntireFile(memory_arena *Arena, string FilePath);
 b32
 Win32WriteTextToFile(string Text, string FilePath);
 
-#define KENGINE_WIN32_H
-#endif // KENGINE_WIN32_H
+#define WIN32_KENGINE_H
+#endif // WIN32_KENGINE_H
