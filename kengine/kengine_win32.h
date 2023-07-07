@@ -24,5 +24,9 @@ Win32FileExists(string Path);
 string
 Win32ReadEntireFile(memory_arena *Arena, string FilePath);
 
+#define PlatformWriteTextToFile(Text, FilePath) Win32WriteTextToFile(Text, FilePath)
+b32
+Win32WriteTextToFile(string Text, string FilePath);
+
 #define KENGINE_WIN32_H
 #endif // KENGINE_WIN32_H

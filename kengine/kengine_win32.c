@@ -180,3 +180,30 @@ Win32ReadEntireFile(memory_arena *Arena, string FilePath)
     
     return Result;
 }
+
+b32
+Win32WriteTextToFile(string Text, string FilePath)
+{
+    b32 Result = false;
+
+    char CFilePath[MAX_PATH];
+    StringToCString(FilePath, MAX_PATH, CFilePath);
+    
+    HANDLE FileHandle = CreateFileA(CFilePath, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {    
+        DWORD BytesWritten = 0;
+        WriteFile(FileHandle, Text.Data, (DWORD)Text.Size, &BytesWritten, 0);
+        
+        Result = (Text.Size == BytesWritten);
+        Assert(Result);
+        
+        CloseHandle(FileHandle);
+    }
+    else
+    {
+        Assert(!"Failed to get file handle");
+    }
+    
+    return Result;
+}
