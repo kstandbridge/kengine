@@ -156,12 +156,19 @@ LinuxReadEntireFile(memory_arena *Arena, string FilePath)
         {
             s32 FileHandle = open(CFilePath, O_RDONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
             
-            s64 Offset = 0;
-            s64 BytesRead = pread(FileHandle, Result.Data, Result.Size, Offset);
+            if(FileHandle >= 0)
+            {
+                s64 Offset = 0;
+                s64 BytesRead = pread(FileHandle, Result.Data, Result.Size, Offset);
             
-            close(FileHandle);
+                close(FileHandle);
+                Assert(Result.Size == BytesRead);
+            }
+            else
+            {
+                Assert(!"Failed to open file");
+            }
 
-            Assert(Result.Size == BytesRead);
         }
         else
         {
@@ -171,6 +178,34 @@ LinuxReadEntireFile(memory_arena *Arena, string FilePath)
     else
     {
         Assert(!"Failed to get file data");
+    }
+
+    return Result;
+}
+
+b32
+LinuxWriteTextToFile(string Text, string FilePath)
+{
+    b32 Result = false;
+    
+    char CFilePath[MAX_PATH];
+    StringToCString(FilePath, MAX_PATH, CFilePath);
+
+    s32 FileHandle = open(CFilePath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    
+    if(FileHandle >= 0)
+    {
+        s64 Offset = 0;
+        s64 BytesWritten = pwrite(FileHandle, Text.Data, Text.Size, Offset);
+        
+        close(FileHandle);
+
+        Result = (Text.Size == BytesWritten);
+        Assert(Result);   
+    }
+    else
+    {
+        Assert(!"Failed to open file");
     }
 
     return Result;

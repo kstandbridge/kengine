@@ -33,6 +33,9 @@ LinuxFileExists(string Path);
 string
 LinuxReadEntireFile(memory_arena *Arena, string FilePath);
 
+#define PlatformWriteTextToFile(Text, FilePath) LinuxWriteTextToFile(Text, FilePath)
+b32
+LinuxWriteTextToFile(string Text, string FilePath);
 
 #define KENGINE_LINUX_H
 #endif // KENGINE_LINUX_H
