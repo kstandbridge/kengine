@@ -124,6 +124,14 @@ Square(f32 A)
     return Result;
 }
 
+inline f32
+LerpF32(f32 A, f32 t, f32 B)
+{
+    f32 Result = (1.0f - t)*A + t*B;
+
+    return Result;
+}
+
 //
 // NOTE(kstandbridge): v2 operations
 //
