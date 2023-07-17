@@ -37,5 +37,17 @@ LinuxReadEntireFile(memory_arena *Arena, string FilePath);
 b32
 LinuxWriteTextToFile(string Text, string FilePath);
 
+#define PlatformOpenFile(FilePath, Flags) LinuxOpenFile(FilePath, Flags)
+platform_file
+LinuxOpenFile(string FilePath, platform_file_access_flags Flags);
+
+#define PlatformWriteFile(File, Text) LinuxWriteFile(File, Text)
+void
+LinuxWriteFile(platform_file *File, string Text);
+
+#define PlatformCloseFile(File) LinuxCloseFile(File)
+void
+LinuxCloseFile(platform_file *File);
+
 #define LINUX_KENGINE_H
 #endif // LINUX_KENGINE_H

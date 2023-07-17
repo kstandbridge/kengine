@@ -210,3 +210,72 @@ LinuxWriteTextToFile(string Text, string FilePath)
 
     return Result;
 }
+
+platform_file
+LinuxOpenFile(string FilePath, platform_file_access_flags Flags)
+{
+    platform_file Result = {0};
+
+    s32 OFlag = 0;
+    if((Flags & FileAccess_Read) &&
+       (Flags & FileAccess_Write))
+    {
+        OFlag = O_RDWR | O_CREAT;
+    }
+    else if(Flags & FileAccess_Read)
+    {
+        OFlag = O_RDONLY;
+    }
+    else if(Flags & FileAccess_Write)
+    {
+        OFlag = O_RDWR | O_CREAT | O_TRUNC;
+    }
+
+    char CFilePath[MAX_PATH];
+    StringToCString(FilePath, MAX_PATH, CFilePath);
+
+    s32 Handle = open(CFilePath, OFlag, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    
+    if(Handle >= 0)
+    {
+        *(s32 *)&Result.Handle = Handle;
+        Result.NoErrors = true;
+    }
+    else
+    {
+        Assert(!"Open file failure");
+        Result.NoErrors = false;
+    }
+
+    return Result;
+}
+
+void
+LinuxWriteFile(platform_file *File, string Text)
+{
+    if(PlatformNoErrors(File))
+    {
+        s32 LinuxHandle = *(s32 *)&File->Handle;
+
+        s64 BytesWritten = pwrite(LinuxHandle, Text.Data, Text.Size, File->Offset);
+        if(Text.Size == BytesWritten)
+        {
+            File->Offset += BytesWritten;
+        }
+        else
+        {
+            Assert(!"Write failure");
+            File->NoErrors = false;
+        }
+    }
+}
+
+void
+LinuxCloseFile(platform_file *File)
+{
+    s32 LinuxHandle = *(s32 *)&File->Handle;
+    if(LinuxHandle >= 0)
+    {
+        close(LinuxHandle);
+    }
+}

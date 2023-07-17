@@ -213,5 +213,21 @@ typedef struct m4x4
     f32 E[4][4];
 } m4x4;
 
+typedef struct platform_file
+{
+    void *Handle;
+    b32 NoErrors;
+    s64 Offset;
+} platform_file;
+
+typedef enum platform_file_access_flags
+{
+    FileAccess_Read = 0x1,
+    FileAccess_Write = 0x2
+
+} platform_file_access_flags;
+
+#define PlatformNoErrors(Handle) ((Handle)->NoErrors)
+
 #define KENGINE_TYPES_H
 #endif //KENGINE_TYPES_H
