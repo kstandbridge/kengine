@@ -381,19 +381,21 @@ ParsePercentFromZ(char *At, char *ResultBuffer, s32 ResultBufferSize)
     return Result;
 }
 
-// TODO(kstandbridge): F32FromString
 internal f32
-F32FromZ(char *At)
+F32FromString(string Text)
 {
     f32 Result = 0;
     b32 DecimalFound = false;
     f32 CurrentDecimal = 1;
-    
-    while(At[0])
+
+    for(u32 Index = 0;
+        Index < Text.Size;
+        ++Index)
     {
-        if(*At >= '0' && *At <= '9')
+        char At = Text.Data[Index];
+        if(At >= '0' && At <= '9')
         {
-            s32 Value = *At - 48;
+            s32 Value = At - 48;
             Assert(Value >= 0 && Value <= 9);
             if(DecimalFound)
             {
@@ -406,7 +408,7 @@ F32FromZ(char *At)
                 Result += Value;
             }
         }
-        else if(*At == '.')
+        else if(At == '.')
         {
             if(DecimalFound)
             {
@@ -418,9 +420,8 @@ F32FromZ(char *At)
         {
             Assert(!"None float character");
         }
-        ++At;
     }
-    
+
     return Result;
 }
 
