@@ -79,6 +79,15 @@
                            __FILE__, __LINE__, Expected, Actual);        \
     }
 
+#define AssertEqualF32(Expected, Actual) \
+    ++GlobalAppMemory->TotalTests; \
+    if(((Expected - Actual) > 0.01f) || ((Actual - Expected) > 0.01f)) \
+    { \
+        ++GlobalAppMemory->FailedTests; \
+        PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%f'\n\t\t\tActual:      '%f'\n", \
+                           __FILE__, __LINE__, Expected, Actual);        \
+    }
+
 #define AssertEqualU64(Expected, Actual) \
     ++GlobalAppMemory->TotalTests; \
     if(Expected != Actual) \
