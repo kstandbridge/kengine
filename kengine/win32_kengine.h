@@ -28,5 +28,17 @@ Win32ReadEntireFile(memory_arena *Arena, string FilePath);
 b32
 Win32WriteTextToFile(string Text, string FilePath);
 
+#define PlatformOpenFile(FilePath, Flags) Win32OpenFile(FilePath, Flags)
+platform_file
+Win32OpenFile(string FilePath, platform_file_access_flags Flags);
+
+#define PlatformWriteFile(File, Text) Win32WriteFile(File, Text)
+void
+Win32WriteFile(platform_file *File, string Text);
+
+#define PlatformCloseFile(File) Win32CloseFile(File)
+void
+Win32CloseFile(platform_file *File);
+
 #define WIN32_KENGINE_H
 #endif // WIN32_KENGINE_H

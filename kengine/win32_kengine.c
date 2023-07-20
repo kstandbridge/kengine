@@ -207,3 +207,79 @@ Win32WriteTextToFile(string Text, string FilePath)
     
     return Result;
 }
+
+platform_file
+Win32OpenFile(string FilePath, platform_file_access_flags Flags)
+{
+    platform_file Result = {0};
+
+    DWORD DesiredAccess;
+    DWORD CreationDisposition;
+
+    if(Flags & FileAccess_Read)
+    {
+        DesiredAccess |= GENERIC_READ;
+        CreationDisposition = OPEN_EXISTING;
+    }
+    
+    if(Flags & FileAccess_Write)
+    {
+        DesiredAccess |= GENERIC_WRITE;
+        CreationDisposition = OPEN_ALWAYS;
+    }
+
+    char CFilePath[MAX_PATH];
+    StringToCString(FilePath, MAX_PATH, CFilePath);
+   
+    HANDLE Win32Handle = CreateFileA(CFilePath, DesiredAccess, FILE_SHARE_READ, 0, CreationDisposition, 0, 0);
+    
+    if(Win32Handle != INVALID_HANDLE_VALUE)
+    {
+        *(HANDLE *)&Result.Handle = Win32Handle;
+        Result.NoErrors = true;
+    }
+    else
+    {
+        Assert(!"Open file failure");
+        Result.NoErrors = false;
+    }
+
+    return Result;
+}
+
+void
+Win32WriteFile(platform_file *File, string Text)
+{
+    if(PlatformNoErrors(File))
+    {
+        HANDLE Win32Handle = *(HANDLE *)&File->Handle;
+
+        OVERLAPPED Overlapped = 
+        {
+            .Offset = (u32)((File->Offset >> 0) & 0xFFFFFFFF),
+            .OffsetHigh = (u32)((File->Offset >> 32) & 0xFFFFFFFF)
+        };
+        
+        DWORD BytesWritten;
+        if(WriteFile(Win32Handle, Text.Data, Text.Size, &BytesWritten, &Overlapped) &&
+           (Text.Size == BytesWritten))
+        {
+            File->Offset += BytesWritten;
+        }
+        else
+        {
+            Assert(!"Write failure");
+            File->NoErrors = false;
+        }
+    }
+}
+
+void
+Win32CloseFile(platform_file *File)
+{
+    HANDLE Win32Handle = *(HANDLE *)&File->Handle;
+    if(Win32Handle != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(Win32Handle);
+    }
+}
