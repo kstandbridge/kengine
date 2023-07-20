@@ -212,20 +212,33 @@ platform_file
 Win32OpenFile(string FilePath, platform_file_access_flags Flags)
 {
     platform_file Result = {0};
+    Assert(sizeof(HANDLE) <= sizeof(Result.Handle));
 
-    DWORD DesiredAccess;
-    DWORD CreationDisposition;
-
-    if(Flags & FileAccess_Read)
+    DWORD DesiredAccess = 0;
+    DWORD CreationDisposition = 0;
+    if((Flags & FileAccess_Read) &&
+       (Flags & FileAccess_Write))
     {
-        DesiredAccess |= GENERIC_READ;
+        DesiredAccess = GENERIC_READ | GENERIC_WRITE;
+        CreationDisposition = OPEN_ALWAYS;
+
+    }
+    else if(Flags & FileAccess_Read)
+    {
+        DesiredAccess = GENERIC_READ;
         CreationDisposition = OPEN_EXISTING;
     }
-    
-    if(Flags & FileAccess_Write)
+    else if(Flags & FileAccess_Write)
     {
-        DesiredAccess |= GENERIC_WRITE;
-        CreationDisposition = OPEN_ALWAYS;
+        DesiredAccess = GENERIC_WRITE;
+        if(Win32FileExists(FilePath))
+        {
+            CreationDisposition = TRUNCATE_EXISTING;
+        }
+        else
+        {
+            CreationDisposition = CREATE_NEW;
+        }
     }
 
     char CFilePath[MAX_PATH];
