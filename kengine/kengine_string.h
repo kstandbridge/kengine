@@ -425,6 +425,50 @@ F32FromString(string Text)
     return Result;
 }
 
+internal f64
+F64FromString(string Text)
+{
+    f64 Result = 0;
+    b32 DecimalFound = false;
+    f64 CurrentDecimal = 1;
+
+    for(u32 Index = 0;
+        Index < Text.Size;
+        ++Index)
+    {
+        char At = Text.Data[Index];
+        if(At >= '0' && At <= '9')
+        {
+            s32 Value = At - 48;
+            Assert(Value >= 0 && Value <= 9);
+            if(DecimalFound)
+            {
+                CurrentDecimal /= 10.0f;
+                Result += Value*CurrentDecimal;
+            }
+            else
+            {
+                Result *= 10;
+                Result += Value;
+            }
+        }
+        else if(At == '.')
+        {
+            if(DecimalFound)
+            {
+                Assert(!"Additional Decimal found");
+            }
+            DecimalFound = true;
+        }
+        else
+        {
+            Assert(!"None float character");
+        }
+    }
+
+    return Result;
+}
+
 internal char *
 FindFirstOccurrenceLowercase(char *HayStack, char *Needle)
 {
