@@ -81,7 +81,7 @@
 
 #define AssertEqualF32(Expected, Actual) \
     ++GlobalAppMemory->TotalTests; \
-    if(((Expected - Actual) > 0.01f) || ((Actual - Expected) > 0.01f)) \
+    if(((Expected - Actual) >= FLT_EPSILON) && ((Actual - Expected) >= FLT_EPSILON)) \
     { \
         ++GlobalAppMemory->FailedTests; \
         PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%f'\n\t\t\tActual:      '%f'\n", \
