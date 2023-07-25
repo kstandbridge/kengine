@@ -40,5 +40,15 @@ Win32WriteFile(platform_file *File, string Text);
 void
 Win32CloseFile(platform_file *File);
 
+#define PlatformGetOSTimerFrequency() Win32GetOSTimerFrequency()
+u64
+Win32GetOSTimerFrequency();
+
+#define PlatformReadOSTimer() Win32ReadOSTimer()
+u64
+Win32ReadOSTimer();
+
+#define PlatformReadCPUTimer() __rdtsc()
+
 #define WIN32_KENGINE_H
 #endif // WIN32_KENGINE_H

@@ -296,3 +296,23 @@ Win32CloseFile(platform_file *File)
         CloseHandle(Win32Handle);
     }
 }
+
+u64
+Win32GetOSTimerFrequency()
+{
+    LARGE_INTEGER Frequency;
+    QueryPerformanceFrequency(&Frequency);
+
+    u64 Result = Frequency.QuadPart;
+    return Result;
+}
+
+u64
+Win32ReadOSTimer()
+{
+    LARGE_INTEGER PerformanceCount;
+    QueryPerformanceCounter(&PerformanceCount);
+
+    u64 Result = PerformanceCount.QuadPart;
+    return Result;
+}
