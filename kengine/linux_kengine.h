@@ -1,6 +1,7 @@
 #ifndef LINUX_KENGINE_H
 
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -48,6 +49,16 @@ LinuxWriteFile(platform_file *File, string Text);
 #define PlatformCloseFile(File) LinuxCloseFile(File)
 void
 LinuxCloseFile(platform_file *File);
+
+#define PlatformGetOSTimerFrequency() LinuxGetOSTimerFrequency()
+u64
+LinuxGetOSTimerFrequency();
+
+#define PlatformReadOSTimer() LinuxReadOSTimer()
+u64
+LinuxReadOSTimer();
+
+#define PlatformReadCPUTimer() __rdtsc()
 
 #define LINUX_KENGINE_H
 #endif // LINUX_KENGINE_H

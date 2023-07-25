@@ -279,3 +279,19 @@ LinuxCloseFile(platform_file *File)
         close(LinuxHandle);
     }
 }
+
+u64
+LinuxGetOSTimerFrequency()
+{
+    return 1000000;
+}
+
+u64
+LinuxReadOSTimer()
+{
+    struct timeval Value;
+    gettimeofday(&Value, 0);
+
+    u64 Result = LinuxGetOSTimerFrequency()*(u64)Value.tv_sec + (u64)Value.tv_usec;
+    return Result;
+}
