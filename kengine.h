@@ -45,6 +45,14 @@
 #include "kengine/kengine_types.h"
 #include "kengine/kengine_memory.h"
 #include "kengine/kengine_generated.h"
+
+#if KENGINE_WIN32
+    #include "kengine/win32_kengine.h"
+#elif KENGINE_LINUX
+    #include "kengine/linux_kengine.h"
+#endif
+
+#include "kengine/kengine_profiler.h"
 #include "kengine/kengine_math.h"
 #include "kengine/kengine_string.h"
 #include "kengine/kengine_random.h"
@@ -55,11 +63,7 @@
 #include "kengine/kengine_c_parser.h"
 #include "kengine/kengine_json_parser.h"
 
-#if KENGINE_WIN32
-    #include "kengine/win32_kengine.h"
-#elif KENGINE_LINUX
-    #include "kengine/linux_kengine.h"
-#endif
+
 
 #if KENGINE_IMPLEMENTATION
     #include "kengine/kengine_memory.c"
@@ -74,6 +78,7 @@
     #elif KENGINE_LINUX
         #include "kengine/linux_kengine.c"
     #endif
+
 
 #endif
 
