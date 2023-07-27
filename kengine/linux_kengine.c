@@ -150,8 +150,8 @@ LinuxReadEntireFile(memory_arena *Arena, string FilePath)
     u32 StatError = stat(CFilePath, &FileData);
     if(StatError == 0)
     {
-        Result.Size = FileData.st_size;
-        Result.Data = PushSize(Arena, Result.Size);
+        Result.Size = (umm)FileData.st_size;
+        Result.Data = (u8 *)PushSize(Arena, Result.Size);
         if(Result.Data)
         {
             s32 FileHandle = open(CFilePath, O_RDONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -159,10 +159,10 @@ LinuxReadEntireFile(memory_arena *Arena, string FilePath)
             if(FileHandle >= 0)
             {
                 s64 Offset = 0;
-                s64 BytesRead = pread(FileHandle, Result.Data, Result.Size, Offset);
+                ssize_t BytesRead = pread(FileHandle, Result.Data, Result.Size, Offset);
             
                 close(FileHandle);
-                Assert(Result.Size == BytesRead);
+                Assert(Result.Size == (umm)BytesRead);
             }
             else
             {
@@ -196,11 +196,11 @@ LinuxWriteTextToFile(string Text, string FilePath)
     if(FileHandle >= 0)
     {
         s64 Offset = 0;
-        s64 BytesWritten = pwrite(FileHandle, Text.Data, Text.Size, Offset);
+        ssize_t BytesWritten = pwrite(FileHandle, Text.Data, Text.Size, Offset);
         
         close(FileHandle);
 
-        Result = (Text.Size == BytesWritten);
+        Result = (Text.Size == (umm)BytesWritten);
         Assert(Result);   
     }
     else
@@ -257,8 +257,8 @@ LinuxWriteFile(platform_file *File, string Text)
     {
         s32 LinuxHandle = *(s32 *)&File->Handle;
 
-        s64 BytesWritten = pwrite(LinuxHandle, Text.Data, Text.Size, File->Offset);
-        if(Text.Size == BytesWritten)
+        ssize_t BytesWritten = pwrite(LinuxHandle, Text.Data, Text.Size, File->Offset);
+        if(Text.Size == (umm)BytesWritten)
         {
             File->Offset += BytesWritten;
         }

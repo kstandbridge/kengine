@@ -11,9 +11,11 @@ ZeroSize(u64 Size, void *Ptr)
 arena_push_params
 DefaultArenaPushParams()
 {
-    arena_push_params Result;
-    Result.Flags = ArenaPushFlag_ClearToZero;
-    Result.Alignment = 4;
+    arena_push_params Result =
+    {
+        .Flags = ArenaPushFlag_ClearToZero,
+        .Alignment = 4
+    };
     return Result;
 }
 

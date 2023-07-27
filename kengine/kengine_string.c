@@ -192,9 +192,11 @@ typedef struct
 internal format_string_token
 GetNextFormatStringToken(format_string_state *State)
 {
-    format_string_token Result = {0};
+    format_string_token Result = 
+    {
+        .Str = String_(1, (u8 *)State->At)
+    };
     
-    Result.Str = String_(1, (u8 *)State->At);
     char C = State->At[0];
     ++State->At;
     switch(C)
