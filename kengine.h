@@ -53,6 +53,7 @@
 #include "kengine/kengine_tokenizer.h"
 #include "kengine/kengine_xml_parser.h"
 #include "kengine/kengine_c_parser.h"
+#include "kengine/kengine_json_parser.h"
 
 #if KENGINE_WIN32
     #include "kengine/win32_kengine.h"
