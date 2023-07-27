@@ -79,13 +79,16 @@
                            __FILE__, __LINE__, Expected, Actual);        \
     }
 
-#define AssertEqualF32(Expected, Actual) \
-    ++GlobalAppMemory->TotalTests; \
-    if(((Expected - Actual) >= FLT_EPSILON) && ((Actual - Expected) >= FLT_EPSILON)) \
+#define AssertEqualF32(Expected, Actual)\
     { \
-        ++GlobalAppMemory->FailedTests; \
-        PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%f'\n\t\t\tActual:      '%f'\n", \
-                           __FILE__, __LINE__, Expected, Actual);        \
+        ++GlobalAppMemory->TotalTests; \
+        f32 Difference = Expected - Actual; \
+        if(!((Difference < 0.00001f) && (-Difference < 0.00001f))) \
+        { \
+            ++GlobalAppMemory->FailedTests; \
+            PlatformConsoleOut("%s(%d): string assert fail.\n\t\t\tExpected:    '%f'\n\t\t\tActual:      '%f'\n", \
+                                __FILE__, __LINE__, Expected, Actual);        \
+        } \
     }
 
 #define AssertEqualU64(Expected, Actual) \
