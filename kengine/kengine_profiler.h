@@ -34,6 +34,7 @@ typedef struct profile_anchor
 {
     u64 TSCElapsed;
     u64 TSCElapsedChildren;
+    u64 TSCElapsedAtRoot;
     u64 HitCount;
     char const *Label;
 } profile_anchor;
@@ -51,6 +52,7 @@ global u32 GlobalProfilerParent;
 typedef struct profile_block
 {
     char const *Label;
+    u64 OldTSCElapsedAtRoot;
     u64 StartTSC;
     u32 ParentIndex;
     u32 AnchorIndex;
@@ -66,6 +68,7 @@ EndProfileBlock_(profile_block Block)
     profile_anchor *Anchor = GlobalProfiler.Anchors + Block.AnchorIndex;
     
     Parent->TSCElapsedChildren += Elapsed;
+    Anchor->TSCElapsedAtRoot = Block.OldTSCElapsedAtRoot + Elapsed;
     Anchor->TSCElapsed += Elapsed;
     ++Anchor->HitCount;
 
@@ -75,7 +78,12 @@ EndProfileBlock_(profile_block Block)
 #define END_TIMED_BLOCK(Name) EndProfileBlock_(ProfileBlock##Name)
 #define END_TIMED_FUNCTION() END_TIMED_BLOCK(__FUNCTION__)
 
-#define BEGIN_TIMED_BLOCK_(Name, BlockLabel) profile_block ProfileBlock##Name = { .Label = BlockLabel, .StartTSC = PlatformReadCPUTimer(), .ParentIndex = GlobalProfilerParent, .AnchorIndex = __COUNTER__ + 1}; GlobalProfilerParent = ProfileBlock##Name.AnchorIndex
+#define BEGIN_TIMED_BLOCK_(Name, BlockLabel) profile_block ProfileBlock##Name = { .Label = BlockLabel, .StartTSC = PlatformReadCPUTimer(), .ParentIndex = GlobalProfilerParent, .AnchorIndex = __COUNTER__ + 1}; \
+{ \
+    GlobalProfilerParent = ProfileBlock##Name.AnchorIndex; \
+    profile_anchor *Achor = GlobalProfiler.Anchors + ProfileBlock##Name.AnchorIndex; \
+    ProfileBlock##Name.OldTSCElapsedAtRoot = Achor->TSCElapsedAtRoot; \
+}
 #define BEGIN_TIMED_BLOCK(Name) BEGIN_TIMED_BLOCK_(Name, #Name)
 #define BEGIN_TIMED_FUNCTION() BEGIN_TIMED_BLOCK_(__FUNCTION__, __FUNCTION__)
 
@@ -107,12 +115,12 @@ EndAndPrintProfile()
         profile_anchor *Anchor = GlobalProfiler.Anchors + AnchorIndex;
         if(Anchor->TSCElapsed)
         {
-            u64 Elapsed = Anchor->TSCElapsed - Anchor->TSCElapsedChildren;
-            f64 Percent = 100.0f * ((f64)Elapsed / (f64)TotalCPUElapsed);
-            PlatformConsoleOut("\t%s[%lu]: %lu (%.2f%%", Anchor->Label, Anchor->HitCount, Elapsed, Percent);
-            if(Anchor->TSCElapsedChildren)
+            u64 TSCElapsedSelf = Anchor->TSCElapsed - Anchor->TSCElapsedChildren;
+            f64 Percent = 100.0f * ((f64)TSCElapsedSelf / (f64)TotalCPUElapsed);
+            PlatformConsoleOut("\t%s[%lu]: %lu (%.2f%%", Anchor->Label, Anchor->HitCount, TSCElapsedSelf, Percent);
+            if(Anchor->TSCElapsedAtRoot != TSCElapsedSelf)
             {
-                f64 PercentWithChildren = 100.0f * ((f64)Anchor->TSCElapsed / (f64)TotalCPUElapsed);
+                f64 PercentWithChildren = 100.0f * ((f64)Anchor->TSCElapsedAtRoot / (f64)TotalCPUElapsed);
                 PlatformConsoleOut(", %.2f%% w/children", PercentWithChildren);
             }
             PlatformConsoleOut(")\n");
