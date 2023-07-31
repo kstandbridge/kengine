@@ -1,4 +1,10 @@
 
+#ifdef KENGINE_PROFILER
+    #undef KENGINE_PROFILER
+    #define KENGINE_PROFILER 1
+#endif
+
+
 internal u64
 EstimateCPUTimerFrequency()
 {
@@ -29,6 +35,8 @@ EstimateCPUTimerFrequency()
 
     return Result;
 }
+
+#if KENGINE_PROFILER
 
 typedef struct profile_anchor
 {
@@ -127,3 +135,40 @@ EndAndPrintProfile()
 
     PlatformConsoleOut("\n");
 }
+
+#else
+
+#define END_TIMED_BLOCK(...)
+#define END_TIMED_FUNCTION(...)
+
+#define BEGIN_TIMED_BLOCK(...)
+#define BEGIN_TIMED_FUNCTION(...)
+
+typedef struct profiler
+{
+    u64 StartTSC;
+    u64 EndTSC;
+} profiler;
+global profiler GlobalProfiler;
+
+internal void
+BeginProfile()
+{
+    GlobalProfiler.StartTSC = PlatformReadCPUTimer();
+}
+
+internal void
+EndAndPrintProfile()
+{
+    GlobalProfiler.EndTSC = PlatformReadCPUTimer();
+    u64 CPUFrequency = EstimateCPUTimerFrequency();
+
+    u64 TotalCPUElapsed = GlobalProfiler.EndTSC - GlobalProfiler.StartTSC;
+
+    if(CPUFrequency)
+    {
+        PlatformConsoleOut("\nTotal time: %.4fms (CPU freq %lu)\n\n", (f64)TotalCPUElapsed / (f64)CPUFrequency, CPUFrequency);
+    }
+}
+
+#endif

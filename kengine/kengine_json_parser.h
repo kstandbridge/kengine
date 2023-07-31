@@ -38,8 +38,6 @@ GetJsonElement(json_element *Parent, string Name)
 internal void
 ParseJsonElement(memory_arena *Arena, json_element *Element, tokenizer *Tokenizer)
 {
-    BEGIN_TIMED_FUNCTION();
-
     json_element *CurrentChild = 0;
     while(Parsing(Tokenizer))
     {
@@ -112,8 +110,6 @@ ParseJsonElement(memory_arena *Arena, json_element *Element, tokenizer *Tokenize
             break;
         }
     }
-
-    END_TIMED_FUNCTION();
 }
 
 internal json_element *
