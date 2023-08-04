@@ -101,7 +101,34 @@
 
 #elif KENGINE_OPENGL
 
-#include "kengine/kengine_opengl.c"
+
+    #if KENGINE_WIN32
+
+        #define WIN32_LEAN_AND_MEAN
+        #include <windows.h>
+        #include <GL/gl.h>
+
+        // NOTE(kstandbridge): Downloaded from https://www.opengl.org/registry/api/GL/
+        #include "kengine/glext.h"
+        #include "kengine/wglext.h"
+        
+        #include "kengine/kengine_opengl.c"
+
+        #include "kengine/win32_kengine_opengl.c"
+    #elif KENGINE_LINUX
+    
+        #include <X11/Xlib.h>
+        #include <GL/gl.h>
+        #include <GL/glx.h>
+
+        // NOTE(kstandbridge): Downloaded from https://www.opengl.org/registry/api/GL/
+        #include "kengine/glext.h"
+        #include "kengine/glxext.h"
+        
+        #include "kengine/kengine_opengl.c"
+
+        #include "kengine/linux_kengine_opengl.c"
+    #endif
 
 #endif
 

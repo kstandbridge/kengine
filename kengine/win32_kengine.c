@@ -50,6 +50,11 @@ typedef struct win32_state
     ticket_mutex MemoryMutex;
     win32_memory_block MemorySentinel;
 
+#if KENGINE_OPENGL
+    HDC DeviceContext;
+    HGLRC GLRenderContext;
+#endif
+
 } win32_state;
 
 global win32_state GlobalWin32State;

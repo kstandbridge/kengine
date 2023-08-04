@@ -558,7 +558,7 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                 ParsingParam = false;
                                 
                                 // TODO(kstandbridge): We should probably convert the wchar_t to char for this copy
-#if 0                                
+
                                 wchar_t *At = va_arg(ArgList, wchar_t *);
                                 if(PrecisionSpecified)
                                 {
@@ -574,7 +574,6 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                         *State->Tail++ = *At++;
                                     }
                                 }
-#endif
                                 
                             } break;
                             
@@ -647,8 +646,8 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                 FormatStringParseHex(State, Value, Width, PadWithZeros, Digits, ArrayCount(UpperDigits));
                             } break;
                             
-                            case FormatStringToken_Unknown:
 #if KENGINE_INTERNAL
+                            case FormatStringToken_Unknown:
                             InvalidDefaultCase;                          
 #endif
                         }
