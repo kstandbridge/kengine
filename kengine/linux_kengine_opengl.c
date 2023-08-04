@@ -1,16 +1,3 @@
-#if KENGINE_INTERNAL
-    internal void
-    OpenGLDebugCallback(GLenum Source, GLenum Type, GLuint Id, GLenum Severity,
-                        GLsizei Length, const GLchar *Message, const void *User)
-    {
-        PlatformConsoleOut("Error: %S", String_(Length, (u8 *)Message));
-        if((Severity >= GL_DEBUG_SEVERITY_LOW) &&
-           (Severity <= GL_DEBUG_SEVERITY_HIGH_ARB))
-        {
-            Assert(0);
-        }
-    }
-#endif
 
 typedef struct app_memory
 {
