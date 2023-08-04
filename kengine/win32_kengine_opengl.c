@@ -220,10 +220,10 @@ Win32OpenGLCreateContext(HDC DeviceContext)
             *At = 0;
         }
 
-        s32 PixelFormatSize;
-        UINT PixelFormat;
-        if (wglChoosePixelFormatARB(DeviceContext, AttributeList, NULL, 1, &PixelFormatSize, &PixelFormat) && 
-            (PixelFormat != 0))
+        s32 Formats;
+        UINT NumFormats;
+        if (wglChoosePixelFormatARB(DeviceContext, AttributeList, 0, 1, &Formats, &NumFormats) && 
+            (NumFormats != 0))
         {
 
             PIXELFORMATDESCRIPTOR PixelFormatDescriptor =
@@ -231,9 +231,9 @@ Win32OpenGLCreateContext(HDC DeviceContext)
                 .nSize = sizeof(PixelFormatDescriptor)
             };
 
-            if(DescribePixelFormat(DeviceContext, PixelFormatSize, sizeof(PixelFormatDescriptor), &PixelFormatDescriptor))
+            if(DescribePixelFormat(DeviceContext, Formats, sizeof(PixelFormatDescriptor), &PixelFormatDescriptor))
             {
-                if(SetPixelFormat(DeviceContext, PixelFormat, &PixelFormatDescriptor))
+                if(SetPixelFormat(DeviceContext, Formats, &PixelFormatDescriptor))
                 {
                     s32 ContextAttributeList[] =
                     {
