@@ -25,6 +25,11 @@
     #define KENGINE_PREPROCESSOR 1
 #endif
 
+#ifdef KENGINE_OPENGL
+    #undef KENGINE_OPENGL
+    #define KENGINE_OPENGL 1
+#endif
+
 #if !defined(KEGNINE_WIN32)
     #define KEGNINE_WIN32 0
 #else
@@ -93,6 +98,10 @@
 #elif KENGINE_PREPROCESSOR
 
 #include "kengine/kengine_preprocessor.c"
+
+#elif KENGINE_OPENGL
+
+#include "kengine/kengine_opengl.c"
 
 #endif
 
