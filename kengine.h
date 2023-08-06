@@ -117,13 +117,11 @@
         #include "kengine/win32_kengine_opengl.c"
     #elif KENGINE_LINUX
     
-        #include <X11/Xlib.h>
-        #include <GL/gl.h>
         #include <GL/glx.h>
 
         // NOTE(kstandbridge): Downloaded from https://www.opengl.org/registry/api/GL/
-        #include "kengine/glext.h"
-        #include "kengine/glxext.h"
+        // #include "kengine/glext.h"
+        // #include "kengine/glxext.h"
         
         #include "kengine/kengine_opengl.c"
 

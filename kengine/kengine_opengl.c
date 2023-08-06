@@ -77,10 +77,24 @@
     }
 #endif
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+global s32 SpriteWidth;
+global s32 SpriteHeight;
+global s32 SpriteComp;
+global stbi_uc *SpriteBytes;
+global GLuint TextureHandle;
+
 internal void
 OpenGLRenderInit()
 {
     //TODO (kstandbridge): Load GL extensions and set up GL state
+    memory_arena Arena = {0};
+    string File = PlatformReadEntireFile(&Arena, String("sprite.png"));
+    SpriteBytes = stbi_load_from_memory(File.Data, (s32)File.Size, &SpriteWidth, &SpriteHeight, &SpriteComp, 4);
+
+    glGenTextures(1, &TextureHandle);
 
     AssertGL(glClearColor(100.0f/255.0f, 149.0f/255.0f, 237.0f/255.0f, 1.0f));
 }
@@ -100,16 +114,53 @@ OpenGLRenderResize(u32 Width, u32 Height)
 internal void
 OpenGLRenderFrame()
 {
-    AssertGL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
+    glBindTexture(GL_TEXTURE_2D, TextureHandle);
 
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, SpriteWidth, SpriteHeight, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, SpriteBytes);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+    glEnable(GL_TEXTURE_2D);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    glMatrixMode(GL_TEXTURE);
+    glLoadIdentity();
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+        
     glBegin(GL_TRIANGLES);
+
+    f32 P = 0.9f;
+
+    // NOTE(kstandbridge): Lower triangle
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(-P, -P);
+
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(P, -P);
+
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(P, P);
+
+    // NOTE(kstandbridge): Upper triangle
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(-P, -P);
+
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(P, P);
     
-    glColor3f(1.f, 0.f, 0.f);
-    glVertex2f(0.f, 0.5f);
-    glColor3f(0.f, 1.f, 0.f);
-    glVertex2f(0.5f, -0.5f);
-    glColor3f(0.f, 0.f, 1.f);
-    glVertex2f(-0.5f, -0.5f);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(-P, P);
     
     AssertGL(glEnd());
 }
