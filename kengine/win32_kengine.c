@@ -11,13 +11,14 @@ Win32ConsoleOut_(char *Format, va_list ArgList)
     
     string Text = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
     
+#if KENGINE_CONSOLE
     HANDLE OutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     Assert(OutputHandle != INVALID_HANDLE_VALUE);
     
     DWORD NumberOfBytesWritten;
     WriteFile(OutputHandle, Text.Data, (DWORD)Text.Size, (LPDWORD)&NumberOfBytesWritten, 0);
     Assert(NumberOfBytesWritten == Text.Size);
-
+#endif
     
 #if KENGINE_INTERNAL
     Buffer[Text.Size] = '\0';
