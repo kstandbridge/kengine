@@ -1,4 +1,36 @@
 
+#define WGL_DRAW_TO_WINDOW_ARB            0x2001
+#define WGL_ACCELERATION_ARB              0x2003
+#define WGL_SUPPORT_OPENGL_ARB            0x2010
+#define WGL_DOUBLE_BUFFER_ARB             0x2011
+#define WGL_PIXEL_TYPE_ARB                0x2013
+#define WGL_COLOR_BITS_ARB                0x2014
+#define WGL_DEPTH_BITS_ARB                0x2022
+#define WGL_STENCIL_BITS_ARB              0x2023
+#define WGL_FULL_ACCELERATION_ARB         0x2027
+#define WGL_TYPE_RGBA_ARB                 0x202B
+
+#define WGL_SAMPLE_BUFFERS_ARB            0x2041
+#define WGL_SAMPLES_ARB                   0x2042
+
+#define WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB  0x20A9
+
+#define WGL_CONTEXT_MAJOR_VERSION_ARB     0x2091
+#define WGL_CONTEXT_MINOR_VERSION_ARB     0x2092
+#if KENGINE_INTERNAL
+    #define WGL_CONTEXT_FLAGS_ARB             0x2094
+    #define WGL_CONTEXT_DEBUG_BIT_ARB         0x00000001
+    
+#endif
+#define GL_MULTISAMPLE_ARB                0x809D
+#define WGL_CONTEXT_PROFILE_MASK_ARB      0x9126
+#define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+
+typedef BOOL wgl_choose_pixel_format_arb(HDC hdc, const int *piAttribIList, const FLOAT *pfAttribFList, UINT nMaxFormats, int *piFormats, UINT *nNumFormats);
+typedef HGLRC wgl_create_context_attribs_arb(HDC hDC, HGLRC hShareContext, const int *attribList);
+typedef BOOL wgl_swap_interval_ext(int interval);
+typedef const char *wgl_get_extensions_string_arb(HDC hdc);
+
 internal void
 Win32LogError(const char *Message)
 {
@@ -97,9 +129,9 @@ Win32OpenGLCreateContext(HDC DeviceContext)
 {
     HGLRC Result = 0;
 
-    PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB = 0;
-    PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 0;
-    PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = 0;
+    wgl_choose_pixel_format_arb *wglChoosePixelFormatARB = 0;
+    wgl_create_context_attribs_arb *wglCreateContextAttribsARB = 0;
+    wgl_swap_interval_ext *wglSwapIntervalEXT = 0;
     s32 wgl_ARB_multisample = 0;
     s32 wgl_ARB_framebuffer_sRGB = 0;
     s32 wgl_EXT_swap_control_tear = 0;
@@ -116,7 +148,7 @@ Win32OpenGLCreateContext(HDC DeviceContext)
             {
                 
                 // NOTE(kstandbridge): Parse extensions strings
-                PFNWGLGETEXTENSIONSSTRINGARBPROC wglGetExtensionsStringARB =
+                wgl_get_extensions_string_arb *wglGetExtensionsStringARB =
                     (void*)wglGetProcAddress("wglGetExtensionsStringARB");
                 if (wglGetExtensionsStringARB != (void*)0 &&
                     wglGetExtensionsStringARB != (void*)1 &&
@@ -343,7 +375,7 @@ Win32WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
         {
             if(GlobalWin32State.GLRenderContext)
             {
-                OpenGLDestory();
+                OpenGLDestroy();
 
                 wglMakeCurrent(0, 0);
                 wglDeleteContext(GlobalWin32State.GLRenderContext);

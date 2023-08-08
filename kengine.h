@@ -108,20 +108,12 @@
         #include <windows.h>
         #include <GL/gl.h>
 
-        // NOTE(kstandbridge): Downloaded from https://www.opengl.org/registry/api/GL/
-        #include "kengine/glext.h"
-        #include "kengine/wglext.h"
-        
         #include "kengine/kengine_opengl.c"
 
         #include "kengine/win32_kengine_opengl.c"
     #elif KENGINE_LINUX
     
         #include <GL/glx.h>
-
-        // NOTE(kstandbridge): Downloaded from https://www.opengl.org/registry/api/GL/
-        // #include "kengine/glext.h"
-        // #include "kengine/glxext.h"
         
         #include "kengine/kengine_opengl.c"
 

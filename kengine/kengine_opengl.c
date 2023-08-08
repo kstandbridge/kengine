@@ -4,6 +4,8 @@
 #define USE_DEPTH_BUFFER 1
 #define USE_STENCIL_BUFFER 0
 
+typedef char GLchar;
+
 // NOTE(kstandbridge): 0 to disable, enable in powers of 2
 #define MULTI_SAMPLING 4
 
@@ -19,6 +21,13 @@
 #endif
 
 #if KENGINE_INTERNAL
+
+    #define GL_DEBUG_SEVERITY_HIGH_ARB        0x9146
+    #define GL_DEBUG_SEVERITY_LOW_ARB         0x9148
+    #define GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB   0x8242
+
+    typedef void gl_debug_proc_arb(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,const GLchar *message,const void *userParam);
+    typedef void gl_debug_message_callback_arb(gl_debug_proc_arb callback, const void *userParam);
 
     internal void
     OpenGLDebugCallback(GLenum Source, GLenum Type, GLuint Id, GLenum Severity,
@@ -53,14 +62,9 @@
                         
                         if(StringsAreEqual(String("GL_ARB_debug_output"), Actual))
                         {
-                            PFNGLDEBUGMESSAGECALLBACKARBPROC glDebugMessageCallbackARB =
-                            #if KENGINE_WIN32
-                                (void *)wglGetProcAddress("glDebugMessageCallbackARB");
-                            #elif KENGINE_LINUX
-                                (PFNGLDEBUGMESSAGECALLBACKARBPROC)glXGetProcAddressARB((void *)"glDebugMessageCallbackARB");
-                            #else
-                                #error Missing glDebugMessageCallbackARB for platform
-                            #endif                               
+                            gl_debug_message_callback_arb *glDebugMessageCallbackARB =
+                                (gl_debug_message_callback_arb *)wglGetProcAddress("glDebugMessageCallbackARB");
+                            Assert(glDebugMessageCallbackARB);
                             AssertGL(glDebugMessageCallbackARB(OpenGLDebugCallback, 0));
                             AssertGL(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
 
@@ -89,7 +93,7 @@ global GLuint TextureHandle;
 internal void
 OpenGLRenderInit()
 {
-    //TODO (kstandbridge): Load GL extensions and set up GL state
+    // TODO(kstandbridge): Load GL extensions and set up GL state
     memory_arena Arena = {0};
     string File = PlatformReadEntireFile(&Arena, String("sprite.png"));
     SpriteBytes = stbi_load_from_memory(File.Data, (s32)File.Size, &SpriteWidth, &SpriteHeight, &SpriteComp, 4);
@@ -100,7 +104,7 @@ OpenGLRenderInit()
 }
 
 internal void
-OpenGLDestory()
+OpenGLDestroy()
 {
     
 }
