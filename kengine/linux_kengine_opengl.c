@@ -253,7 +253,7 @@ main(int ArgCount, char *Args[])
                                         glXSwapBuffers(Display, Window);
                                     }
 
-                                    OpenGLDestory();
+                                    OpenGLDestroy();
 
                                     glXMakeCurrent(Display, None, 0);
                                 }

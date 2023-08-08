@@ -63,7 +63,14 @@ typedef char GLchar;
                         if(StringsAreEqual(String("GL_ARB_debug_output"), Actual))
                         {
                             gl_debug_message_callback_arb *glDebugMessageCallbackARB =
+                            #if KENGINE_WIN32
                                 (gl_debug_message_callback_arb *)wglGetProcAddress("glDebugMessageCallbackARB");
+                            #elif KENGINE_LINUX
+                                (gl_debug_message_callback_arb *)glXGetProcAddressARB((void *)"glDebugMessageCallbackARB");
+                            #else
+                                #error Missing gl_debug_message_callback_arb for platform
+                            #endif
+
                             Assert(glDebugMessageCallbackARB);
                             AssertGL(glDebugMessageCallbackARB(OpenGLDebugCallback, 0));
                             AssertGL(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB));
