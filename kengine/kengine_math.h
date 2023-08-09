@@ -199,7 +199,7 @@ RGBColor(f32 R, f32 G, f32 B, f32 A)
     return Result;
 }
 
-inline v4
+internal v4
 SRGB255ToLinear1(v4 C)
 {
     v4 Result;
@@ -214,7 +214,7 @@ SRGB255ToLinear1(v4 C)
     return Result;
 }
 
-inline v4
+internal v4
 Linear1ToSRGB255(v4 C)
 {
     v4 Result;

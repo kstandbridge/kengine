@@ -59,6 +59,7 @@
 
 #include "kengine/kengine_profiler.h"
 #include "kengine/kengine_math.h"
+#include "kengine/kengine_intrinsics.h"
 #include "kengine/kengine_string.h"
 #include "kengine/kengine_random.h"
 #include "kengine/kengine_sha512.h"
@@ -67,7 +68,7 @@
 #include "kengine/kengine_xml_parser.h"
 #include "kengine/kengine_c_parser.h"
 #include "kengine/kengine_json_parser.h"
-
+#include "kengine/kengine_image.h"
 
 
 #if KENGINE_IMPLEMENTATION

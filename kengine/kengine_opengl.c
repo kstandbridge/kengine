@@ -88,26 +88,58 @@ typedef char GLchar;
     }
 #endif
 
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-global s32 SpriteWidth;
-global s32 SpriteHeight;
-global s32 SpriteComp;
-global stbi_uc *SpriteBytes;
-global GLuint TextureHandle;
+global loaded_bitmap LoadedSprite;
+global u32 SpriteHandle;
+global u32 TextureBindCount;
 
 internal void
 OpenGLRenderInit()
 {
     // TODO(kstandbridge): Load GL extensions and set up GL state
-    memory_arena Arena = {0};
-    string File = PlatformReadEntireFile(&Arena, String("sprite.png"));
-    SpriteBytes = stbi_load_from_memory(File.Data, (s32)File.Size, &SpriteWidth, &SpriteHeight, &SpriteComp, 4);
 
-    glGenTextures(1, &TextureHandle);
+    // NOTE(kstandbridge): Load image
+    {
+        memory_arena Arena = {0};
+        string File = PlatformReadEntireFile(&Arena, String("test_hero_front_head.bmp"));
+        //SpriteBytes = stbi_load_from_memory(File.Data, (s32)File.Size, &SpriteWidth, &SpriteHeight, &SpriteComp, 4);
+        LoadedSprite = LoadBMP(File);
+        
+        SpriteHandle = ++TextureBindCount;
+        glBindTexture(GL_TEXTURE_2D, SpriteHandle);
 
-    AssertGL(glClearColor(100.0f/255.0f, 149.0f/255.0f, 237.0f/255.0f, 1.0f));
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, LoadedSprite.Width, LoadedSprite.Height, 0,
+                     GL_BGRA_EXT, GL_UNSIGNED_BYTE, LoadedSprite.Memory);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    }
+
+}
+
+internal void
+OpenGLSetScreenspace(s32 Width, s32 Height)
+{
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glMatrixMode(GL_PROJECTION);
+    f32 a = SafeRatio1(2.0f, (f32)Width);
+    f32 b = SafeRatio1(2.0f, (f32)Height);
+    f32 Proj[] =
+    {
+         a,  0,  0,  0,
+         0,  b,  0,  0,
+         0,  0,  1,  0,
+        -1, -1,  0,  1,
+    };
+    glLoadMatrixf(Proj);
 }
 
 internal void
@@ -123,8 +155,87 @@ OpenGLRenderResize(u32 Width, u32 Height)
 }
 
 internal void
+OpenGLRectangle(v2 MinP, v2 MaxP, v4 Color)
+{                    
+    glBegin(GL_TRIANGLES);
+
+    glColor4f(Color.R, Color.G, Color.B, Color.A);
+    
+    // NOTE(casey): Lower triangle
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(MinP.X, MinP.Y);
+
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(MaxP.X, MinP.Y);
+    
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(MaxP.X, MaxP.Y);
+
+    // NOTE(casey): Upper triangle
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(MinP.X, MinP.Y);
+
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(MaxP.X, MaxP.Y);
+
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(MinP.X, MaxP.Y);
+    
+    glEnd();
+}
+
+inline v2
+V2ScalarMultiply(f32 A, v2 B)
+{
+    v2 Result =
+    {
+        .X = A*B.X,
+        .Y = A*B.Y,
+    };
+
+    return Result;
+}
+
+internal void
 OpenGLRenderFrame()
 {
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    glMatrixMode(GL_TEXTURE);
+    glLoadIdentity();
+
+    OpenGLSetScreenspace(WINDOW_WIDTH, WINDOW_HEIGHT);
+
+    // NOTE(kstandbridge): Clear
+    {
+        AssertGL(glClearColor(100.0f/255.0f, 149.0f/255.0f, 237.0f/255.0f, 1.0f));
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    }
+
+    // NOTE(kstandbridge): Draw rectangle
+    {
+        glDisable(GL_TEXTURE_2D);
+        OpenGLRectangle(V2(10, 10), V2(100, 100), V4(1, 1, 0, 1));
+        glEnable(GL_TEXTURE_2D);
+    }
+
+    // NOTE(kstandbridge): Draw bitmap
+    {
+        v2 XAxis = {1, 0};
+        v2 YAxis = {0, 1};
+
+        v2 MinP = V2(150, 150);
+        v2 MaxP = V2Add(V2Add(MinP, V2ScalarMultiply(LoadedSprite.Width, XAxis)),
+                        V2ScalarMultiply(LoadedSprite.Height, YAxis));
+        
+        glBindTexture(GL_TEXTURE_2D, SpriteHandle);
+        OpenGLRectangle(MinP, MaxP, V4Set1(1));
+    }
+
+#if 0
+
     glBindTexture(GL_TEXTURE_2D, TextureHandle);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, SpriteWidth, SpriteHeight, 0,
@@ -174,4 +285,5 @@ OpenGLRenderFrame()
     glVertex2f(-P, P);
     
     AssertGL(glEnd());
+#endif
 }

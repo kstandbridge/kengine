@@ -192,6 +192,60 @@ CeilF32ToS32(f32 Value)
     return Result;
 }
 
+typedef struct bit_scan_result
+{
+    b32 Found;
+    u32 Index;
+} bit_scan_result;
+
+internal bit_scan_result
+FindLeastSignificantSetBit(u32 Value)
+{
+    bit_scan_result Result;
+
+#if COMPILER_MSVC
+    Result.Found = _BitScanForward((unsigned long *)&Result.Index, Value);
+#else
+    for(s32 Test = 0;
+        Test < 32;
+        ++Test)
+    {
+        if(Value & (1 << Test))
+        {
+            Result.Index = Test;
+            Result.Found = true;
+            break;
+        }
+    }
+#endif
+
+    return(Result);
+}
+
+internal bit_scan_result
+FindMostSignificantSetBit(u32 Value)
+{
+    bit_scan_result Result;
+
+#if COMPILER_MSVC
+    Result.Found = _BitScanReverse((unsigned long *)&Result.Index, Value);
+#else
+    for(s32 Test = 32;
+        Test > 0;
+        --Test)
+    {
+        if(Value & (1 << (Test - 1)))
+        {
+            Result.Index = Test - 1;
+            Result.Found = true;
+            break;
+        }
+    }
+#endif
+
+    return(Result);
+}
+
 
 #define KENGINE_INTRINSICS_H
 #endif //KENGINE_INTRINSICS_H
