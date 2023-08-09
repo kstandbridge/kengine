@@ -92,37 +92,13 @@ typedef char GLchar;
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-global loaded_bitmap LoadedSprite;
-global u32 SpriteHandle;
-global u32 TextureBindCount;
+
 
 internal void
 OpenGLRenderInit()
 {
     // TODO(kstandbridge): Load GL extensions and set up GL state
-
     AssertGL(glEnable(GL_FRAMEBUFFER_SRGB));
-
-    // NOTE(kstandbridge): Load image
-    {
-        memory_arena Arena = {0};
-        string File = PlatformReadEntireFile(&Arena, String("test_hero_front_head.bmp"));
-        //SpriteBytes = stbi_load_from_memory(File.Data, (s32)File.Size, &SpriteWidth, &SpriteHeight, &SpriteComp, 4);
-        LoadedSprite = LoadBMP(File);
-        
-        SpriteHandle = ++TextureBindCount;
-        glBindTexture(GL_TEXTURE_2D, SpriteHandle);
-
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, LoadedSprite.Width, LoadedSprite.Height, 0,
-                     GL_BGRA_EXT, GL_UNSIGNED_BYTE, LoadedSprite.Memory);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    }
-
 }
 
 internal void
@@ -198,8 +174,12 @@ V2ScalarMultiply(f32 A, v2 B)
     return Result;
 }
 
+
+// TODO(kstandbridge): ditch this
+global u32 TextureBindCount;
+
 internal void
-OpenGLRenderFrame()
+OpenGLRenderFrame(app_render_commands *Commands)
 {
     glEnable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
@@ -210,82 +190,74 @@ OpenGLRenderFrame()
 
     OpenGLSetScreenspace(WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    // NOTE(kstandbridge): Clear
-    {
-        AssertGL(glClearColor(100.0f/255.0f, 149.0f/255.0f, 237.0f/255.0f, 1.0f));
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    }
+    u32 SortEntryCount = Commands->PushBufferElementCount;
+    tile_sort_entry *SortEntries = (tile_sort_entry *)(Commands->PushBufferBase + Commands->SortEntryAt);
 
-    // NOTE(kstandbridge): Draw rectangle
+    tile_sort_entry *Entry = SortEntries;
+    for(u32 SortEntryIndex = 0;
+        SortEntryIndex < SortEntryCount;
+        ++SortEntryIndex, ++Entry)
     {
-        glDisable(GL_TEXTURE_2D);
-        OpenGLRectangle(V2(10, 10), V2(100, 100), V4(1, 1, 0, 1));
-        glEnable(GL_TEXTURE_2D);
-    }
-
-    // NOTE(kstandbridge): Draw bitmap
-    {
-        v2 XAxis = {1, 0};
-        v2 YAxis = {0, 1};
-
-        v2 MinP = V2(150, 150);
-        v2 MaxP = V2Add(V2Add(MinP, V2ScalarMultiply(LoadedSprite.Width, XAxis)),
-                        V2ScalarMultiply(LoadedSprite.Height, YAxis));
+        render_group_entry_header *Header = 
+            (render_group_entry_header *)(Commands->PushBufferBase + Entry->PushBufferOffet);
         
-        glBindTexture(GL_TEXTURE_2D, SpriteHandle);
-        OpenGLRectangle(MinP, MaxP, V4Set1(1));
+        void *Data = (u8 *)Header + sizeof(*Header);
+        switch(Header->Type)
+        {
+            case RenderGroupEntryType_render_entry_clear:
+            {
+                render_entry_clear *Entry = (render_entry_clear *)Data;
+
+                AssertGL(glClearColor(Entry->Color.R, Entry->Color.G, Entry->Color.B, Entry->Color.A));
+                glClear(GL_COLOR_BUFFER_BIT);
+
+            } break;
+
+            case RenderGroupEntryType_render_entry_rectangle:
+            {
+                render_entry_rectangle *Entry = (render_entry_rectangle *)Data;
+
+                glDisable(GL_TEXTURE_2D);
+                OpenGLRectangle(Entry->P, V2Add(Entry->P, Entry->Dim), Entry->Color);
+                glEnable(GL_TEXTURE_2D);
+
+            } break;
+
+            case RenderGroupEntryType_render_entry_bitmap:
+            {
+                render_entry_bitmap *Entry = (render_entry_bitmap *)Data;
+                Assert(Entry->Bitmap);
+
+                v2 XAxis = {1, 0};
+                v2 YAxis = {0, 1};
+
+                v2 MinP = Entry->P;
+                v2 MaxP = V2Add(V2Add(MinP, V2ScalarMultiply(Entry->Size.X, XAxis)),
+                                V2ScalarMultiply(Entry->Size.Y, YAxis));
+
+                if(Entry->Bitmap->Handle)
+                {
+                    glBindTexture(GL_TEXTURE_2D, Entry->Bitmap->Handle);
+                }
+                else
+                {
+                    Entry->Bitmap->Handle = ++TextureBindCount;
+                    glBindTexture(GL_TEXTURE_2D, Entry->Bitmap->Handle);
+
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, Entry->Bitmap->Width, Entry->Bitmap->Height, 0,
+                                GL_BGRA_EXT, GL_UNSIGNED_BYTE, Entry->Bitmap->Memory);
+
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+                    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+                }
+
+                OpenGLRectangle(Entry->P, MaxP, Entry->Color);
+            } break;
+
+            InvalidDefaultCase;
+        }
     }
-
-#if 0
-
-    glBindTexture(GL_TEXTURE_2D, TextureHandle);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, SpriteWidth, SpriteHeight, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, SpriteBytes);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
-    glEnable(GL_TEXTURE_2D);
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-    glMatrixMode(GL_TEXTURE);
-    glLoadIdentity();
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-        
-    glBegin(GL_TRIANGLES);
-
-    f32 P = 0.9f;
-
-    // NOTE(kstandbridge): Lower triangle
-    glTexCoord2f(0.0f, 1.0f);
-    glVertex2f(-P, -P);
-
-    glTexCoord2f(1.0f, 1.0f);
-    glVertex2f(P, -P);
-
-    glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(P, P);
-
-    // NOTE(kstandbridge): Upper triangle
-    glTexCoord2f(0.0f, 1.0f);
-    glVertex2f(-P, -P);
-
-    glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(P, P);
-    
-    glTexCoord2f(0.0f, 0.0f);
-    glVertex2f(-P, P);
-    
-    AssertGL(glEnd());
-#endif
 }

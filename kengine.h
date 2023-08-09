@@ -102,6 +102,10 @@
 
 #elif KENGINE_OPENGL
 
+    #include "kengine/kengine_render_group.h"
+
+    internal void
+    AppUpdateAndRender(app_render_commands *RenderCommands);
 
     #if KENGINE_WIN32
 

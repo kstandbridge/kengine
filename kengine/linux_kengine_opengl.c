@@ -220,6 +220,10 @@ main(int ArgCount, char *Args[])
 
                                     OpenGLRenderInit();
 
+                                    // TODO(kstandbridge): Figure out our pushbuffer size;
+                                    u32 PushBufferSize = Megabytes(4);
+                                    void *PushBuffer = PlatformAllocateMemory(PushBufferSize, 0);
+
                                     b32 IsRunning = true;
                                     while(IsRunning)
                                     {
@@ -248,7 +252,23 @@ main(int ArgCount, char *Args[])
                                             continue;
                                         }
 
-                                        OpenGLRenderFrame();
+                                        app_render_commands RenderCommands_ =
+                                        {
+                                            .Width = WINDOW_WIDTH,
+                                            .Height = WINDOW_HEIGHT,
+                                            .MaxPushBufferSize = PushBufferSize,
+                                            .PushBufferSize = 0,
+                                            .PushBufferBase = PushBuffer,
+                                            .PushBufferElementCount = 0,
+                                            .SortEntryAt = PushBufferSize,
+                                        };
+                                        app_render_commands *RenderCommands = &RenderCommands_;
+
+                                        AppUpdateAndRender(RenderCommands);
+
+                                        SortEntries(RenderCommands);
+
+                                        OpenGLRenderFrame(RenderCommands);
 
                                         glXSwapBuffers(Display, Window);
                                     }

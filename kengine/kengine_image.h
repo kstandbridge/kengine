@@ -32,12 +32,13 @@ typedef struct loaded_bitmap
     s32 Pitch;
     void *Memory;
     
+    u32 Handle;
 } loaded_bitmap;
 
 internal loaded_bitmap
 LoadBMP(string File)
 {
-    loaded_bitmap Result;
+    loaded_bitmap Result = {0};
     
     if(File.Size != 0)
     {
