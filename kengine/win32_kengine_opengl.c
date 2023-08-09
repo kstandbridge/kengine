@@ -421,6 +421,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPTSTR CmdLine, s32 CmdShow)
                                       WindowClass.hInstance, 0);
         if(Window)
         {
+            // TODO(kstandbridge): Figure out our pushbuffer size;
+            u32 PushBufferSize = Megabytes(4);
+            void *PushBuffer = PlatformAllocateMemory(PushBufferSize, 0);
+            
             for(;;)
             {
                 MSG Message;
@@ -436,7 +440,23 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPTSTR CmdLine, s32 CmdShow)
                     continue;
                 }
 
-                OpenGLRenderFrame();
+                app_render_commands RenderCommands_ =
+                {
+                    .Width = WINDOW_WIDTH,
+                    .Height = WINDOW_HEIGHT,
+                    .MaxPushBufferSize = PushBufferSize,
+                    .PushBufferSize = 0,
+                    .PushBufferBase = PushBuffer,
+                    .PushBufferElementCount = 0,
+                    .SortEntryAt = PushBufferSize,
+                };
+                app_render_commands *RenderCommands = &RenderCommands_;
+
+                AppUpdateAndRender(RenderCommands);
+
+                SortEntries(RenderCommands);
+
+                OpenGLRenderFrame(RenderCommands);
 
                 if(!SwapBuffers(GlobalWin32State.DeviceContext))
                 {
