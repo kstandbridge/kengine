@@ -101,6 +101,8 @@ OpenGLRenderInit()
 {
     // TODO(kstandbridge): Load GL extensions and set up GL state
 
+    AssertGL(glEnable(GL_FRAMEBUFFER_SRGB));
+
     // NOTE(kstandbridge): Load image
     {
         memory_arena Arena = {0};

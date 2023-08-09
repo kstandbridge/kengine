@@ -109,6 +109,8 @@
         #include <windows.h>
         #include <GL/gl.h>
 
+        #include "kengine/win32_kengine_opengl.h"
+
         #include "kengine/kengine_opengl.c"
 
         #include "kengine/win32_kengine_opengl.c"
