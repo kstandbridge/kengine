@@ -93,7 +93,7 @@ internal rectangle2i
 AspectRatioFit(u32 RenderWidth, u32 RenderHeight,
                u32 WindowWidth, u32 WindowHeight)
 {
-    rectangle2i Result = {};
+    rectangle2i Result = {0};
     
     if((RenderWidth > 0) &&
        (RenderHeight > 0) &&
@@ -131,7 +131,7 @@ AspectRatioFit(u32 RenderWidth, u32 RenderHeight,
         }
     }
 
-    return(Result);
+    return Result;
 }
 
 #define STB_IMAGE_IMPLEMENTATION

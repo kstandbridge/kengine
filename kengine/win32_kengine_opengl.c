@@ -34,6 +34,8 @@ typedef struct app_memory
 
 } app_memory;
 global app_memory GlobalAppMemory;
+global s32 GlobalWindowWidth = WINDOW_WIDTH;
+global s32 GlobalWindowHeight = WINDOW_HEIGHT;
 
 internal HGLRC
 Win32CreateOldOpenGLContext(HDC DeviceContext)
@@ -355,7 +357,8 @@ Win32WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 
         case WM_SIZE:
         {
-            OpenGLRenderResize(LOWORD(LParam), HIWORD(LParam));
+            GlobalWindowWidth = LOWORD(LParam);
+            GlobalWindowHeight = HIWORD(LParam); 
         } break;
 
         default:
@@ -392,32 +395,26 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPTSTR CmdLine, s32 CmdShow)
         DWORD ExStyle = WS_EX_APPWINDOW;
         DWORD Style = WS_OVERLAPPEDWINDOW;
 
-        s32 WindowWidth = WINDOW_WIDTH;
-        s32 WindowHeight = WINDOW_HEIGHT;
-
-        Style &= ~WS_THICKFRAME & ~WS_MAXIMIZEBOX;
-        
         RECT Rect = 
         {
             .top = 0,
             .left = 0,
-            .right = WINDOW_WIDTH,
-            .bottom = WINDOW_HEIGHT
+            .right = GlobalWindowWidth,
+            .bottom = GlobalWindowHeight
         };
         if(AdjustWindowRectEx(&Rect, Style, FALSE, ExStyle))
         {
-            WindowWidth = Rect.right - Rect.left;
-            WindowHeight = Rect.bottom - Rect.top;
+            GlobalWindowWidth = Rect.right - Rect.left;
+            GlobalWindowHeight = Rect.bottom - Rect.top;
         }
         else
         {
             Win32LogError("AdjustWindowRectEx failed");
-            Style = WS_OVERLAPPEDWINDOW;
         }
         
 
         HWND Window = CreateWindowExW(ExStyle, WindowClass.lpszClassName, L"kengine opengl", Style | WS_VISIBLE, 
-                                      CW_USEDEFAULT, CW_USEDEFAULT, WindowWidth, WindowHeight, 0, 0, 
+                                      CW_USEDEFAULT, CW_USEDEFAULT, GlobalWindowWidth, GlobalWindowHeight, 0, 0, 
                                       WindowClass.hInstance, 0);
         if(Window)
         {
@@ -442,8 +439,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPTSTR CmdLine, s32 CmdShow)
 
                 app_render_commands RenderCommands_ =
                 {
-                    .Width = WINDOW_WIDTH,
-                    .Height = WINDOW_HEIGHT,
+                    .RenderWidth = GlobalWindowWidth,
+                    .RenderHeight = GlobalWindowHeight,
+                    .WindowWidth = GlobalWindowWidth,
+                    .WindowHeight = GlobalWindowHeight,
                     .MaxPushBufferSize = PushBufferSize,
                     .PushBufferSize = 0,
                     .PushBufferBase = PushBuffer,
