@@ -1,7 +1,9 @@
 typedef struct app_render_commands
 {
-    u32 Width;
-    u32 Height;
+    u32 RenderWidth;
+    u32 RenderHeight;
+    u32 WindowWidth;
+    u32 WindowHeight;
 
     u32 MaxPushBufferSize;
     u32 PushBufferSize;
@@ -19,7 +21,6 @@ typedef struct tile_sort_entry
 
 typedef enum render_group_entry_type
 {
-    RenderGroupEntryType_render_entry_clear,
     RenderGroupEntryType_render_entry_rectangle,
     RenderGroupEntryType_render_entry_bitmap,
 } render_group_entry_type;
@@ -85,16 +86,6 @@ PushRenderElement_(render_group *Group, u32 Size, render_group_entry_type Type, 
     }
 
     return Result;
-}
-
-internal void
-PushClear(render_group *Group, v4 Color)
-{
-    render_entry_clear *Entry = PushRenderElement(Group, render_entry_clear, F32Min);
-    if(Entry)
-    {
-        Entry->Color = Color;
-    }
 }
 
 internal void

@@ -125,9 +125,10 @@ main(int ArgCount, char *Args[])
                         Window Window = XCreateWindow(Display, RootWindow, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
                                                       0, VisualInfo->depth, InputOutput, VisualInfo->visual,
                                                       CWColormap | CWEventMask, &SetWindowAttributes);
-                        XSelectInput(Display, Window, ExposureMask | ButtonPressMask | KeyPressMask);
+                        XSelectInput(Display, Window, StructureNotifyMask | ExposureMask | ButtonPressMask | KeyPressMask);
                         if(Window)
                         {
+#if 0
                             XSizeHints *SizeHints = XAllocSizeHints();
                             if(SizeHints)
                             {
@@ -141,7 +142,7 @@ main(int ArgCount, char *Args[])
                             {
                                 PlatformConsoleOut("Error: XAllocSizeHints failed!");
                             }
-
+#endif
                             Atom WM_DELETE_WINDOW = XInternAtom(Display, "WM_DELETE_WINDOW", false);
                             XSetWMProtocols(Display, Window, &WM_DELETE_WINDOW, 1);
 
@@ -225,6 +226,9 @@ main(int ArgCount, char *Args[])
                                     void *PushBuffer = PlatformAllocateMemory(PushBufferSize, 0);
 
                                     b32 IsRunning = true;
+                                    s32 WindowWidth = WINDOW_WIDTH;
+                                    s32 WindowHeight = WINDOW_HEIGHT;
+
                                     while(IsRunning)
                                     {
                                         if(XPending(Display))
@@ -234,7 +238,8 @@ main(int ArgCount, char *Args[])
 
                                             if(Event.type == ConfigureNotify)
                                             {
-                                                OpenGLRenderResize(Event.xconfigure.width, Event.xconfigure.height);
+                                                WindowWidth = Event.xconfigure.width;
+                                                WindowHeight = Event.xconfigure.height;
                                             }
                                             else if(Event.type == ClientMessage)
                                             {
@@ -254,8 +259,10 @@ main(int ArgCount, char *Args[])
 
                                         app_render_commands RenderCommands_ =
                                         {
-                                            .Width = WINDOW_WIDTH,
-                                            .Height = WINDOW_HEIGHT,
+                                            .RenderWidth = WindowWidth,
+                                            .RenderHeight = WindowHeight,
+                                            .WindowWidth = WindowWidth,
+                                            .WindowHeight = WindowHeight,
                                             .MaxPushBufferSize = PushBufferSize,
                                             .PushBufferSize = 0,
                                             .PushBufferBase = PushBuffer,

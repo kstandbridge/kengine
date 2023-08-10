@@ -89,6 +89,51 @@ typedef char GLchar;
 #endif
 
 
+internal rectangle2i
+AspectRatioFit(u32 RenderWidth, u32 RenderHeight,
+               u32 WindowWidth, u32 WindowHeight)
+{
+    rectangle2i Result = {};
+    
+    if((RenderWidth > 0) &&
+       (RenderHeight > 0) &&
+       (WindowWidth > 0) &&
+       (WindowHeight > 0))
+    {
+        f32 OptimalWindowWidth = (f32)WindowHeight * ((f32)RenderWidth / (f32)RenderHeight);
+        f32 OptimalWindowHeight = (f32)WindowWidth * ((f32)RenderHeight / (f32)RenderWidth);
+
+        if(OptimalWindowWidth > (f32)WindowWidth)
+        {
+            // NOTE(casey): Width-constrained display - top and bottom black bars
+            Result.MinX = 0;
+            Result.MaxX = WindowWidth;
+
+            f32 Empty = (f32)WindowHeight - OptimalWindowHeight;
+            s32 HalfEmpty = RoundF32ToS32(0.5f*Empty);
+            s32 UseHeight = RoundF32ToS32(OptimalWindowHeight);
+
+            Result.MinY = HalfEmpty;
+            Result.MaxY = Result.MinY + UseHeight;
+        }
+        else
+        {
+            // NOTE(casey): Height-constrained display - left and right black bars
+            Result.MinY = 0;
+            Result.MaxY = WindowHeight;
+
+            f32 Empty = (f32)WindowWidth - OptimalWindowWidth;
+            s32 HalfEmpty = RoundF32ToS32(0.5f*Empty);
+            s32 UseWidth = RoundF32ToS32(OptimalWindowWidth);
+
+            Result.MinX = HalfEmpty;
+            Result.MaxX = Result.MinX + UseWidth;
+        }
+    }
+
+    return(Result);
+}
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -124,12 +169,6 @@ internal void
 OpenGLDestroy()
 {
     
-}
-
-internal void
-OpenGLRenderResize(u32 Width, u32 Height)
-{
-    AssertGL(glViewport(0, 0, Width, Height));
 }
 
 internal void
@@ -181,6 +220,13 @@ global u32 TextureBindCount;
 internal void
 OpenGLRenderFrame(app_render_commands *Commands)
 {
+    rectangle2i DrawRegion = AspectRatioFit(Commands->RenderWidth, Commands->RenderHeight,
+                                            Commands->WindowWidth, Commands->WindowHeight);
+    u32 WindowWidth = GetWidth(DrawRegion);
+    u32 WindowHeight = GetHeight(DrawRegion);
+    
+    AssertGL(glViewport(DrawRegion.MinX, DrawRegion.MinY, WindowWidth, WindowHeight));
+
     glEnable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
@@ -188,7 +234,10 @@ OpenGLRenderFrame(app_render_commands *Commands)
     glMatrixMode(GL_TEXTURE);
     glLoadIdentity();
 
-    OpenGLSetScreenspace(WINDOW_WIDTH, WINDOW_HEIGHT);
+    OpenGLSetScreenspace(Commands->RenderWidth, Commands->RenderHeight);
+
+    AssertGL(glClearColor(0, 0, 0, 0));
+    glClear(GL_COLOR_BUFFER_BIT);
 
     u32 SortEntryCount = Commands->PushBufferElementCount;
     tile_sort_entry *SortEntries = (tile_sort_entry *)(Commands->PushBufferBase + Commands->SortEntryAt);
@@ -204,15 +253,6 @@ OpenGLRenderFrame(app_render_commands *Commands)
         void *Data = (u8 *)Header + sizeof(*Header);
         switch(Header->Type)
         {
-            case RenderGroupEntryType_render_entry_clear:
-            {
-                render_entry_clear *Entry = (render_entry_clear *)Data;
-
-                AssertGL(glClearColor(Entry->Color.R, Entry->Color.G, Entry->Color.B, Entry->Color.A));
-                glClear(GL_COLOR_BUFFER_BIT);
-
-            } break;
-
             case RenderGroupEntryType_render_entry_rectangle:
             {
                 render_entry_rectangle *Entry = (render_entry_rectangle *)Data;

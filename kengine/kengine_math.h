@@ -233,6 +233,22 @@ Linear1ToSRGB255(v4 C)
 // NOTE(kstandbridge): rectangle2 operations
 //
 
+inline s32
+GetWidth(rectangle2i A)
+{
+    s32 Result = A.MaxX - A.MinX;
+    
+    return Result;
+}
+
+inline s32
+GetHeight(rectangle2i A)
+{
+    s32 Result = A.MaxY - A.MinY;
+    
+    return Result;
+}
+
 inline rectangle2
 Rectangle2AddRadiusTo(rectangle2 Rectangle, f32 Radius)
 {
