@@ -102,6 +102,8 @@
 
 #elif KENGINE_OPENGL
 
+    #include "kengine/kengine_opengl.c"
+
     #if KENGINE_WIN32
 
     #include "kengine/win32_kengine_opengl.c"

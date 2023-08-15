@@ -14,33 +14,25 @@
 #define VK_ESCAPE      9
 #define VK_SPACE       65
 
-typedef struct linux_offscreen_buffer
+typedef struct linux_state
 {
-    // NOTE(kstandbridge): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
+    memory_arena Arena;
+    b32 Running;
+    offscreen_buffer Backbuffer;
+
     Pixmap Pixmap;
     XImage *Image;
-    s32 Width;
-    s32 Height;
-    s32 Pitch;
-} linux_offscreen_buffer;
+    
+} linux_state;
+global linux_state *GlobalLinuxState;
 
-typedef struct linux_window_dimension
-{
-    s32 Width;
-    s32 Height;
-} linux_window_dimension;
-
-global memory_arena GlobalArena;
-global b32 GlobalRunning;
-global linux_offscreen_buffer GlobalBackbuffer;
-
-internal linux_window_dimension
+internal window_dimension
 LinuxGetWindowDimensions(Display *Display, Window Window)
 {
     XWindowAttributes Attributes;
     XGetWindowAttributes(Display, Window, &Attributes);
 
-    linux_window_dimension Result =
+    window_dimension Result =
     {
         .Width = Attributes.width,
         .Height = Attributes.height
@@ -50,32 +42,10 @@ LinuxGetWindowDimensions(Display *Display, Window Window)
 }
 
 internal void
-RenderWeirdGradient(linux_offscreen_buffer *Buffer, s32 BlueOffset, s32 GreenOffset)
+LinuxResizeDIBSection(linux_state *State, Display *Display, Window Window, s32 Width, s32 Height)
 {
-    u8 *Row = (u8 *)Buffer->Image->data;    
-    for(s32 Y = 0;
-        Y < Buffer->Height;
-        ++Y)
-    {
-        u32 *Pixel = (u32 *)Row;
-        for(s32 X = 0;
-            X < Buffer->Width;
-            ++X)
-        {
-            u8 Blue = (X + BlueOffset);
-            u8 Green = (Y + GreenOffset);
-
-            *Pixel++ = ((Green << 8) | Blue);
-        }
-        
-        Row += Buffer->Pitch;
-    }
-}
-
-internal void
-LinuxResizeDIBSection(linux_offscreen_buffer *Buffer, Display *Display, Window Window, s32 Width, s32 Height)
-{
-    if(Buffer->Image)
+    offscreen_buffer *Buffer = &State->Backbuffer;
+    if(State->Image)
     {
         // TODO(kstandbridge): Free memory of GlobalImage->data
         //XDestroyImage(GlobalImage);
@@ -84,38 +54,40 @@ LinuxResizeDIBSection(linux_offscreen_buffer *Buffer, Display *Display, Window W
     Buffer->Width = Width;
     Buffer->Height = Height;
 
-    Buffer->Image = XCreateImage(Display, DefaultVisual(Display, 0),
+    State->Image = XCreateImage(Display, DefaultVisual(Display, 0),
                                 24, ZPixmap, 0, 0, Buffer->Width, Buffer->Height, 32, 0);
-    Buffer->Image->data = PushSize_(&GlobalArena, Buffer->Image->bytes_per_line * Buffer->Image->height, DefaultArenaPushParams());
+    State->Image->data = Buffer->Memory = PushSize_(&State->Arena, State->Image->bytes_per_line * State->Image->height, DefaultArenaPushParams());
 
-    if(Buffer->Pixmap)
+    if(State->Pixmap)
     {
-        XFreePixmap(Display, Buffer->Pixmap);
+        XFreePixmap(Display, State->Pixmap);
     }
-    Buffer->Pixmap = XCreatePixmap(Display, Window, Buffer->Width, Buffer->Height, 24);
+    State->Pixmap = XCreatePixmap(Display, Window, Buffer->Width, Buffer->Height, 24);
     int BytesPerPixel = 4;
     Buffer->Pitch = Width*BytesPerPixel;
 }
 
 internal void
-LinuxDisplayBufferInWindow(linux_offscreen_buffer *Buffer,
+LinuxDisplayBufferInWindow(linux_state *State,
                            Display *Display, Window Window, GC GraphicsContext,
                            s32 WindowWidth, s32 WindowHeight)
 {
-    if(Buffer->Pixmap && Buffer->Image)
+    offscreen_buffer *Buffer = &State->Backbuffer;
+
+    if(State->Pixmap && State->Image)
     {
-        XPutImage(Display, Buffer->Pixmap, GraphicsContext, Buffer->Image, 0, 0, 0, 0, Buffer->Image->width, Buffer->Image->height);
+        XPutImage(Display, State->Pixmap, GraphicsContext, State->Image, 0, 0, 0, 0, State->Image->width, State->Image->height);
         
-        XCopyArea(Display, Buffer->Pixmap, Window, GraphicsContext, 0, 0, Buffer->Image->width, Buffer->Image->height, 0, 0);
+        XCopyArea(Display, State->Pixmap, Window, GraphicsContext, 0, 0, Buffer->Width, Buffer->Height, 0, 0);
     }
 
     XFlush(Display);
 }
 
 internal void
-LinuxProcessPendingMessages(Display *Display, Window Window, Atom WmDeleteWindow, GC GraphicsContext)
+LinuxProcessPendingMessages(linux_state *State, Display *Display, Window Window, Atom WmDeleteWindow, GC GraphicsContext)
 {
-    while(GlobalRunning && XPending(Display))
+    while(State->Running && XPending(Display))
     {
         XEvent Event;
         XNextEvent(Display, &Event);
@@ -126,7 +98,7 @@ LinuxProcessPendingMessages(Display *Display, Window Window, Atom WmDeleteWindow
                 if ((Display == Event.xdestroywindow.display) &&
                     (Window == Event.xdestroywindow.window))
                 {
-                    GlobalRunning = false;
+                    State->Running = false;
                 }
             } break;
             
@@ -134,15 +106,15 @@ LinuxProcessPendingMessages(Display *Display, Window Window, Atom WmDeleteWindow
             {
                 if ((Atom)Event.xclient.data.l[0] == WmDeleteWindow)
                 {
-                    GlobalRunning = false;
+                    State->Running = false;
                 }
             } break;
 
             case Expose:
             case MapNotify:
             {
-                linux_window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
-                LinuxDisplayBufferInWindow(&GlobalBackbuffer,
+                window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
+                LinuxDisplayBufferInWindow(State,
                                            Display, Window, GraphicsContext,
                                            Dimension.Width, Dimension.Height);
             } break;
@@ -218,6 +190,7 @@ main(int argc, char **argv)
 {
     GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
     GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
+    GlobalLinuxState = BootstrapPushStruct(linux_state, Arena);
 
     Display *Display = XOpenDisplay(0);
     s32 Screen = DefaultScreen(Display);
@@ -243,26 +216,26 @@ main(int argc, char **argv)
     Atom WmDeleteWindow = XInternAtom(Display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(Display, Window, &WmDeleteWindow, 1);
 
-    LinuxResizeDIBSection(&GlobalBackbuffer, Display, Window, 1280, 720);
+    LinuxResizeDIBSection(GlobalLinuxState, Display, Window, 1280, 720);
     
     s32 XOffset = 0;
     s32 YOffset = 0;
 
-    GlobalRunning = true;
-    while(GlobalRunning)
+    GlobalLinuxState->Running = true;
+    while(GlobalLinuxState->Running)
     {
-        LinuxProcessPendingMessages(Display, Window, WmDeleteWindow, GraphicsContext);
+        LinuxProcessPendingMessages(GlobalLinuxState, Display, Window, WmDeleteWindow, GraphicsContext);
  
         // TODO(kstandbridge): Process controller input
 
-        if((GlobalBackbuffer.Image) && 
-           (GlobalBackbuffer.Image->data))
+        if((GlobalLinuxState->Image) && 
+           (GlobalLinuxState->Image->data))
         {
-            RenderWeirdGradient(&GlobalBackbuffer, XOffset, YOffset);
+            RenderWeirdGradient(&GlobalLinuxState->Backbuffer, XOffset, YOffset);
         }
 
-        linux_window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
-        LinuxDisplayBufferInWindow(&GlobalBackbuffer,
+        window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
+        LinuxDisplayBufferInWindow(GlobalLinuxState,
                                    Display, Window, GraphicsContext,
                                    Dimension.Width, Dimension.Height);
 
