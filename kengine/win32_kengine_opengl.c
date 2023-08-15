@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <xinput.h>
+#include <dsound.h>
 
 typedef struct win32_state
 {
@@ -8,6 +9,7 @@ typedef struct win32_state
     offscreen_buffer Backbuffer;
 
     BITMAPINFO Info;
+    LPDIRECTSOUNDBUFFER SecondaryBuffer;
 } win32_state;
 global win32_state *GlobalWin32State;
 
@@ -15,7 +17,7 @@ global win32_state *GlobalWin32State;
 typedef X_INPUT_GET_STATE(x_input_get_state);
 X_INPUT_GET_STATE(XInputGetStateStub)
 {
-    return(0);
+    return(ERROR_DEVICE_NOT_CONNECTED);
 }
 global x_input_get_state *XInputGetState_ = XInputGetStateStub;
 #define XInputGetState XInputGetState_
@@ -24,15 +26,25 @@ global x_input_get_state *XInputGetState_ = XInputGetStateStub;
 typedef X_INPUT_SET_STATE(x_input_set_state);
 X_INPUT_SET_STATE(XInputSetStateStub)
 {
-    return(0);
+    return(ERROR_DEVICE_NOT_CONNECTED);
 }
 global x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
+#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
+typedef DIRECT_SOUND_CREATE(direct_sound_create);
+
 internal void
 Win32LoadXInput(void)    
 {
-    HMODULE XInputLibrary = LoadLibraryA("xinput1_3.dll");
+    // TODO(kstandbridge): Test this on Windows 8
+    HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
+    if(!XInputLibrary)
+    {
+        // TODO(kstandbridge): Diagnostic
+        XInputLibrary = LoadLibraryA("xinput1_3.dll");
+    }
+    
     if(XInputLibrary)
     {
         XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
@@ -40,6 +52,97 @@ Win32LoadXInput(void)
 
         XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
         if(!XInputSetState) {XInputSetState = XInputSetStateStub;}
+
+        // TODO(kstandbridge): Diagnostic
+    }
+    else
+    {
+        // TODO(kstandbridge): Diagnostic
+    }
+}
+
+internal void
+Win32InitDSound(HWND Window, s32 SamplesPerSecond, s32 BufferSize)
+{
+    // NOTE(kstandbridge): Load the library
+    HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
+    if(DSoundLibrary)
+    {
+        // NOTE(kstandbridge): Get a DirectSound object! - cooperative
+        direct_sound_create *DirectSoundCreate = (direct_sound_create *)
+            GetProcAddress(DSoundLibrary, "DirectSoundCreate");
+
+        // TODO(kstandbridge): Double-check that this works on XP - DirectSound8 or 7??
+        LPDIRECTSOUND DirectSound;
+        if(DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0)))
+        {
+            WAVEFORMATEX WaveFormat =
+            {
+                .wFormatTag = WAVE_FORMAT_PCM,
+                .nChannels = 2,
+                .nSamplesPerSec = SamplesPerSecond,
+                .wBitsPerSample = 16,
+                .cbSize = 0
+            };
+            WaveFormat.nBlockAlign = (WaveFormat.nChannels*WaveFormat.wBitsPerSample) / 8;
+            WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec*WaveFormat.nBlockAlign;
+
+            if(SUCCEEDED(DirectSound->lpVtbl->SetCooperativeLevel(DirectSound, Window, DSSCL_PRIORITY)))
+            {
+                DSBUFFERDESC BufferDescription = 
+                {
+                    .dwSize = sizeof(BufferDescription),
+                    .dwFlags = DSBCAPS_PRIMARYBUFFER,
+                };
+
+                // NOTE(kstandbridge): "Create" a primary buffer
+                // TODO(kstandbridge): DSBCAPS_GLOBALFOCUS?
+                LPDIRECTSOUNDBUFFER PrimaryBuffer;
+                if(SUCCEEDED(DirectSound->lpVtbl->CreateSoundBuffer(DirectSound, &BufferDescription, &PrimaryBuffer, 0)))
+                {
+                    HRESULT Error = PrimaryBuffer->lpVtbl->SetFormat(PrimaryBuffer, &WaveFormat);
+                    if(SUCCEEDED(Error))
+                    {
+                        // NOTE(kstandbridge): We have finally set the format!
+                        PlatformConsoleOut("Primary buffer format was set.\n");
+                    }
+                    else
+                    {
+                        // TODO(kstandbridge): Diagnostic
+                    }
+                }
+                else
+                {
+                    // TODO(kstandbridge): Diagnostic
+                }
+            }
+            else
+            {
+                // TODO(kstandbridge): Diagnostic
+            }
+
+            // TODO(kstandbridge): DSBCAPS_GETCURRENTPOSITION2
+            DSBUFFERDESC BufferDescription = 
+            {
+                .dwSize = sizeof(BufferDescription),
+                .dwFlags = 0,
+                .dwBufferBytes = BufferSize,
+                .lpwfxFormat = &WaveFormat,
+            };
+            HRESULT Error = DirectSound->lpVtbl->CreateSoundBuffer(DirectSound, &BufferDescription, &GlobalWin32State->SecondaryBuffer, 0);
+            if(SUCCEEDED(Error))
+            {
+                PlatformConsoleOut("Secondary buffer created successfully.\n");
+            }
+        }
+        else
+        {
+            // TODO(kstandbridge): Diagnostic
+        }
+    }
+    else
+    {
+        // TODO(kstandbridge): Diagnostic
     }
 }
 
@@ -128,7 +231,7 @@ Win32MainWindowCallback(HWND Window,
 
         case WM_ACTIVATEAPP:
         {
-            OutputDebugStringA("WM_ACTIVATEAPP\n");
+            PlatformConsoleOut("WM_ACTIVATEAPP\n");
         } break;
 
         case WM_DESTROY:
@@ -192,6 +295,12 @@ Win32MainWindowCallback(HWND Window,
                 else if(VKCode == VK_SPACE)
                 {
                 }
+            }
+
+            b32 AltKeyWasDown = (LParam & (1 << 29));
+            if((VKCode == VK_F4) && AltKeyWasDown)
+            {
+                GlobalWin32State->Running = false;
             }
         } break;
 
@@ -259,8 +368,22 @@ WinMain(HINSTANCE hInstance,
         {
             HDC DeviceContext = GetDC(Window);
 
+            // NOTE(kstandbridge): Graphics test
             s32 XOffset = 0;
             s32 YOffset = 0;
+
+            // NOTE(kstandbridge): Sound test
+            s32 SamplesPerSecond = 48000;
+            s32 ToneHz = 256;
+            s16 ToneVolume = 3000;
+            u32 RunningSampleIndex = 0;
+            s32 SquareWavePeriod = SamplesPerSecond/ToneHz;
+            s32 HalfSquareWavePeriod = SquareWavePeriod/2;
+            s32 BytesPerSample = sizeof(s16)*2;
+            s32 SecondaryBufferSize = SamplesPerSecond*BytesPerSample;
+            
+            Win32InitDSound(Window, SamplesPerSecond, SecondaryBufferSize);
+            b32 SoundIsPlaying = false;
             
             GlobalWin32State->Running = true;
             while(GlobalWin32State->Running)
@@ -316,6 +439,72 @@ WinMain(HINSTANCE hInstance,
                 }
 
                 RenderWeirdGradient(&GlobalWin32State->Backbuffer, XOffset, YOffset);
+
+                // NOTE(kstandbridge): DirectSound output test
+                DWORD PlayCursor;
+                DWORD WriteCursor;
+                if(SUCCEEDED(GlobalWin32State->SecondaryBuffer->lpVtbl->GetCurrentPosition(GlobalWin32State->SecondaryBuffer, &PlayCursor, &WriteCursor)))
+                {
+                    DWORD ByteToLock = RunningSampleIndex*BytesPerSample % SecondaryBufferSize;
+                    DWORD BytesToWrite;
+                    if(ByteToLock == PlayCursor)
+                    {
+                        BytesToWrite = SecondaryBufferSize;
+                    }
+                    else if(ByteToLock > PlayCursor)
+                    {
+                        BytesToWrite = (SecondaryBufferSize - ByteToLock);
+                        BytesToWrite += PlayCursor;
+                    }
+                    else
+                    {
+                        BytesToWrite = PlayCursor - ByteToLock;
+                    }
+
+                    // TODO(kstandbridge): More strenuous test!
+                    // TODO(kstandbridge): Switch to a sine wave
+                    VOID *Region1;
+                    DWORD Region1Size;
+                    VOID *Region2;
+                    DWORD Region2Size;
+                    if(SUCCEEDED(GlobalWin32State->SecondaryBuffer->lpVtbl->Lock(
+                        GlobalWin32State->SecondaryBuffer, ByteToLock, BytesToWrite,
+                        &Region1, &Region1Size, &Region2, &Region2Size, 0)))
+                    {
+                        // TODO(kstandbridge): assert that Region1Size/Region2Size is valid
+
+                        // TODO(kstandbridge): Collapse these two loops
+                        DWORD Region1SampleCount = Region1Size/BytesPerSample;
+                        s16 *SampleOut = (s16 *)Region1;
+                        for(DWORD SampleIndex = 0;
+                            SampleIndex < Region1SampleCount;
+                            ++SampleIndex)
+                        {
+                            s16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
+                            *SampleOut++ = SampleValue;
+                            *SampleOut++ = SampleValue;
+                        }
+
+                        DWORD Region2SampleCount = Region2Size/BytesPerSample;
+                        SampleOut = (s16 *)Region2;
+                        for(DWORD SampleIndex = 0;
+                            SampleIndex < Region2SampleCount;
+                            ++SampleIndex)
+                        {
+                            s16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
+                            *SampleOut++ = SampleValue;
+                            *SampleOut++ = SampleValue;
+                        }
+
+                        GlobalWin32State->SecondaryBuffer->lpVtbl->Unlock(GlobalWin32State->SecondaryBuffer, Region1, Region1Size, Region2, Region2Size);
+                    }
+                }
+
+                if(!SoundIsPlaying)
+                {
+                    GlobalWin32State->SecondaryBuffer->lpVtbl->Play(GlobalWin32State->SecondaryBuffer, 0, 0, DSBPLAY_LOOPING);
+                    SoundIsPlaying = true;
+                }
 
                 window_dimension Dimension = Win32GetWindowDimension(Window);
                 Win32DisplayBufferInWindow(GlobalWin32State, DeviceContext,
