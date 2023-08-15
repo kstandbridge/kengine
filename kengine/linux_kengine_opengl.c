@@ -1,12 +1,67 @@
 global b32 GlobalRunning;
-global Pixmap GlobalPixmap;
-global XImage *GlobalImage;
 global memory_arena GlobalArena;
 
-internal void
-LinuxResizePixmap(Display *Display, u32 Width, u32 Height)
-{
 
+global Pixmap GlobalPixmap;
+global XImage *GlobalImage;
+global s32 BitmapWidth;
+global s32 BitmapHeight;
+global s32 BytesPerPixel = 4;
+
+internal void
+RenderWeirdGradient(s32 BlueOffset, s32 GreenOffset)
+{
+    s32 Pitch = BitmapWidth*BytesPerPixel;
+    u8 *Row = (u8 *)GlobalImage->data;    
+    for(s32 Y = 0;
+        Y < BitmapHeight;
+        ++Y)
+    {
+        u32 *Pixel = (u32 *)Row;
+        for(s32 X = 0;
+            X < BitmapWidth;
+            ++X)
+        {
+            u8 Blue = (X + BlueOffset);
+            u8 Green = (Y + GreenOffset);
+            
+            *Pixel++ = ((Green << 8) | Blue);
+        }
+
+        Row += Pitch;
+    }
+}
+
+internal void
+LinuxResize(Display *Display, Window Window)
+{
+    if(GlobalImage)
+    {
+        // TODO(kstandbridge): Free memory of GlobalImage->data
+        //XDestroyImage(GlobalImage);
+    }
+    GlobalImage = XCreateImage(Display, DefaultVisual(Display, 0),
+                                24, ZPixmap, 0, 0, BitmapWidth, BitmapHeight, 32, 0);
+    GlobalImage->data = PushSize_(&GlobalArena, GlobalImage->bytes_per_line * GlobalImage->height, DefaultArenaPushParams());
+
+    if(GlobalPixmap)
+    {
+        XFreePixmap(Display, GlobalPixmap);
+    }
+    GlobalPixmap = XCreatePixmap(Display, Window, BitmapWidth, BitmapHeight, 24);
+}
+
+internal void
+LinuxUpdateWindow(Display *Display, Window Window, GC GraphicsContext)
+{
+    if(GlobalPixmap && GlobalImage)
+    {
+        XPutImage(Display, GlobalPixmap, GraphicsContext, GlobalImage, 0, 0, 0, 0, GlobalImage->width, GlobalImage->height);
+        
+        XCopyArea(Display, GlobalPixmap, Window, GraphicsContext, 0, 0, GlobalImage->width, GlobalImage->height, 0, 0);
+    }
+
+    XFlush(Display);
 }
 
 internal void
@@ -26,31 +81,9 @@ LinuxProcessPendingMessages(Display *Display, Window Window, Atom WmDeleteWindow
                    ((GlobalImage->width != Width) &&
                     (GlobalImage->height != Height)))
                 {
-                    PlatformConsoleOut("Resize window %ux%u\n", Width, Height);
-                    //LinuxResizePixmap(Display, Width, Height);
-                    if(GlobalImage)
-                    {
-                        // TODO(kstandbridge): Free memory of GlobalImage->data
-                        //XDestroyImage(GlobalImage);
-                    }
-                    GlobalImage = XCreateImage(Display, DefaultVisual(Display, 0),
-                                               24, ZPixmap, 0, 0, Width, Height, 32, 0);
-                    GlobalImage->data = PushSize_(&GlobalArena, GlobalImage->bytes_per_line * GlobalImage->height, DefaultArenaPushParams());
-
-                    for(s32 Index = 0;
-                        Index < (Width*Height*4);
-                        Index += 4)
-                    {
-                        GlobalImage->data[Index + 0] = 0; // NOTE(kstandbridge): // Blue
-                        GlobalImage->data[Index + 1] = 0; // NOTE(kstandbridge): // Green
-                        GlobalImage->data[Index + 2] = 255; // NOTE(kstandbridge): // Red
-                        GlobalImage->data[Index + 3] = 0; // NOTE(kstandbridge): // Dead pixel, always zero
-                    }
-                    if(GlobalPixmap)
-                    {
-                        XFreePixmap(Display, GlobalPixmap);
-                    }
-                    GlobalPixmap = XCreatePixmap(Display, Window, Width, Height, 24);
+                    BitmapWidth = Width;
+                    BitmapHeight = Height;
+                    LinuxResize(Display, Window);
                 }
             } break;
             
@@ -70,7 +103,7 @@ LinuxProcessPendingMessages(Display *Display, Window Window, Atom WmDeleteWindow
                     GlobalRunning = false;
                 }
             } break;
-
+            
             case Expose:
             case MapNotify:
             {
@@ -85,7 +118,6 @@ LinuxProcessPendingMessages(Display *Display, Window Window, Atom WmDeleteWindow
 
                 XFlush(Display);
             } break;
-            
 #if 0
             case MotionNotify:
             {
@@ -131,10 +163,25 @@ main(int argc, char **argv)
 
     Atom WmDeleteWindow = XInternAtom(Display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(Display, Window, &WmDeleteWindow, 1);
+    
+    s32 XOffset = 0;
+    s32 YOffset = 0;
+
     GlobalRunning = true;
     while(GlobalRunning)
     {
         LinuxProcessPendingMessages(Display, Window, WmDeleteWindow, GraphicsContext);
+ 
+        if((GlobalImage) && 
+           (GlobalImage->data))
+        {
+            RenderWeirdGradient(XOffset, YOffset);
+        }
+
+        LinuxUpdateWindow(Display, Window, GraphicsContext);
+
+        ++XOffset;
+        YOffset += 2;
     }
 
     XFreeGC(Display, GraphicsContext);
