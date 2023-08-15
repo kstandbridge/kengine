@@ -104,7 +104,6 @@
 
     #if KENGINE_WIN32
 
-    #include <windows.h>
     #include "kengine/win32_kengine_opengl.c"
 
     #elif KENGINE_LINUX
