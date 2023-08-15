@@ -216,8 +216,8 @@ LinuxProcessPendingMessages(Display *Display, Window Window, Atom WmDeleteWindow
 int
 main(int argc, char **argv)
 {
-    GlobalLinuxState.MemorySentinel.Prev = &GlobalLinuxState.MemorySentinel;
-    GlobalLinuxState.MemorySentinel.Next = &GlobalLinuxState.MemorySentinel;
+    GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
+    GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
 
     Display *Display = XOpenDisplay(0);
     s32 Screen = DefaultScreen(Display);

@@ -37,13 +37,13 @@ typedef struct linux_memory_block
     u64 Padding;
 } linux_memory_block;
 
-typedef struct linux_state
+typedef struct global_memory
 {
     ticket_mutex MemoryMutex;
     linux_memory_block MemorySentinel;
-} linux_state;
+} global_memory;
 
-global linux_state GlobalLinuxState;
+global global_memory GlobalMemory;
 
 platform_memory_block *
 LinuxAllocateMemory(umm Size, u64 Flags)
@@ -83,16 +83,16 @@ LinuxAllocateMemory(umm Size, u64 Flags)
         Assert(Error == 0);
     }
     
-    linux_memory_block *Sentinel = &GlobalLinuxState.MemorySentinel;
+    linux_memory_block *Sentinel = &GlobalMemory.MemorySentinel;
     Block->Next = Sentinel;
     Block->Block.Size = Size;
     Block->Block.Flags = Flags;
         
-    BeginTicketMutex(&GlobalLinuxState.MemoryMutex);
+    BeginTicketMutex(&GlobalMemory.MemoryMutex);
     Block->Prev = Sentinel->Prev;
     Block->Prev->Next = Block;
     Block->Next->Prev = Block;
-    EndTicketMutex(&GlobalLinuxState.MemoryMutex);
+    EndTicketMutex(&GlobalMemory.MemoryMutex);
     
     platform_memory_block *PlatBlock = &Block->Block;
     return PlatBlock;
@@ -117,10 +117,10 @@ LinuxDeallocateMemory(platform_memory_block *Block)
         TotalSize = SizeRoundedUp + 2*PageSize;
     }
     
-    BeginTicketMutex(&GlobalLinuxState.MemoryMutex);
+    BeginTicketMutex(&GlobalMemory.MemoryMutex);
     LinuxBlock->Prev->Next = LinuxBlock->Next;
     LinuxBlock->Next->Prev = LinuxBlock->Prev;
-    EndTicketMutex(&GlobalLinuxState.MemoryMutex);
+    EndTicketMutex(&GlobalMemory.MemoryMutex);
     
     munmap(LinuxBlock, TotalSize);
 }
