@@ -46,19 +46,13 @@ typedef struct win32_memory_block
     u64 Padding;
 } win32_memory_block;
 
-typedef struct win32_state
+typedef struct global_memory
 {
     ticket_mutex MemoryMutex;
     win32_memory_block MemorySentinel;
+} global_memory;
 
-#if KENGINE_OPENGL
-    HDC DeviceContext;
-    HGLRC GLRenderContext;
-#endif
-
-} win32_state;
-
-global win32_state GlobalWin32State;
+global global_memory GlobalMemory;
 
 platform_memory_block *
 Win32AllocateMemory(umm Size, u64 Flags)
@@ -102,16 +96,16 @@ Win32AllocateMemory(umm Size, u64 Flags)
         }
     }
     
-    win32_memory_block *Sentinel = &GlobalWin32State.MemorySentinel;
+    win32_memory_block *Sentinel = &GlobalMemory.MemorySentinel;
     Win32Block->Next = Sentinel;
     Win32Block->PlatformBlock.Size = Size;
     Win32Block->PlatformBlock.Flags = Flags;
     
-    BeginTicketMutex(&GlobalWin32State.MemoryMutex);
+    BeginTicketMutex(&GlobalMemory.MemoryMutex);
     Win32Block->Prev = Sentinel->Prev;
     Win32Block->Prev->Next = Win32Block;
     Win32Block->Next->Prev = Win32Block;
-    EndTicketMutex(&GlobalWin32State.MemoryMutex);
+    EndTicketMutex(&GlobalMemory.MemoryMutex);
     
     platform_memory_block *Result = &Win32Block->PlatformBlock;
     return Result;
@@ -122,10 +116,10 @@ Win32DeallocateMemory(platform_memory_block *Block)
 {
     win32_memory_block *Win32Block = (win32_memory_block *)Block;
     
-    BeginTicketMutex(&GlobalWin32State.MemoryMutex);
+    BeginTicketMutex(&GlobalMemory.MemoryMutex);
     Win32Block->Prev->Next = Win32Block->Next;
     Win32Block->Next->Prev = Win32Block->Prev;
-    EndTicketMutex(&GlobalWin32State.MemoryMutex);
+    EndTicketMutex(&GlobalMemory.MemoryMutex);
     
     b32 IsFreed = VirtualFree(Win32Block, 0, MEM_RELEASE);
     if(!IsFreed)

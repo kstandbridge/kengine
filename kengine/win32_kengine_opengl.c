@@ -249,8 +249,8 @@ WinMain(HINSTANCE hInstance,
         LPSTR lpCmdLine,
         int nCmdShow)
 {
-    GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
-    GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
+    GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
+    GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
 
     Win32LoadXInput();
 
