@@ -102,29 +102,15 @@
 
 #elif KENGINE_OPENGL
 
-    #include "kengine/kengine_render_group.h"
-
-    internal void
-    AppUpdateAndRender(app_render_commands *RenderCommands);
-
     #if KENGINE_WIN32
 
-        #define WIN32_LEAN_AND_MEAN
-        #include <windows.h>
-        #include <GL/gl.h>
+    #include <windows.h>
+    #include "kengine/win32_kengine_opengl.c"
 
-        #include "kengine/win32_kengine_opengl.h"
-
-        #include "kengine/kengine_opengl.c"
-
-        #include "kengine/win32_kengine_opengl.c"
     #elif KENGINE_LINUX
     
-        #include <GL/glx.h>
-        
-        #include "kengine/kengine_opengl.c"
-
-        #include "kengine/linux_kengine_opengl.c"
+    
+       
     #endif
 
 #endif
