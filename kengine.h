@@ -109,7 +109,8 @@
 
     #elif KENGINE_LINUX
     
-    
+    #include <X11/Xlib.h>
+    #include "kengine/linux_kengine_opengl.c"
        
     #endif
 
