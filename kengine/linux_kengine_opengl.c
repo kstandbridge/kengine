@@ -1,64 +1,96 @@
+typedef struct linux_offscreen_buffer
+{
+    // NOTE(kstandbridge): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
+    Pixmap Pixmap;
+    XImage *Image;
+    s32 Width;
+    s32 Height;
+    s32 Pitch;
+} linux_offscreen_buffer;
+
+typedef struct linux_window_dimension
+{
+    s32 Width;
+    s32 Height;
+} linux_window_dimension;
+
 global b32 GlobalRunning;
 global memory_arena GlobalArena;
+global linux_offscreen_buffer GlobalBackbuffer;
 
+linux_window_dimension
+LinuxGetWindowDimensions(Display *Display, Window Window)
+{
+    XWindowAttributes Attributes;
+    XGetWindowAttributes(Display, Window, &Attributes);
 
-global Pixmap GlobalPixmap;
-global XImage *GlobalImage;
-global s32 BitmapWidth;
-global s32 BitmapHeight;
-global s32 BytesPerPixel = 4;
+    linux_window_dimension Result =
+    {
+        .Width = Attributes.width,
+        .Height = Attributes.height
+    };
+
+    return Result;
+}
 
 internal void
-RenderWeirdGradient(s32 BlueOffset, s32 GreenOffset)
+RenderWeirdGradient(linux_offscreen_buffer Buffer, s32 BlueOffset, s32 GreenOffset)
 {
-    s32 Pitch = BitmapWidth*BytesPerPixel;
-    u8 *Row = (u8 *)GlobalImage->data;    
+    u8 *Row = (u8 *)Buffer.Image->data;    
     for(s32 Y = 0;
-        Y < BitmapHeight;
+        Y < Buffer.Height;
         ++Y)
     {
         u32 *Pixel = (u32 *)Row;
         for(s32 X = 0;
-            X < BitmapWidth;
+            X < Buffer.Width;
             ++X)
         {
             u8 Blue = (X + BlueOffset);
             u8 Green = (Y + GreenOffset);
-            
+
             *Pixel++ = ((Green << 8) | Blue);
         }
-
-        Row += Pitch;
+        
+        Row += Buffer.Pitch;
     }
 }
 
 internal void
-LinuxResize(Display *Display, Window Window)
+LinuxResizeDIBSection(linux_offscreen_buffer *Buffer, Display *Display, Window Window, s32 Width, s32 Height)
 {
-    if(GlobalImage)
+    if(Buffer->Image)
     {
         // TODO(kstandbridge): Free memory of GlobalImage->data
         //XDestroyImage(GlobalImage);
     }
-    GlobalImage = XCreateImage(Display, DefaultVisual(Display, 0),
-                                24, ZPixmap, 0, 0, BitmapWidth, BitmapHeight, 32, 0);
-    GlobalImage->data = PushSize_(&GlobalArena, GlobalImage->bytes_per_line * GlobalImage->height, DefaultArenaPushParams());
 
-    if(GlobalPixmap)
+    Buffer->Width = Width;
+    Buffer->Height = Height;
+
+    Buffer->Image = XCreateImage(Display, DefaultVisual(Display, 0),
+                                24, ZPixmap, 0, 0, Buffer->Width, Buffer->Height, 32, 0);
+    Buffer->Image->data = PushSize_(&GlobalArena, Buffer->Image->bytes_per_line * Buffer->Image->height, DefaultArenaPushParams());
+
+    if(Buffer->Pixmap)
     {
-        XFreePixmap(Display, GlobalPixmap);
+        XFreePixmap(Display, Buffer->Pixmap);
     }
-    GlobalPixmap = XCreatePixmap(Display, Window, BitmapWidth, BitmapHeight, 24);
+    Buffer->Pixmap = XCreatePixmap(Display, Window, Buffer->Width, Buffer->Height, 24);
+    int BytesPerPixel = 4;
+    Buffer->Pitch = Width*BytesPerPixel;
 }
 
 internal void
-LinuxUpdateWindow(Display *Display, Window Window, GC GraphicsContext)
+LinuxDisplayBufferInWindow(Display *Display, Window Window, GC GraphicsContext,
+                           s32 WindowWidth, s32 WindowHeight,
+                           linux_offscreen_buffer Buffer)
 {
-    if(GlobalPixmap && GlobalImage)
+    if(Buffer.Pixmap && Buffer.Image)
     {
-        XPutImage(Display, GlobalPixmap, GraphicsContext, GlobalImage, 0, 0, 0, 0, GlobalImage->width, GlobalImage->height);
+        XPutImage(Display, Buffer.Pixmap, GraphicsContext, Buffer.Image, 0, 0, 0, 0, Buffer.Image->width, Buffer.Image->height);
         
-        XCopyArea(Display, GlobalPixmap, Window, GraphicsContext, 0, 0, GlobalImage->width, GlobalImage->height, 0, 0);
+        XCopyArea(Display, Buffer.Pixmap, Window, GraphicsContext, 0, 0, Buffer.Image->width, Buffer.Image->height, 0, 0);
     }
 
     XFlush(Display);
@@ -73,20 +105,6 @@ LinuxProcessPendingMessages(Display *Display, Window Window, Atom WmDeleteWindow
         XNextEvent(Display, &Event);
         switch(Event.type)
         {
-            case ConfigureNotify:
-            {
-                u32 Width = (Event.xconfigure.width >= 0) ? Event.xconfigure.width : 0;
-                u32 Height = (Event.xconfigure.height >= 0) ? Event.xconfigure.height : 0;
-                if(!GlobalImage ||
-                   ((GlobalImage->width != Width) &&
-                    (GlobalImage->height != Height)))
-                {
-                    BitmapWidth = Width;
-                    BitmapHeight = Height;
-                    LinuxResize(Display, Window);
-                }
-            } break;
-            
             case DestroyNotify:
             {
                 if ((Display == Event.xdestroywindow.display) &&
@@ -103,20 +121,14 @@ LinuxProcessPendingMessages(Display *Display, Window Window, Atom WmDeleteWindow
                     GlobalRunning = false;
                 }
             } break;
-            
+
             case Expose:
             case MapNotify:
             {
-                XClearWindow(Display, Window);
-                
-                if(GlobalPixmap && GlobalImage)
-                {
-                    XPutImage(Display, GlobalPixmap, GraphicsContext, GlobalImage, 0, 0, 0, 0, GlobalImage->width, GlobalImage->height);
-                    
-                    XCopyArea(Display, GlobalPixmap, Window, GraphicsContext, 0, 0, GlobalImage->width, GlobalImage->height, 0, 0);
-                }
-
-                XFlush(Display);
+                linux_window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
+                LinuxDisplayBufferInWindow(Display, Window, GraphicsContext,
+                                           Dimension.Width, Dimension.Height,
+                                           GlobalBackbuffer);
             } break;
 #if 0
             case MotionNotify:
@@ -144,13 +156,13 @@ main(int argc, char **argv)
     s32 Screen = DefaultScreen(Display);
     
     Window Window = XCreateSimpleWindow(Display, RootWindow(Display, Screen),
-                                        0, 0, 1920*0.5f, 1080*0.5f, 1,
+                                        0, 0, 1280, 720, 1,
                                         BlackPixel(Display, Screen), WhitePixel(Display, Screen));
 
     XSizeHints *SizeHints = XAllocSizeHints();
     SizeHints->flags |= PMinSize | PMaxSize;
-    SizeHints->min_width = SizeHints->max_width = 1920*0.5f;
-    SizeHints->min_height = SizeHints->max_height = 1080*0.5f;
+    SizeHints->min_width = SizeHints->max_width = 1280;
+    SizeHints->min_height = SizeHints->max_height = 720;
     XSetWMNormalHints(Display, Window, SizeHints);
     XFree(SizeHints);
 
@@ -163,6 +175,8 @@ main(int argc, char **argv)
 
     Atom WmDeleteWindow = XInternAtom(Display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(Display, Window, &WmDeleteWindow, 1);
+
+    LinuxResizeDIBSection(&GlobalBackbuffer, Display, Window, 1280, 720);
     
     s32 XOffset = 0;
     s32 YOffset = 0;
@@ -172,13 +186,16 @@ main(int argc, char **argv)
     {
         LinuxProcessPendingMessages(Display, Window, WmDeleteWindow, GraphicsContext);
  
-        if((GlobalImage) && 
-           (GlobalImage->data))
+        if((GlobalBackbuffer.Image) && 
+           (GlobalBackbuffer.Image->data))
         {
-            RenderWeirdGradient(XOffset, YOffset);
+            RenderWeirdGradient(GlobalBackbuffer, XOffset, YOffset);
         }
 
-        LinuxUpdateWindow(Display, Window, GraphicsContext);
+        linux_window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
+        LinuxDisplayBufferInWindow(Display, Window, GraphicsContext,
+                                   Dimension.Width, Dimension.Height,
+                                   GlobalBackbuffer);
 
         ++XOffset;
         YOffset += 2;
