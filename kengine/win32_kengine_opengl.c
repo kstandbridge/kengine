@@ -1,25 +1,15 @@
 #include <windows.h>
 #include <xinput.h>
 
-typedef struct win32_offscreen_buffer
+typedef struct win32_state
 {
-    // NOTE(kstandbridge): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
+    memory_arena Arena;
+    b32 Running;
+    offscreen_buffer Backbuffer;
+
     BITMAPINFO Info;
-    void *Memory;
-    s32 Width;
-    s32 Height;
-    s32 Pitch;
-} win32_offscreen_buffer;
-
-typedef struct win32_window_dimension
-{
-    s32 Width;
-    s32 Height;
-} win32_window_dimension;
-
-global memory_arena GlobalArena;
-global b32 GlobalRunning;
-global win32_offscreen_buffer GlobalBackbuffer;
+} win32_state;
+global win32_state *GlobalWin32State;
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
 typedef X_INPUT_GET_STATE(x_input_get_state);
@@ -53,13 +43,13 @@ Win32LoadXInput(void)
     }
 }
 
-internal win32_window_dimension
+internal window_dimension
 Win32GetWindowDimension(HWND Window)
 {
     RECT ClientRect;
     GetClientRect(Window, &ClientRect);
     
-    win32_window_dimension Result = 
+    window_dimension Result = 
     {
         .Width = ClientRect.right - ClientRect.left,
         .Height = ClientRect.bottom - ClientRect.top
@@ -69,31 +59,10 @@ Win32GetWindowDimension(HWND Window)
 }
 
 internal void
-RenderWeirdGradient(win32_offscreen_buffer *Buffer, s32 BlueOffset, s32 GreenOffset)
-{    
-    u8 *Row = (u8 *)Buffer->Memory;    
-    for(s32 Y = 0;
-        Y < Buffer->Height;
-        ++Y)
-    {
-        u32 *Pixel = (u32 *)Row;
-        for(s32 X = 0;
-            X < Buffer->Width;
-            ++X)
-        {
-            u8 Blue = (X + BlueOffset);
-            u8 Green = (Y + GreenOffset);
-
-            *Pixel++ = ((Green << 8) | Blue);
-        }
-        
-        Row += Buffer->Pitch;
-    }
-}
-
-internal void
-Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, s32 Width, s32 Height)
+Win32ResizeDIBSection(win32_state *State, s32 Width, s32 Height)
 {
+    offscreen_buffer *Buffer = &State->Backbuffer;
+
     // TODO(kstandbridge): Bulletproof this.
     // Maybe don't free first, free after, then free first if that fails.
 
@@ -112,31 +81,33 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, s32 Width, s32 Height)
     // Windows to treat this bitmap as top-down, not bottom-up, meaning that
     // the first three bytes of the image are the color for the top left pixel
     // in the bitmap, not the bottom left!
-    Buffer->Info.bmiHeader.biSize = sizeof(Buffer->Info.bmiHeader);
-    Buffer->Info.bmiHeader.biWidth = Buffer->Width;
-    Buffer->Info.bmiHeader.biHeight = -Buffer->Height;
-    Buffer->Info.bmiHeader.biPlanes = 1;
-    Buffer->Info.bmiHeader.biBitCount = 32;
-    Buffer->Info.bmiHeader.biCompression = BI_RGB;
+    State->Info.bmiHeader.biSize = sizeof(State->Info.bmiHeader);
+    State->Info.bmiHeader.biWidth = Buffer->Width;
+    State->Info.bmiHeader.biHeight = -Buffer->Height;
+    State->Info.bmiHeader.biPlanes = 1;
+    State->Info.bmiHeader.biBitCount = 32;
+    State->Info.bmiHeader.biCompression = BI_RGB;
 
     int BitmapMemorySize = (Buffer->Width*Buffer->Height)*BytesPerPixel;
-    Buffer->Memory = PushSize_(&GlobalArena, BitmapMemorySize, DefaultArenaPushParams());
+    Buffer->Memory = PushSize_(&State->Arena, BitmapMemorySize, DefaultArenaPushParams());
     Buffer->Pitch = Width*BytesPerPixel;
 
     // TODO(kstandbridge): Probably clear this to black
 }
 
 internal void
-Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer,
+Win32DisplayBufferInWindow(win32_state *State,
                            HDC DeviceContext, s32 WindowWidth, s32 WindowHeight)
 {
+    offscreen_buffer *Buffer = &State->Backbuffer;
+
     // TODO(kstandbridge): Aspect ratio correction
     // TODO(kstandbridge): Plat with stetch mnodes
     StretchDIBits(DeviceContext,
         0, 0, WindowWidth, WindowHeight,
         0, 0, Buffer->Width, Buffer->Height,
         Buffer->Memory,
-        &Buffer->Info,
+        &State->Info,
         DIB_RGB_COLORS, SRCCOPY);
 }
 
@@ -152,7 +123,7 @@ Win32MainWindowCallback(HWND Window,
     {
         case WM_CLOSE:
         {
-            GlobalRunning = false;
+            GlobalWin32State->Running = false;
         } break;
 
         case WM_ACTIVATEAPP:
@@ -162,7 +133,7 @@ Win32MainWindowCallback(HWND Window,
 
         case WM_DESTROY:
         {
-            GlobalRunning = false;
+            GlobalWin32State->Running = false;
         } break;
 
         case WM_SYSKEYDOWN:
@@ -207,16 +178,16 @@ Win32MainWindowCallback(HWND Window,
                 }
                 else if(VKCode == VK_ESCAPE)
                 {
-                    OutputDebugStringA("ESCAPE: ");
+                    PlatformConsoleOut("ESCAPE: ");
                     if(IsDown)
                     {
-                        OutputDebugStringA("IsDown ");
+                        PlatformConsoleOut("IsDown ");
                     }
                     if(WasDown)
                     {
-                        OutputDebugStringA("WasDown");
+                        PlatformConsoleOut("WasDown");
                     }
-                    OutputDebugStringA("\n");
+                    PlatformConsoleOut("\n");
                 }
                 else if(VKCode == VK_SPACE)
                 {
@@ -228,8 +199,8 @@ Win32MainWindowCallback(HWND Window,
         {
             PAINTSTRUCT Paint;
             HDC DeviceContext = BeginPaint(Window, &Paint);
-            win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-            Win32DisplayBufferInWindow(&GlobalBackbuffer, DeviceContext,
+            window_dimension Dimension = Win32GetWindowDimension(Window);
+            Win32DisplayBufferInWindow(GlobalWin32State, DeviceContext,
                                        Dimension.Width, Dimension.Height);
             EndPaint(Window, &Paint);
         } break;
@@ -263,7 +234,9 @@ WinMain(HINSTANCE hInstance,
         .lpszClassName = "HandmadeHeroWindowClass",
     };
     
-    Win32ResizeDIBSection(&GlobalBackbuffer, 1280, 720);
+    GlobalWin32State = BootstrapPushStruct(win32_state, Arena);
+
+    Win32ResizeDIBSection(GlobalWin32State, 1280, 720);
     
     if(RegisterClassA(&WindowClass))
     {
@@ -289,15 +262,15 @@ WinMain(HINSTANCE hInstance,
             s32 XOffset = 0;
             s32 YOffset = 0;
             
-            GlobalRunning = true;
-            while(GlobalRunning)
+            GlobalWin32State->Running = true;
+            while(GlobalWin32State->Running)
             {
                 MSG Message;
                 while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
                 {
                     if(Message.message == WM_QUIT)
                     {
-                        GlobalRunning = false;
+                        GlobalWin32State->Running = false;
                     }
                     
                     TranslateMessage(&Message);
@@ -342,10 +315,10 @@ WinMain(HINSTANCE hInstance,
                     }
                 }
 
-                RenderWeirdGradient(&GlobalBackbuffer, XOffset, YOffset);
+                RenderWeirdGradient(&GlobalWin32State->Backbuffer, XOffset, YOffset);
 
-                win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-                Win32DisplayBufferInWindow(&GlobalBackbuffer, DeviceContext,
+                window_dimension Dimension = Win32GetWindowDimension(Window);
+                Win32DisplayBufferInWindow(GlobalWin32State, DeviceContext,
                                             Dimension.Width, Dimension.Height);
             }
         }
