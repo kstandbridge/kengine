@@ -2,8 +2,36 @@ global b32 GlobalRunning;
 
 global BITMAPINFO BitmapInfo;
 global void *BitmapMemory;
-global HBITMAP BitmapHandle;
-global HDC BitmapDeviceContext;
+global s32 BitmapWidth;
+global s32 BitmapHeight;
+global s32 BytesPerPixel = 4;
+
+internal void
+RenderWeirdGradient(s32 BlueOffset, s32 GreenOffset)
+{    
+    s32 Width = BitmapWidth;
+    int Height = BitmapHeight;
+
+    s32 Pitch = Width*BytesPerPixel;
+    u8 *Row = (u8 *)BitmapMemory;    
+    for(s32 Y = 0;
+        Y < BitmapHeight;
+        ++Y)
+    {
+        u32 *Pixel = (u32 *)Row;
+        for(s32 X = 0;
+            X < BitmapWidth;
+            ++X)
+        {
+            u8 Blue = (X + BlueOffset);
+            u8 Green = (Y + GreenOffset);
+            
+            *Pixel++ = ((Green << 8) | Blue);
+        }
+
+        Row += Pitch;
+    }
+}
 
 internal void
 Win32ResizeDIBSection(int Width, int Height)
@@ -11,37 +39,33 @@ Win32ResizeDIBSection(int Width, int Height)
     // TODO(kstandbridge): Bulletproof this.
     // Maybe don't free first, free after, then free first if that fails.
 
-    if(BitmapHandle)
+     if(BitmapMemory)
     {
-        DeleteObject(BitmapHandle);
+        VirtualFree(BitmapMemory, 0, MEM_RELEASE);
     }
 
-    if(!BitmapDeviceContext)
-    {
-        // TODO(kstandbridge): Should we recreate these under certain special circumstances
-        BitmapDeviceContext = CreateCompatibleDC(0);
-    }
+    BitmapWidth = Width;
+    BitmapHeight = Height;
     
     BitmapInfo.bmiHeader.biSize = sizeof(BitmapInfo.bmiHeader);
-    BitmapInfo.bmiHeader.biWidth = Width;
-    BitmapInfo.bmiHeader.biHeight = Height;
+    BitmapInfo.bmiHeader.biWidth = BitmapWidth;
+    BitmapInfo.bmiHeader.biHeight = -BitmapHeight;
     BitmapInfo.bmiHeader.biPlanes = 1;
     BitmapInfo.bmiHeader.biBitCount = 32;
     BitmapInfo.bmiHeader.biCompression = BI_RGB;
 
-    // TODO(kstandbridge): Based on ssylvan's suggestion, maybe we can just
-    // allocate this ourselves?
-    
-    BitmapHandle = CreateDIBSection(
-        BitmapDeviceContext, &BitmapInfo,
-        DIB_RGB_COLORS,
-        &BitmapMemory,
-        0, 0);
+    int BitmapMemorySize = (BitmapWidth*BitmapHeight)*BytesPerPixel;
+    BitmapMemory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+
+    // TODO(kstandbridge): Probably clear this to black
 }
 
 internal void
-Win32UpdateWindow(HDC DeviceContext, int X, int Y, int Width, int Height)
+Win32UpdateWindow(HDC DeviceContext, RECT *ClientRect, s32 X, s32 Y, s32 Width, s32 Height)
 {
+    int WindowWidth = ClientRect->right - ClientRect->left;
+    int WindowHeight = ClientRect->bottom - ClientRect->top;
+
     StretchDIBits(DeviceContext,
                   X, Y, Width, Height,
                   X, Y, Width, Height,
@@ -92,7 +116,12 @@ Win32MainWindowCallback(HWND Window,
             int Y = Paint.rcPaint.top;
             int Width = Paint.rcPaint.right - Paint.rcPaint.left;
             int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
-            Win32UpdateWindow(DeviceContext, X, Y, Width, Height);
+            
+            RECT ClientRect;
+            GetClientRect(Window, &ClientRect);
+
+            Win32UpdateWindow(DeviceContext, &ClientRect, X, Y, Width, Height);
+            
             EndPaint(Window, &Paint);
         } break;
 
@@ -122,12 +151,12 @@ WinMain(HINSTANCE hInstance,
 
     if(RegisterClassA(&WindowClass))
     {
-        HWND WindowHandle =
+        HWND Window =
             CreateWindowExA(
                 0,
                 WindowClass.lpszClassName,
                 "Handmade Hero",
-                WS_OVERLAPPEDWINDOW|WS_VISIBLE,
+                WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
@@ -137,22 +166,38 @@ WinMain(HINSTANCE hInstance,
                 hInstance,
                 0);
 
-        if(WindowHandle)
+        if(Window)
         {
+            s32 XOffset = 0;
+            s32 YOffset = 0;
+            
             GlobalRunning = true;
             while(GlobalRunning)
             {
                 MSG Message;
-                BOOL MessageResult = GetMessageA(&Message, 0, 0, 0);
-                if(MessageResult > 0)
+                while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
                 {
+                    if(Message.message == WM_QUIT)
+                    {
+                        GlobalRunning = false;
+                    }
+                    
                     TranslateMessage(&Message);
                     DispatchMessageA(&Message);
                 }
-                else
-                {
-                    break;
-                }
+
+                RenderWeirdGradient(XOffset, YOffset);
+
+                HDC DeviceContext = GetDC(Window);
+                RECT ClientRect;
+                GetClientRect(Window, &ClientRect);
+                s32 WindowWidth = ClientRect.right - ClientRect.left;
+                s32 WindowHeight = ClientRect.bottom - ClientRect.top;
+                Win32UpdateWindow(DeviceContext, &ClientRect, 0, 0, WindowWidth, WindowHeight);
+                ReleaseDC(Window, DeviceContext);
+                
+                ++XOffset;
+                YOffset += 2;
             }
         }
         else
