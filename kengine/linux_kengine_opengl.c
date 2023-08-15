@@ -1,3 +1,19 @@
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+
+#define VK_W           25
+#define VK_A           38
+#define VK_S           39
+#define VK_D           40
+#define VK_Q           24
+#define VK_E           26
+#define VK_UP          111
+#define VK_DOWN        116
+#define VK_LEFT        113
+#define VK_RIGHT       114
+#define VK_ESCAPE      9
+#define VK_SPACE       65
+
 typedef struct linux_offscreen_buffer
 {
     // NOTE(kstandbridge): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
@@ -14,11 +30,11 @@ typedef struct linux_window_dimension
     s32 Height;
 } linux_window_dimension;
 
-global b32 GlobalRunning;
 global memory_arena GlobalArena;
+global b32 GlobalRunning;
 global linux_offscreen_buffer GlobalBackbuffer;
 
-linux_window_dimension
+internal linux_window_dimension
 LinuxGetWindowDimensions(Display *Display, Window Window)
 {
     XWindowAttributes Attributes;
@@ -34,16 +50,16 @@ LinuxGetWindowDimensions(Display *Display, Window Window)
 }
 
 internal void
-RenderWeirdGradient(linux_offscreen_buffer Buffer, s32 BlueOffset, s32 GreenOffset)
+RenderWeirdGradient(linux_offscreen_buffer *Buffer, s32 BlueOffset, s32 GreenOffset)
 {
-    u8 *Row = (u8 *)Buffer.Image->data;    
+    u8 *Row = (u8 *)Buffer->Image->data;    
     for(s32 Y = 0;
-        Y < Buffer.Height;
+        Y < Buffer->Height;
         ++Y)
     {
         u32 *Pixel = (u32 *)Row;
         for(s32 X = 0;
-            X < Buffer.Width;
+            X < Buffer->Width;
             ++X)
         {
             u8 Blue = (X + BlueOffset);
@@ -52,7 +68,7 @@ RenderWeirdGradient(linux_offscreen_buffer Buffer, s32 BlueOffset, s32 GreenOffs
             *Pixel++ = ((Green << 8) | Blue);
         }
         
-        Row += Buffer.Pitch;
+        Row += Buffer->Pitch;
     }
 }
 
@@ -82,15 +98,15 @@ LinuxResizeDIBSection(linux_offscreen_buffer *Buffer, Display *Display, Window W
 }
 
 internal void
-LinuxDisplayBufferInWindow(Display *Display, Window Window, GC GraphicsContext,
-                           s32 WindowWidth, s32 WindowHeight,
-                           linux_offscreen_buffer Buffer)
+LinuxDisplayBufferInWindow(linux_offscreen_buffer *Buffer,
+                           Display *Display, Window Window, GC GraphicsContext,
+                           s32 WindowWidth, s32 WindowHeight)
 {
-    if(Buffer.Pixmap && Buffer.Image)
+    if(Buffer->Pixmap && Buffer->Image)
     {
-        XPutImage(Display, Buffer.Pixmap, GraphicsContext, Buffer.Image, 0, 0, 0, 0, Buffer.Image->width, Buffer.Image->height);
+        XPutImage(Display, Buffer->Pixmap, GraphicsContext, Buffer->Image, 0, 0, 0, 0, Buffer->Image->width, Buffer->Image->height);
         
-        XCopyArea(Display, Buffer.Pixmap, Window, GraphicsContext, 0, 0, Buffer.Image->width, Buffer.Image->height, 0, 0);
+        XCopyArea(Display, Buffer->Pixmap, Window, GraphicsContext, 0, 0, Buffer->Image->width, Buffer->Image->height, 0, 0);
     }
 
     XFlush(Display);
@@ -126,9 +142,60 @@ LinuxProcessPendingMessages(Display *Display, Window Window, Atom WmDeleteWindow
             case MapNotify:
             {
                 linux_window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
-                LinuxDisplayBufferInWindow(Display, Window, GraphicsContext,
-                                           Dimension.Width, Dimension.Height,
-                                           GlobalBackbuffer);
+                LinuxDisplayBufferInWindow(&GlobalBackbuffer,
+                                           Display, Window, GraphicsContext,
+                                           Dimension.Width, Dimension.Height);
+            } break;
+
+            case KeyRelease:
+            case KeyPress:
+            {
+                if(Event.xkey.keycode == VK_W)
+                {
+                }
+                else if(Event.xkey.keycode == VK_A)
+                {
+                }
+                else if(Event.xkey.keycode == VK_S)
+                {
+                }
+                else if(Event.xkey.keycode == VK_D)
+                {
+                }
+                else if(Event.xkey.keycode == VK_Q)
+                {
+                }
+                else if(Event.xkey.keycode == VK_E)
+                {
+                }
+                else if(Event.xkey.keycode == VK_UP)
+                {
+                }
+                else if(Event.xkey.keycode == VK_LEFT)
+                {
+                }
+                else if(Event.xkey.keycode == VK_DOWN)
+                {
+                }
+                else if(Event.xkey.keycode == VK_RIGHT)
+                {
+                }
+                if(Event.xkey.keycode == VK_ESCAPE)
+                {
+                    PlatformConsoleOut("ESCAPE: ");
+                    if(Event.type == KeyPress)
+                    {
+                        PlatformConsoleOut("IsDown ");
+                    }
+                    else
+                    {
+                        PlatformConsoleOut("WasDown");
+                    }
+                    PlatformConsoleOut("\n");
+                }
+                else if(Event.xkey.keycode == VK_SPACE)
+                {
+                }
             } break;
 #if 0
             case MotionNotify:
@@ -168,9 +235,9 @@ main(int argc, char **argv)
 
     GC GraphicsContext = XCreateGC(Display, Window, 0, 0);
 
-    XSelectInput(Display, Window, ExposureMask | StructureNotifyMask |
-                 KeyReleaseMask | PointerMotionMask | ButtonPressMask |
-                 ButtonReleaseMask);
+    XSelectInput(Display, Window, StructureNotifyMask | PropertyChangeMask |
+                                  PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
+                                  KeyPressMask | KeyReleaseMask);
     XMapWindow(Display, Window);
 
     Atom WmDeleteWindow = XInternAtom(Display, "WM_DELETE_WINDOW", False);
@@ -186,16 +253,18 @@ main(int argc, char **argv)
     {
         LinuxProcessPendingMessages(Display, Window, WmDeleteWindow, GraphicsContext);
  
+        // TODO(kstandbridge): Process controller input
+
         if((GlobalBackbuffer.Image) && 
            (GlobalBackbuffer.Image->data))
         {
-            RenderWeirdGradient(GlobalBackbuffer, XOffset, YOffset);
+            RenderWeirdGradient(&GlobalBackbuffer, XOffset, YOffset);
         }
 
         linux_window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
-        LinuxDisplayBufferInWindow(Display, Window, GraphicsContext,
-                                   Dimension.Width, Dimension.Height,
-                                   GlobalBackbuffer);
+        LinuxDisplayBufferInWindow(&GlobalBackbuffer,
+                                   Display, Window, GraphicsContext,
+                                   Dimension.Width, Dimension.Height);
 
         ++XOffset;
         YOffset += 2;
