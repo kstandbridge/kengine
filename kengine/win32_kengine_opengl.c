@@ -1,3 +1,6 @@
+#include "handmade.h"
+#include "handmade.c"
+
 #include <windows.h>
 #include <xinput.h>
 #include <dsound.h>
@@ -349,7 +352,6 @@ internal void
 Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD BytesToWrite)
 {
     // TODO(kstandbridge): More strenuous test!
-    // TODO(kstandbridge): Switch to a sine wave
     VOID *Region1;
     DWORD Region1Size;
     VOID *Region2;
@@ -404,6 +406,8 @@ WinMain(HINSTANCE hInstance,
 {
     GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
     GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
+
+    s64 PerfCountFrequency = Win32GetOSTimerFrequency();
 
     Win32LoadXInput();
 
@@ -460,6 +464,9 @@ WinMain(HINSTANCE hInstance,
             Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount*SoundOutput.BytesPerSample);
             GlobalWin32State->SecondaryBuffer->lpVtbl->Play(GlobalWin32State->SecondaryBuffer, 0, 0, DSBPLAY_LOOPING);
             
+            u64 LastCounter = Win32ReadOSTimer();
+            s64 LastCycleCount = __rdtsc();
+
             GlobalWin32State->Running = true;
             while(GlobalWin32State->Running)
             {
@@ -520,7 +527,7 @@ WinMain(HINSTANCE hInstance,
                     }
                 }
 
-                RenderWeirdGradient(&GlobalWin32State->Backbuffer, XOffset, YOffset);
+                GameUpdateAndRender(&GlobalWin32State->Backbuffer, XOffset, YOffset);
 
                 // NOTE(kstandbridge): DirectSound output test
                 DWORD PlayCursor;
@@ -535,8 +542,6 @@ WinMain(HINSTANCE hInstance,
                           (SoundOutput.LatencySampleCount*SoundOutput.BytesPerSample)) %
                          SoundOutput.SecondaryBufferSize);
                     DWORD BytesToWrite;
-                    // TODO(kstandbridge): Change this to using a lower latency offset from the playcursor
-                    // when we actually start having sound effects.
                     if(ByteToLock > TargetCursor)
                     {
                         BytesToWrite = (SoundOutput.SecondaryBufferSize - ByteToLock);
@@ -555,6 +560,23 @@ WinMain(HINSTANCE hInstance,
                 window_dimension Dimension = Win32GetWindowDimension(Window);
                 Win32DisplayBufferInWindow(GlobalWin32State, DeviceContext,
                                             Dimension.Width, Dimension.Height);
+
+                u64 EndCycleCount = __rdtsc();
+                
+                u64 EndCounter = Win32ReadOSTimer();
+
+                u64 CyclesElapsed = EndCycleCount - LastCycleCount;
+                s64 CounterElapsed = EndCounter - LastCounter;
+                f64 MSPerFrame = (((1000.0f*(f64)CounterElapsed) / (f64)PerfCountFrequency));
+                f64 FPS = (f64)PerfCountFrequency / (f64)CounterElapsed;
+                f64 MCPF = ((f64)CyclesElapsed / (1000.0f * 1000.0f));
+
+#if 0
+                Win32ConsoleOut("%.02fms/f,  %.02ff/s,  %.02fmc/f\n", MSPerFrame, FPS, MCPF);
+#endif
+                
+                LastCounter = EndCounter;
+                LastCycleCount = EndCycleCount;
             }
         }
         else
