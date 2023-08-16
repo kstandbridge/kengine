@@ -4,6 +4,20 @@
 
 #include <math.h>
 
+
+typedef struct win32_sound_output
+{
+    s32 SamplesPerSecond;
+    s32 ToneHz;
+    s16 ToneVolume;
+    u32 RunningSampleIndex;
+    s32 WavePeriod;
+    s32 BytesPerSample;
+    s32 SecondaryBufferSize;
+    f32 tSine;
+    s32 LatencySampleCount;
+} win32_sound_output;
+
 typedef struct win32_state
 {
     memory_arena Arena;
@@ -330,19 +344,6 @@ Win32MainWindowCallback(HWND Window,
     
     return Result;
 }
-
-typedef struct win32_sound_output
-{
-    s32 SamplesPerSecond;
-    s32 ToneHz;
-    s16 ToneVolume;
-    u32 RunningSampleIndex;
-    s32 WavePeriod;
-    s32 BytesPerSample;
-    s32 SecondaryBufferSize;
-    f32 tSine;
-    s32 LatencySampleCount;
-} win32_sound_output;
 
 internal void
 Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD BytesToWrite)

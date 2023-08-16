@@ -99,8 +99,15 @@ typedef double f64;
 
 #define OffsetOf(type, Member) (umm)&(((type *)0)->Member)
 
+#if COMPILER_MSVC
 #define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
 #define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
+#elif COMPILER_LLVM
+#define CompletePreviousReadsBeforeFutureReads asm volatile("" ::: "memory")
+#define CompletePreviousWritesBeforeFutureWrites asm volatile("" ::: "memory")
+#else
+#error Other compilers/platforms?
+#endif
 
 #include "kengine_intrinsics.h"
 
