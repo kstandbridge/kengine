@@ -1,3 +1,6 @@
+#include "handmade.h"
+#include "handmade.c"
+
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
@@ -524,6 +527,8 @@ main(int argc, char **argv)
     GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
     GlobalLinuxState = BootstrapPushStruct(linux_state, Arena);
 
+    s64 PerfCountFrequency = LinuxGetOSTimerFrequency();
+
     Display *Display = XOpenDisplay(0);
     s32 Screen = DefaultScreen(Display);
     
@@ -573,6 +578,9 @@ main(int argc, char **argv)
     u32 ExpectedFramesPerUpdate = 1;
     f32 TargetSecondsPerFrame = (f32)ExpectedFramesPerUpdate / (f32)GameUpdateHz;
 
+    u64 LastCounter = LinuxReadOSTimer();
+    s64 LastCycleCount = __rdtsc();
+
     b32 SoundIsValid = false;
     GlobalLinuxState->Running = true;
     while(GlobalLinuxState->Running)
@@ -588,7 +596,7 @@ main(int argc, char **argv)
         if((GlobalLinuxState->Image) && 
            (GlobalLinuxState->Image->data))
         {
-            RenderWeirdGradient(&GlobalLinuxState->Backbuffer, XOffset, YOffset);
+            GameUpdateAndRender(&GlobalLinuxState->Backbuffer, XOffset, YOffset);
         }
         
         // NOTE(kstandbridge): Sound output test
@@ -638,34 +646,6 @@ main(int argc, char **argv)
 
         // NOTE(kstandbridge): Audio runner?
         {
-#if 0
-            pthread_mutex_lock(&GlobalAudioMutex);
-
-            u32 RegionSize1 = SoundPeriodSize;
-            u32 RegionSize2 = 0;
-            if ((RegionSize1 + SoundOutput.Buffer.ReadIndex) >= SoundOutput.Buffer.Size)
-            {
-                u32 Diff = SoundOutput.Buffer.Size - SoundOutput.Buffer.ReadIndex;
-                RegionSize2 = RegionSize1 - Diff;
-                RegionSize1 = Diff;
-                Copy(RegionSize1, SoundOutput.Buffer.Data + SoundOutput.Buffer.ReadIndex, SoundBuffer);
-                Copy(RegionSize2, SoundOutput.Buffer.Data, SoundBuffer + RegionSize1);
-                SoundOutput.Buffer.ReadIndex = RegionSize2;
-            }
-            else
-            {
-                Copy(RegionSize1, SoundOutput.Buffer.Data + SoundOutput.Buffer.ReadIndex, SoundBuffer);
-                SoundOutput.Buffer.ReadIndex += RegionSize1;
-            }
-
-            pthread_mutex_unlock(&GlobalAudioMutex);
-
-            snd_pcm_sframes_t ReturnValue = ALSA_snd_pcm_writei(SoundOutput.PcmHandle, SoundBuffer, SoundPeriodSize);
-            if (ReturnValue < 0)
-            {
-                ALSA_snd_pcm_prepare(SoundOutput.PcmHandle);
-            }
-#else
             u32 CopySize = SoundOutput.PeriodSize;
             if ((CopySize + SoundOutput.Buffer.ReadIndex) > SoundOutput.Buffer.Size)
             {
@@ -697,13 +677,29 @@ main(int argc, char **argv)
                 CompletePreviousWritesBeforeFutureWrites;
                 SoundOutput.Buffer.ReadIndex = NextReadIndex;
             }
-#endif
         }
 
         window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
         LinuxDisplayBufferInWindow(GlobalLinuxState,
                                    Display, Window, GraphicsContext,
                                    Dimension.Width, Dimension.Height);
+
+        u64 EndCycleCount = __rdtsc();
+        
+        u64 EndCounter = LinuxReadOSTimer();
+
+        u64 CyclesElapsed = EndCycleCount - LastCycleCount;
+        s64 CounterElapsed = EndCounter - LastCounter;
+        f64 MSPerFrame = (((1000.0f*(f64)CounterElapsed) / (f64)PerfCountFrequency));
+        f64 FPS = (f64)PerfCountFrequency / (f64)CounterElapsed;
+        f64 MCPF = ((f64)CyclesElapsed / (1000.0f * 1000.0f));
+
+#if 1
+        LinuxConsoleOut("%.02fms/f,  %.02ff/s,  %.02fmc/f\n", MSPerFrame, FPS, MCPF);
+#endif
+        
+        LastCounter = EndCounter;
+        LastCycleCount = EndCycleCount;
     }
 
     XFreeGC(Display, GraphicsContext);

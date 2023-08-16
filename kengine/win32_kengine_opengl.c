@@ -406,6 +406,7 @@ WinMain(HINSTANCE hInstance,
 {
     GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
     GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
+    GlobalWin32State = BootstrapPushStruct(win32_state, Arena);
 
     s64 PerfCountFrequency = Win32GetOSTimerFrequency();
 
@@ -420,7 +421,6 @@ WinMain(HINSTANCE hInstance,
         .lpszClassName = "HandmadeHeroWindowClass",
     };
     
-    GlobalWin32State = BootstrapPushStruct(win32_state, Arena);
 
     Win32ResizeDIBSection(GlobalWin32State, 1280, 720);
     
@@ -571,7 +571,7 @@ WinMain(HINSTANCE hInstance,
                 f64 FPS = (f64)PerfCountFrequency / (f64)CounterElapsed;
                 f64 MCPF = ((f64)CyclesElapsed / (1000.0f * 1000.0f));
 
-#if 0
+#if 1
                 Win32ConsoleOut("%.02fms/f,  %.02ff/s,  %.02fmc/f\n", MSPerFrame, FPS, MCPF);
 #endif
                 
