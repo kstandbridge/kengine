@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "handmade.h"
 #include "handmade.c"
 
@@ -8,8 +10,8 @@
 
 #include <sys/mman.h>
 #include <dlfcn.h>      // dlopen, dlsym, dlclose
+#include <pthread.h>
 
-#include <math.h>
 
 #define VK_W           25
 #define VK_A           38
@@ -61,17 +63,26 @@ typedef struct linux_sound_output
     
     linux_audio_buffer Buffer;
 
-    snd_pcm_uframes_t PeriodSize;
-    u32 BytesPerFrame;
-
-    snd_pcm_t *PcmHandle;
-
     s32 ToneHz;
     s16 ToneVolume;
     s32 WavePeriod;
     s32 SecondaryBufferSize;
     f32 tSine;
 } linux_sound_output;
+
+typedef struct linux_sound_player
+{
+    snd_pcm_t *PcmHandle;
+    u32 SamplesPerSecond;
+    volatile b32 IsPlaying;
+    pthread_t Thread;
+    snd_pcm_uframes_t PeriodSize;
+    u32 BytesPerFrame;
+    
+
+    linux_sound_output Output;
+
+} linux_sound_player;
 
 typedef struct linux_state
 {
@@ -81,6 +92,8 @@ typedef struct linux_state
 
     Pixmap Pixmap;
     XImage *Image;
+
+    linux_sound_player SoundPlayer;
     
 } linux_state;
 global linux_state *GlobalLinuxState;
@@ -168,6 +181,7 @@ LinuxResizeDIBSection(linux_state *State, Display *Display, Window Window, s32 W
     int BytesPerPixel = 4;
     Buffer->Pitch = Width*BytesPerPixel;
 }
+
 
 internal void
 LinuxDisplayBufferInWindow(linux_state *State,
@@ -294,7 +308,7 @@ LinuxProcessPendingMessages(linux_state *State, Display *Display, Window Window,
     }
 }
 
-global void *AlsaLibrary;
+global void *GlobalAlsaLibrary;
 
 #define ALSA_OPEN(name) int name(snd_pcm_t **, const char *, snd_pcm_stream_t, int)
 typedef ALSA_OPEN(ALSA_snd_pcm_open);
@@ -326,7 +340,7 @@ internal int (*ALSA_snd_pcm_prepare)(snd_pcm_t *);
 internal void
 LinuxLoadAlsaSymbol(char *Name, void **Address)
 {
-    *Address = LinuxLoadFunction(AlsaLibrary, Name);
+    *Address = LinuxLoadFunction(GlobalAlsaLibrary, Name);
     if (*Address == 0)
     {
         PlatformConsoleOut("Failed to load Alsa symbol %s\n", Address);
@@ -336,21 +350,20 @@ LinuxLoadAlsaSymbol(char *Name, void **Address)
 #define LINUX_ALSA_SYMBOL(type) LinuxLoadAlsaSymbol(#type, (void **) (char *) &ALSA_##type)
 
 internal void
-LinuxInitSound(s32 SamplesPerSecond, s32 BufferSize, linux_sound_output *SoundOutput)
+LinuxInitSound(s32 SamplesPerSecond, s32 BufferSize, linux_sound_player *SoundPlayer)
 {
 
 #define AUDIO_CHANNELS 2
 
-    // 48000 SamplesPerSecond
     u32 Periods = 4;     
     u32 PeriodSize = 512;
     
-    Assert(AlsaLibrary == 0);
+    Assert(GlobalAlsaLibrary == 0);
 
-    AlsaLibrary = LinuxLoadLibrary("libasound.so");
-    if(AlsaLibrary)
+    GlobalAlsaLibrary = LinuxLoadLibrary("libasound.so");
+    if(GlobalAlsaLibrary)
     {
-        *(void **)(&snd_pcm_open) = dlsym(AlsaLibrary, "snd_pcm_open");
+        *(void **)(&snd_pcm_open) = dlsym(GlobalAlsaLibrary, "snd_pcm_open");
 
         LINUX_ALSA_SYMBOL(snd_strerror);
         LINUX_ALSA_SYMBOL(snd_pcm_hw_params_malloc);
@@ -370,13 +383,13 @@ LinuxInitSound(s32 SamplesPerSecond, s32 BufferSize, linux_sound_output *SoundOu
         LINUX_ALSA_SYMBOL(snd_pcm_prepare);
 
 
-        u32 PlayerSamplesPerSecond = SamplesPerSecond;
-        SoundOutput->PcmHandle = 0;
-        SoundOutput->SamplesPerSecond = 0;
-        //SoundOutput->IsPlaying = 0;
-        SoundOutput->PeriodSize = PeriodSize;
-        SoundOutput->BytesPerFrame = sizeof(s16) * AUDIO_CHANNELS;
+        SoundPlayer->PcmHandle = 0;
+        SoundPlayer->SamplesPerSecond = SamplesPerSecond;
+        SoundPlayer->IsPlaying = false;
+        SoundPlayer->PeriodSize = PeriodSize;
+        SoundPlayer->BytesPerFrame = sizeof(s16) * AUDIO_CHANNELS;
 
+        linux_sound_output *SoundOutput = &SoundPlayer->Output;
         SoundOutput->RunningSampleIndex = 0;
         SoundOutput->LatencySampleCount = 0;
         SoundOutput->BytesPerSample = sizeof(s16) * AUDIO_CHANNELS;
@@ -394,7 +407,7 @@ LinuxInitSound(s32 SamplesPerSecond, s32 BufferSize, linux_sound_output *SoundOu
 
         char *Name = "default";
 
-        Error = snd_pcm_open(&SoundOutput->PcmHandle, Name, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
+        Error = snd_pcm_open(&SoundPlayer->PcmHandle, Name, SND_PCM_STREAM_PLAYBACK, 0);
         if(Error < 0) 
         {
             char *ErrorValue =  ALSA_snd_strerror(Error);
@@ -403,31 +416,31 @@ LinuxInitSound(s32 SamplesPerSecond, s32 BufferSize, linux_sound_output *SoundOu
         }
         Error = ALSA_snd_pcm_hw_params_malloc(&HwParams);
         if(Error < 0) InvalidCodePath;
-        Error = ALSA_snd_pcm_hw_params_any(SoundOutput->PcmHandle, HwParams);
+        Error = ALSA_snd_pcm_hw_params_any(SoundPlayer->PcmHandle, HwParams);
         if(Error < 0) InvalidCodePath;
-        Error = ALSA_snd_pcm_hw_params_set_access(SoundOutput->PcmHandle, HwParams, SND_PCM_ACCESS_RW_INTERLEAVED);
+        Error = ALSA_snd_pcm_hw_params_set_access(SoundPlayer->PcmHandle, HwParams, SND_PCM_ACCESS_RW_INTERLEAVED);
         if(Error < 0) InvalidCodePath;
-        Error = ALSA_snd_pcm_hw_params_set_format(SoundOutput->PcmHandle, HwParams, SND_PCM_FORMAT_S16_LE);
+        Error = ALSA_snd_pcm_hw_params_set_format(SoundPlayer->PcmHandle, HwParams, SND_PCM_FORMAT_S16_LE);
         if(Error < 0) InvalidCodePath;
-        Error = ALSA_snd_pcm_hw_params_set_rate_near(SoundOutput->PcmHandle, HwParams, &PlayerSamplesPerSecond, 0);
+        Error = ALSA_snd_pcm_hw_params_set_rate_near(SoundPlayer->PcmHandle, HwParams, &SoundPlayer->SamplesPerSecond, 0);
         if(Error < 0) InvalidCodePath;
-        Error = ALSA_snd_pcm_hw_params_set_channels(SoundOutput->PcmHandle, HwParams, AUDIO_CHANNELS);
+        Error = ALSA_snd_pcm_hw_params_set_channels(SoundPlayer->PcmHandle, HwParams, AUDIO_CHANNELS);
         if(Error < 0) InvalidCodePath;
-        Error = ALSA_snd_pcm_hw_params_set_periods(SoundOutput->PcmHandle, HwParams, Periods, 0);
+        Error = ALSA_snd_pcm_hw_params_set_periods(SoundPlayer->PcmHandle, HwParams, Periods, 0);
         if(Error < 0) InvalidCodePath;
         RequestedBufferSize = BufferSize = (PeriodSize * Periods) / (AUDIO_CHANNELS * sizeof(s16));
-        Error = ALSA_snd_pcm_hw_params_set_buffer_size_near(SoundOutput->PcmHandle, HwParams, &BufferSize);
+        Error = ALSA_snd_pcm_hw_params_set_buffer_size_near(SoundPlayer->PcmHandle, HwParams, &BufferSize);
         if(Error < 0) InvalidCodePath;
         if (RequestedBufferSize != BufferSize) 
         {
             LinuxConsoleOut("Alsa adjusted buffer size from %lu to %lu\n", RequestedBufferSize, BufferSize);
         }
-        Error = ALSA_snd_pcm_hw_params(SoundOutput->PcmHandle, HwParams);
+        Error = ALSA_snd_pcm_hw_params(SoundPlayer->PcmHandle, HwParams);
         if(Error < 0) InvalidCodePath;
 
         ALSA_snd_pcm_hw_params_free(HwParams);
 
-        SoundOutput->SamplesPerSecond = PlayerSamplesPerSecond;
+        SoundOutput->SamplesPerSecond = SoundPlayer->SamplesPerSecond;
         SoundOutput->RunningSampleIndex = 0;
         SoundOutput->LatencySampleCount = SoundOutput->SamplesPerSecond / 15;
         NrSamples = SoundOutput->SamplesPerSecond * AUDIO_CHANNELS;     // 1 second
@@ -469,55 +482,101 @@ LinuxInitSound(s32 SamplesPerSecond, s32 BufferSize, linux_sound_output *SoundOu
     {
         InvalidCodePath;
     }
+}
 
+internal void *
+LinuxAudioThread(void *Context)
+{
+    void *Result = 0;
+
+    linux_sound_player *Player = (linux_sound_player *)Context;
+    linux_sound_output *Output = &Player->Output;
+    linux_audio_buffer *Buffer = &Output->Buffer;
+
+    while (Player->IsPlaying)
+    {
+        u32 CopySize = (u32)Player->PeriodSize;
+        if ((CopySize + Buffer->ReadIndex) > Buffer->Size)
+        {
+            CopySize = Buffer->Size - Buffer->ReadIndex;
+        }
+        
+        u32 FrameCount = CopySize / Player->BytesPerFrame;
+        snd_pcm_sframes_t ReturnValue = ALSA_snd_pcm_writei(Player->PcmHandle, Buffer->Data + Buffer->ReadIndex,
+                                                            FrameCount);
+        
+        if (ReturnValue < 0)
+        {
+            ALSA_snd_pcm_prepare(Player->PcmHandle);
+        }
+        else
+        {
+            u32 WrittenBytes = ReturnValue * Player->BytesPerFrame;
+            u32 NextReadIndex = Buffer->ReadIndex + WrittenBytes;
+            if (NextReadIndex >= Buffer->Size) {
+                NextReadIndex -= Buffer->Size;
+            }
+            
+            u32 NextWriteIndex = NextReadIndex + Player->PeriodSize;
+            if (NextWriteIndex >= Buffer->Size) {
+                NextWriteIndex -= Buffer->Size;
+            }
+            
+            Buffer->WriteIndex = NextWriteIndex;
+            CompletePreviousWritesBeforeFutureWrites;
+            Buffer->ReadIndex = NextReadIndex;
+        }
+    }
+
+    return Result;
 }
 
 internal void
-LinuxFillSoundBuffer(linux_sound_output *SoundOutput, u32 Start, u32 BytesToWrite)
+LinuxStartPlayingSound(linux_sound_player *SoundPlayer)
 {
-    void *Region1 = SoundOutput->Buffer.Data + Start;
-    u32 Region1Size = BytesToWrite;
-    u32 Region2Size = 0;
-    if (Start + Region1Size >= SoundOutput->Buffer.Size)
+    if(!SoundPlayer->IsPlaying)
     {
-        u32 Diff = SoundOutput->Buffer.Size - Start;
-        Region2Size = Region1Size - Diff;
-        Region1Size = Diff;
-    }
+        pthread_attr_t ThreadAttr;
+        pthread_attr_init(&ThreadAttr);
+        pthread_attr_setdetachstate(&ThreadAttr, PTHREAD_CREATE_DETACHED);
+        SoundPlayer->IsPlaying = true;
 
-    u32 Region1SampleCount = Region1Size/SoundOutput->BytesPerSample;
-    s16 *SampleOut = (s16 *)Region1;
-    for(u32 SampleIndex = 0;
-        SampleIndex < Region1SampleCount;
-        ++SampleIndex)
-    {
-        // TODO(kstandbridge): Draw this out for people
-        f32 SineValue = sinf(SoundOutput->tSine);
-        s16 SampleValue = (s16)(SineValue * SoundOutput->ToneVolume);
-        *SampleOut++ = SampleValue;
-        *SampleOut++ = SampleValue;
+        s32 ErrorNumber = pthread_create(&SoundPlayer->Thread, &ThreadAttr, LinuxAudioThread, SoundPlayer);
 
-        SoundOutput->tSine += 2.0f*Pi32*1.0f/(f32)SoundOutput->WavePeriod;
-        ++SoundOutput->RunningSampleIndex;
-    }
+        pthread_attr_destroy(&ThreadAttr);
 
-    if (Region2Size)
-    {
-        u32 Region2SampleCount = Region2Size/SoundOutput->BytesPerSample;
-        SampleOut = (s16 *)(Region1 + Region1Size);
-        for(u32 SampleIndex = 0;
-            SampleIndex < Region2SampleCount;
-            ++SampleIndex)
+        if(ErrorNumber)
         {
-            f32 SineValue = sinf(SoundOutput->tSine);
-            s16 SampleValue = (s16)(SineValue * SoundOutput->ToneVolume);
-            *SampleOut++ = SampleValue;
-            *SampleOut++ = SampleValue;
-
-            SoundOutput->tSine += 2.0f*Pi32*1.0f/(f32)SoundOutput->WavePeriod;
-            ++SoundOutput->RunningSampleIndex;
+            SoundPlayer->IsPlaying = false;
         }
     }
+    else
+    {
+        LinuxConsoleOut("Error: Sound already playing!\n");
+        InvalidCodePath;
+    }
+}
+
+internal void
+LinuxFillSoundBuffer(linux_sound_output *SoundOutput, sound_output_buffer *SourceBuffer)
+{
+    SoundOutput->RunningSampleIndex += SourceBuffer->SampleCount;
+}
+
+internal void
+LinuxFreeSound(linux_sound_player *SoundPlayer)
+{
+    linux_sound_output *SoundOutput = &SoundPlayer->Output;
+
+    if(SoundPlayer->PcmHandle)
+    {
+        ALSA_snd_pcm_drain(SoundPlayer->PcmHandle);
+        ALSA_snd_pcm_close(SoundPlayer->PcmHandle);
+        SoundPlayer->PcmHandle = 0;
+    }
+
+    munmap(SoundOutput->Buffer.Data, SoundOutput->Buffer.Size << 1);
+    LinuxUnloadLibrary(GlobalAlsaLibrary);
 }
 
 int
@@ -560,18 +619,14 @@ main(int argc, char **argv)
     s32 YOffset = 0;
 
     // NOTE(kstandbridge): Sound test
-    linux_sound_output SoundOutput = 
-    {
-        //.SamplesPerSecond = 48000,
-        .ToneHz = 256,
-        .ToneVolume = 3000,
-        //.BytesPerSample = sizeof(s16)*2,
-    };
-    LinuxInitSound(48000, SoundOutput.SecondaryBufferSize, &SoundOutput);
-    SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond/SoundOutput.ToneHz;
-    SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond*SoundOutput.BytesPerSample;
-    SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
-    LinuxFillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount*SoundOutput.BytesPerSample);
+    linux_sound_output *SoundOutput = &GlobalLinuxState->SoundPlayer.Output; 
+    SoundOutput->ToneHz = 256;
+    SoundOutput->ToneVolume = 3000;
+    LinuxInitSound(48000, SoundOutput->SecondaryBufferSize, &GlobalLinuxState->SoundPlayer);
+    SoundOutput->WavePeriod = SoundOutput->SamplesPerSecond/SoundOutput->ToneHz;
+    SoundOutput->SecondaryBufferSize = SoundOutput->SamplesPerSecond*SoundOutput->BytesPerSample;
+    SoundOutput->LatencySampleCount = SoundOutput->SamplesPerSecond / 15;
+    LinuxStartPlayingSound(&GlobalLinuxState->SoundPlayer);
 
     s32 MonitorRefreshHz = 60;
     f32 GameUpdateHz = (f32)(MonitorRefreshHz);
@@ -592,31 +647,25 @@ main(int argc, char **argv)
         // TODO(kstandbridge): Check controller input
         ++XOffset;
         YOffset += 2;
-
-        if((GlobalLinuxState->Image) && 
-           (GlobalLinuxState->Image->data))
-        {
-            GameUpdateAndRender(&GlobalLinuxState->Backbuffer, XOffset, YOffset);
-        }
         
         // NOTE(kstandbridge): Sound output test
-        u32 PlayCursor = SoundOutput.Buffer.ReadIndex;
-        u32 WriteCursor = SoundOutput.Buffer.WriteIndex;
+        u32 PlayCursor = SoundOutput->Buffer.ReadIndex;
+        u32 WriteCursor = SoundOutput->Buffer.WriteIndex;
         if (!SoundIsValid)
         {
-            SoundOutput.RunningSampleIndex = WriteCursor / SoundOutput.BytesPerSample;
+            SoundOutput->RunningSampleIndex = WriteCursor / SoundOutput->BytesPerSample;
             SoundIsValid = true;
         }
         
-        u32 ByteToLock = ((SoundOutput.RunningSampleIndex*SoundOutput.BytesPerSample) %
-                            SoundOutput.Buffer.Size);
+        u32 ByteToLock = ((SoundOutput->RunningSampleIndex*SoundOutput->BytesPerSample) %
+                            SoundOutput->Buffer.Size);
         
         u32 ExpectedSoundBytesPerFrame =
-        (u32)((f32)(SoundOutput.SamplesPerSecond*SoundOutput.BytesPerSample) * TargetSecondsPerFrame);
+            (u32)((f32)(SoundOutput->SamplesPerSecond*SoundOutput->BytesPerSample) * TargetSecondsPerFrame);
         
         u32 ExpectedFrameBoundaryByte = PlayCursor + ExpectedSoundBytesPerFrame;
         
-        u32 SafeWriteCursor = WriteCursor + SoundOutput.SafetyBytes;
+        u32 SafeWriteCursor = WriteCursor + SoundOutput->SafetyBytes;
         b32 AudioCardIsLowLatency = (SafeWriteCursor < ExpectedFrameBoundaryByte);
         
         u32 TargetCursor = 0;
@@ -627,14 +676,14 @@ main(int argc, char **argv)
         else
         {
             TargetCursor = (WriteCursor + ExpectedSoundBytesPerFrame +
-                            SoundOutput.SafetyBytes);
+                            SoundOutput->SafetyBytes);
         }
-        TargetCursor = (TargetCursor % SoundOutput.Buffer.Size);
+        TargetCursor = (TargetCursor % SoundOutput->Buffer.Size);
         
         u32 BytesToWrite = 0;
         if(ByteToLock > TargetCursor)
         {
-            BytesToWrite = (SoundOutput.Buffer.Size - ByteToLock);
+            BytesToWrite = (SoundOutput->Buffer.Size - ByteToLock);
             BytesToWrite += TargetCursor;
         }
         else
@@ -642,41 +691,24 @@ main(int argc, char **argv)
             BytesToWrite = TargetCursor - ByteToLock;
         }
 
-        LinuxFillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
-
-        // NOTE(kstandbridge): Audio runner?
+        sound_output_buffer SoundBuffer = 
         {
-            u32 CopySize = SoundOutput.PeriodSize;
-            if ((CopySize + SoundOutput.Buffer.ReadIndex) > SoundOutput.Buffer.Size)
-            {
-                CopySize = SoundOutput.Buffer.Size - SoundOutput.Buffer.ReadIndex;
-            }
-            
-            u32 FrameCount = CopySize / SoundOutput.BytesPerFrame;
-            snd_pcm_sframes_t ReturnValue = ALSA_snd_pcm_writei(SoundOutput.PcmHandle, SoundOutput.Buffer.Data + SoundOutput.Buffer.ReadIndex,
-                                                                FrameCount);
-            
-            if (ReturnValue < 0)
-            {
-                ALSA_snd_pcm_prepare(SoundOutput.PcmHandle);
-            }
-            else
-            {
-                u32 WrittenBytes = ReturnValue * SoundOutput.BytesPerFrame;
-                u32 NextReadIndex = SoundOutput.Buffer.ReadIndex + WrittenBytes;
-                if (NextReadIndex >= SoundOutput.Buffer.Size) {
-                    NextReadIndex -= SoundOutput.Buffer.Size;
-                }
-                
-                u32 NextWriteIndex = NextReadIndex + SoundOutput.PeriodSize;
-                if (NextWriteIndex >= SoundOutput.Buffer.Size) {
-                    NextWriteIndex -= SoundOutput.Buffer.Size;
-                }
-                
-                SoundOutput.Buffer.WriteIndex = NextWriteIndex;
-                CompletePreviousWritesBeforeFutureWrites;
-                SoundOutput.Buffer.ReadIndex = NextReadIndex;
-            }
+            .SamplesPerSecond = SoundOutput->SamplesPerSecond,
+            .SampleCount = BytesToWrite / SoundOutput->BytesPerSample,
+            .Samples = (s16 *)(SoundOutput->Buffer.Data + ByteToLock),
+        };
+        
+        BytesToWrite = SoundBuffer.SampleCount*SoundOutput->BytesPerSample;
+
+        if((GlobalLinuxState->Image) && 
+           (GlobalLinuxState->Image->data))  
+        {
+            GameUpdateAndRender(&GlobalLinuxState->Backbuffer, XOffset, YOffset, &SoundBuffer, SoundOutput->ToneHz);
+        }
+
+        if(SoundIsValid)
+        {
+            LinuxFillSoundBuffer(SoundOutput, &SoundBuffer);
         }
 
         window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
@@ -701,6 +733,14 @@ main(int argc, char **argv)
         LastCounter = EndCounter;
         LastCycleCount = EndCycleCount;
     }
+
+    GlobalLinuxState->SoundPlayer.IsPlaying = false;
+
+    // TODO(kstandbridge): Figure out a way to wait for the sound thread to finish so we can free
+    // If we had a thread pool could we do CompleteAllWork or similar?
+    // LinuxFreeSound(&GlobalLinuxState->SoundPlayer);
+
+    ClearArena(&GlobalLinuxState->Arena);
 
     XFreeGC(Display, GraphicsContext);
     XDestroyWindow(Display, Window);
