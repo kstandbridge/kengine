@@ -7,95 +7,10 @@
 #include <X11/Xutil.h>
 
 #include <alsa/asoundlib.h>
+#include <linux/joystick.h>
 
-#include <sys/mman.h>
-#include <dlfcn.h>      // dlopen, dlsym, dlclose
-#include <pthread.h>
+#include "linux_kengine_opengl.h"
 
-
-#define VK_W           25
-#define VK_A           38
-#define VK_S           39
-#define VK_D           40
-#define VK_Q           24
-#define VK_E           26
-#define VK_UP          111
-#define VK_DOWN        116
-#define VK_LEFT        113
-#define VK_RIGHT       114
-#define VK_ESCAPE      9
-#define VK_SPACE       65
-
-#define VK_SHIFT_MASK  0x01
-#define VK_CTRL_MASK   0x04
-#define VK_ALT_MASK    0x08
-
-#define VK_F1          67
-#define VK_F2          68
-#define VK_F3          69
-#define VK_F4          70
-#define VK_F5          71
-#define VK_F6          72
-#define VK_F7          73
-#define VK_F8          74
-#define VK_F9          75
-#define VK_F10         76
-#define VK_F11         95
-#define VK_F12         96
-
-typedef struct linux_audio_buffer
-{
-    u32 Size;
-    volatile u32 ReadIndex;
-    volatile u32 WriteIndex;
-    u8 *Data;
-
-} linux_audio_buffer;
-
-typedef struct linux_sound_output
-{
-    u32 SamplesPerSecond;
-    u32 RunningSampleIndex;
-    u32 LastReadIndex;
-    u32 LatencySampleCount;
-    u32 BytesPerSample;
-    u32 SafetyBytes;
-    
-    linux_audio_buffer Buffer;
-
-    s32 ToneHz;
-    s16 ToneVolume;
-    s32 WavePeriod;
-    s32 SecondaryBufferSize;
-    f32 tSine;
-} linux_sound_output;
-
-typedef struct linux_sound_player
-{
-    snd_pcm_t *PcmHandle;
-    u32 SamplesPerSecond;
-    volatile b32 IsPlaying;
-    pthread_t Thread;
-    snd_pcm_uframes_t PeriodSize;
-    u32 BytesPerFrame;
-    
-
-    linux_sound_output Output;
-
-} linux_sound_player;
-
-typedef struct linux_state
-{
-    memory_arena Arena;
-    b32 Running;
-    offscreen_buffer Backbuffer;
-
-    Pixmap Pixmap;
-    XImage *Image;
-
-    linux_sound_player SoundPlayer;
-    
-} linux_state;
 global linux_state *GlobalLinuxState;
 
 internal void *
@@ -579,6 +494,286 @@ LinuxFreeSound(linux_sound_player *SoundPlayer)
     LinuxUnloadLibrary(GlobalAlsaLibrary);
 }
 
+
+
+internal u32
+LinuxFindJoysticks(linux_state *State)
+{
+    // TODO(kstandbridge): Monitor joysticks for being plugged in/out
+
+    struct ff_effect *Effect = &State->Joystick.Effect;
+    u8 *JoystickIDs = State->Joystick.IDs;
+    s32 *JoystickFileDescriptors = State->Joystick.FileDescriptors;
+    s32 *JoystickEventFileDescriptors = State->Joystick.EventFileDescriptors;
+
+    char FileDescription[] = "/dev/input/jsX";
+    char PathBuffer[128];
+    u32 Joysticks = 0;
+
+    if (Effect->id != -1)
+    {
+        Effect->type = FF_RUMBLE;
+        Effect->u.rumble.strong_magnitude = 60000;
+        Effect->u.rumble.weak_magnitude = 0;
+        Effect->replay.length = 200;
+        Effect->replay.delay = 0;
+        Effect->id = -1;         // NOTE(kstandbridge): ID must be set to -1 for every new effect
+    }
+
+    for (u8 JoystickIndex = 0;
+         JoystickIndex < ArrayCount(State->Joystick.IDs);
+         ++JoystickIndex)
+    {
+        if (JoystickIDs[JoystickIndex] == 0)
+        {
+            u8 JoystickID = JoystickIDs[Joysticks];
+            if (JoystickFileDescriptors[JoystickID] && JoystickEventFileDescriptors[JoystickID])
+            {
+                ++Joysticks;
+                continue;
+            }
+            else if (!JoystickFileDescriptors[JoystickID])
+            {
+                FileDescription[13] = (char)(JoystickIndex + 0x30);
+                s32 FileDescriptor = open(FileDescription, O_RDONLY | O_NONBLOCK);
+                if (FileDescriptor < 0)
+                {
+                    continue;
+                }
+                JoystickFileDescriptors[JoystickID] = FileDescriptor;
+            }
+
+            if (!JoystickEventFileDescriptors[JoystickID])
+            {
+                for (u8 EventID = 0;
+                     EventID <= 99;
+                     EventID++)
+                {
+                    string Path = FormatStringToBuffer((u8 *)PathBuffer, sizeof(PathBuffer), "/sys/class/input/js%d/device/event%d", JoystickIndex, EventID);
+                    if (LinuxDirectoryExists(Path))
+                    {
+                        Path = FormatStringToBuffer((u8 *)PathBuffer, sizeof(PathBuffer), "/dev/input/event%d", EventID);
+                        PathBuffer[Path.Size] = '\0';
+                        s32 EventFileDescriptor = open(PathBuffer, O_RDWR);
+                        if (EventFileDescriptor >= 0)
+                        {
+                            JoystickEventFileDescriptors[JoystickIndex] = EventFileDescriptor;
+                            if (ioctl(EventFileDescriptor, EVIOCSFF, &Effect) == -1)
+                            {
+                                PlatformConsoleOut("Error: could not send effect to the driver for %s\n", PathBuffer);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            JoystickIDs[Joysticks++] = JoystickIndex;
+        }
+        else
+        {
+            ++Joysticks;
+        }
+    }
+
+    return Joysticks;
+}
+
+internal void
+LinuxProcessXboxDigitalButtons(u32 ButtonState,
+                               button_state *OldState,
+                               button_state *NewState)
+{
+    NewState->EndedDown = ButtonState;
+    NewState->HalfTransitionCount += (OldState->EndedDown != NewState->EndedDown) ? 1 : 0;
+    OldState->EndedDown = NewState->EndedDown;
+}
+
+internal f32
+LinuxProcessXboxAnalogStick(s16 Value, u16 Deadzone)
+{
+    f32 Result = 0;
+    
+    if (Value < -Deadzone)
+    {
+        // NOTE(kstandbridge): On linux the joystick reports -32767 till 32767 so it
+        // does need an extra one in the calc (32768.0f - Deadzone)
+        Result = ((f32)(Value + Deadzone)) / (32767.0f - (f32)Deadzone);
+    }
+    else if (Value > Deadzone)
+    {
+        Result = ((f32)(Value - Deadzone)) / (32767.0f - (f32)Deadzone);
+    }
+
+    return Result;
+}
+
+inline controller_input *
+GetController(app_input *Input, u32 ControllerIndex)
+{
+    Assert(ControllerIndex < ArrayCount(Input->Controllers));
+    
+    controller_input *Result = &Input->Controllers[ControllerIndex];
+
+
+    return Result;
+}
+
+internal void 
+LinuxJoystickPopulateGameInput(linux_state *State, app_input *NewInput, app_input *OldInput, u32 NumberOfJoysticks)
+{
+    s32 *JoystickFileDescriptors = State->Joystick.FileDescriptors;
+
+    u32 StartIndex = 1; // NOTE(kstandbridge): Keyboard is index 0, controllers start at 1
+    u32 TotalNumberOfJoysticks = StartIndex + NumberOfJoysticks;
+
+    if (NumberOfJoysticks)
+    {
+        if (TotalNumberOfJoysticks > ArrayCount(NewInput->Controllers))
+        {
+            TotalNumberOfJoysticks = ArrayCount(NewInput->Controllers);
+        }
+        for (u8 JoySitckIndex = StartIndex;
+            JoySitckIndex < TotalNumberOfJoysticks;
+            ++JoySitckIndex)
+        {
+            u8 JoystickID = JoystickFileDescriptors[JoySitckIndex - StartIndex];
+            if (JoystickID == 0)
+            {
+                continue;
+            }
+
+            controller_input *OldController = GetController(OldInput, JoySitckIndex);
+            controller_input *NewController = GetController(NewInput, JoySitckIndex);
+            NewController->IsConnected = true;
+            NewController->IsAnalog = OldController->IsAnalog;
+            for (u8 Button = 0; Button < ArrayCount(NewController->Buttons); ++Button)
+            {
+                NewController->Buttons[Button].HalfTransitionCount = 0;
+            }
+            NewController->StickAverageX = OldController->StickAverageX;
+            NewController->StickAverageY = OldController->StickAverageY;
+
+            struct js_event JoystickEvent;
+
+            while (read(JoystickFileDescriptors[JoySitckIndex - StartIndex], &JoystickEvent, sizeof(JoystickEvent)) > 0)
+            {
+                if (JoystickEvent.type >= JS_EVENT_INIT)
+                {
+                    JoystickEvent.type -= JS_EVENT_INIT;
+                }
+
+                if (JoystickEvent.type == JS_EVENT_BUTTON)
+                {
+                    if (JoystickEvent.number == JOYSTICK_BUTTON_A)
+                    {
+                        LinuxProcessXboxDigitalButtons((u32)JoystickEvent.value,
+                                                       &OldController->ActionDown,
+                                                       &NewController->ActionDown);
+                    }
+                    else if (JoystickEvent.number == JOYSTICK_BUTTON_B)
+                    {
+                        LinuxProcessXboxDigitalButtons((u32)JoystickEvent.value,
+                                                       &OldController->ActionRight,
+                                                       &NewController->ActionRight);
+                    }
+                    else if (JoystickEvent.number == JOYSTICK_BUTTON_X)
+                    {
+                        LinuxProcessXboxDigitalButtons((u32)JoystickEvent.value,
+                                                       &OldController->ActionLeft,
+                                                       &NewController->ActionLeft);
+                    }
+                    else if (JoystickEvent.number == JOYSTICK_BUTTON_Y)
+                    {
+                        LinuxProcessXboxDigitalButtons((u32)JoystickEvent.value,
+                                                       &OldController->ActionUp,
+                                                       &NewController->ActionUp);
+                    }
+                    else if (JoystickEvent.number == JOYSTICK_BUTTON_LEFT_SHOULDER)
+                    {
+                        LinuxProcessXboxDigitalButtons((u32)JoystickEvent.value,
+                                                       &OldController->LeftShoulder,
+                                                       &NewController->LeftShoulder);
+                    }
+                    else if (JoystickEvent.number == JOYSTICK_BUTTON_RIGHT_SHOULDER)
+                    {
+                        LinuxProcessXboxDigitalButtons((u32)JoystickEvent.value,
+                                                       &OldController->RightShoulder,
+                                                       &NewController->RightShoulder);
+                    }
+                    else if (JoystickEvent.number == JOYSTICK_BUTTON_BACK)
+                    {
+                        LinuxProcessXboxDigitalButtons((u32)JoystickEvent.value,
+                                                       &OldController->Back,
+                                                       &NewController->Back);
+                    }
+                    else if (JoystickEvent.number == JOYSTICK_BUTTON_START)
+                    {
+                        LinuxProcessXboxDigitalButtons((u32)JoystickEvent.value,
+                                                       &OldController->Start,
+                                                       &NewController->Start);
+                    }
+                }
+                else if (JoystickEvent.type == JS_EVENT_AXIS)
+                {
+                    if (JoystickEvent.number == JOYSTICK_AXIS_LEFT_THUMB_X)
+                    {
+                        NewController->StickAverageX = LinuxProcessXboxAnalogStick(JoystickEvent.value, XBOX_CONTROLLER_DEADZONE);
+                        NewController->IsAnalog = true;
+                    }
+                    else if (JoystickEvent.number == JOYSTICK_AXIS_LEFT_THUMB_Y)
+                    {
+                        NewController->StickAverageY = -LinuxProcessXboxAnalogStick(JoystickEvent.value, XBOX_CONTROLLER_DEADZONE);
+                        NewController->IsAnalog = true;
+                    }
+                    else if (JoystickEvent.number == JOYSTICK_AXIS_DPAD_X)
+                    {
+                        if (JoystickEvent.value > XBOX_CONTROLLER_DEADZONE)
+                        {
+                            NewController->StickAverageX = 1.0f;
+                        }
+                        else if (JoystickEvent.value < -XBOX_CONTROLLER_DEADZONE)
+                        {
+                            NewController->StickAverageX = -1.0f;
+                        }
+                        else
+                        {
+                            NewController->StickAverageX = 0.0f;
+                        }
+                        NewController->IsAnalog = false;
+                    }
+                    else if (JoystickEvent.number == JOYSTICK_AXIS_DPAD_Y)
+                    {
+                        if (JoystickEvent.value > XBOX_CONTROLLER_DEADZONE)
+                        {
+                            NewController->StickAverageY = -1.0f;
+                        }
+                        else if (JoystickEvent.value < -XBOX_CONTROLLER_DEADZONE)
+                        {
+                            NewController->StickAverageY = 1.0f;
+                        }
+                        else
+                        {
+                            NewController->StickAverageY = 0.0f;
+                        }
+                        NewController->IsAnalog = false;
+                    }
+
+                    f32 AnalogButtonThreshold = 0.5f;
+                    LinuxProcessXboxDigitalButtons((NewController->StickAverageY < -AnalogButtonThreshold) ? 1 : 0,
+                                                   &OldController->MoveDown, &NewController->MoveDown);
+                    LinuxProcessXboxDigitalButtons((NewController->StickAverageY > AnalogButtonThreshold) ? 1 : 0,
+                                                   &OldController->MoveUp, &NewController->MoveUp);
+                    LinuxProcessXboxDigitalButtons((NewController->StickAverageX < -AnalogButtonThreshold) ? 1 : 0,
+                                                   &OldController->MoveLeft, &NewController->MoveLeft);
+                    LinuxProcessXboxDigitalButtons((NewController->StickAverageX > AnalogButtonThreshold) ? 1 : 0,
+                                                   &OldController->MoveRight, &NewController->MoveRight);
+                }
+            }
+        }
+    }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -613,17 +808,10 @@ main(int argc, char **argv)
     XSetWMProtocols(Display, Window, &WmDeleteWindow, 1);
 
     LinuxResizeDIBSection(GlobalLinuxState, Display, Window, 1280, 720);
-    
-    // NOTE(kstandbridge): Graphics test
-    s32 XOffset = 0;
-    s32 YOffset = 0;
 
     // NOTE(kstandbridge): Sound test
     linux_sound_output *SoundOutput = &GlobalLinuxState->SoundPlayer.Output; 
-    SoundOutput->ToneHz = 256;
-    SoundOutput->ToneVolume = 3000;
     LinuxInitSound(48000, SoundOutput->SecondaryBufferSize, &GlobalLinuxState->SoundPlayer);
-    SoundOutput->WavePeriod = SoundOutput->SamplesPerSecond/SoundOutput->ToneHz;
     SoundOutput->SecondaryBufferSize = SoundOutput->SamplesPerSecond*SoundOutput->BytesPerSample;
     SoundOutput->LatencySampleCount = SoundOutput->SamplesPerSecond / 15;
     LinuxStartPlayingSound(&GlobalLinuxState->SoundPlayer);
@@ -632,6 +820,14 @@ main(int argc, char **argv)
     f32 GameUpdateHz = (f32)(MonitorRefreshHz);
     u32 ExpectedFramesPerUpdate = 1;
     f32 TargetSecondsPerFrame = (f32)ExpectedFramesPerUpdate / (f32)GameUpdateHz;
+
+    u32 NumberOfJoysticks = LinuxFindJoysticks(GlobalLinuxState);
+
+    Assert(NumberOfJoysticks != 0);
+
+    app_input Input[2] = {0};
+    app_input *NewInput = &Input[0];
+    app_input *OldInput = &Input[1];
 
     u64 LastCounter = LinuxReadOSTimer();
     s64 LastCycleCount = __rdtsc();
@@ -642,11 +838,8 @@ main(int argc, char **argv)
     {
         LinuxProcessPendingMessages(GlobalLinuxState, Display, Window, WmDeleteWindow, GraphicsContext);
  
-        // TODO(kstandbridge): Process controller input
+        LinuxJoystickPopulateGameInput(GlobalLinuxState, NewInput, OldInput, NumberOfJoysticks);
 
-        // TODO(kstandbridge): Check controller input
-        ++XOffset;
-        YOffset += 2;
         
         // NOTE(kstandbridge): Sound output test
         u32 PlayCursor = SoundOutput->Buffer.ReadIndex;
@@ -703,7 +896,7 @@ main(int argc, char **argv)
         if((GlobalLinuxState->Image) && 
            (GlobalLinuxState->Image->data))  
         {
-            GameUpdateAndRender(&GlobalLinuxState->Backbuffer, XOffset, YOffset, &SoundBuffer, SoundOutput->ToneHz);
+            AppUpdateAndRender(NewInput, &GlobalLinuxState->Backbuffer, &SoundBuffer);
         }
 
         if(SoundIsValid)
@@ -732,6 +925,11 @@ main(int argc, char **argv)
         
         LastCounter = EndCounter;
         LastCycleCount = EndCycleCount;
+
+        app_input *Temp = NewInput;
+        NewInput = OldInput;
+        OldInput = Temp;
+        // TODO(kstandbridge): Should I clear these here?
     }
 
     GlobalLinuxState->SoundPlayer.IsPlaying = false;

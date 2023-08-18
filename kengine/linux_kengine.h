@@ -1,10 +1,14 @@
 #ifndef LINUX_KENGINE_H
 
 #include <sys/mman.h>
+#include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <unistd.h>
+#include <dlfcn.h>
+#include <dirent.h>
 #include <fcntl.h>
+#include <pthread.h>
+#include <unistd.h>
 
 //extern long write(int, const char *, unsigned long);
 //extern int open(const char *path, int oflag, ... );

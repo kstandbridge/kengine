@@ -125,6 +125,22 @@ LinuxDeallocateMemory(platform_memory_block *Block)
     munmap(LinuxBlock, TotalSize);
 }
 
+// TODO(kstandbridge): PlatformDirectoryExists and Win32DirectoryExists
+b32
+LinuxDirectoryExists(string Path)
+{
+    b32 Result;
+
+    char CPath[MAX_PATH];
+    StringToCString(Path, MAX_PATH, CPath);
+
+    DIR *Directory = opendir(CPath);
+
+    Result = (Directory != 0);
+
+    return Result;
+}
+
 b32
 LinuxFileExists(string Path)
 {
