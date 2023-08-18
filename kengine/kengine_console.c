@@ -43,13 +43,8 @@ main(int ArgCount, char *Args[])
     GlobalAppMemory.ArgCount = ArgCount - 1;
     GlobalAppMemory.Args = Args + 1;
 
-#if KENGINE_WIN32
-    GlobalWin32State.MemorySentinel.Prev = &GlobalWin32State.MemorySentinel;
-    GlobalWin32State.MemorySentinel.Next = &GlobalWin32State.MemorySentinel;
-#elif KENGINE_LINUX
-    GlobalLinuxState.MemorySentinel.Prev = &GlobalLinuxState.MemorySentinel;
-    GlobalLinuxState.MemorySentinel.Next = &GlobalLinuxState.MemorySentinel;
-#endif
+    GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
+    GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
 
     Result = MainLoop(&GlobalAppMemory);
 

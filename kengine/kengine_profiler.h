@@ -43,6 +43,7 @@ typedef struct profile_anchor
     u64 TSCElapsedExclusive; //NOTE(kstandbridge): Does NOT include children
     u64 TSCElapsedInclusive; //NOTE(kstandbridge): DOES include children
     u64 HitCount;
+    u64 ProcessedByteCount;
     char const *Label;
 } profile_anchor;
 
@@ -66,7 +67,7 @@ typedef struct profile_block
 } profile_block;
 
 internal void
-EndProfileBlock_(profile_block Block)
+EndProfileBlock_(profile_block Block, u64 ByteCount)
 {
     u64 Elapsed = PlatformReadCPUTimer() - Block.StartTSC;
     GlobalProfilerParent = Block.ParentIndex;
@@ -77,21 +78,24 @@ EndProfileBlock_(profile_block Block)
     Parent->TSCElapsedExclusive -= Elapsed;
     Anchor->TSCElapsedExclusive += Elapsed;
     Anchor->TSCElapsedInclusive = Block.OldTSCElapsedInclusive + Elapsed;
+    Anchor->ProcessedByteCount += ByteCount;
     ++Anchor->HitCount;
 
     Anchor->Label = Block.Label;
 }
 
-#define END_TIMED_BLOCK(Name) EndProfileBlock_(ProfileBlock##Name)
-#define END_TIMED_FUNCTION() END_TIMED_BLOCK(__FUNCTION__)
+#define END_TIMED_BLOCK(Name) END_TIMED_BANDWIDTH(Name, 0)
+#define END_TIMED_FUNCTION() END_TIMED_BANDWIDTH(__FUNCTION__, 0)
+#define END_TIMED_BANDWIDTH(Name, ByteCount) EndProfileBlock_(ProfileBlock##Name, ByteCount)
 
 #define BEGIN_TIMED_BLOCK_(Name, BlockLabel) profile_block ProfileBlock##Name = { .Label = BlockLabel, .StartTSC = PlatformReadCPUTimer(), .ParentIndex = GlobalProfilerParent, .AnchorIndex = __COUNTER__ + 1}; \
 { \
     GlobalProfilerParent = ProfileBlock##Name.AnchorIndex; \
-    profile_anchor *Achor = GlobalProfiler.Anchors + ProfileBlock##Name.AnchorIndex; \
-    ProfileBlock##Name.OldTSCElapsedInclusive = Achor->TSCElapsedInclusive; \
+    profile_anchor *Anchor = GlobalProfiler.Anchors + ProfileBlock##Name.AnchorIndex; \
+    ProfileBlock##Name.OldTSCElapsedInclusive = Anchor->TSCElapsedInclusive; \
 }
 #define BEGIN_TIMED_BLOCK(Name) BEGIN_TIMED_BLOCK_(Name, #Name)
+#define BEGIN_TIMED_BANDWIDTH(Name) BEGIN_TIMED_BLOCK_(Name, #Name)
 #define BEGIN_TIMED_FUNCTION() BEGIN_TIMED_BLOCK_(__FUNCTION__, __FUNCTION__)
 
 internal void
@@ -129,7 +133,19 @@ EndAndPrintProfile()
                 f64 PercentWithChildren = 100.0f * ((f64)Anchor->TSCElapsedInclusive / (f64)TotalCPUElapsed);
                 PlatformConsoleOut(", %.2f%% w/children", PercentWithChildren);
             }
-            PlatformConsoleOut(")\n");
+            PlatformConsoleOut(")");
+
+            if(Anchor->ProcessedByteCount)
+            {
+                f64 Seconds = (f64)Anchor->TSCElapsedInclusive / (f64)CPUFrequency;
+                f64 BytesPerSecond = (f64)Anchor->ProcessedByteCount / Seconds;
+                f64 ToltalMegabytes = (f64)Anchor->ProcessedByteCount / (f64)Megabytes(1);
+                f64 GigabytesPerSecond = BytesPerSecond / Gigabytes(1);
+
+                PlatformConsoleOut(" %.3fmb at %.2fgb/s", ToltalMegabytes, GigabytesPerSecond);
+            }
+
+            PlatformConsoleOut("\n");
         }
     }
 
