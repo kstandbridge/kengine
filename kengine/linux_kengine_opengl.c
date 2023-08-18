@@ -596,8 +596,6 @@ LinuxProcessXboxAnalogStick(s16 Value, u16 Deadzone)
     
     if (Value < -Deadzone)
     {
-        // NOTE(kstandbridge): On linux the joystick reports -32767 till 32767 so it
-        // does need an extra one in the calc (32768.0f - Deadzone)
         Result = ((f32)(Value + Deadzone)) / (32767.0f - (f32)Deadzone);
     }
     else if (Value > Deadzone)
