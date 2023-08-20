@@ -487,11 +487,13 @@ WinMain(HINSTANCE hInstance,
             app_input Input[2] = {0};
             app_input *NewInput = &Input[0];
             app_input *OldInput = &Input[1];
+            
+            app_memory AppMemory = {0};
+
+            GlobalWin32State->Running = true;
 
             u64 LastCounter = Win32ReadOSTimer();
             s64 LastCycleCount = __rdtsc();
-
-            GlobalWin32State->Running = true;
             while(GlobalWin32State->Running)
             {
                 MSG Message;
@@ -657,7 +659,7 @@ WinMain(HINSTANCE hInstance,
                 };
 
                 
-                AppUpdateAndRender(NewInput, &GlobalWin32State->Backbuffer, &SoundBuffer);
+                AppUpdateAndRender(&AppMemory, NewInput, &GlobalWin32State->Backbuffer, &SoundBuffer);
 
                 // NOTE(kstandbridge): DirectSound output test
                 if(SoundIsValid)
