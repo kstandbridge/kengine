@@ -777,6 +777,14 @@ LinuxJoystickPopulateGameInput(linux_state *State, app_input *NewInput, app_inpu
     }
 }
 
+inline f32
+LinuxGetSecondsElapsed(u64 Start, u64 End, u64 Frequency)
+{
+    f32 Result = ((f32)(End - Start) / (f32)Frequency);
+
+    return Result;
+}      
+
 int
 main(int argc, char **argv)
 {
@@ -820,7 +828,7 @@ main(int argc, char **argv)
     LinuxStartPlayingSound(&GlobalLinuxState->SoundPlayer);
 
     s32 MonitorRefreshHz = 60;
-    f32 GameUpdateHz = (f32)(MonitorRefreshHz);
+    s32 GameUpdateHz = MonitorRefreshHz / 2;
     u32 ExpectedFramesPerUpdate = 1;
     f32 TargetSecondsPerFrame = (f32)ExpectedFramesPerUpdate / (f32)GameUpdateHz;
 
@@ -918,6 +926,29 @@ main(int argc, char **argv)
         if(SoundIsValid)
         {
             LinuxFillSoundBuffer(SoundOutput, &SoundBuffer);
+        }
+
+        u64 WorkCounter = LinuxReadOSTimer();
+        f32 WorkSecondsElapsed = LinuxGetSecondsElapsed(LastCounter, WorkCounter, PerfCountFrequency);
+                
+        f32 SecondsElapsedForFrame = WorkSecondsElapsed;
+        if(SecondsElapsedForFrame < TargetSecondsPerFrame)
+        {                        
+            useconds_t SleepMS = (useconds_t)(1000.0f * (TargetSecondsPerFrame -
+                                                SecondsElapsedForFrame));
+            if(SleepMS > 0)
+            {
+                usleep(SleepMS);
+            }
+            
+            while(SecondsElapsedForFrame < TargetSecondsPerFrame)
+            {                            
+                SecondsElapsedForFrame = LinuxGetSecondsElapsed(LastCounter, LinuxReadOSTimer(), PerfCountFrequency);
+            }
+        }
+        else
+        {
+            // TODO(kstandbridge): Missed frame?
         }
 
         window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
