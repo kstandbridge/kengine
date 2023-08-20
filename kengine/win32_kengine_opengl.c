@@ -1,7 +1,3 @@
-
-#include "handmade.h"
-#include "handmade.c"
-
 #include <xinput.h>
 #include <dsound.h>
 
@@ -491,7 +487,7 @@ Win32DrawSoundBufferMarker(offscreen_buffer *Backbuffer,
 {
     f32 XReal32 = (C * (f32)Value);
     int X = PadX + (int)XReal32;
-    Win32DebugDrawVertical(Backbuffer, X, Top, Bottom, Color);
+    DebugDrawVertical(Backbuffer, X, Top, Bottom, Color);
 }
 
 
@@ -560,7 +556,95 @@ Win32GetSecondsElapsed(u64 Start, u64 End, u64 Frequency)
     f32 Result = ((f32)(End - Start) / (f32)Frequency);
 
     return Result;
-}        
+}
+
+internal FILETIME
+Win32GetLastWriteTime(char *FileName)
+{
+    FILETIME Result = {0};
+
+    WIN32_FILE_ATTRIBUTE_DATA Data;
+    if(GetFileAttributesExA(FileName, GetFileExInfoStandard, &Data))
+    {
+        Result = Data.ftLastWriteTime;
+    }
+
+    return Result;
+}
+
+internal win32_app_code
+Win32LoadAppCode(char *LockPath, char *AppCodePath, char *TempAppCodePath)
+{
+    win32_app_code Result = {0};
+
+    WIN32_FILE_ATTRIBUTE_DATA Ignored;
+    if(GetFileAttributesExA(LockPath, GetFileExInfoStandard, &Ignored))
+    {
+        // NOTE(kstandbridge): Lock file exists, so still building
+    }
+    else
+    {
+        Result.LibraryLastWriteTime = Win32GetLastWriteTime(AppCodePath);
+
+        CopyFile(AppCodePath, TempAppCodePath, FALSE);
+
+        Result.Library = LoadLibrary(TempAppCodePath);
+
+        if(Result.Library)
+        {
+            Result.UpdateAndRender = (app_update_and_render *)GetProcAddress(Result.Library, "AppUpdateAndRender");    
+
+            Result.GetSoundSamples = (app_get_sound_samples *)GetProcAddress(Result.Library, "AppGetSoundSamples");
+
+            Result.IsValid = (Result.UpdateAndRender &&
+                            Result.GetSoundSamples);    
+        }
+
+        if(!Result.IsValid)
+        {
+            Result.UpdateAndRender = 0;
+            Result.GetSoundSamples = 0;
+        }
+    }
+
+    return Result;
+}
+
+internal void
+Win32UnloadAppCode(win32_app_code *AppCode)
+{
+    if(AppCode->Library)
+    {
+        FreeLibrary(AppCode->Library);
+        AppCode->Library = 0;
+    }
+
+    AppCode->IsValid = false;
+    AppCode->UpdateAndRender = 0;
+    AppCode->GetSoundSamples = 0;
+}
+
+internal void
+Win32GetExeFileName(win32_state *State)
+{
+    DWORD ExePathSize = GetModuleFileNameA(0, State->ExeFilePathBuffer, sizeof(State->ExeFilePathBuffer));
+    State->ExeFilePath = String_(ExePathSize, GlobalWin32State->ExeFilePathBuffer);
+    Win32ConsoleOut("Found \"%S\"\n", State->ExeFilePath);
+    char *OnePastLastExeFileNameSlash = State->ExeFilePathBuffer;
+    for(char *At = State->ExeFilePathBuffer;
+        *At;
+        ++At)
+    {
+        if(*At == '\\')
+        {
+            OnePastLastExeFileNameSlash = At + 1;
+        }
+    }
+    
+    State->ExeDirectoryPath = String_((umm)(OnePastLastExeFileNameSlash - GlobalWin32State->ExeFilePathBuffer),
+                                  GlobalWin32State->ExeFilePathBuffer);
+    Win32ConsoleOut("Found \"%S\"\n", State->ExeDirectoryPath);
+}
 
 int CALLBACK
 WinMain(HINSTANCE hInstance,
@@ -576,6 +660,15 @@ WinMain(HINSTANCE hInstance,
     // NOTE(kstandbridge): Set the Windows scheduler granularity to 1ms
     UINT DesiredSchedulerMS = 1;
     b32 SleepIsGranular = (timeBeginPeriod(DesiredSchedulerMS) == TIMERR_NOERROR);
+
+    Win32GetExeFileName(GlobalWin32State);
+
+    char LockPath[MAX_PATH];
+    FormatStringToBuffer(LockPath, sizeof(LockPath), "%Slock.tmp", GlobalWin32State->ExeDirectoryPath);
+    char AppCodePath[MAX_PATH];
+    FormatStringToBuffer(AppCodePath, sizeof(AppCodePath), "%Shandmade.dll", GlobalWin32State->ExeDirectoryPath);
+    char TempAppCodePath[MAX_PATH];
+    FormatStringToBuffer(TempAppCodePath, sizeof(AppCodePath), "%Shandmade_temp.dll", GlobalWin32State->ExeDirectoryPath);
 
     Win32LoadXInput();
 
@@ -636,7 +729,21 @@ WinMain(HINSTANCE hInstance,
             app_input *NewInput = &Input[0];
             app_input *OldInput = &Input[1];
             
-            app_memory AppMemory = {0};
+            app_memory AppMemory = 
+            {
+                .PlatformAPI.ConsoleOut = Win32ConsoleOut,
+                .PlatformAPI.ConsoleOut_ = Win32ConsoleOut_,
+                .PlatformAPI.AllocateMemory = Win32AllocateMemory,
+                .PlatformAPI.DeallocateMemory = Win32DeallocateMemory,
+                .PlatformAPI.FileExist = Win32FileExists,
+                .PlatformAPI.ReadEntireFile = Win32ReadEntireFile,
+                .PlatformAPI.WriteTextToFile = Win32WriteTextToFile,
+                .PlatformAPI.OpenFile = Win32OpenFile,
+                .PlatformAPI.WriteFile = Win32WriteFile,
+                .PlatformAPI.CloseFile = Win32CloseFile,
+                .PlatformAPI.GetOSTimerFrequency = Win32GetOSTimerFrequency,
+                .PlatformAPI.ReadOSTimer = Win32ReadOSTimer,
+            };
 
             GlobalWin32State->Running = true;
 
@@ -650,9 +757,18 @@ WinMain(HINSTANCE hInstance,
             f32 AudioLatencySeconds = 0;
             b32 SoundIsValid = false;
 
+            win32_app_code AppCode = Win32LoadAppCode(LockPath, AppCodePath, TempAppCodePath);
+
             s64 LastCycleCount = __rdtsc();
             while(GlobalWin32State->Running)
             {
+                FILETIME LibraryLastWriteTime = Win32GetLastWriteTime(AppCodePath);
+                if(CompareFileTime(&LibraryLastWriteTime, &AppCode.LibraryLastWriteTime) != 0)
+                {
+                    Win32UnloadAppCode(&AppCode);
+                    AppCode = Win32LoadAppCode(LockPath, AppCodePath, TempAppCodePath);
+                }
+
                 controller_input *OldKeyboardController = GetController(OldInput, 0);
                 controller_input *NewKeyboardController = GetController(NewInput, 0);
                 ZeroStruct(*NewKeyboardController);
@@ -783,7 +899,10 @@ WinMain(HINSTANCE hInstance,
                         }
                     }
 
-                    AppUpdateAndRender(&AppMemory, NewInput, &GlobalWin32State->Backbuffer);
+                    if(AppCode.IsValid)
+                    {
+                        AppCode.UpdateAndRender(&AppMemory, NewInput, &GlobalWin32State->Backbuffer);
+                    }
 
                     u64 AudioWallClock = Win32ReadOSTimer();
                     f32 FromBeginToAudioSeconds = Win32GetSecondsElapsed(FlipWallClock, AudioWallClock, PerfCountFrequency);
@@ -847,7 +966,10 @@ WinMain(HINSTANCE hInstance,
                             .SampleCount = BytesToWrite / SoundOutput.BytesPerSample,
                             .Samples = SoundSamples,
                         };
-                        AppGetSoundSamples(&AppMemory, &SoundBuffer);
+                        if(AppCode.IsValid)
+                        {
+                            AppCode.GetSoundSamples(&AppMemory, &SoundBuffer);
+                        }
 #if KENGINE_INTERNAL
                         win32_debug_time_marker *Marker = &DebugTimeMarkers[DebugTimeMarkerIndex];
                         Marker->OutputPlayCursor = PlayCursor;

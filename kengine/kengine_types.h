@@ -83,9 +83,9 @@ typedef double f64;
 #define IsPow2(Value) ((Value & ~(Value - 1)) == Value)
 
 #if KENGINE_SLOW
-    #if KENGINE_WIN32
+    #if COMPILER_MSVC
         #define Assert(Expression) if(!(Expression)) {__debugbreak();}
-    #elif KENGINE_LINUX
+    #elif COMPILER_LLVM
         #define Assert(Expression) if(!(Expression)) {__builtin_trap();}
     #endif
 #else

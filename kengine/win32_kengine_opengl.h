@@ -22,6 +22,17 @@ typedef struct win32_debug_time_marker
     DWORD FlipWriteCursor;
 } win32_debug_time_marker;
 
+typedef struct win32_app_code
+{
+    HMODULE Library;
+    FILETIME LibraryLastWriteTime;
+    
+    app_update_and_render *UpdateAndRender;
+    app_get_sound_samples *GetSoundSamples;
+
+    b32 IsValid;
+} win32_app_code;
+
 typedef struct win32_state
 {
     memory_arena Arena;
@@ -31,4 +42,8 @@ typedef struct win32_state
 
     BITMAPINFO Info;
     LPDIRECTSOUNDBUFFER SecondaryBuffer;
+
+    char ExeFilePathBuffer[MAX_PATH];
+    string ExeFilePath;
+    string ExeDirectoryPath;
 } win32_state;

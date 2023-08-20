@@ -44,6 +44,13 @@
     #define KENGINE_LINUX 1
 #endif
 
+#if !defined(KENGINE_LIBRARY)
+    #define KENGINE_LIBRARY 0
+#else
+    #undef KENGINE_LIBRARY
+    #define KENGINE_LIBRARY 1
+#endif
+
 #include <stdarg.h>
 
 #define introspect(...)
@@ -55,7 +62,11 @@
     #include "kengine/win32_kengine.h"
 #elif KENGINE_LINUX
     #include "kengine/linux_kengine.h"
+#elif KENGINE_LIBRARY
+    #include "kengine/library_kengine.h"
 #endif
+
+#include "kengine/kengine_platform.h"
 
 #include "kengine/kengine_profiler.h"
 #include "kengine/kengine_math.h"
