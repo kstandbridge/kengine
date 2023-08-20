@@ -470,7 +470,14 @@ Win32ProcessPendingMessages(controller_input *KeyboardController)
         }
     }
 }
-        
+
+inline f32
+Win32GetSecondsElapsed(u64 Start, u64 End, u64 Frequency)
+{
+    f32 Result = ((f32)(End - Start) / (f32)Frequency);
+
+    return Result;
+}        
 
 int CALLBACK
 WinMain(HINSTANCE hInstance,
@@ -483,8 +490,13 @@ WinMain(HINSTANCE hInstance,
     GlobalWin32State = BootstrapPushStruct(win32_state, Arena);
 
     s64 PerfCountFrequency = Win32GetOSTimerFrequency();
+    // NOTE(kstandbridge): Set the Windows scheduler granularity to 1ms
+    UINT DesiredSchedulerMS = 1;
+    b32 SleepIsGranular = (timeBeginPeriod(DesiredSchedulerMS) == TIMERR_NOERROR);
 
     Win32LoadXInput();
+
+    Win32ResizeDIBSection(GlobalWin32State, 1280, 720);
 
     WNDCLASS WindowClass = 
     {
@@ -494,9 +506,11 @@ WinMain(HINSTANCE hInstance,
         // .hIcon,
         .lpszClassName = "HandmadeHeroWindowClass",
     };
-    
 
-    Win32ResizeDIBSection(GlobalWin32State, 1280, 720);
+    // TODO(kstandbridge): How to query this on Windows?
+    s32 MonitorRefreshHz = 60;
+    s32 GameUpdateHz = MonitorRefreshHz / 2;
+    f32 TargetSecondsPerFrame = 1.0f / (f32)GameUpdateHz;
     
     if(RegisterClassA(&WindowClass))
     {
@@ -712,10 +726,35 @@ WinMain(HINSTANCE hInstance,
                 
                 AppUpdateAndRender(&AppMemory, NewInput, &GlobalWin32State->Backbuffer, &SoundBuffer);
 
-                // NOTE(kstandbridge): DirectSound output test
                 if(SoundIsValid)
                 {
                     Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
+                }
+
+                u64 WorkCounter = Win32ReadOSTimer();
+                f32 WorkSecondsElapsed = Win32GetSecondsElapsed(LastCounter, WorkCounter, PerfCountFrequency);
+                
+                f32 SecondsElapsedForFrame = WorkSecondsElapsed;
+                if(SecondsElapsedForFrame < TargetSecondsPerFrame)
+                {                        
+                    if(SleepIsGranular)
+                    {
+                        DWORD SleepMS = (DWORD)(1000.0f * (TargetSecondsPerFrame -
+                                                            SecondsElapsedForFrame));
+                        if(SleepMS > 0)
+                        {
+                            Sleep(SleepMS);
+                        }
+                    }
+                    
+                    while(SecondsElapsedForFrame < TargetSecondsPerFrame)
+                    {                            
+                        SecondsElapsedForFrame = Win32GetSecondsElapsed(LastCounter, Win32ReadOSTimer(), PerfCountFrequency);
+                    }
+                }
+                else
+                {
+                    // TODO(kstandbridge): Missed frame?
                 }
 
                 window_dimension Dimension = Win32GetWindowDimension(Window);
