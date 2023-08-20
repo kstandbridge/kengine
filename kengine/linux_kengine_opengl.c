@@ -116,7 +116,22 @@ LinuxDisplayBufferInWindow(linux_state *State,
 }
 
 internal void
-LinuxProcessPendingMessages(linux_state *State, Display *Display, Window Window, Atom WmDeleteWindow, GC GraphicsContext)
+LinuxProcessKeyboardMessage(button_state *NewState, b32 IsDown)
+{
+    if(NewState->EndedDown != IsDown)
+    {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+}
+
+internal void
+LinuxProcessPendingMessages(linux_state *State, Display *Display, Window Window, Atom WmDeleteWindow, GC GraphicsContext,
+                            controller_input *KeyboardController)
 {
     while(State->Running && XPending(Display))
     {
@@ -155,51 +170,52 @@ LinuxProcessPendingMessages(linux_state *State, Display *Display, Window Window,
             {
                 if(Event.xkey.keycode == VK_W)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->MoveUp, Event.type == KeyPress);
                 }
                 else if(Event.xkey.keycode == VK_A)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->MoveLeft, Event.type == KeyPress);
                 }
                 else if(Event.xkey.keycode == VK_S)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->MoveDown, Event.type == KeyPress);
                 }
                 else if(Event.xkey.keycode == VK_D)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->MoveRight, Event.type == KeyPress);
                 }
                 else if(Event.xkey.keycode == VK_Q)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->LeftShoulder, Event.type == KeyPress);
                 }
                 else if(Event.xkey.keycode == VK_E)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->RightShoulder, Event.type == KeyPress);
                 }
                 else if(Event.xkey.keycode == VK_UP)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->ActionUp, Event.type == KeyPress);
                 }
                 else if(Event.xkey.keycode == VK_LEFT)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->ActionLeft, Event.type == KeyPress);
                 }
                 else if(Event.xkey.keycode == VK_DOWN)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->ActionDown, Event.type == KeyPress);
                 }
                 else if(Event.xkey.keycode == VK_RIGHT)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->ActionRight, Event.type == KeyPress);
                 }
                 if(Event.xkey.keycode == VK_ESCAPE)
                 {
-                    PlatformConsoleOut("ESCAPE: ");
-                    if(Event.type == KeyPress)
-                    {
-                        PlatformConsoleOut("IsDown ");
-                    }
-                    else
-                    {
-                        PlatformConsoleOut("WasDown");
-                    }
-                    PlatformConsoleOut("\n");
+                    LinuxProcessKeyboardMessage(&KeyboardController->Back, Event.type == KeyPress);
                 }
                 else if(Event.xkey.keycode == VK_SPACE)
                 {
+                    LinuxProcessKeyboardMessage(&KeyboardController->Start, Event.type == KeyPress);
                 }
-
 
                 b32 AltKeyWasDown = Event.xkey.state & VK_ALT_MASK;
                 if((Event.xkey.keycode == VK_F4) && AltKeyWasDown)
@@ -606,17 +622,6 @@ LinuxProcessXboxAnalogStick(s16 Value, u16 Deadzone)
     return Result;
 }
 
-inline controller_input *
-GetController(app_input *Input, u32 ControllerIndex)
-{
-    Assert(ControllerIndex < ArrayCount(Input->Controllers));
-    
-    controller_input *Result = &Input->Controllers[ControllerIndex];
-
-
-    return Result;
-}
-
 internal void 
 LinuxJoystickPopulateGameInput(linux_state *State, app_input *NewInput, app_input *OldInput, u32 NumberOfJoysticks)
 {
@@ -834,7 +839,20 @@ main(int argc, char **argv)
     s64 LastCycleCount = __rdtsc();
     while(GlobalLinuxState->Running)
     {
-        LinuxProcessPendingMessages(GlobalLinuxState, Display, Window, WmDeleteWindow, GraphicsContext);
+        controller_input *OldKeyboardController = GetController(OldInput, 0);
+        controller_input *NewKeyboardController = GetController(NewInput, 0);
+        ZeroStruct(*NewKeyboardController);
+
+        NewKeyboardController->IsConnected = true;
+        for(s32 ButtonIndex = 0;
+            ButtonIndex < ArrayCount(NewKeyboardController->Buttons);
+            ++ButtonIndex)
+        {
+            NewKeyboardController->Buttons[ButtonIndex].EndedDown =
+                OldKeyboardController->Buttons[ButtonIndex].EndedDown;
+        }
+
+        LinuxProcessPendingMessages(GlobalLinuxState, Display, Window, WmDeleteWindow, GraphicsContext, NewKeyboardController);
  
         LinuxJoystickPopulateGameInput(GlobalLinuxState, NewInput, OldInput, NumberOfJoysticks);
 
