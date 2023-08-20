@@ -233,7 +233,7 @@ Win32MainWindowCallback(HWND Window,
 
         case WM_ACTIVATEAPP:
         {
-            PlatformConsoleOut("WM_ACTIVATEAPP\n");
+            Win32ConsoleOut("WM_ACTIVATEAPP\n");
         } break;
 
         case WM_DESTROY:
@@ -246,64 +246,8 @@ Win32MainWindowCallback(HWND Window,
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            u32 VKCode = WParam;
-            b32 WasDown = ((LParam & (1 << 30)) != 0);
-            b32 IsDown = ((LParam & (1 << 31)) == 0);
-            if(WasDown != IsDown)
-            {
-                if(VKCode == 'W')
-                {
-                }
-                else if(VKCode == 'A')
-                {
-                }
-                else if(VKCode == 'S')
-                {
-                }
-                else if(VKCode == 'D')
-                {
-                }
-                else if(VKCode == 'Q')
-                {
-                }
-                else if(VKCode == 'E')
-                {
-                }
-                else if(VKCode == VK_UP)
-                {
-                }
-                else if(VKCode == VK_LEFT)
-                {
-                }
-                else if(VKCode == VK_DOWN)
-                {
-                }
-                else if(VKCode == VK_RIGHT)
-                {
-                }
-                else if(VKCode == VK_ESCAPE)
-                {
-                    PlatformConsoleOut("ESCAPE: ");
-                    if(IsDown)
-                    {
-                        PlatformConsoleOut("IsDown ");
-                    }
-                    if(WasDown)
-                    {
-                        PlatformConsoleOut("WasDown");
-                    }
-                    PlatformConsoleOut("\n");
-                }
-                else if(VKCode == VK_SPACE)
-                {
-                }
-            }
-
-            b32 AltKeyWasDown = (LParam & (1 << 29));
-            if((VKCode == VK_F4) && AltKeyWasDown)
-            {
-                GlobalWin32State->Running = false;
-            }
+            Win32ConsoleOut("Error: keyboard input from non-dispatched message!\n");
+            InvalidCodePath;
         } break;
 
         case WM_PAINT:
@@ -424,6 +368,110 @@ Win32ProcessXInputStickValue(SHORT Value, SHORT DeadZoneThreshold)
     return Result;
 }
 
+internal void
+Win32ProcessKeyboardMessage(button_state *NewState, b32 IsDown)
+{
+    if(NewState->EndedDown != IsDown)
+    {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+}
+
+internal void
+Win32ProcessPendingMessages(controller_input *KeyboardController)
+{
+    MSG Message;
+    while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
+    {
+        switch(Message.message)
+        {
+            case WM_QUIT:
+            {
+                GlobalWin32State->Running = false;
+            } break;
+            
+            case WM_SYSKEYDOWN:
+            case WM_SYSKEYUP:
+            case WM_KEYDOWN:
+            case WM_KEYUP:
+            {
+                u32 VKCode = (u32)Message.wParam;
+                b32 WasDown = ((Message.lParam & (1 << 30)) != 0);
+                b32 IsDown = ((Message.lParam & (1 << 31)) == 0);
+                if(WasDown != IsDown)
+                {
+                    if(VKCode == 'W')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveUp, IsDown);
+                    }
+                    else if(VKCode == 'A')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveLeft, IsDown);
+                    }
+                    else if(VKCode == 'S')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveDown, IsDown);
+                    }
+                    else if(VKCode == 'D')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveRight, IsDown);
+                    }
+                    else if(VKCode == 'Q')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->LeftShoulder, IsDown);
+                    }
+                    else if(VKCode == 'E')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->RightShoulder, IsDown);
+                    }
+                    else if(VKCode == VK_UP)
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->ActionUp, IsDown);
+                    }
+                    else if(VKCode == VK_LEFT)
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->ActionLeft, IsDown);
+                    }
+                    else if(VKCode == VK_DOWN)
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->ActionDown, IsDown);
+                    }
+                    else if(VKCode == VK_RIGHT)
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->ActionRight, IsDown);
+                    }
+                    else if(VKCode == VK_ESCAPE)
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->Start, IsDown);
+                    }
+                    else if(VKCode == VK_SPACE)
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->Back, IsDown);
+                    }
+                }
+
+                b32 AltKeyWasDown = (Message.lParam & (1 << 29));
+                if((VKCode == VK_F4) && AltKeyWasDown)
+                {
+                    GlobalWin32State->Running = false;
+                }
+            } break;
+
+            default:
+            {
+                TranslateMessage(&Message);
+                DispatchMessageA(&Message);
+            }
+        }
+    }
+}
+        
+
 int CALLBACK
 WinMain(HINSTANCE hInstance,
         HINSTANCE hPrevInstance,
@@ -496,17 +544,19 @@ WinMain(HINSTANCE hInstance,
             s64 LastCycleCount = __rdtsc();
             while(GlobalWin32State->Running)
             {
-                MSG Message;
-                while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
+                controller_input *OldKeyboardController = GetController(OldInput, 0);
+                controller_input *NewKeyboardController = GetController(NewInput, 0);
+                ZeroStruct(*NewKeyboardController);
+                NewKeyboardController->IsConnected = true;
+                for(s32 ButtonIndex = 0;
+                    ButtonIndex < ArrayCount(NewKeyboardController->Buttons);
+                    ++ButtonIndex)
                 {
-                    if(Message.message == WM_QUIT)
-                    {
-                        GlobalWin32State->Running = false;
-                    }
-                    
-                    TranslateMessage(&Message);
-                    DispatchMessageA(&Message);
+                    NewKeyboardController->Buttons[ButtonIndex].EndedDown =
+                        OldKeyboardController->Buttons[ButtonIndex].EndedDown;
                 }
+
+                Win32ProcessPendingMessages(NewKeyboardController);
 
                 // TODO(kstandbridge): Should we poll this more frequently
                 // NOTE(kstandbridge): Keyboard is index 0, controllers start at 1
@@ -519,9 +569,10 @@ WinMain(HINSTANCE hInstance,
                 for (DWORD ControllerIndex = 0;
                      ControllerIndex < MaxControllerCount;
                      ++ControllerIndex)
-                {                   
-                    controller_input *OldController = &OldInput->Controllers[ControllerIndex + 1];
-                    controller_input *NewController = &NewInput->Controllers[ControllerIndex + 1];
+                {              
+                    DWORD OurControllerIndex = ControllerIndex + 1;     
+                    controller_input *OldController = &OldInput->Controllers[OurControllerIndex];
+                    controller_input *NewController = &NewInput->Controllers[OurControllerIndex];
 
                     XINPUT_STATE ControllerState;
                     if(XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
