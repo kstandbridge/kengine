@@ -11,6 +11,7 @@
 #define VK_RIGHT       114
 #define VK_ESCAPE      9
 #define VK_SPACE       65
+#define VK_P           33
 
 #define VK_SHIFT_MASK  0x01
 #define VK_CTRL_MASK   0x04
@@ -107,6 +108,18 @@ typedef struct linux_sound_player
 
 } linux_sound_player;
 
+typedef struct linux_debug_time_marker
+{
+    u32 OutputPlayCursor;
+    u32 OutputWriteCursor;
+    u32 OutputLocation;
+    u32 OutputByteCount;
+    u32 ExpectedFlipPlayCursor;
+    
+    u32 FlipPlayCursor;
+    u32 FlipWriteCursor;
+} linux_debug_time_marker;
+
 typedef struct linux_joystick
 {
     u8 IDs[MAX_JOYSTICKS];
@@ -119,6 +132,7 @@ typedef struct linux_state
 {
     memory_arena Arena;
     b32 Running;
+    b32 Pause;
     offscreen_buffer Backbuffer;
 
     Pixmap Pixmap;

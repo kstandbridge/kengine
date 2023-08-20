@@ -94,6 +94,7 @@ LinuxResizeDIBSection(linux_state *State, Display *Display, Window Window, s32 W
     }
     State->Pixmap = XCreatePixmap(Display, Window, Buffer->Width, Buffer->Height, 24);
     int BytesPerPixel = 4;
+    Buffer->BytesPerPixel = BytesPerPixel;
     Buffer->Pitch = Width*BytesPerPixel;
 }
 
@@ -216,6 +217,16 @@ LinuxProcessPendingMessages(linux_state *State, Display *Display, Window Window,
                 {
                     LinuxProcessKeyboardMessage(&KeyboardController->Start, Event.type == KeyPress);
                 }
+                
+#if KENGINE_INTERNAL
+                else if(Event.xkey.keycode == VK_P)
+                {
+                    if(Event.type == KeyPress)
+                    {
+                        GlobalLinuxState->Pause = !GlobalLinuxState->Pause;
+                    }
+                }
+#endif
 
                 b32 AltKeyWasDown = Event.xkey.state & VK_ALT_MASK;
                 if((Event.xkey.keycode == VK_F4) && AltKeyWasDown)
@@ -510,8 +521,6 @@ LinuxFreeSound(linux_sound_player *SoundPlayer)
     LinuxUnloadLibrary(GlobalAlsaLibrary);
 }
 
-
-
 internal u32
 LinuxFindJoysticks(linux_state *State)
 {
@@ -777,6 +786,76 @@ LinuxJoystickPopulateGameInput(linux_state *State, app_input *NewInput, app_inpu
     }
 }
 
+internal void
+LinuxDrawSoundBufferMarker(offscreen_buffer *Backbuffer,
+                           linux_sound_output *SoundOutput,
+                           f32 C, int PadX, int Top, int Bottom,
+                           u32 Value, u32 Color)
+{
+    f32 XReal32 = (C * (f32)Value);
+    int X = PadX + (int)XReal32;
+    DebugDrawVertical(Backbuffer, X, Top, Bottom, Color);
+}
+
+internal void
+LinuxDebugSyncDisplay(offscreen_buffer *Backbuffer,
+                      int MarkerCount, linux_debug_time_marker *Markers,
+                      int CurrentMarkerIndex,
+                      linux_sound_output *SoundOutput, f32 TargetSecondsPerFrame)
+{
+    int PadX = 16;
+    int PadY = 16;
+
+    int LineHeight = 64;
+    
+    f32 C = (f32)(Backbuffer->Width - 2*PadX) / (f32)SoundOutput->SecondaryBufferSize;
+    for(int MarkerIndex = 0;
+        MarkerIndex < MarkerCount;
+        ++MarkerIndex)
+    {
+        linux_debug_time_marker *ThisMarker = &Markers[MarkerIndex];
+        Assert(ThisMarker->OutputPlayCursor < SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->OutputWriteCursor < SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->OutputLocation < SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->OutputByteCount < SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->FlipPlayCursor < SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->FlipWriteCursor < SoundOutput->SecondaryBufferSize);
+
+        u32 PlayColor = 0xFFFFFFFF;
+        u32 WriteColor = 0xFFFF0000;
+        u32 ExpectedFlipColor = 0xFFFFFF00;
+        u32 PlayWindowColor = 0xFFFF00FF;
+
+        int Top = PadY;
+        int Bottom = PadY + LineHeight;
+        if(MarkerIndex == CurrentMarkerIndex)
+        {
+            Top += LineHeight+PadY;
+            Bottom += LineHeight+PadY;
+
+            int FirstTop = Top;
+            
+            LinuxDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputPlayCursor, PlayColor);
+            LinuxDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputWriteCursor, WriteColor);
+
+            Top += LineHeight+PadY;
+            Bottom += LineHeight+PadY;
+
+            LinuxDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputLocation, PlayColor);
+            LinuxDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputLocation + ThisMarker->OutputByteCount, WriteColor);
+
+            Top += LineHeight+PadY;
+            Bottom += LineHeight+PadY;
+
+            LinuxDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, FirstTop, Bottom, ThisMarker->ExpectedFlipPlayCursor, ExpectedFlipColor);
+        }        
+        
+        LinuxDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->FlipPlayCursor, PlayColor);
+        LinuxDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->FlipPlayCursor + 480*SoundOutput->BytesPerSample, PlayWindowColor);
+        LinuxDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->FlipWriteCursor, WriteColor);
+    }
+}
+
 inline f32
 LinuxGetSecondsElapsed(u64 Start, u64 End, u64 Frequency)
 {
@@ -827,8 +906,9 @@ main(int argc, char **argv)
     SoundOutput->LatencySampleCount = SoundOutput->SamplesPerSecond / 15;
     LinuxStartPlayingSound(&GlobalLinuxState->SoundPlayer);
 
-    s32 MonitorRefreshHz = 60;
-    s32 GameUpdateHz = MonitorRefreshHz / 2;
+    // TODO(kstandbridge): How to query this on Linux?
+#define MonitorRefreshHz 60
+#define GameUpdateHz (MonitorRefreshHz / 2)
     u32 ExpectedFramesPerUpdate = 1;
     f32 TargetSecondsPerFrame = (f32)ExpectedFramesPerUpdate / (f32)GameUpdateHz;
 
@@ -840,10 +920,17 @@ main(int argc, char **argv)
 
     app_memory AppMemory = {0};
 
-    b32 SoundIsValid = false;
     GlobalLinuxState->Running = true;
 
     u64 LastCounter = LinuxReadOSTimer();
+
+    s32 DebugTimeMarkerIndex = 0;
+    linux_debug_time_marker DebugTimeMarkers[GameUpdateHz / 2] = {0};
+
+    u32 AudioLatencyBytes = 0;
+    f32 AudioLatencySeconds = 0;
+    b32 SoundIsValid = false;
+
     s64 LastCycleCount = __rdtsc();
     while(GlobalLinuxState->Running)
     {
@@ -861,122 +948,155 @@ main(int argc, char **argv)
         }
 
         LinuxProcessPendingMessages(GlobalLinuxState, Display, Window, WmDeleteWindow, GraphicsContext, NewKeyboardController);
- 
-        LinuxJoystickPopulateGameInput(GlobalLinuxState, NewInput, OldInput, NumberOfJoysticks);
 
-        
-        // NOTE(kstandbridge): Sound output test
-        u32 PlayCursor = SoundOutput->Buffer.ReadIndex;
-        u32 WriteCursor = SoundOutput->Buffer.WriteIndex;
-        if (!SoundIsValid)
+        if(!GlobalLinuxState->Pause)
         {
-            SoundOutput->RunningSampleIndex = WriteCursor / SoundOutput->BytesPerSample;
-            SoundIsValid = true;
-        }
-        
-        u32 ByteToLock = ((SoundOutput->RunningSampleIndex*SoundOutput->BytesPerSample) %
-                            SoundOutput->Buffer.Size);
-        
-        u32 ExpectedSoundBytesPerFrame =
-            (u32)((f32)(SoundOutput->SamplesPerSecond*SoundOutput->BytesPerSample) * TargetSecondsPerFrame);
-        
-        u32 ExpectedFrameBoundaryByte = PlayCursor + ExpectedSoundBytesPerFrame;
-        
-        u32 SafeWriteCursor = WriteCursor + SoundOutput->SafetyBytes;
-        b32 AudioCardIsLowLatency = (SafeWriteCursor < ExpectedFrameBoundaryByte);
-        
-        u32 TargetCursor = 0;
-        if(AudioCardIsLowLatency)
-        {
-            TargetCursor = (ExpectedFrameBoundaryByte + ExpectedSoundBytesPerFrame);
-        }
-        else
-        {
-            TargetCursor = (WriteCursor + ExpectedSoundBytesPerFrame +
-                            SoundOutput->SafetyBytes);
-        }
-        TargetCursor = (TargetCursor % SoundOutput->Buffer.Size);
-        
-        u32 BytesToWrite = 0;
-        if(ByteToLock > TargetCursor)
-        {
-            BytesToWrite = (SoundOutput->Buffer.Size - ByteToLock);
-            BytesToWrite += TargetCursor;
-        }
-        else
-        {
-            BytesToWrite = TargetCursor - ByteToLock;
-        }
+            LinuxJoystickPopulateGameInput(GlobalLinuxState, NewInput, OldInput, NumberOfJoysticks);
 
-        sound_output_buffer SoundBuffer = 
-        {
-            .SamplesPerSecond = SoundOutput->SamplesPerSecond,
-            .SampleCount = BytesToWrite / SoundOutput->BytesPerSample,
-            .Samples = (s16 *)(SoundOutput->Buffer.Data + ByteToLock),
-        };
-        
-        BytesToWrite = SoundBuffer.SampleCount*SoundOutput->BytesPerSample;
-
-        if((GlobalLinuxState->Image) && 
-           (GlobalLinuxState->Image->data))  
-        {
-            AppUpdateAndRender(&AppMemory, NewInput, &GlobalLinuxState->Backbuffer, &SoundBuffer);
-        }
-
-        if(SoundIsValid)
-        {
-            LinuxFillSoundBuffer(SoundOutput, &SoundBuffer);
-        }
-
-        u64 WorkCounter = LinuxReadOSTimer();
-        f32 WorkSecondsElapsed = LinuxGetSecondsElapsed(LastCounter, WorkCounter, PerfCountFrequency);
-                
-        f32 SecondsElapsedForFrame = WorkSecondsElapsed;
-        if(SecondsElapsedForFrame < TargetSecondsPerFrame)
-        {                        
-            useconds_t SleepMS = (useconds_t)(1000.0f * (TargetSecondsPerFrame -
-                                                SecondsElapsedForFrame));
-            if(SleepMS > 0)
+            if((GlobalLinuxState->Image) && 
+            (GlobalLinuxState->Image->data))  
             {
-                usleep(SleepMS);
+                AppUpdateAndRender(&AppMemory, NewInput, &GlobalLinuxState->Backbuffer);
+            }
+
+            u32 PlayCursor = SoundOutput->Buffer.ReadIndex;
+            u32 WriteCursor = SoundOutput->Buffer.WriteIndex;
+            if (!SoundIsValid)
+            {
+                SoundOutput->RunningSampleIndex = WriteCursor / SoundOutput->BytesPerSample;
+                SoundIsValid = true;
             }
             
-            while(SecondsElapsedForFrame < TargetSecondsPerFrame)
-            {                            
-                SecondsElapsedForFrame = LinuxGetSecondsElapsed(LastCounter, LinuxReadOSTimer(), PerfCountFrequency);
+            u32 ByteToLock = ((SoundOutput->RunningSampleIndex*SoundOutput->BytesPerSample) %
+                                SoundOutput->Buffer.Size);
+            
+            u32 ExpectedSoundBytesPerFrame =
+                (u32)((f32)(SoundOutput->SamplesPerSecond*SoundOutput->BytesPerSample) * TargetSecondsPerFrame);
+            
+            u32 ExpectedFrameBoundaryByte = PlayCursor + ExpectedSoundBytesPerFrame;
+            
+            u32 SafeWriteCursor = WriteCursor + SoundOutput->SafetyBytes;
+            b32 AudioCardIsLowLatency = (SafeWriteCursor < ExpectedFrameBoundaryByte);
+            
+            u32 TargetCursor = 0;
+            if(AudioCardIsLowLatency)
+            {
+                TargetCursor = (ExpectedFrameBoundaryByte + ExpectedSoundBytesPerFrame);
             }
-        }
-        else
-        {
-            // TODO(kstandbridge): Missed frame?
-        }
+            else
+            {
+                TargetCursor = (WriteCursor + ExpectedSoundBytesPerFrame +
+                                SoundOutput->SafetyBytes);
+            }
+            TargetCursor = (TargetCursor % SoundOutput->Buffer.Size);
+            
+            u32 BytesToWrite = 0;
+            if(ByteToLock > TargetCursor)
+            {
+                BytesToWrite = (SoundOutput->Buffer.Size - ByteToLock);
+                BytesToWrite += TargetCursor;
+            }
+            else
+            {
+                BytesToWrite = TargetCursor - ByteToLock;
+            }
 
-        window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
-        LinuxDisplayBufferInWindow(GlobalLinuxState,
-                                   Display, Window, GraphicsContext,
-                                   Dimension.Width, Dimension.Height);
+            sound_output_buffer SoundBuffer = 
+            {
+                .SamplesPerSecond = SoundOutput->SamplesPerSecond,
+                .SampleCount = BytesToWrite / SoundOutput->BytesPerSample,
+                .Samples = (s16 *)(SoundOutput->Buffer.Data + ByteToLock),
+            };
+            BytesToWrite = SoundBuffer.SampleCount*SoundOutput->BytesPerSample;
+            AppGetSoundSamples(&AppMemory, &SoundBuffer);
 
-        u64 EndCycleCount = __rdtsc();
-        
-        u64 EndCounter = LinuxReadOSTimer();
-
-        u64 CyclesElapsed = EndCycleCount - LastCycleCount;
-        s64 CounterElapsed = EndCounter - LastCounter;
-        f64 MSPerFrame = (((1000.0f*(f64)CounterElapsed) / (f64)PerfCountFrequency));
-        f64 FPS = (f64)PerfCountFrequency / (f64)CounterElapsed;
-        f64 MCPF = ((f64)CyclesElapsed / (1000.0f * 1000.0f));
-
-#if 1
-        LinuxConsoleOut("%.02fms/f,  %.02ff/s,  %.02fmc/f\n", MSPerFrame, FPS, MCPF);
+#if KENGINE_INTERNAL
+            linux_debug_time_marker *Marker = &DebugTimeMarkers[DebugTimeMarkerIndex];
+            Marker->OutputPlayCursor = PlayCursor;
+            Marker->OutputWriteCursor = WriteCursor;
+            Marker->OutputLocation = ByteToLock;
+            Marker->OutputByteCount = BytesToWrite;
+            Marker->ExpectedFlipPlayCursor = ExpectedFrameBoundaryByte;
+            
+            u32 UnwrappedWriteCursor = WriteCursor;
+            if(UnwrappedWriteCursor < PlayCursor)
+            {
+                UnwrappedWriteCursor += SoundOutput->Buffer.Size;
+            }
+            AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
+            AudioLatencySeconds =
+                (((f32)AudioLatencyBytes / (f32)SoundOutput->BytesPerSample) / 
+                    (f32)SoundOutput->SamplesPerSecond);
+            LinuxConsoleOut("BTL:%u TC:%u BTW:%u - PC:%u WC:%u DELTA:%u (%fs)\n",
+                             ByteToLock, TargetCursor, BytesToWrite,
+                             PlayCursor, WriteCursor, AudioLatencyBytes, AudioLatencySeconds);
 #endif
-        
-        LastCounter = EndCounter;
-        LastCycleCount = EndCycleCount;
+            LinuxFillSoundBuffer(SoundOutput, &SoundBuffer);
 
-        app_input *Temp = NewInput;
-        NewInput = OldInput;
-        OldInput = Temp;
-        // TODO(kstandbridge): Should I clear these here?
+            u64 WorkCounter = LinuxReadOSTimer();
+            f32 WorkSecondsElapsed = LinuxGetSecondsElapsed(LastCounter, WorkCounter, PerfCountFrequency);
+                    
+            f32 SecondsElapsedForFrame = WorkSecondsElapsed;
+            if(SecondsElapsedForFrame < TargetSecondsPerFrame)
+            {                        
+                useconds_t SleepMS = (useconds_t)(1000.0f * (TargetSecondsPerFrame -
+                                                    SecondsElapsedForFrame));
+                if(SleepMS > 0)
+                {
+                    usleep(SleepMS);
+                }
+                
+                while(SecondsElapsedForFrame < TargetSecondsPerFrame)
+                {                            
+                    SecondsElapsedForFrame = LinuxGetSecondsElapsed(LastCounter, LinuxReadOSTimer(), PerfCountFrequency);
+                }
+            }
+            else
+            {
+                // TODO(kstandbridge): Missed frame?
+            }
+
+            u64 EndCounter = LinuxReadOSTimer();
+            f64 MSPerFrame = 1000.0f*LinuxGetSecondsElapsed(LastCounter, EndCounter, PerfCountFrequency);
+            LastCounter = EndCounter;
+
+            window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
+#if KENGINE_INTERNAL
+            LinuxDebugSyncDisplay(&GlobalLinuxState->Backbuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
+                                DebugTimeMarkerIndex - 1, SoundOutput, TargetSecondsPerFrame);
+#endif
+            LinuxDisplayBufferInWindow(GlobalLinuxState, Display, Window, GraphicsContext,
+                                        Dimension.Width, Dimension.Height);
+
+#if KENGINE_INTERNAL
+            {
+                Assert(DebugTimeMarkerIndex < ArrayCount(DebugTimeMarkers));
+                linux_debug_time_marker *Marker = &DebugTimeMarkers[DebugTimeMarkerIndex];
+                Marker->FlipPlayCursor = SoundOutput->Buffer.ReadIndex;
+                Marker->FlipWriteCursor = SoundOutput->Buffer.WriteIndex;
+            }
+#endif
+            app_input *Temp = NewInput;
+            NewInput = OldInput;
+            OldInput = Temp;
+            
+            u64 EndCycleCount = __rdtsc();
+            u64 CyclesElapsed = EndCycleCount - LastCycleCount;
+            LastCycleCount = EndCycleCount;
+
+            f64 FPS = 0.0f;
+            f64 MCPF = ((f64)CyclesElapsed / (1000.0f * 1000.0f));
+
+            LinuxConsoleOut("%.02fms/f,  %.02ff/s,  %.02fmc/f\n", MSPerFrame, FPS, MCPF);
+
+#if KENGINE_INTERNAL
+            ++DebugTimeMarkerIndex;
+            if(DebugTimeMarkerIndex == ArrayCount(DebugTimeMarkers))
+            {
+                DebugTimeMarkerIndex = 0;
+            }
+#endif
+        }
     }
 
     GlobalLinuxState->SoundPlayer.IsPlaying = false;

@@ -483,35 +483,6 @@ Win32ProcessPendingMessages(controller_input *KeyboardController)
     }
 }
 
-internal void
-Win32DebugDrawVertical(offscreen_buffer *Backbuffer,
-                       s32 X, s32 Top, s32 Bottom, u32 Color)
-{
-    if(Top <= 0)
-    {
-        Top = 0;
-    }
-
-    if(Bottom > Backbuffer->Height)
-    {
-        Bottom = Backbuffer->Height;
-    }
-    
-    if((X >= 0) && (X < Backbuffer->Width))
-    {
-        u8 *Pixel = ((u8 *)Backbuffer->Memory +
-                        X*Backbuffer->BytesPerPixel +
-                        Top*Backbuffer->Pitch);
-        for(s32 Y = Top;
-            Y < Bottom;
-            ++Y)
-        {
-            *(u32 *)Pixel = Color;
-            Pixel += Backbuffer->Pitch;
-        }
-    }
-}
-
 inline void
 Win32DrawSoundBufferMarker(offscreen_buffer *Backbuffer,
                            win32_sound_output *SoundOutput,
@@ -965,7 +936,6 @@ WinMain(HINSTANCE hInstance,
                     
                     u64 EndCycleCount = __rdtsc();
                     u64 CyclesElapsed = EndCycleCount - LastCycleCount;
-                    s64 CounterElapsed = EndCounter - LastCounter;
                     LastCycleCount = EndCycleCount;
 
                     f64 FPS = 0.0f;
