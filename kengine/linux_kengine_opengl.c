@@ -821,17 +821,17 @@ main(int argc, char **argv)
 
     u32 NumberOfJoysticks = LinuxFindJoysticks(GlobalLinuxState);
 
-    Assert(NumberOfJoysticks != 0);
-
     app_input Input[2] = {0};
     app_input *NewInput = &Input[0];
     app_input *OldInput = &Input[1];
 
-    u64 LastCounter = LinuxReadOSTimer();
-    s64 LastCycleCount = __rdtsc();
+    app_memory AppMemory = {0};
 
     b32 SoundIsValid = false;
     GlobalLinuxState->Running = true;
+
+    u64 LastCounter = LinuxReadOSTimer();
+    s64 LastCycleCount = __rdtsc();
     while(GlobalLinuxState->Running)
     {
         LinuxProcessPendingMessages(GlobalLinuxState, Display, Window, WmDeleteWindow, GraphicsContext);
@@ -894,7 +894,7 @@ main(int argc, char **argv)
         if((GlobalLinuxState->Image) && 
            (GlobalLinuxState->Image->data))  
         {
-            AppUpdateAndRender(NewInput, &GlobalLinuxState->Backbuffer, &SoundBuffer);
+            AppUpdateAndRender(&AppMemory, NewInput, &GlobalLinuxState->Backbuffer, &SoundBuffer);
         }
 
         if(SoundIsValid)
