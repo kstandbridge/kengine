@@ -128,6 +128,18 @@ typedef struct linux_joystick
     struct ff_effect Effect;
 } linux_joystick;
 
+typedef struct linux_app_code
+{
+    void *Library;
+    ino_t LibraryFileId;
+
+    app_update_and_render *UpdateAndRender;
+    app_get_sound_samples *GetSoundSamples;
+
+    b32 IsValid;
+    
+} linux_app_code;
+
 typedef struct linux_state
 {
     memory_arena Arena;
@@ -141,5 +153,9 @@ typedef struct linux_state
     linux_sound_player SoundPlayer;
 
     linux_joystick Joystick;
+
+    char ExeFilePathBuffer[MAX_PATH];
+    string ExeFilePath;
+    string ExeDirectoryPath;
     
 } linux_state;

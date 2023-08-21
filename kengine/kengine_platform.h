@@ -28,8 +28,10 @@ typedef struct platform_api
     platform_get_os_timer_frequency *GetOSTimerFrequency;
     platform_read_os_timer *ReadOSTimer;
 } platform_api;
-global platform_api Platform;
 
+#if KENGINE_LIBRARY
+    global platform_api Platform;
+#endif
 
 #define KENGINE_PLATFORM_H
 #endif // KENGINE_PLATFORM_H

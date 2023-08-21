@@ -668,7 +668,7 @@ WinMain(HINSTANCE hInstance,
     char AppCodePath[MAX_PATH];
     FormatStringToBuffer(AppCodePath, sizeof(AppCodePath), "%Shandmade.dll", GlobalWin32State->ExeDirectoryPath);
     char TempAppCodePath[MAX_PATH];
-    FormatStringToBuffer(TempAppCodePath, sizeof(AppCodePath), "%Shandmade_temp.dll", GlobalWin32State->ExeDirectoryPath);
+    FormatStringToBuffer(TempAppCodePath, sizeof(TempAppCodePath), "%Shandmade_temp.dll", GlobalWin32State->ExeDirectoryPath);
 
     Win32LoadXInput();
 

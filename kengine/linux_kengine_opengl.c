@@ -1,8 +1,5 @@
 #include <math.h>
 
-#include "handmade.h"
-#include "handmade.c"
-
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
@@ -814,12 +811,12 @@ LinuxDebugSyncDisplay(offscreen_buffer *Backbuffer,
         ++MarkerIndex)
     {
         linux_debug_time_marker *ThisMarker = &Markers[MarkerIndex];
-        Assert(ThisMarker->OutputPlayCursor < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->OutputWriteCursor < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->OutputLocation < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->OutputByteCount < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->FlipPlayCursor < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->FlipWriteCursor < SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->OutputPlayCursor <= SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->OutputWriteCursor <= SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->OutputLocation <= SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->OutputByteCount <= SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->FlipPlayCursor <= SoundOutput->SecondaryBufferSize);
+        Assert(ThisMarker->FlipWriteCursor <= SoundOutput->SecondaryBufferSize);
 
         u32 PlayColor = 0xFFFFFFFF;
         u32 WriteColor = 0xFFFF0000;
@@ -862,7 +859,140 @@ LinuxGetSecondsElapsed(u64 Start, u64 End, u64 Frequency)
     f32 Result = ((f32)(End - Start) / (f32)Frequency);
 
     return Result;
-}      
+}
+
+internal ino_t
+LinuxGetFileId(char *FilePath)
+{
+    ino_t Result = 0;
+
+    struct stat Stat = {0};
+    if(stat(FilePath, &Stat) == 0)
+    {
+        Result = Stat.st_ino;
+    }
+
+    return Result;
+}
+
+internal linux_app_code
+LinuxLoadAppCode(char *LockPath, char *AppCodePath)
+{
+    linux_app_code Result = {0};
+
+    if(access(LockPath, F_OK) == 0)
+    {
+        // NOTE(kstandbridge): Lock file exists, so still building
+    }
+    else
+    {
+        Result.LibraryFileId = LinuxGetFileId(AppCodePath);
+
+        char TempAppCodePath[MAX_PATH];
+        FormatStringToBuffer((u8 *)TempAppCodePath, sizeof(TempAppCodePath), "%sXXXXXX", AppCodePath);
+
+        s32 DestFile = mkstemp(TempAppCodePath);
+        s32 SourceFile = open(AppCodePath, O_RDONLY);
+
+        if((DestFile >= 0) &&
+           (SourceFile >= 0))
+        {
+            char ReadBuffer[4096];
+            ssize_t ReadSize = read(SourceFile, ReadBuffer, sizeof(ReadBuffer));
+
+            while(ReadSize > 0)
+            {
+                char *At = ReadBuffer;
+                ssize_t WriteSize;
+                do
+                {
+                    WriteSize = write(DestFile, At, ReadSize);
+
+                    if(WriteSize >= 0)
+                    {
+                        ReadSize -= WriteSize;
+                        At += WriteSize;
+                    }
+                    else if(errno != EINTR)
+                    {
+                        LinuxConsoleOut("Error: failed to copy: \"%s\"\n", TempAppCodePath);
+                    }
+                } while (ReadSize > 0);
+                ReadSize = read(SourceFile, ReadBuffer, sizeof(ReadBuffer));
+            }
+            if(ReadSize == 0)
+            {
+                close(SourceFile);
+                close(DestFile);
+            }
+            else
+            {
+                LinuxConsoleOut("Error: copy not complete for: \"%s\"\n", AppCodePath);
+            }
+        }
+        else
+        {
+            LinuxConsoleOut("Error: failed to open for copy: \"%s\"\n", AppCodePath);
+        }
+
+        Result.Library = LinuxLoadLibrary(TempAppCodePath);
+        if(Result.Library)
+        {
+            Result.UpdateAndRender = LinuxLoadFunction(Result.Library, "AppUpdateAndRender");
+            Result.GetSoundSamples = LinuxLoadFunction(Result.Library, "AppGetSoundSamples");
+
+            Result.IsValid = (Result.UpdateAndRender &&
+                              Result.GetSoundSamples);    
+        }
+
+        if(!Result.IsValid)
+        {
+            Result.UpdateAndRender = 0;
+            Result.GetSoundSamples = 0;
+        }
+    }
+
+    return Result;
+}
+
+internal void
+LinuxUnloadAppCode(linux_app_code *AppCode)
+{
+    if(AppCode->Library)
+    {
+        LinuxUnloadLibrary(AppCode->Library);
+        AppCode->Library = 0;
+    }
+
+    AppCode->IsValid = false;
+    AppCode->UpdateAndRender = 0;
+    AppCode->GetSoundSamples = 0;
+}
+
+internal void
+LinuxGetExeFileName(linux_state *State)
+{
+    ssize_t ExePathSize = readlink("/proc/self/exe", State->ExeFilePathBuffer, ArrayCount(State->ExeFilePathBuffer) - 1);
+    if (ExePathSize > 0)
+    {
+        State->ExeFilePath = String_(ExePathSize, (u8 *)State->ExeFilePathBuffer);
+        LinuxConsoleOut("Found \"%S\"\n", State->ExeFilePath);
+
+        char *LastSlash = State->ExeFilePathBuffer;
+        for(char *Scan = State->ExeFilePathBuffer;
+            *Scan;
+            ++Scan)
+        {
+            if(*Scan == '/')
+            {
+                LastSlash = Scan;
+            }
+        }
+
+        State->ExeDirectoryPath = String_((umm)((LastSlash + 1) - State->ExeFilePathBuffer), (u8 *)State->ExeFilePathBuffer);
+        LinuxConsoleOut("Found \"%S\"\n", State->ExeDirectoryPath);
+    }
+}
 
 int
 main(int argc, char **argv)
@@ -873,6 +1003,13 @@ main(int argc, char **argv)
 
     s64 PerfCountFrequency = LinuxGetOSTimerFrequency();
 
+    LinuxGetExeFileName(GlobalLinuxState);
+
+    char LockPath[MAX_PATH];
+    FormatStringToBuffer((u8 *)LockPath, sizeof(LockPath), "%Slock.tmp", GlobalLinuxState->ExeDirectoryPath);
+    char AppCodePath[MAX_PATH];
+    FormatStringToBuffer((u8 *)AppCodePath, sizeof(AppCodePath), "%Shandmade.so", GlobalLinuxState->ExeDirectoryPath);
+    
     Display *Display = XOpenDisplay(0);
     s32 Screen = DefaultScreen(Display);
     
@@ -918,7 +1055,21 @@ main(int argc, char **argv)
     app_input *NewInput = &Input[0];
     app_input *OldInput = &Input[1];
 
-    app_memory AppMemory = {0};
+    app_memory AppMemory = 
+    {
+        .PlatformAPI.ConsoleOut = LinuxConsoleOut,
+        .PlatformAPI.ConsoleOut_ = LinuxConsoleOut_,
+        .PlatformAPI.AllocateMemory = LinuxAllocateMemory,
+        .PlatformAPI.DeallocateMemory = LinuxDeallocateMemory,
+        .PlatformAPI.FileExist = LinuxFileExists,
+        .PlatformAPI.ReadEntireFile = LinuxReadEntireFile,
+        .PlatformAPI.WriteTextToFile = LinuxWriteTextToFile,
+        .PlatformAPI.OpenFile = LinuxOpenFile,
+        .PlatformAPI.WriteFile = LinuxWriteFile,
+        .PlatformAPI.CloseFile = LinuxCloseFile,
+        .PlatformAPI.GetOSTimerFrequency = LinuxGetOSTimerFrequency,
+        .PlatformAPI.ReadOSTimer = LinuxReadOSTimer,
+    };
 
     GlobalLinuxState->Running = true;
 
@@ -931,9 +1082,21 @@ main(int argc, char **argv)
     f32 AudioLatencySeconds = 0;
     b32 SoundIsValid = false;
 
+    linux_app_code AppCode = LinuxLoadAppCode(LockPath, AppCodePath);
+
     s64 LastCycleCount = __rdtsc();
     while(GlobalLinuxState->Running)
     {
+        ino_t LibraryFileId = LinuxGetFileId(AppCodePath);
+        LinuxConsoleOut("Loaded file %u vs %u\n", LibraryFileId,AppCode.LibraryFileId);
+        if(AppCode.LibraryFileId != LibraryFileId)
+        {
+            LinuxUnloadAppCode(&AppCode);
+            AppCode = LinuxLoadAppCode(LockPath, AppCodePath);
+        }
+
+
+
         controller_input *OldKeyboardController = GetController(OldInput, 0);
         controller_input *NewKeyboardController = GetController(NewInput, 0);
         ZeroStruct(*NewKeyboardController);
@@ -954,9 +1117,12 @@ main(int argc, char **argv)
             LinuxJoystickPopulateGameInput(GlobalLinuxState, NewInput, OldInput, NumberOfJoysticks);
 
             if((GlobalLinuxState->Image) && 
-            (GlobalLinuxState->Image->data))  
+               (GlobalLinuxState->Image->data))  
             {
-                AppUpdateAndRender(&AppMemory, NewInput, &GlobalLinuxState->Backbuffer);
+                if(AppCode.IsValid)
+                {
+                    AppCode.UpdateAndRender(&AppMemory, NewInput, &GlobalLinuxState->Backbuffer);
+                }
             }
 
             u32 PlayCursor = SoundOutput->Buffer.ReadIndex;
@@ -1008,7 +1174,11 @@ main(int argc, char **argv)
                 .Samples = (s16 *)(SoundOutput->Buffer.Data + ByteToLock),
             };
             BytesToWrite = SoundBuffer.SampleCount*SoundOutput->BytesPerSample;
-            AppGetSoundSamples(&AppMemory, &SoundBuffer);
+
+            if(AppCode.IsValid)
+            {
+                AppCode.GetSoundSamples(&AppMemory, &SoundBuffer);
+            }
 
 #if KENGINE_INTERNAL
             linux_debug_time_marker *Marker = &DebugTimeMarkers[DebugTimeMarkerIndex];

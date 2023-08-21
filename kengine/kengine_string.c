@@ -703,6 +703,8 @@ EndFormatStringToBuffer(format_string_state *State, u8 *Buffer, umm BufferSize)
         InvalidCodePath;
     }
     
+    Result.Data[Result.Size] = '\0';
+    
     return Result;
 }
 
