@@ -203,10 +203,8 @@ Win32DisplayBufferInWindow(win32_state *State,
 {
     offscreen_buffer *Buffer = &State->Backbuffer;
 
-    // TODO(kstandbridge): Aspect ratio correction
-    // TODO(kstandbridge): Plat with stetch mnodes
     StretchDIBits(DeviceContext,
-        0, 0, WindowWidth, WindowHeight,
+        0, 0, Buffer->Width, Buffer->Height,
         0, 0, Buffer->Width, Buffer->Height,
         Buffer->Memory,
         &State->Info,
@@ -372,10 +370,6 @@ Win32ProcessKeyboardMessage(button_state *NewState, b32 IsDown)
     {
         NewState->EndedDown = IsDown;
         ++NewState->HalfTransitionCount;
-    }
-    else
-    {
-        InvalidCodePath;
     }
 }
 
@@ -683,11 +677,6 @@ WinMain(HINSTANCE hInstance,
         .lpszClassName = "HandmadeHeroWindowClass",
     };
 
-    // TODO(kstandbridge): How to query this on Windows?
-#define MonitorRefreshHz 60
-#define GameUpdateHz (MonitorRefreshHz / 2)
-    f32 TargetSecondsPerFrame = 1.0f / (f32)GameUpdateHz;
-    
     if(RegisterClassA(&WindowClass))
     {
         HWND Window =
@@ -707,8 +696,18 @@ WinMain(HINSTANCE hInstance,
 
         if(Window)
         {
-            HDC DeviceContext = GetDC(Window);
-
+            // TODO(kstandbridge): How to query this on Windows?
+            s32 MonitorRefreshHz = 60;
+            HDC RefreshDC = GetDC(Window);
+            s32 Win32RefreshRate = GetDeviceCaps(RefreshDC, VREFRESH);
+            ReleaseDC(Window, RefreshDC);
+            if(Win32RefreshRate > 1)
+            {
+                MonitorRefreshHz = Win32RefreshRate;
+            }
+            f32 GameUpdateHz = (MonitorRefreshHz / 2.0f);
+            f32 TargetSecondsPerFrame = 1.0f / (f32)GameUpdateHz;
+            
             win32_sound_output SoundOutput = 
             {
                 .SamplesPerSecond = 48000,
@@ -718,7 +717,7 @@ WinMain(HINSTANCE hInstance,
             // TODO(kstandbridge): Get rid of LatencySampleCount
             SoundOutput.LatencySampleCount = 3*(SoundOutput.SamplesPerSecond / GameUpdateHz);
             // TODO(kstandbridge): Acrtuallyh compute this variance and see what the lowest reasonable value is.
-            SoundOutput.SafetyBytes = (SoundOutput.SamplesPerSecond*SoundOutput.BytesPerSample / GameUpdateHz)/3;
+            SoundOutput.SafetyBytes = (s32)(((f32)SoundOutput.SamplesPerSecond*(f32)SoundOutput.BytesPerSample / GameUpdateHz)/3.0f);
             Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
             Win32ClearSoundBuffer(&SoundOutput);
             GlobalWin32State->SecondaryBuffer->lpVtbl->Play(GlobalWin32State->SecondaryBuffer, 0, 0, DSBPLAY_LOOPING);
@@ -751,7 +750,7 @@ WinMain(HINSTANCE hInstance,
             u64 FlipWallClock = Win32ReadOSTimer();
 
             s32 DebugTimeMarkerIndex = 0;
-            win32_debug_time_marker DebugTimeMarkers[GameUpdateHz / 2] = {0};
+            win32_debug_time_marker DebugTimeMarkers[30] = {0};
 
             DWORD AudioLatencyBytes = 0;
             f32 AudioLatencySeconds = 0;
@@ -780,6 +779,29 @@ WinMain(HINSTANCE hInstance,
                     NewKeyboardController->Buttons[ButtonIndex].EndedDown =
                         OldKeyboardController->Buttons[ButtonIndex].EndedDown;
                 }
+
+                DWORD MouseButtons[MouseButton_Count] =
+                {
+                    VK_LBUTTON,
+                    VK_MBUTTON,
+                    VK_RBUTTON,
+                    VK_XBUTTON1,
+                    VK_XBUTTON2
+                };
+                for(s32 ButtonIndex = 0;
+                    ButtonIndex < ArrayCount(NewInput->MouseButtons);
+                    ++ButtonIndex)
+                {
+                    NewInput->MouseButtons[ButtonIndex] = OldInput->MouseButtons[ButtonIndex];
+                    NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
+                    Win32ProcessKeyboardMessage(&NewInput->MouseButtons[ButtonIndex],
+                                                GetKeyState(MouseButtons[ButtonIndex]) & (1 << 15));
+                }
+                POINT Point;
+                GetCursorPos(&Point);
+                ScreenToClient(Window, &Point);
+                NewInput->MouseX = Point.x;
+                NewInput->MouseY = Point.y;
 
                 Win32ProcessPendingMessages(NewKeyboardController);
 
@@ -921,11 +943,11 @@ WinMain(HINSTANCE hInstance,
                                             SoundOutput.SecondaryBufferSize);
 
                         DWORD ExpectedSoundBytesPerFrame =
-                            (SoundOutput.SamplesPerSecond*SoundOutput.BytesPerSample) / GameUpdateHz;
+                            (s32)((f32)(SoundOutput.SamplesPerSecond*SoundOutput.BytesPerSample) / GameUpdateHz);
                         f32 SecondsLeftUntilFlip = (TargetSecondsPerFrame - FromBeginToAudioSeconds);
                         DWORD ExpectedBytesUntilFlip = (DWORD)((SecondsLeftUntilFlip/TargetSecondsPerFrame)*(f32)ExpectedSoundBytesPerFrame);
 
-                        DWORD ExpectedFrameBoundaryByte = PlayCursor + ExpectedSoundBytesPerFrame;
+                        DWORD ExpectedFrameBoundaryByte = PlayCursor + ExpectedBytesUntilFlip;
                     
                         DWORD SafeWriteCursor = WriteCursor;
                         if(SafeWriteCursor < PlayCursor)
@@ -1034,8 +1056,11 @@ WinMain(HINSTANCE hInstance,
                     Win32DebugSyncDisplay(&GlobalWin32State->Backbuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
                                         DebugTimeMarkerIndex - 1, &SoundOutput, TargetSecondsPerFrame);
 #endif
+                    HDC DeviceContext = GetDC(Window);
                     Win32DisplayBufferInWindow(GlobalWin32State, DeviceContext,
                                                 Dimension.Width, Dimension.Height);
+                    ReleaseDC(Window, DeviceContext);
+
                     FlipWallClock = Win32ReadOSTimer();
 
 #if KENGINE_INTERNAL
