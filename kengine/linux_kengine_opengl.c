@@ -129,7 +129,7 @@ LinuxProcessKeyboardMessage(button_state *NewState, b32 IsDown)
 
 internal void
 LinuxProcessPendingMessages(linux_state *State, Display *Display, Window Window, Atom WmDeleteWindow, GC GraphicsContext,
-                            controller_input *KeyboardController)
+                            controller_input *KeyboardController, app_input *Input)
 {
     while(State->Running && XPending(Display))
     {
@@ -231,15 +231,41 @@ LinuxProcessPendingMessages(linux_state *State, Display *Display, Window Window,
                     GlobalLinuxState->Running = false;
                 }
             } break;
-#if 0
+
             case MotionNotify:
             {
-                f32 X = (f32)Event.xmotion.x;
-                f32 Y = (f32)Event.xmotion.y;
-
-                PlatformConsoleOut("Mouse at %f / %f\n", X, Y);
+                Input->MouseX = Event.xmotion.x;
+                Input->MouseY = Event.xmotion.y;
             } break;
-#endif
+
+            case ButtonRelease:
+            case ButtonPress:
+            {
+                if(Event.xbutton.button == VK_LEFT_MOUSE)
+                {
+                    LinuxProcessKeyboardMessage(&Input->MouseButtons[MouseButton_Left], Event.type == ButtonPress);
+                }
+                else if(Event.xbutton.button == VK_MIDDLE_MOUSE)
+                {
+                    LinuxProcessKeyboardMessage(&Input->MouseButtons[MouseButton_Middle], Event.type == ButtonPress);
+                }
+                else if(Event.xbutton.button == VK_RIGHT_MOUSE)
+                {
+                    LinuxProcessKeyboardMessage(&Input->MouseButtons[MouseButton_Right], Event.type == ButtonPress);
+                }
+                else if(Event.xbutton.button == VK_EXT1_MOUSE)
+                {
+                    LinuxProcessKeyboardMessage(&Input->MouseButtons[MouseButton_Extended0], Event.type == ButtonPress);
+                }
+                else if(Event.xbutton.button == VK_EXT2_MOUSE)
+                {
+                    LinuxProcessKeyboardMessage(&Input->MouseButtons[MouseButton_Extended1], Event.type == ButtonPress);
+                }
+                else
+                {
+                    LinuxConsoleOut("WARN: Unhandled mouse button press: %u", Event.xbutton.button);
+                }
+            }
 
             default:
             break;
@@ -1084,6 +1110,9 @@ main(int argc, char **argv)
 
     linux_app_code AppCode = LinuxLoadAppCode(LockPath, AppCodePath);
 
+    // NOTE(kstandbridge): Avoid querying X11 every frame
+    window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
+
     s64 LastCycleCount = __rdtsc();
     while(GlobalLinuxState->Running)
     {
@@ -1110,7 +1139,17 @@ main(int argc, char **argv)
                 OldKeyboardController->Buttons[ButtonIndex].EndedDown;
         }
 
-        LinuxProcessPendingMessages(GlobalLinuxState, Display, Window, WmDeleteWindow, GraphicsContext, NewKeyboardController);
+        for(s32 ButtonIndex = 0;
+            ButtonIndex < ArrayCount(NewInput->MouseButtons);
+            ++ButtonIndex)
+        {
+            NewInput->MouseButtons[ButtonIndex] = OldInput->MouseButtons[ButtonIndex];
+            NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
+        }
+        NewInput->MouseX = OldInput->MouseX;
+        NewInput->MouseY = OldInput->MouseY;
+
+        LinuxProcessPendingMessages(GlobalLinuxState, Display, Window, WmDeleteWindow, GraphicsContext, NewKeyboardController, NewInput);
 
         if(!GlobalLinuxState->Pause)
         {
@@ -1230,7 +1269,6 @@ main(int argc, char **argv)
             f64 MSPerFrame = 1000.0f*LinuxGetSecondsElapsed(LastCounter, EndCounter, PerfCountFrequency);
             LastCounter = EndCounter;
 
-            window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
 #if KENGINE_INTERNAL
             LinuxDebugSyncDisplay(&GlobalLinuxState->Backbuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
                                 DebugTimeMarkerIndex - 1, SoundOutput, TargetSecondsPerFrame);

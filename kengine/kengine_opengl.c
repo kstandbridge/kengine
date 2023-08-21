@@ -68,8 +68,23 @@ typedef struct controller_input
     };
 } controller_input;
 
+typedef enum mouse_button_type
+{
+    MouseButton_Left,
+    MouseButton_Middle,
+    MouseButton_Right,
+    MouseButton_Extended0,
+    MouseButton_Extended1,
+
+    MouseButton_Count,
+} mouse_button_type;
+
 typedef struct app_input
 {
+    button_state MouseButtons[MouseButton_Count];
+    s32 MouseX;
+    s32 MouseY;
+
     controller_input Controllers[5];
 } app_input;
 

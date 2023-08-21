@@ -30,6 +30,12 @@
 #define VK_F11         95
 #define VK_F12         96
 
+#define VK_LEFT_MOUSE   1
+#define VK_RIGHT_MOUSE  3
+#define VK_MIDDLE_MOUSE 2
+#define VK_EXT1_MOUSE   8
+#define VK_EXT2_MOUSE   9
+
 #define MAX_JOYSTICKS                   8
 
 #define XBOX_CONTROLLER_DEADZONE        5000
