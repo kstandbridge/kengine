@@ -831,6 +831,37 @@ LinuxJoystickPopulateGameInput(linux_state *State, app_input *NewInput, app_inpu
     }
 }
 
+#if 0
+
+internal void
+LinuxDebugDrawVertical(offscreen_buffer *Backbuffer,
+                  s32 X, s32 Top, s32 Bottom, u32 Color)
+{
+    if(Top <= 0)
+    {
+        Top = 0;
+    }
+
+    if(Bottom > Backbuffer->Height)
+    {
+        Bottom = Backbuffer->Height;
+    }
+    
+    if((X >= 0) && (X < Backbuffer->Width))
+    {
+        u8 *Pixel = ((u8 *)Backbuffer->Memory +
+                        X*Backbuffer->BytesPerPixel +
+                        Top*Backbuffer->Pitch);
+        for(s32 Y = Top;
+            Y < Bottom;
+            ++Y)
+        {
+            *(u32 *)Pixel = Color;
+            Pixel += Backbuffer->Pitch;
+        }
+    }
+}
+
 internal void
 LinuxDrawSoundBufferMarker(offscreen_buffer *Backbuffer,
                            linux_sound_output *SoundOutput,
@@ -839,7 +870,7 @@ LinuxDrawSoundBufferMarker(offscreen_buffer *Backbuffer,
 {
     f32 XReal32 = (C * (f32)Value);
     int X = PadX + (int)XReal32;
-    DebugDrawVertical(Backbuffer, X, Top, Bottom, Color);
+    LinuxDebugDrawVertical(Backbuffer, X, Top, Bottom, Color);
 }
 
 internal void
@@ -900,6 +931,8 @@ LinuxDebugSyncDisplay(offscreen_buffer *Backbuffer,
         LinuxDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->FlipWriteCursor, WriteColor);
     }
 }
+
+#endif
 
 inline f32
 LinuxGetSecondsElapsed(u64 Start, u64 End, u64 Frequency)
@@ -1035,7 +1068,7 @@ main(int argc, char **argv)
     s32 Screen = DefaultScreen(Display);
     
     Window Window = XCreateSimpleWindow(Display, RootWindow(Display, Screen),
-                                        0, 0, 1280, 720, 1,
+                                        0, 0, 100, 100, 1,
                                         BlackPixel(Display, Screen), WhitePixel(Display, Screen));
 
     XSizeHints *SizeHints = XAllocSizeHints();
@@ -1055,7 +1088,7 @@ main(int argc, char **argv)
     Atom WmDeleteWindow = XInternAtom(Display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(Display, Window, &WmDeleteWindow, 1);
 
-    LinuxResizeDIBSection(GlobalLinuxState, Display, Window, 1280, 720);
+    LinuxResizeDIBSection(GlobalLinuxState, Display, Window, 960, 480);
 
     // NOTE(kstandbridge): Sound test
     linux_sound_output *SoundOutput = &GlobalLinuxState->SoundPlayer.Output; 
@@ -1099,8 +1132,6 @@ main(int argc, char **argv)
     s32 DebugTimeMarkerIndex = 0;
     linux_debug_time_marker DebugTimeMarkers[GameUpdateHz / 2] = {0};
 
-    u32 AudioLatencyBytes = 0;
-    f32 AudioLatencySeconds = 0;
     b32 SoundIsValid = false;
 
     linux_app_code AppCode = LinuxLoadAppCode(LockPath, AppCodePath);
@@ -1108,11 +1139,12 @@ main(int argc, char **argv)
     // NOTE(kstandbridge): Avoid querying X11 every frame
     window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
 
+#if 0
     s64 LastCycleCount = __rdtsc();
+#endif
     while(GlobalLinuxState->Running)
     {
         ino_t LibraryFileId = LinuxGetFileId(AppCodePath);
-        LinuxConsoleOut("Loaded file %u vs %u\n", LibraryFileId,AppCode.LibraryFileId);
         if(AppCode.LibraryFileId != LibraryFileId)
         {
             LinuxUnloadAppCode(&AppCode);
@@ -1247,13 +1279,16 @@ main(int argc, char **argv)
             {
                 UnwrappedWriteCursor += SoundOutput->Buffer.Size;
             }
-            AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
-            AudioLatencySeconds =
+#if 0
+            u32 AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
+            f32 AudioLatencySeconds =
                 (((f32)AudioLatencyBytes / (f32)SoundOutput->BytesPerSample) / 
                     (f32)SoundOutput->SamplesPerSecond);
             LinuxConsoleOut("BTL:%u TC:%u BTW:%u - PC:%u WC:%u DELTA:%u (%fs)\n",
                              ByteToLock, TargetCursor, BytesToWrite,
                              PlayCursor, WriteCursor, AudioLatencyBytes, AudioLatencySeconds);
+#endif
+
 #endif
             LinuxFillSoundBuffer(SoundOutput, &SoundBuffer);
 
@@ -1281,13 +1316,8 @@ main(int argc, char **argv)
             }
 
             u64 EndCounter = LinuxReadOSTimer();
-            f64 MSPerFrame = 1000.0f*LinuxGetSecondsElapsed(LastCounter, EndCounter, PerfCountFrequency);
             LastCounter = EndCounter;
 
-#if KENGINE_INTERNAL
-            LinuxDebugSyncDisplay(&GlobalLinuxState->Backbuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
-                                DebugTimeMarkerIndex - 1, SoundOutput, TargetSecondsPerFrame);
-#endif
             LinuxDisplayBufferInWindow(GlobalLinuxState, Display, Window, GraphicsContext,
                                         Dimension.Width, Dimension.Height);
 
@@ -1303,14 +1333,17 @@ main(int argc, char **argv)
             NewInput = OldInput;
             OldInput = Temp;
             
+#if 0
             u64 EndCycleCount = __rdtsc();
             u64 CyclesElapsed = EndCycleCount - LastCycleCount;
             LastCycleCount = EndCycleCount;
 
+            f64 MSPerFrame = 1000.0f*LinuxGetSecondsElapsed(LastCounter, EndCounter, PerfCountFrequency);
             f64 FPS = 0.0f;
             f64 MCPF = ((f64)CyclesElapsed / (1000.0f * 1000.0f));
 
             LinuxConsoleOut("%.02fms/f,  %.02ff/s,  %.02fmc/f\n", MSPerFrame, FPS, MCPF);
+#endif
 
 #if KENGINE_INTERNAL
             ++DebugTimeMarkerIndex;
