@@ -203,8 +203,16 @@ Win32DisplayBufferInWindow(win32_state *State,
 {
     offscreen_buffer *Buffer = &State->Backbuffer;
 
+    s32 OffsetX = 10;
+    s32 OffsetY = 10;
+
+    PatBlt(DeviceContext, 0, 0, WindowWidth, OffsetY, BLACKNESS);
+    PatBlt(DeviceContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight, BLACKNESS);
+    PatBlt(DeviceContext, 0, 0, OffsetX, WindowHeight, BLACKNESS);
+    PatBlt(DeviceContext, OffsetX + Buffer->Width, 0, WindowWidth, WindowHeight, BLACKNESS);
+
     StretchDIBits(DeviceContext,
-        0, 0, Buffer->Width, Buffer->Height,
+        OffsetX, OffsetY, Buffer->Width, Buffer->Height,
         0, 0, Buffer->Width, Buffer->Height,
         Buffer->Memory,
         &State->Info,
