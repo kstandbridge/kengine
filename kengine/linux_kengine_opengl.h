@@ -12,6 +12,7 @@
 #define VK_ESCAPE      9
 #define VK_SPACE       65
 #define VK_P           33
+#define VK_L           46
 
 #define VK_SHIFT_MASK  0x01
 #define VK_CTRL_MASK   0x04
@@ -159,9 +160,5 @@ typedef struct linux_state
     linux_sound_player SoundPlayer;
 
     linux_joystick Joystick;
-
-    char ExeFilePathBuffer[MAX_PATH];
-    string ExeFilePath;
-    string ExeDirectoryPath;
     
 } linux_state;

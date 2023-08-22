@@ -26,24 +26,75 @@ LinuxConsoleOut(char *Format, ...)
 
 typedef enum linux_memory_block_flag
 {
-    LinuxMem_AllocatedDuringLooping = 0x1,
-    LinuxMem_FreedDuringLooping     = 0x2,
+    MemoryBlockFlag_AllocatedDuringLooping = 0x1,
+    MemoryBlockFlag_FreedDuringLooping = 0x2,
 } linux_memory_block_flag;
+
 typedef struct linux_memory_block
 {
-    platform_memory_block Block;
+    platform_memory_block PlatformBlock;
     struct linux_memory_block *Prev;
     struct linux_memory_block *Next;
-    u64 Padding;
+    u64 LoopingFlags;
 } linux_memory_block;
+
+typedef struct linux_saved_memory_block
+{
+    u64 BasePointer;
+    u64 Size;
+} linux_saved_memory_block;
 
 typedef struct global_memory
 {
     ticket_mutex MemoryMutex;
     linux_memory_block MemorySentinel;
+    
+    s32 RecordingHandle;
+    s32 InputRecordingIndex;
+
+    s32 PlaybackHandle;
+    s32 InputPlayingIndex;
+
+    char ExeFilePathBuffer[MAX_PATH];
+    string ExeFilePath;
+    string ExeDirectoryPath;
 } global_memory;
 
 global global_memory GlobalMemory;
+
+internal void
+InitGlobalMemory()
+{
+    GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
+    GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
+
+    ssize_t ExePathSize = readlink("/proc/self/exe", GlobalMemory.ExeFilePathBuffer, ArrayCount(GlobalMemory.ExeFilePathBuffer) - 1);
+    if (ExePathSize > 0)
+    {
+        GlobalMemory.ExeFilePath = String_(ExePathSize, (u8 *)GlobalMemory.ExeFilePathBuffer);
+
+        char *LastSlash = GlobalMemory.ExeFilePathBuffer;
+        for(char *At = GlobalMemory.ExeFilePathBuffer;
+            *At;
+            ++At)
+        {
+            if(*At == '/')
+            {
+                LastSlash = At;
+            }
+        }
+
+        GlobalMemory.ExeDirectoryPath = String_((umm)((LastSlash + 1) - GlobalMemory.ExeFilePathBuffer), (u8 *)GlobalMemory.ExeFilePathBuffer);
+    }
+}
+
+internal b32
+LinuxIsInLoop()
+{
+    b32 Result = ((GlobalMemory.InputRecordingIndex != 0) ||
+                  (GlobalMemory.InputPlayingIndex));
+    return Result;
+}
 
 platform_memory_block *
 LinuxAllocateMemory(umm Size, u64 Flags)
@@ -69,42 +120,45 @@ LinuxAllocateMemory(umm Size, u64 Flags)
         ProtectOffset = PageSize + SizeRoundedUp;
     }
     
-    linux_memory_block *Block = (linux_memory_block *)
+    linux_memory_block *LinuxBlock = (linux_memory_block *)
         mmap(0, TotalSize, PROT_READ|PROT_WRITE,
              MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-    Assert(Block);
-    Block->Block.Base = (u8 *)Block + BaseOffset;
-    Assert(Block->Block.Used == 0);
-    Assert(Block->Block.Prev == 0);
+    Assert(LinuxBlock);
+    LinuxBlock->PlatformBlock.Base = (u8 *)LinuxBlock + BaseOffset;
+    Assert(LinuxBlock->PlatformBlock.Used == 0);
+    Assert(LinuxBlock->PlatformBlock.Prev == 0);
     
     if(Flags & (PlatformMemoryBlockFlag_UnderflowCheck|PlatformMemoryBlockFlag_OverflowCheck))
     {
-        s32 Error = mprotect((u8 *)Block + ProtectOffset, PageSize, PROT_NONE);
+        s32 Error = mprotect((u8 *)LinuxBlock + ProtectOffset, PageSize, PROT_NONE);
         Assert(Error == 0);
     }
     
     linux_memory_block *Sentinel = &GlobalMemory.MemorySentinel;
-    Block->Next = Sentinel;
-    Block->Block.Size = Size;
-    Block->Block.Flags = Flags;
+    LinuxBlock->Next = Sentinel;
+    LinuxBlock->PlatformBlock.Size = Size;
+    LinuxBlock->PlatformBlock.Flags = Flags;
+    LinuxBlock->LoopingFlags = 0;
+    if(LinuxIsInLoop(&GlobalMemory) && !(Flags & PlatformMemoryBlockFlag_NotRestored))
+    {
+        LinuxBlock->LoopingFlags = MemoryBlockFlag_AllocatedDuringLooping;
+    }
         
     BeginTicketMutex(&GlobalMemory.MemoryMutex);
-    Block->Prev = Sentinel->Prev;
-    Block->Prev->Next = Block;
-    Block->Next->Prev = Block;
+    LinuxBlock->Prev = Sentinel->Prev;
+    LinuxBlock->Prev->Next = LinuxBlock;
+    LinuxBlock->Next->Prev = LinuxBlock;
     EndTicketMutex(&GlobalMemory.MemoryMutex);
     
-    platform_memory_block *PlatBlock = &Block->Block;
-    return PlatBlock;
+    platform_memory_block *Result = &LinuxBlock->PlatformBlock;
+    return Result;
 }
 
-void
-LinuxDeallocateMemory(platform_memory_block *Block)
+internal void
+LinuxFreeMemoryBlock(linux_memory_block *LinuxBlock)
 {
-    linux_memory_block *LinuxBlock = ((linux_memory_block *)Block);
-    
-    u32 Size = LinuxBlock->Block.Size;
-    u64 Flags = LinuxBlock->Block.Flags;
+    u32 Size = LinuxBlock->PlatformBlock.Size;
+    u64 Flags = LinuxBlock->PlatformBlock.Flags;
     umm PageSize = sysconf(_SC_PAGESIZE);
     umm TotalSize = Size + sizeof(linux_memory_block);
     if(Flags & PlatformMemoryBlockFlag_UnderflowCheck)
@@ -123,6 +177,157 @@ LinuxDeallocateMemory(platform_memory_block *Block)
     EndTicketMutex(&GlobalMemory.MemoryMutex);
     
     munmap(LinuxBlock, TotalSize);
+}
+
+void
+LinuxDeallocateMemory(platform_memory_block *PlatformBlock)
+{
+    if(PlatformBlock)
+    {
+        linux_memory_block *LinuxBlock = ((linux_memory_block *)PlatformBlock);
+        if(LinuxIsInLoop() && !(LinuxBlock->PlatformBlock.Flags & PlatformMemoryBlockFlag_NotRestored))
+        {
+            LinuxBlock->LoopingFlags = MemoryBlockFlag_FreedDuringLooping;
+        }
+        else
+        {
+            LinuxFreeMemoryBlock(LinuxBlock);
+        }
+    }
+}
+
+internal void
+LinuxClearBlocksByMask(u64 Mask)
+{
+    for(linux_memory_block *BlockIter = GlobalMemory.MemorySentinel.Next;
+        BlockIter != &GlobalMemory.MemorySentinel;
+        )
+    {
+        linux_memory_block *Block = BlockIter;
+        BlockIter = BlockIter->Next;
+        
+        if((Block->LoopingFlags & Mask) == Mask)
+        {
+            LinuxFreeMemoryBlock(Block);
+        }
+        else
+        {
+            Block->LoopingFlags = 0;
+        }
+    }
+}
+
+internal void
+LinuxBeginInputPlayBack(s32 InputPlayingIndex)
+{
+    LinuxClearBlocksByMask(MemoryBlockFlag_AllocatedDuringLooping);
+    
+    char FileName[MAX_PATH];
+    FormatStringToBuffer((u8 *)FileName, sizeof(FileName), "%S\\loop_edit_%d_input.kni",
+                         GlobalMemory.ExeDirectoryPath, InputPlayingIndex);
+                         
+    GlobalMemory.PlaybackHandle = open(FileName, O_RDONLY);
+    if(GlobalMemory.PlaybackHandle >= 0)
+    {
+        GlobalMemory.InputPlayingIndex = InputPlayingIndex;
+        
+        for(;;)
+        {
+            linux_saved_memory_block Block = {};
+            ssize_t BytesRead = read(GlobalMemory.PlaybackHandle, &Block, sizeof(Block));
+            if(Block.BasePointer != 0)
+            {
+                void *BasePointer = (void *)Block.BasePointer;
+                Assert(Block.Size <= U32Max);
+                BytesRead = read(GlobalMemory.PlaybackHandle, BasePointer, (u32)Block.Size);
+            }
+            else
+            {
+                break;
+            }
+            if(BytesRead)
+            {
+            }
+        }
+        // TODO(kstandbridge): Stream memory in from the file!
+    }
+}
+
+internal void
+LinuxEndInputPlayBack()
+{
+    LinuxClearBlocksByMask(MemoryBlockFlag_FreedDuringLooping);
+    close(GlobalMemory.PlaybackHandle);
+    GlobalMemory.InputPlayingIndex = 0;
+}
+
+internal void
+LinuxBeginRecordingInput(s32 InputRecordingIndex)
+{
+    char FileName[MAX_PATH];
+    FormatStringToBuffer((u8 *)FileName, sizeof(FileName), "%S\\loop_edit_%d_input.kni",
+                         GlobalMemory.ExeDirectoryPath, InputRecordingIndex);
+    
+    GlobalMemory.RecordingHandle = open(FileName, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if(GlobalMemory.RecordingHandle >= 0)
+    {
+        GlobalMemory.InputRecordingIndex = InputRecordingIndex;
+        linux_memory_block *Sentinel = &GlobalMemory.MemorySentinel;
+        
+        BeginTicketMutex(&GlobalMemory.MemoryMutex);
+        for(linux_memory_block *SourceBlock = Sentinel->Next;
+            SourceBlock != Sentinel;
+            SourceBlock = SourceBlock->Next)
+        {
+            if(!(SourceBlock->PlatformBlock.Flags & PlatformMemoryBlockFlag_NotRestored))
+            {
+                linux_saved_memory_block DestBlock;
+                void *BasePointer = SourceBlock->PlatformBlock.Base;
+                DestBlock.BasePointer = (u64)BasePointer;
+                DestBlock.Size = SourceBlock->PlatformBlock.Size;
+                write(GlobalMemory.RecordingHandle, &DestBlock, sizeof(DestBlock));
+                Assert(DestBlock.Size <= U32Max);
+                write(GlobalMemory.RecordingHandle, BasePointer, (u32)DestBlock.Size);
+            }
+        }
+        EndTicketMutex(&GlobalMemory.MemoryMutex);
+        
+        linux_saved_memory_block DestBlock = {0};
+        write(GlobalMemory.RecordingHandle, &DestBlock, sizeof(DestBlock));
+    }
+}
+
+internal void
+LinuxRecordInput(app_input *NewInput)
+{
+    ssize_t BytesWritten = write(GlobalMemory.RecordingHandle, NewInput, sizeof(*NewInput));
+    Assert(BytesWritten == sizeof(*NewInput));
+}
+
+internal void
+LinuxEndRecordingInput()
+{
+    syncfs(GlobalMemory.RecordingHandle);
+    close(GlobalMemory.RecordingHandle);
+    GlobalMemory.InputRecordingIndex = 0;
+}
+
+internal void
+LinuxPlayBackInput(app_input *NewInput)
+{
+    ssize_t BytesRead = read(GlobalMemory.PlaybackHandle, NewInput, sizeof(*NewInput));
+    if(BytesRead == 0)
+    {
+        // NOTE(kstandbridge): Hit end of stream, loop
+        s32 PlayingIndex = GlobalMemory.InputPlayingIndex;
+        LinuxEndInputPlayBack();
+        LinuxBeginInputPlayBack(PlayingIndex);
+        read(GlobalMemory.PlaybackHandle, NewInput, sizeof(*NewInput));
+    }
+    else
+    {
+        Assert(BytesRead == sizeof(*NewInput));
+    }
 }
 
 // TODO(kstandbridge): PlatformDirectoryExists and Win32DirectoryExists

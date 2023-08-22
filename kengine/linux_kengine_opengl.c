@@ -223,6 +223,28 @@ LinuxProcessPendingMessages(linux_state *State, Display *Display, Window Window,
                         GlobalLinuxState->Pause = !GlobalLinuxState->Pause;
                     }
                 }
+                else if(Event.xkey.keycode == VK_L)
+                {
+                    if(Event.type == KeyPress)
+                    {
+                        if(GlobalMemory.InputPlayingIndex == 0)
+                        {
+                            if(GlobalMemory.InputRecordingIndex == 0)
+                            {
+                                LinuxBeginRecordingInput(1);
+                            }
+                            else
+                            {
+                                LinuxEndRecordingInput();
+                                LinuxBeginInputPlayBack(1);
+                            }
+                        }
+                        else
+                        {
+                            LinuxEndInputPlayBack();
+                        }
+                    }
+                }
 #endif
 
                 b32 AltKeyWasDown = Event.xkey.state & VK_ALT_MASK;
@@ -995,46 +1017,19 @@ LinuxUnloadAppCode(linux_app_code *AppCode)
     AppCode->GetSoundSamples = 0;
 }
 
-internal void
-LinuxGetExeFileName(linux_state *State)
-{
-    ssize_t ExePathSize = readlink("/proc/self/exe", State->ExeFilePathBuffer, ArrayCount(State->ExeFilePathBuffer) - 1);
-    if (ExePathSize > 0)
-    {
-        State->ExeFilePath = String_(ExePathSize, (u8 *)State->ExeFilePathBuffer);
-        LinuxConsoleOut("Found \"%S\"\n", State->ExeFilePath);
-
-        char *LastSlash = State->ExeFilePathBuffer;
-        for(char *Scan = State->ExeFilePathBuffer;
-            *Scan;
-            ++Scan)
-        {
-            if(*Scan == '/')
-            {
-                LastSlash = Scan;
-            }
-        }
-
-        State->ExeDirectoryPath = String_((umm)((LastSlash + 1) - State->ExeFilePathBuffer), (u8 *)State->ExeFilePathBuffer);
-        LinuxConsoleOut("Found \"%S\"\n", State->ExeDirectoryPath);
-    }
-}
-
 int
 main(int argc, char **argv)
 {
-    GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
-    GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
+    InitGlobalMemory();
+
     GlobalLinuxState = BootstrapPushStruct(linux_state, Arena);
 
     s64 PerfCountFrequency = LinuxGetOSTimerFrequency();
 
-    LinuxGetExeFileName(GlobalLinuxState);
-
     char LockPath[MAX_PATH];
-    FormatStringToBuffer((u8 *)LockPath, sizeof(LockPath), "%Slock.tmp", GlobalLinuxState->ExeDirectoryPath);
+    FormatStringToBuffer((u8 *)LockPath, sizeof(LockPath), "%Slock.tmp", GlobalMemory.ExeDirectoryPath);
     char AppCodePath[MAX_PATH];
-    FormatStringToBuffer((u8 *)AppCodePath, sizeof(AppCodePath), "%Shandmade.so", GlobalLinuxState->ExeDirectoryPath);
+    FormatStringToBuffer((u8 *)AppCodePath, sizeof(AppCodePath), "%Shandmade.so", GlobalMemory.ExeDirectoryPath);
     
     Display *Display = XOpenDisplay(0);
     s32 Screen = DefaultScreen(Display);
@@ -1154,6 +1149,26 @@ main(int argc, char **argv)
         if(!GlobalLinuxState->Pause)
         {
             LinuxJoystickPopulateGameInput(GlobalLinuxState, NewInput, OldInput, NumberOfJoysticks);
+
+            if(GlobalMemory.InputRecordingIndex)
+            {
+                LinuxRecordInput(NewInput);
+            }
+            if(GlobalMemory.InputPlayingIndex)
+            {
+                app_input Temp = *NewInput;
+                LinuxPlayBackInput(NewInput);
+                
+                // NOTE(kstandbridge): Keep mouse input for debug menus/etc
+                for(u32 MouseButtonIndex = 0;
+                        MouseButtonIndex < MouseButton_Count;
+                        ++MouseButtonIndex)
+                {
+                    NewInput->MouseButtons[MouseButtonIndex] = Temp.MouseButtons[MouseButtonIndex];
+                }
+                NewInput->MouseX = Temp.MouseX;
+                NewInput->MouseY = Temp.MouseY;
+            }
 
             if((GlobalLinuxState->Image) && 
                (GlobalLinuxState->Image->data))  

@@ -42,7 +42,6 @@ typedef enum win32_memory_block_flag
 {
     MemoryBlockFlag_AllocatedDuringLooping = 0x1,
     MemoryBlockFlag_FreedDuringLooping = 0x2,
-
 } win32_memory_block_flag;
 
 typedef struct win32_memory_block
@@ -86,7 +85,6 @@ InitGlobalMemory()
     
     DWORD ExePathSize = GetModuleFileNameA(0, GlobalMemory.ExeFilePathBuffer, sizeof(GlobalMemory.ExeFilePathBuffer));
     GlobalMemory.ExeFilePath = String_(ExePathSize, GlobalMemory.ExeFilePathBuffer);
-    Win32ConsoleOut("Found \"%S\"\n", GlobalMemory.ExeFilePath);
     char *OnePastLastExeFileNameSlash = GlobalMemory.ExeFilePathBuffer;
     for(char *At = GlobalMemory.ExeFilePathBuffer;
         *At;
@@ -99,7 +97,7 @@ InitGlobalMemory()
     }
     
     GlobalMemory.ExeDirectoryPath = String_((umm)(OnePastLastExeFileNameSlash - GlobalMemory.ExeFilePathBuffer),
-                                  GlobalMemory.ExeFilePathBuffer);
+                                            GlobalMemory.ExeFilePathBuffer);
 }
 
 internal b32
@@ -173,23 +171,23 @@ Win32AllocateMemory(umm Size, u64 Flags)
 }
 
 internal void
-Win32FreeMemoryBlock(win32_memory_block *Block)
+Win32FreeMemoryBlock(win32_memory_block *Win32Block)
 {
     BeginTicketMutex(&GlobalMemory.MemoryMutex);
-    Block->Prev->Next = Block->Next;
-    Block->Next->Prev = Block->Prev;
+    Win32Block->Prev->Next = Win32Block->Next;
+    Win32Block->Next->Prev = Win32Block->Prev;
     EndTicketMutex(&GlobalMemory.MemoryMutex);
     
-    BOOL Result = VirtualFree(Block, 0, MEM_RELEASE);
+    BOOL Result = VirtualFree(Win32Block, 0, MEM_RELEASE);
     Assert(Result);
 }
 
 void
-Win32DeallocateMemory(platform_memory_block *Block)
+Win32DeallocateMemory(platform_memory_block *PlatformBlock)
 {
-    if(Block)
+    if(PlatformBlock)
     {
-        win32_memory_block *Win32Block = (win32_memory_block *)Block;
+        win32_memory_block *Win32Block = (win32_memory_block *)PlatformBlock;
         if(Win32IsInLoop() && !(Win32Block->PlatformBlock.Flags & PlatformMemoryBlockFlag_NotRestored))
         {
             Win32Block->LoopingFlags = MemoryBlockFlag_FreedDuringLooping;
@@ -229,7 +227,7 @@ Win32BeginInputPlayBack(s32 InputPlayingIndex)
     Win32ClearBlocksByMask(MemoryBlockFlag_AllocatedDuringLooping);
     
     char FileName[MAX_PATH];
-    FormatStringToBuffer(FileName, sizeof(FileName), "%S\\loop_edit_%d_input.kni",
+    FormatStringToBuffer((u8 *)FileName, sizeof(FileName), "%S\\loop_edit_%d_input.kni",
                          GlobalMemory.ExeDirectoryPath, InputPlayingIndex);
 
     GlobalMemory.PlaybackHandle = CreateFileA(FileName, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
@@ -252,6 +250,9 @@ Win32BeginInputPlayBack(s32 InputPlayingIndex)
             {
                 break;
             }
+            if(BytesRead)
+            {
+            }
         }
         // TODO(kstandbridge): Stream memory in from the file!
     }
@@ -266,10 +267,10 @@ Win32EndInputPlayBack()
 }
 
 internal void
-Win32BeginRecordingInput(int InputRecordingIndex)
+Win32BeginRecordingInput(s32 InputRecordingIndex)
 {
     char FileName[MAX_PATH];
-    FormatStringToBuffer(FileName, sizeof(FileName), "%S\\loop_edit_%d_input.kni",
+    FormatStringToBuffer((u8 *)FileName, sizeof(FileName), "%S\\loop_edit_%d_input.kni",
                          GlobalMemory.ExeDirectoryPath, InputRecordingIndex);
     
     GlobalMemory.RecordingHandle = CreateFileA(FileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
@@ -308,6 +309,7 @@ Win32RecordInput(app_input *NewInput)
 {
     DWORD BytesWritten;
     WriteFile(GlobalMemory.RecordingHandle, NewInput, sizeof(*NewInput), &BytesWritten, 0);
+    Assert(BytesWritten == sizeof(*NewInput));
 }
 
 internal void
