@@ -1144,6 +1144,8 @@ main(int argc, char **argv)
 #endif
     while(GlobalLinuxState->Running)
     {
+        NewInput->dtForFrame = TargetSecondsPerFrame;
+
         ino_t LibraryFileId = LinuxGetFileId(AppCodePath);
         if(AppCode.LibraryFileId != LibraryFileId)
         {

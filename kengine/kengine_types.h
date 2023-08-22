@@ -314,6 +314,8 @@ typedef struct app_input
     s32 MouseX;
     s32 MouseY;
 
+    f32 dtForFrame;
+
     controller_input Controllers[5];
 } app_input;
 

@@ -791,6 +791,8 @@ WinMain(HINSTANCE hInstance,
 #endif
             while(GlobalWin32State->Running)
             {
+                NewInput->dtForFrame = TargetSecondsPerFrame;
+
                 FILETIME LibraryLastWriteTime = Win32GetLastWriteTime(AppCodePath);
                 if(CompareFileTime(&LibraryLastWriteTime, &AppCode.LibraryLastWriteTime) != 0)
                 {
