@@ -1279,7 +1279,7 @@ main(int argc, char **argv)
             {
                 UnwrappedWriteCursor += SoundOutput->Buffer.Size;
             }
-#if 0
+    #if 0
             u32 AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
             f32 AudioLatencySeconds =
                 (((f32)AudioLatencyBytes / (f32)SoundOutput->BytesPerSample) / 
@@ -1287,7 +1287,7 @@ main(int argc, char **argv)
             LinuxConsoleOut("BTL:%u TC:%u BTW:%u - PC:%u WC:%u DELTA:%u (%fs)\n",
                              ByteToLock, TargetCursor, BytesToWrite,
                              PlayCursor, WriteCursor, AudioLatencyBytes, AudioLatencySeconds);
-#endif
+    #endif
 
 #endif
             LinuxFillSoundBuffer(SoundOutput, &SoundBuffer);
@@ -1317,7 +1317,10 @@ main(int argc, char **argv)
 
             u64 EndCounter = LinuxReadOSTimer();
             LastCounter = EndCounter;
-
+#if 0
+            LinuxDebugSyncDisplay(&GlobalLinuxState->Backbuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
+                                DebugTimeMarkerIndex - 1, SoundOutput, TargetSecondsPerFrame);
+#endif
             LinuxDisplayBufferInWindow(GlobalLinuxState, Display, Window, GraphicsContext,
                                         Dimension.Width, Dimension.Height);
 

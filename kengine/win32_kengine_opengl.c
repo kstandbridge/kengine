@@ -494,6 +494,37 @@ Win32ProcessPendingMessages(controller_input *KeyboardController)
     }
 }
 
+#if 0
+
+internal void
+Win32DebugDrawVertical(offscreen_buffer *Backbuffer,
+                  s32 X, s32 Top, s32 Bottom, u32 Color)
+{
+    if(Top <= 0)
+    {
+        Top = 0;
+    }
+
+    if(Bottom > Backbuffer->Height)
+    {
+        Bottom = Backbuffer->Height;
+    }
+    
+    if((X >= 0) && (X < Backbuffer->Width))
+    {
+        u8 *Pixel = ((u8 *)Backbuffer->Memory +
+                        X*Backbuffer->BytesPerPixel +
+                        Top*Backbuffer->Pitch);
+        for(s32 Y = Top;
+            Y < Bottom;
+            ++Y)
+        {
+            *(u32 *)Pixel = Color;
+            Pixel += Backbuffer->Pitch;
+        }
+    }
+}
+
 inline void
 Win32DrawSoundBufferMarker(offscreen_buffer *Backbuffer,
                            win32_sound_output *SoundOutput,
@@ -502,7 +533,7 @@ Win32DrawSoundBufferMarker(offscreen_buffer *Backbuffer,
 {
     f32 XReal32 = (C * (f32)Value);
     int X = PadX + (int)XReal32;
-    DebugDrawVertical(Backbuffer, X, Top, Bottom, Color);
+    Win32DebugDrawVertical(Backbuffer, X, Top, Bottom, Color);
 }
 
 
@@ -564,6 +595,8 @@ Win32DebugSyncDisplay(offscreen_buffer *Backbuffer,
         Win32DrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->FlipWriteCursor, WriteColor);
     }
 }
+
+#endif
 
 inline f32
 Win32GetSecondsElapsed(u64 Start, u64 End, u64 Frequency)
@@ -663,7 +696,7 @@ WinMain(HINSTANCE hInstance,
 
     Win32LoadXInput();
 
-    Win32ResizeDIBSection(GlobalWin32State, 1280, 720);
+    Win32ResizeDIBSection(GlobalWin32State, 960, 480);
 
     WNDCLASS WindowClass = 
     {
@@ -749,13 +782,13 @@ WinMain(HINSTANCE hInstance,
             s32 DebugTimeMarkerIndex = 0;
             win32_debug_time_marker DebugTimeMarkers[30] = {0};
 
-            DWORD AudioLatencyBytes = 0;
-            f32 AudioLatencySeconds = 0;
             b32 SoundIsValid = false;
 
             win32_app_code AppCode = Win32LoadAppCode(LockPath, AppCodePath, TempAppCodePath);
 
+#if 0
             s64 LastCycleCount = __rdtsc();
+#endif
             while(GlobalWin32State->Running)
             {
                 FILETIME LibraryLastWriteTime = Win32GetLastWriteTime(AppCodePath);
@@ -1022,14 +1055,16 @@ WinMain(HINSTANCE hInstance,
                         {
                             UnwrappedWriteCursor += SoundOutput.SecondaryBufferSize;
                         }
-                        AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
-                        AudioLatencySeconds =
+    #if 0
+                        u32 AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
+                        f32 AudioLatencySeconds =
                             (((f32)AudioLatencyBytes / (f32)SoundOutput.BytesPerSample) /
                                 (f32)SoundOutput.SamplesPerSecond);
                     
                         Win32ConsoleOut("BTL:%u TC:%u BTW:%u - PC:%u WC:%u DELTA:%u (%fs)\n",
                                         ByteToLock, TargetCursor, BytesToWrite,
                                         PlayCursor, WriteCursor, AudioLatencyBytes, AudioLatencySeconds);
+    #endif
 #endif
                         Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
                     }
@@ -1065,11 +1100,10 @@ WinMain(HINSTANCE hInstance,
                     }
 
                     u64 EndCounter = Win32ReadOSTimer();
-                    f64 MSPerFrame = 1000.0f*Win32GetSecondsElapsed(LastCounter, EndCounter, PerfCountFrequency);
                     LastCounter = EndCounter;
 
                     window_dimension Dimension = Win32GetWindowDimension(Window);
-#if KENGINE_INTERNAL
+#if 0
                     Win32DebugSyncDisplay(&GlobalWin32State->Backbuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
                                         DebugTimeMarkerIndex - 1, &SoundOutput, TargetSecondsPerFrame);
 #endif
@@ -1098,14 +1132,17 @@ WinMain(HINSTANCE hInstance,
                     NewInput = OldInput;
                     OldInput = Temp;
                     
+#if 0
                     u64 EndCycleCount = __rdtsc();
                     u64 CyclesElapsed = EndCycleCount - LastCycleCount;
                     LastCycleCount = EndCycleCount;
 
+                    f64 MSPerFrame = 1000.0f*Win32GetSecondsElapsed(LastCounter, EndCounter, PerfCountFrequency);
                     f64 FPS = 0.0f;
                     f64 MCPF = ((f64)CyclesElapsed / (1000.0f * 1000.0f));
 
                     Win32ConsoleOut("%.02fms/f,  %.02ff/s,  %.02fmc/f\n", MSPerFrame, FPS, MCPF);
+#endif
 
 #if KENGINE_INTERNAL
                     ++DebugTimeMarkerIndex;
