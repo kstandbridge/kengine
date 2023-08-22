@@ -391,6 +391,8 @@ Win32ProcessPendingMessages(controller_input *KeyboardController)
             case WM_KEYDOWN:
             case WM_KEYUP:
             {
+                b32 AltKeyWasDown = (Message.lParam & (1 << 29));
+
                 u32 VKCode = (u32)Message.wParam;
                 b32 WasDown = ((Message.lParam & (1 << 30)) != 0);
                 b32 IsDown = ((Message.lParam & (1 << 31)) == 0);
@@ -452,12 +454,31 @@ Win32ProcessPendingMessages(controller_input *KeyboardController)
                             GlobalWin32State->Pause = !GlobalWin32State->Pause;
                         }
                     }
-
+                    else if(VKCode == 'L')
+                    {
+                        if(IsDown)
+                        {
+                            if(GlobalMemory.InputPlayingIndex == 0)
+                            {
+                                if(GlobalMemory.InputRecordingIndex == 0)
+                                {
+                                    Win32BeginRecordingInput(1);
+                                }
+                                else
+                                {
+                                    Win32EndRecordingInput();
+                                    Win32BeginInputPlayBack(1);
+                                }
+                            }
+                            else
+                            {
+                                Win32EndInputPlayBack();
+                            }
+                        }
+                    }
 #endif
-                    
                 }
 
-                b32 AltKeyWasDown = (Message.lParam & (1 << 29));
                 if((VKCode == VK_F4) && AltKeyWasDown)
                 {
                     GlobalWin32State->Running = false;
@@ -618,36 +639,14 @@ Win32UnloadAppCode(win32_app_code *AppCode)
     AppCode->GetSoundSamples = 0;
 }
 
-internal void
-Win32GetExeFileName(win32_state *State)
-{
-    DWORD ExePathSize = GetModuleFileNameA(0, State->ExeFilePathBuffer, sizeof(State->ExeFilePathBuffer));
-    State->ExeFilePath = String_(ExePathSize, GlobalWin32State->ExeFilePathBuffer);
-    Win32ConsoleOut("Found \"%S\"\n", State->ExeFilePath);
-    char *OnePastLastExeFileNameSlash = State->ExeFilePathBuffer;
-    for(char *At = State->ExeFilePathBuffer;
-        *At;
-        ++At)
-    {
-        if(*At == '\\')
-        {
-            OnePastLastExeFileNameSlash = At + 1;
-        }
-    }
-    
-    State->ExeDirectoryPath = String_((umm)(OnePastLastExeFileNameSlash - GlobalWin32State->ExeFilePathBuffer),
-                                  GlobalWin32State->ExeFilePathBuffer);
-    Win32ConsoleOut("Found \"%S\"\n", State->ExeDirectoryPath);
-}
-
 int CALLBACK
 WinMain(HINSTANCE hInstance,
         HINSTANCE hPrevInstance,
         LPSTR lpCmdLine,
         int nCmdShow)
 {
-    GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
-    GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
+    InitGlobalMemory();
+
     GlobalWin32State = BootstrapPushStruct(win32_state, Arena);
 
     s64 PerfCountFrequency = Win32GetOSTimerFrequency();
@@ -655,14 +654,12 @@ WinMain(HINSTANCE hInstance,
     UINT DesiredSchedulerMS = 1;
     b32 SleepIsGranular = (timeBeginPeriod(DesiredSchedulerMS) == TIMERR_NOERROR);
 
-    Win32GetExeFileName(GlobalWin32State);
-
     char LockPath[MAX_PATH];
-    FormatStringToBuffer(LockPath, sizeof(LockPath), "%Slock.tmp", GlobalWin32State->ExeDirectoryPath);
+    FormatStringToBuffer(LockPath, sizeof(LockPath), "%Slock.tmp", GlobalMemory.ExeDirectoryPath);
     char AppCodePath[MAX_PATH];
-    FormatStringToBuffer(AppCodePath, sizeof(AppCodePath), "%Shandmade.dll", GlobalWin32State->ExeDirectoryPath);
+    FormatStringToBuffer(AppCodePath, sizeof(AppCodePath), "%Shandmade.dll", GlobalMemory.ExeDirectoryPath);
     char TempAppCodePath[MAX_PATH];
-    FormatStringToBuffer(TempAppCodePath, sizeof(TempAppCodePath), "%Shandmade_temp.dll", GlobalWin32State->ExeDirectoryPath);
+    FormatStringToBuffer(TempAppCodePath, sizeof(TempAppCodePath), "%Shandmade_temp.dll", GlobalMemory.ExeDirectoryPath);
 
     Win32LoadXInput();
 
@@ -919,6 +916,26 @@ WinMain(HINSTANCE hInstance,
                             // NOTE(kstandbridge): The controller is not available
                             NewController->IsConnected = false;
                         }
+                    }
+
+                    if(GlobalMemory.InputRecordingIndex)
+                    {
+                        Win32RecordInput(NewInput);
+                    }
+                    if(GlobalMemory.InputPlayingIndex)
+                    {
+                        app_input Temp = *NewInput;
+                        Win32PlayBackInput(NewInput);
+                        
+                        // NOTE(kstandbridge): Keep mouse input for debug menus/etc
+                        for(u32 MouseButtonIndex = 0;
+                                MouseButtonIndex < MouseButton_Count;
+                                ++MouseButtonIndex)
+                        {
+                            NewInput->MouseButtons[MouseButtonIndex] = Temp.MouseButtons[MouseButtonIndex];
+                        }
+                        NewInput->MouseX = Temp.MouseX;
+                        NewInput->MouseY = Temp.MouseY;
                     }
 
                     if(AppCode.IsValid)

@@ -43,7 +43,4 @@ typedef struct win32_state
     BITMAPINFO Info;
     LPDIRECTSOUNDBUFFER SecondaryBuffer;
 
-    char ExeFilePathBuffer[MAX_PATH];
-    string ExeFilePath;
-    string ExeDirectoryPath;
 } win32_state;

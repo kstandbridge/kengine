@@ -3,8 +3,9 @@
 
 typedef enum platform_memory_block_flags
 {
-    PlatformMemoryBlockFlag_OverflowCheck = 0x1,
-    PlatformMemoryBlockFlag_UnderflowCheck = 0x2
+    PlatformMemoryBlockFlag_NotRestored = 0x1,
+    PlatformMemoryBlockFlag_OverflowCheck = 0x2,
+    PlatformMemoryBlockFlag_UnderflowCheck = 0x4,
 } platform_memory_block_flags;
 
 typedef struct platform_memory_block

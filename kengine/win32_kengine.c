@@ -38,21 +38,77 @@ Win32ConsoleOut(char *Format, ...)
     
 }
 
+typedef enum win32_memory_block_flag
+{
+    MemoryBlockFlag_AllocatedDuringLooping = 0x1,
+    MemoryBlockFlag_FreedDuringLooping = 0x2,
+
+} win32_memory_block_flag;
+
 typedef struct win32_memory_block
 {
     platform_memory_block PlatformBlock;
     struct win32_memory_block *Prev;
     struct win32_memory_block *Next;
-    u64 Padding;
+    u64 LoopingFlags;
 } win32_memory_block;
 
-typedef struct global_memory
+typedef struct win32_saved_memory_block
+{
+    u64 BasePointer;
+    u64 Size;
+} win32_saved_memory_block;
+
+typedef struct win32_global_memory
 {
     ticket_mutex MemoryMutex;
     win32_memory_block MemorySentinel;
-} global_memory;
 
-global global_memory GlobalMemory;
+    HANDLE RecordingHandle;
+    s32 InputRecordingIndex;
+
+    HANDLE PlaybackHandle;
+    s32 InputPlayingIndex;
+
+    char ExeFilePathBuffer[MAX_PATH];
+    string ExeFilePath;
+    string ExeDirectoryPath;
+
+} win32_global_memory;
+
+global win32_global_memory GlobalMemory;
+
+internal void
+InitGlobalMemory()
+{
+    GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
+    GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
+    
+    DWORD ExePathSize = GetModuleFileNameA(0, GlobalMemory.ExeFilePathBuffer, sizeof(GlobalMemory.ExeFilePathBuffer));
+    GlobalMemory.ExeFilePath = String_(ExePathSize, GlobalMemory.ExeFilePathBuffer);
+    Win32ConsoleOut("Found \"%S\"\n", GlobalMemory.ExeFilePath);
+    char *OnePastLastExeFileNameSlash = GlobalMemory.ExeFilePathBuffer;
+    for(char *At = GlobalMemory.ExeFilePathBuffer;
+        *At;
+        ++At)
+    {
+        if(*At == '\\')
+        {
+            OnePastLastExeFileNameSlash = At + 1;
+        }
+    }
+    
+    GlobalMemory.ExeDirectoryPath = String_((umm)(OnePastLastExeFileNameSlash - GlobalMemory.ExeFilePathBuffer),
+                                  GlobalMemory.ExeFilePathBuffer);
+}
+
+internal b32
+Win32IsInLoop()
+{
+    b32 Result = ((GlobalMemory.InputRecordingIndex != 0) ||
+                  (GlobalMemory.InputPlayingIndex));
+    return Result;
+}
 
 platform_memory_block *
 Win32AllocateMemory(umm Size, u64 Flags)
@@ -100,6 +156,11 @@ Win32AllocateMemory(umm Size, u64 Flags)
     Win32Block->Next = Sentinel;
     Win32Block->PlatformBlock.Size = Size;
     Win32Block->PlatformBlock.Flags = Flags;
+    Win32Block->LoopingFlags = 0;
+    if(Win32IsInLoop(&GlobalMemory) && !(Flags & PlatformMemoryBlockFlag_NotRestored))
+    {
+        Win32Block->LoopingFlags = MemoryBlockFlag_AllocatedDuringLooping;
+    }
     
     BeginTicketMutex(&GlobalMemory.MemoryMutex);
     Win32Block->Prev = Sentinel->Prev;
@@ -111,20 +172,166 @@ Win32AllocateMemory(umm Size, u64 Flags)
     return Result;
 }
 
+internal void
+Win32FreeMemoryBlock(win32_memory_block *Block)
+{
+    BeginTicketMutex(&GlobalMemory.MemoryMutex);
+    Block->Prev->Next = Block->Next;
+    Block->Next->Prev = Block->Prev;
+    EndTicketMutex(&GlobalMemory.MemoryMutex);
+    
+    BOOL Result = VirtualFree(Block, 0, MEM_RELEASE);
+    Assert(Result);
+}
+
 void
 Win32DeallocateMemory(platform_memory_block *Block)
 {
-    win32_memory_block *Win32Block = (win32_memory_block *)Block;
-    
-    BeginTicketMutex(&GlobalMemory.MemoryMutex);
-    Win32Block->Prev->Next = Win32Block->Next;
-    Win32Block->Next->Prev = Win32Block->Prev;
-    EndTicketMutex(&GlobalMemory.MemoryMutex);
-    
-    b32 IsFreed = VirtualFree(Win32Block, 0, MEM_RELEASE);
-    if(!IsFreed)
+    if(Block)
     {
-        InvalidCodePath;
+        win32_memory_block *Win32Block = (win32_memory_block *)Block;
+        if(Win32IsInLoop() && !(Win32Block->PlatformBlock.Flags & PlatformMemoryBlockFlag_NotRestored))
+        {
+            Win32Block->LoopingFlags = MemoryBlockFlag_FreedDuringLooping;
+        }
+        else
+        {
+            Win32FreeMemoryBlock(Win32Block);
+        }
+
+    }
+}
+
+internal void
+Win32ClearBlocksByMask(u64 Mask)
+{
+    for(win32_memory_block *BlockIter = GlobalMemory.MemorySentinel.Next;
+        BlockIter != &GlobalMemory.MemorySentinel;
+        )
+    {
+        win32_memory_block *Block = BlockIter;
+        BlockIter = BlockIter->Next;
+        
+        if((Block->LoopingFlags & Mask) == Mask)
+        {
+            Win32FreeMemoryBlock(Block);
+        }
+        else
+        {
+            Block->LoopingFlags = 0;
+        }
+    }
+}
+
+internal void
+Win32BeginInputPlayBack(s32 InputPlayingIndex)
+{
+    Win32ClearBlocksByMask(MemoryBlockFlag_AllocatedDuringLooping);
+    
+    char FileName[MAX_PATH];
+    FormatStringToBuffer(FileName, sizeof(FileName), "%S\\loop_edit_%d_input.kni",
+                         GlobalMemory.ExeDirectoryPath, InputPlayingIndex);
+
+    GlobalMemory.PlaybackHandle = CreateFileA(FileName, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
+    if(GlobalMemory.PlaybackHandle != INVALID_HANDLE_VALUE)
+    {
+        GlobalMemory.InputPlayingIndex = InputPlayingIndex;
+        
+        for(;;)
+        {
+            win32_saved_memory_block Block = {0};
+            DWORD BytesRead;
+            ReadFile(GlobalMemory.PlaybackHandle, &Block, sizeof(Block), &BytesRead, 0);
+            if(Block.BasePointer != 0)
+            {
+                void *BasePointer = (void *)Block.BasePointer;
+                Assert(Block.Size <= U32Max);
+                ReadFile(GlobalMemory.PlaybackHandle, BasePointer, (u32)Block.Size, &BytesRead, 0);
+            }
+            else
+            {
+                break;
+            }
+        }
+        // TODO(kstandbridge): Stream memory in from the file!
+    }
+}
+
+internal void
+Win32EndInputPlayBack()
+{
+    Win32ClearBlocksByMask(MemoryBlockFlag_FreedDuringLooping);
+    CloseHandle(GlobalMemory.PlaybackHandle);
+    GlobalMemory.InputPlayingIndex = 0;
+}
+
+internal void
+Win32BeginRecordingInput(int InputRecordingIndex)
+{
+    char FileName[MAX_PATH];
+    FormatStringToBuffer(FileName, sizeof(FileName), "%S\\loop_edit_%d_input.kni",
+                         GlobalMemory.ExeDirectoryPath, InputRecordingIndex);
+    
+    GlobalMemory.RecordingHandle = CreateFileA(FileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if(GlobalMemory.RecordingHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD BytesWritten;
+        
+        GlobalMemory.InputRecordingIndex = InputRecordingIndex;
+        win32_memory_block *Sentinel = &GlobalMemory.MemorySentinel;
+        
+        BeginTicketMutex(&GlobalMemory.MemoryMutex);
+        for(win32_memory_block *SourceBlock = Sentinel->Next;
+            SourceBlock != Sentinel;
+            SourceBlock = SourceBlock->Next)
+        {
+            if(!(SourceBlock->PlatformBlock.Flags & PlatformMemoryBlockFlag_NotRestored))
+            {
+                win32_saved_memory_block DestBlock;
+                void *BasePointer = SourceBlock->PlatformBlock.Base;
+                DestBlock.BasePointer = (u64)BasePointer;
+                DestBlock.Size = SourceBlock->PlatformBlock.Size;
+                WriteFile(GlobalMemory.RecordingHandle, &DestBlock, sizeof(DestBlock), &BytesWritten, 0);
+                Assert(DestBlock.Size <= U32Max);
+                WriteFile(GlobalMemory.RecordingHandle, BasePointer, (u32)DestBlock.Size, &BytesWritten, 0);
+            }
+        }
+        EndTicketMutex(&GlobalMemory.MemoryMutex);
+        
+        win32_saved_memory_block DestBlock = {0};
+        WriteFile(GlobalMemory.RecordingHandle, &DestBlock, sizeof(DestBlock), &BytesWritten, 0);
+    }
+}
+
+internal void
+Win32RecordInput(app_input *NewInput)
+{
+    DWORD BytesWritten;
+    WriteFile(GlobalMemory.RecordingHandle, NewInput, sizeof(*NewInput), &BytesWritten, 0);
+}
+
+internal void
+Win32EndRecordingInput()
+{
+    CloseHandle(GlobalMemory.RecordingHandle);
+    GlobalMemory.InputRecordingIndex = 0;
+}
+
+
+internal void
+Win32PlayBackInput(app_input *NewInput)
+{
+    DWORD BytesRead = 0;
+    if(ReadFile(GlobalMemory.PlaybackHandle, NewInput, sizeof(*NewInput), &BytesRead, 0))
+    {
+        if(BytesRead == 0)
+        {
+            // NOTE(kstandbridge): Hit end of stream, loop
+            int PlayingIndex = GlobalMemory.InputPlayingIndex;
+            Win32EndInputPlayBack();
+            Win32BeginInputPlayBack(PlayingIndex);
+            ReadFile(GlobalMemory.PlaybackHandle, NewInput, sizeof(*NewInput), &BytesRead, 0);
+        }
     }
 }
 
