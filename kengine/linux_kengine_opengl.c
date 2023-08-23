@@ -1093,7 +1093,7 @@ main(int argc, char **argv)
     Atom WmDeleteWindow = XInternAtom(Display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(Display, Window, &WmDeleteWindow, 1);
 
-    LinuxResizeDIBSection(GlobalLinuxState, Display, Window, 960, 480);
+    LinuxResizeDIBSection(GlobalLinuxState, Display, Window, 960, 540);
 
     // NOTE(kstandbridge): Sound test
     linux_sound_output *SoundOutput = &GlobalLinuxState->SoundPlayer.Output; 

@@ -704,7 +704,7 @@ WinMain(HINSTANCE hInstance,
 
     Win32LoadXInput();
 
-    Win32ResizeDIBSection(GlobalWin32State, 960, 480);
+    Win32ResizeDIBSection(GlobalWin32State, 960, 540);
 
     WNDCLASS WindowClass = 
     {
