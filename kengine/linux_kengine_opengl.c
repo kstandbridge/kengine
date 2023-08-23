@@ -31,7 +31,7 @@ LinuxLoadLibrary(char *Name)
     
     if(!Result)
     {
-        LinuxConsoleOut("Failed to load library %s\n", Name);
+        LinuxConsoleOut("Failed to load library %s\n", dlerror());
         InvalidCodePath;
     }
 
