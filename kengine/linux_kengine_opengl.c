@@ -130,10 +130,6 @@ LinuxProcessKeyboardMessage(button_state *NewState, b32 IsDown)
         NewState->EndedDown = IsDown;
         ++NewState->HalfTransitionCount;
     }
-    else
-    {
-        InvalidCodePath;
-    }
 }
 
 internal void
