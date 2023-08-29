@@ -80,6 +80,7 @@
 #include "kengine/kengine_c_parser.h"
 #include "kengine/kengine_json_parser.h"
 #include "kengine/kengine_image.h"
+#include "kengine/kengine_repetition_tester.h"
 
 
 #if KENGINE_IMPLEMENTATION
