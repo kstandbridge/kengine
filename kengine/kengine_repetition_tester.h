@@ -67,15 +67,15 @@ internal void
 RepetitionTestPrintResults(repetition_test_results Results, u64 CPUTimerFreq, u64 ByteCount)
 {
     PrintTime("Min", (f64)Results.MinTime, CPUTimerFreq, ByteCount);
-    PlatformConsoleOut("\n");
+    PlatformConsoleOut("\n", 0);
 
     PrintTime("Max", (f64)Results.MaxTime, CPUTimerFreq, ByteCount);
-    PlatformConsoleOut("\n");
+    PlatformConsoleOut("\n", 0);
 
     if(Results.TestCount)
     {
         PrintTime("Avg", (f64)Results.TotalTime / (f64)Results.TestCount, CPUTimerFreq, ByteCount);
-        PlatformConsoleOut("\n");
+        PlatformConsoleOut("\n", 0);
     }
 }
 
@@ -177,7 +177,7 @@ RepetitionTestIsTesting(repetition_tester *Tester)
                     if(Tester->PrintNewMinimums)
                     {
                         PrintTime("Min", Results->MinTime, Tester->CPUTimerFreq, Tester->BytesAccumulatedOnThisTest);
-                        PlatformConsoleOut("              \r");
+                        PlatformConsoleOut("              \r", 0);
                     }
                 }
 
@@ -192,7 +192,7 @@ RepetitionTestIsTesting(repetition_tester *Tester)
         {
             Tester->Mode = TestMode_Completed;
 
-            PlatformConsoleOut("                                                          \r");
+            PlatformConsoleOut("                                                          \r", 0);
             RepetitionTestPrintResults(Tester->Results, Tester->CPUTimerFreq, Tester->TargetProcessedByteCount);
         }
     }
