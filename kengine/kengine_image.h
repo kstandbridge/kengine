@@ -30,7 +30,7 @@ typedef struct loaded_bitmap
     s32 Width;
     s32 Height;
     s32 Pitch;
-    void *Memory;
+    u32 *Memory;
     
     u32 Handle;
 } loaded_bitmap;
