@@ -1,7 +1,7 @@
 #include <xinput.h>
 #include <dsound.h>
 
-#include "win32_kengine_opengl.h"
+#include "win32_kengine_immediate.h"
 
 global win32_state *GlobalWin32State;
 
