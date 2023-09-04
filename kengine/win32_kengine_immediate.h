@@ -39,6 +39,7 @@ typedef struct win32_state
     b32 Running;
     b32 Pause;
     offscreen_buffer Backbuffer;
+    WINDOWPLACEMENT WindowPlacement;
 
     BITMAPINFO Info;
     LPDIRECTSOUNDBUFFER SecondaryBuffer;

@@ -203,20 +203,33 @@ Win32DisplayBufferInWindow(win32_state *State,
 {
     offscreen_buffer *Buffer = &State->Backbuffer;
 
-    s32 OffsetX = 10;
-    s32 OffsetY = 10;
+    if((WindowWidth >= Buffer->Width*2) &&
+       (WindowHeight >= Buffer->Height*2))
+    {
+        StretchDIBits(DeviceContext,
+                      0, 0, 2*Buffer->Width, 2*Buffer->Height,
+                      0, 0, Buffer->Width, Buffer->Height,
+                      Buffer->Memory,
+                      &State->Info,
+                      DIB_RGB_COLORS, SRCCOPY);
+    }
+    else
+    {
+        s32 OffsetX = 10;
+        s32 OffsetY = 10;
 
-    PatBlt(DeviceContext, 0, 0, WindowWidth, OffsetY, BLACKNESS);
-    PatBlt(DeviceContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight, BLACKNESS);
-    PatBlt(DeviceContext, 0, 0, OffsetX, WindowHeight, BLACKNESS);
-    PatBlt(DeviceContext, OffsetX + Buffer->Width, 0, WindowWidth, WindowHeight, BLACKNESS);
+        PatBlt(DeviceContext, 0, 0, WindowWidth, OffsetY, BLACKNESS);
+        PatBlt(DeviceContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight, BLACKNESS);
+        PatBlt(DeviceContext, 0, 0, OffsetX, WindowHeight, BLACKNESS);
+        PatBlt(DeviceContext, OffsetX + Buffer->Width, 0, WindowWidth, WindowHeight, BLACKNESS);
 
-    StretchDIBits(DeviceContext,
-        OffsetX, OffsetY, Buffer->Width, Buffer->Height,
-        0, 0, Buffer->Width, Buffer->Height,
-        Buffer->Memory,
-        &State->Info,
-        DIB_RGB_COLORS, SRCCOPY);
+        StretchDIBits(DeviceContext,
+            OffsetX, OffsetY, Buffer->Width, Buffer->Height,
+            0, 0, Buffer->Width, Buffer->Height,
+            Buffer->Memory,
+            &State->Info,
+            DIB_RGB_COLORS, SRCCOPY);
+    }
 }
 
 internal LRESULT CALLBACK
@@ -382,6 +395,34 @@ Win32ProcessKeyboardMessage(button_state *NewState, b32 IsDown)
 }
 
 internal void
+Win32ToggleFullscreen(HWND Window)
+{
+    DWORD Style = GetWindowLong(Window, GWL_STYLE);
+    if(Style & WS_OVERLAPPEDWINDOW)
+    {
+        MONITORINFO MonitorInfo = {sizeof(MonitorInfo)};
+        if(GetWindowPlacement(Window, &GlobalWin32State->WindowPlacement) &&
+           GetMonitorInfo(MonitorFromWindow(Window, MONITOR_DEFAULTTOPRIMARY), &MonitorInfo))
+        {
+            SetWindowLong(Window, GWL_STYLE, Style & ~WS_OVERLAPPEDWINDOW);
+            SetWindowPos(Window, HWND_TOP,
+                         MonitorInfo.rcMonitor.left, MonitorInfo.rcMonitor.top,
+                         MonitorInfo.rcMonitor.right - MonitorInfo.rcMonitor.left,
+                         MonitorInfo.rcMonitor.bottom - MonitorInfo.rcMonitor.top,
+                         SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        }
+    }
+    else
+    {
+        SetWindowLong(Window, GWL_STYLE, Style | WS_OVERLAPPEDWINDOW);
+        SetWindowPlacement(Window, &GlobalWin32State->WindowPlacement);
+        SetWindowPos(Window, 0, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                     SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    }
+}
+
+internal void
 Win32ProcessPendingMessages(controller_input *KeyboardController)
 {
     MSG Message;
@@ -487,9 +528,19 @@ Win32ProcessPendingMessages(controller_input *KeyboardController)
 #endif
                 }
 
-                if((VKCode == VK_F4) && AltKeyWasDown)
+                if(IsDown)
                 {
-                    GlobalWin32State->Running = false;
+                    if((VKCode == VK_F4) && AltKeyWasDown)
+                    {
+                        GlobalWin32State->Running = false;
+                    }
+                    else if((VKCode == VK_RETURN) && AltKeyWasDown)
+                    {
+                        if(Message.hwnd)
+                        {
+                            Win32ToggleFullscreen(Message.hwnd);
+                        }
+                    }
                 }
             } break;
 
