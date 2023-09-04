@@ -1,5 +1,3 @@
-#include <math.h>
-
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
@@ -103,20 +101,29 @@ LinuxDisplayBufferInWindow(linux_state *State,
 {
     offscreen_buffer *Buffer = &State->Backbuffer;
 
-    s32 OffsetX = 10;
-    s32 OffsetY = 10;
-
-    XFillRectangle(Display, Window, GraphicsContext, 0, 0, WindowWidth, OffsetY);
-    XFillRectangle(Display, Window, GraphicsContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight);
-    XFillRectangle(Display, Window, GraphicsContext, 0, 0, OffsetX, WindowHeight);
-    XFillRectangle(Display, Window, GraphicsContext, OffsetX + Buffer->Width, 0, WindowWidth, WindowHeight);
-
-    if(State->Pixmap && State->Image)
+    if((WindowWidth >= Buffer->Width*2.0f) &&
+       (WindowHeight >= Buffer->Height*2.0f))
     {
+        // TODO(kstandbridge): Scale image 2x?
         XPutImage(Display, State->Pixmap, GraphicsContext, State->Image, 0, 0, 0, 0, State->Image->width, State->Image->height);
-        
+        XCopyArea(Display, State->Pixmap, Window, GraphicsContext, 0, 0, Buffer->Width, Buffer->Height, 0, 0);
+    }
+    else 
+    {
+        s32 OffsetX = 10;
+        s32 OffsetY = 10;
 
-        XCopyArea(Display, State->Pixmap, Window, GraphicsContext, 0, 0, Buffer->Width, Buffer->Height, OffsetX, OffsetY);
+        XFillRectangle(Display, Window, GraphicsContext, 0, 0, WindowWidth, OffsetY);
+        XFillRectangle(Display, Window, GraphicsContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight);
+        XFillRectangle(Display, Window, GraphicsContext, 0, 0, OffsetX, WindowHeight);
+        XFillRectangle(Display, Window, GraphicsContext, OffsetX + Buffer->Width, 0, WindowWidth, WindowHeight);
+
+        if(State->Pixmap && State->Image)
+        {
+            XPutImage(Display, State->Pixmap, GraphicsContext, State->Image, 0, 0, 0, 0, State->Image->width, State->Image->height);
+            XCopyArea(Display, State->Pixmap, Window, GraphicsContext, 0, 0, Buffer->Width, Buffer->Height, OffsetX, OffsetY);
+        }
+
     }
 
     XFlush(Display);
@@ -130,6 +137,31 @@ LinuxProcessKeyboardMessage(button_state *NewState, b32 IsDown)
         NewState->EndedDown = IsDown;
         ++NewState->HalfTransitionCount;
     }
+}
+
+internal void
+LinuxToggleFullScreen(linux_state *State, Display *Display, Window Window)
+{
+    Atom FullscreenAtom = XInternAtom(Display, "_NET_WM_STATE_FULLSCREEN", False);
+    Atom WindowState = XInternAtom(Display, "_NET_WM_STATE", False);
+    // s32 Mask = SubstructureNotifyMask | SubstructureRedirectMask;
+    s32 Mask = StructureNotifyMask | ResizeRedirectMask;
+    XEvent event = 
+    {
+        .xclient.type = ClientMessage,
+        .xclient.serial = 0,
+        .xclient.send_event = True,
+        .xclient.display = Display,
+        .xclient.window = Window,
+        .xclient.message_type = WindowState,
+        .xclient.format = 32,
+        .xclient.data.l[0] = 2, // NOTE(kstandbridge): _NET_WM_STATE_TOGGLE = 2
+        .xclient.data.l[1] = (long)FullscreenAtom,
+        .xclient.data.l[2] = 0,
+    };
+    
+    XSendEvent(Display, DefaultRootWindow(Display), False, Mask, &event);
+    XFlush(Display);
 }
 
 internal void
@@ -252,10 +284,17 @@ LinuxProcessPendingMessages(linux_state *State, Display *Display, Window Window,
                 }
 #endif
 
-                b32 AltKeyWasDown = Event.xkey.state & VK_ALT_MASK;
-                if((Event.xkey.keycode == VK_F4) && AltKeyWasDown)
+                if(Event.type == KeyPress)
                 {
-                    GlobalLinuxState->Running = false;
+                    b32 AltKeyWasDown = Event.xkey.state & VK_ALT_MASK;
+                    if((Event.xkey.keycode == VK_F4) && AltKeyWasDown)
+                    {
+                        GlobalLinuxState->Running = false;
+                    }
+                    else if((Event.xkey.keycode == VK_ENTER) && AltKeyWasDown)
+                    {
+                        LinuxToggleFullScreen(State, Display, Window);
+                    }
                 }
             } break;
 
@@ -1078,8 +1117,8 @@ main(int argc, char **argv)
 
     XSizeHints *SizeHints = XAllocSizeHints();
     SizeHints->flags |= PMinSize | PMaxSize;
-    SizeHints->min_width = SizeHints->max_width = 1280;
-    SizeHints->min_height = SizeHints->max_height = 720;
+    SizeHints->min_width = SizeHints->max_width = 980;
+    SizeHints->min_height = SizeHints->max_height = 560;
     XSetWMNormalHints(Display, Window, SizeHints);
     XFree(SizeHints);
 
@@ -1140,9 +1179,6 @@ main(int argc, char **argv)
     b32 SoundIsValid = false;
 
     linux_app_code AppCode = LinuxLoadAppCode(LockPath, AppCodePath);
-
-    // NOTE(kstandbridge): Avoid querying X11 every frame
-    window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
 
 #if 0
     s64 LastCycleCount = __rdtsc();
@@ -1328,6 +1364,7 @@ main(int argc, char **argv)
             LinuxDebugSyncDisplay(&GlobalLinuxState->Backbuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
                                 DebugTimeMarkerIndex - 1, SoundOutput, TargetSecondsPerFrame);
 #endif
+            window_dimension Dimension = LinuxGetWindowDimensions(Display, Window);
             LinuxDisplayBufferInWindow(GlobalLinuxState, Display, Window, GraphicsContext,
                                         Dimension.Width, Dimension.Height);
 

@@ -1,4 +1,3 @@
-
 #define VK_W           25
 #define VK_A           38
 #define VK_S           39
@@ -10,6 +9,7 @@
 #define VK_LEFT        113
 #define VK_RIGHT       114
 #define VK_ESCAPE      9
+#define VK_ENTER       36
 #define VK_SPACE       65
 #define VK_P           33
 #define VK_L           46
