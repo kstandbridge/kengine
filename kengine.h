@@ -25,9 +25,9 @@
     #define KENGINE_PREPROCESSOR 1
 #endif
 
-#ifdef KENGINE_OPENGL
-    #undef KENGINE_OPENGL
-    #define KENGINE_OPENGL 1
+#ifdef KENGINE_IMMEDIATE
+    #undef KENGINE_IMMEDIATE
+    #define KENGINE_IMMEDIATE 1
 #endif
 
 #if !defined(KEGNINE_WIN32)
@@ -112,17 +112,17 @@
 
 #include "kengine/kengine_preprocessor.c"
 
-#elif KENGINE_OPENGL
+#elif KENGINE_IMMEDIATE
 
-    #include "kengine/kengine_opengl.c"
+    #include "kengine/kengine_immediate.c"
 
     #if KENGINE_WIN32
 
-    #include "kengine/win32_kengine_opengl.c"
+    #include "kengine/win32_kengine_immediate.c"
 
     #elif KENGINE_LINUX
     
-    #include "kengine/linux_kengine_opengl.c"
+    #include "kengine/linux_kengine_immediate.c"
        
     #endif
 

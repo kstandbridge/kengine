@@ -6,7 +6,7 @@
 #include <alsa/asoundlib.h>
 #include <linux/joystick.h>
 
-#include "linux_kengine_opengl.h"
+#include "linux_kengine_immediate.h"
 
 global linux_state *GlobalLinuxState;
 
