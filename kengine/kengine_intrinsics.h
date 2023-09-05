@@ -1,5 +1,7 @@
 #ifndef KENGINE_INTRINSICS_H
 
+#include <math.h>
+
 inline u32
 CountSetBits(u32 Value)
 {
@@ -159,6 +161,41 @@ Sin(f32 Value)
 #else
     #error Platform not supported
     // TODO(kstandbridge): Other platforms
+#endif
+
+    return Result;
+}
+
+inline f32
+AbsoluteValue(f32 Value)
+{
+    f32 Result = fabs(Value);
+    return Result;
+}
+
+inline u32
+RotateU32Left(u32 Value, s32 Amount)
+{
+#if COMPILER_MSVC
+   u32 Result = _rotl(Value, Amount); 
+#else
+    // TODO(kstandbridge): Actually port this to other compiler platforms!
+    Amount &= 31;
+    u32 Result = ((Value << Amount) | (Value >> (32 - Amount)));
+#endif
+
+    return Result;
+}
+
+inline u32
+RotateU32Right(u32 Value, s32 Amount)
+{
+#if COMPILER_MSVC
+   u32 Result = _rotr(Value, Amount); 
+#else
+    // TODO(kstandbridge): Actually port this to other compiler platforms!
+    Amount &= 31;
+    u32 Result = ((Value >> Amount) | (Value << (32 - Amount)));
 #endif
 
     return Result;
