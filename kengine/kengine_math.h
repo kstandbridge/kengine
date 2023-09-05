@@ -136,6 +136,18 @@ LerpF32(f32 A, f32 t, f32 B)
 // NOTE(kstandbridge): v2 operations
 //
 
+internal v2
+V2MultiplyScalar(v2 A, f32 B)
+{
+    v2 Result =
+    {
+        .X = A.X*B,
+        .Y = A.Y*B,
+    };
+
+    return Result;
+}
+
 inline f32
 Inner(v2 A, v2 B)
 {
