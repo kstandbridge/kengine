@@ -52,27 +52,14 @@
 
 #define JOYSTICK_BUTTON_A               0
 #define JOYSTICK_BUTTON_B               1
-#define JOYSTICK_BUTTON_X               2
-#define JOYSTICK_BUTTON_Y               3
-#define JOYSTICK_BUTTON_LEFT_SHOULDER   4
-#define JOYSTICK_BUTTON_RIGHT_SHOULDER  5
-#define JOYSTICK_BUTTON_BACK            6
-#define JOYSTICK_BUTTON_START           7
-#define JOYSTICK_BUTTON_XBOX            8
-#define JOYSTICK_BUTTON_LEFT_THUMB      9
-#define JOYSTICK_BUTTON_RIGHT_THUMB     10
-
-#define JOYSTICK_A                      0x0001
-#define JOYSTICK_B                      0x0002
-#define JOYSTICK_X                      0x0004
-#define JOYSTICK_Y                      0x0008
-#define JOYSTICK_LEFT_SHOULDER          0x0010
-#define JOYSTICK_RIGHT_SHOULDER         0x0020
-#define JOYSTICK_BACK                   0x0040
-#define JOYSTICK_START                  0x0080
-#define JOYSTICK_XBOX                   0x0100
-#define JOYSTICK_LEFT_THUMB             0x0200
-#define JOYSTICK_RIGHT_THUMB            0x0400
+#define JOYSTICK_BUTTON_X               3
+#define JOYSTICK_BUTTON_Y               4
+#define JOYSTICK_BUTTON_LEFT_SHOULDER   6
+#define JOYSTICK_BUTTON_RIGHT_SHOULDER  7
+#define JOYSTICK_BUTTON_BACK            10
+#define JOYSTICK_BUTTON_START           11
+#define JOYSTICK_BUTTON_LEFT_THUMB      13
+#define JOYSTICK_BUTTON_RIGHT_THUMB     14
 
 typedef struct linux_audio_buffer
 {

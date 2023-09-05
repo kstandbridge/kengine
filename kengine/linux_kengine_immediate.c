@@ -374,7 +374,7 @@ LinuxLoadAlsaSymbol(char *Name, void **Address)
     *Address = LinuxLoadFunction(GlobalAlsaLibrary, Name);
     if (*Address == 0)
     {
-        PlatformConsoleOut("Failed to load Alsa symbol %s\n", Address);
+        LinuxConsoleOut("Failed to load Alsa symbol %s\n", Address);
         InvalidCodePath;
     }
 }
@@ -442,7 +442,7 @@ LinuxInitSound(s32 SamplesPerSecond, s32 BufferSize, linux_sound_player *SoundPl
         if(Error < 0) 
         {
             char *ErrorValue =  ALSA_snd_strerror(Error);
-            PlatformConsoleOut("Init: cannot open audio device %s (%s)\n", Name, ErrorValue); 
+            LinuxConsoleOut("Init: cannot open audio device %s (%s)\n", Name, ErrorValue); 
             InvalidCodePath; 
         }
         Error = ALSA_snd_pcm_hw_params_malloc(&HwParams);
@@ -674,7 +674,7 @@ LinuxFindJoysticks(linux_state *State)
                             JoystickEventFileDescriptors[JoystickIndex] = EventFileDescriptor;
                             if (ioctl(EventFileDescriptor, EVIOCSFF, &Effect) == -1)
                             {
-                                PlatformConsoleOut("Error: could not send effect to the driver for %s\n", PathBuffer);
+                                LinuxConsoleOut("Error: could not send effect to the driver for %s\n", PathBuffer);
                             }
                             break;
                         }
