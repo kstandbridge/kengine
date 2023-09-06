@@ -2,7 +2,15 @@
 
 #include <math.h>
 
-inline u32
+internal s32
+SignOfS32(s32 Value)
+{
+    s32 Result = (Value >= 0) ? 1 : -1;
+
+    return Result;
+}
+
+internal u32
 CountSetBits(u32 Value)
 {
 #if COMPILER_MSVC
@@ -18,7 +26,7 @@ CountSetBits(u32 Value)
 
 }
 
-inline u32 
+internal u32 
 AtomicCompareExchangeU32(u32 volatile *Value, u32 New, u32 Expected)
 {
 #if COMPILER_MSVC
@@ -33,7 +41,7 @@ AtomicCompareExchangeU32(u32 volatile *Value, u32 New, u32 Expected)
     return Result;
 }
 
-inline u32 
+internal u32 
 AtomicExchange(u32 volatile *Value, u32 New)
 {
 #if COMPILER_MSVC
@@ -48,7 +56,7 @@ AtomicExchange(u32 volatile *Value, u32 New)
     return Result;
 }
 
-inline u64 
+internal u64 
 AtomicExchangeU64(u64 volatile *Value, u64 New)
 {
 #if COMPILER_MSVC
@@ -63,7 +71,7 @@ AtomicExchangeU64(u64 volatile *Value, u64 New)
     return Result;
 }
 
-inline u32 
+internal u32 
 AtomicAddU32(u32 volatile *Value, u32 Addend)
 {
 #if COMPILER_MSVC
@@ -78,7 +86,7 @@ AtomicAddU32(u32 volatile *Value, u32 Addend)
     return Result;
 }    
 
-inline u64 
+internal u64 
 AtomicAddU64(u64 volatile *Value, u64 Addend)
 {
 #if COMPILER_MSVC
@@ -93,7 +101,7 @@ AtomicAddU64(u64 volatile *Value, u64 Addend)
     return Result;
 }    
 
-inline u32
+internal u32
 AtomicIncrementU32(u32 volatile *Value)
 {
 #if COMPILER_MSVC
@@ -108,7 +116,7 @@ AtomicIncrementU32(u32 volatile *Value)
     return Result;
 }
 
-inline u32 
+internal u32 
 GetThreadID()
 {
     u32 ThreadID;
@@ -127,14 +135,14 @@ GetThreadID()
     return ThreadID;
 }
 
-inline f32
+internal f32
 SquareRoot(f32 Value)
 {
     f32 Result = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(Value)));
     return Result;
 }
 
-inline f32
+internal f32
 Cos(f32 Value)
 {
 #if COMPILER_MSVC
@@ -150,7 +158,7 @@ Cos(f32 Value)
     return Result;
 }
 
-inline f32
+internal f32
 Sin(f32 Value)
 {
 #if COMPILER_MSVC
@@ -166,14 +174,14 @@ Sin(f32 Value)
     return Result;
 }
 
-inline f32
+internal f32
 AbsoluteValue(f32 Value)
 {
     f32 Result = fabs(Value);
     return Result;
 }
 
-inline u32
+internal u32
 RotateU32Left(u32 Value, s32 Amount)
 {
 #if COMPILER_MSVC
@@ -187,7 +195,7 @@ RotateU32Left(u32 Value, s32 Amount)
     return Result;
 }
 
-inline u32
+internal u32
 RotateU32Right(u32 Value, s32 Amount)
 {
 #if COMPILER_MSVC
@@ -201,28 +209,28 @@ RotateU32Right(u32 Value, s32 Amount)
     return Result;
 }
 
-inline s32
+internal s32
 RoundF32ToS32(f32 Value)
 {
     s32 Result = _mm_cvtss_si32(_mm_set_ss(Value));
     return Result;
 }
 
-inline u32
+internal u32
 RoundF32ToU32(f32 Value)
 {
     u32 Result = (u32)_mm_cvtss_si32(_mm_set_ss(Value));
     return Result;
 }
 
-inline s32
+internal s32
 FloorF32ToS32(f32 Value)
 {
     s32 Result = _mm_cvtss_si32(_mm_floor_ss(_mm_setzero_ps(), _mm_set_ss(Value)));
     return Result;
 }
 
-inline s32
+internal s32
 CeilF32ToS32(f32 Value)
 {
     s32 Result = _mm_cvtss_si32(_mm_ceil_ss(_mm_setzero_ps(), _mm_set_ss(Value)));

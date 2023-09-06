@@ -127,7 +127,7 @@ BeginTicketMutex(ticket_mutex *Mutex)
     }
 }
 
-inline void
+internal void
 EndTicketMutex(ticket_mutex *Mutex)
 {
     AtomicAddU64(&Mutex->Serving, 1);
