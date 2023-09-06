@@ -4,7 +4,7 @@
 // NOTE(kstandbridge): Scalar operations
 //
 
-inline u8
+internal u8
 GetBits(u8 Input, u8 Position, u8 Count)
 {
     // NOTE(kstandbridge): Position 7 is far left, 0 is far right
@@ -12,28 +12,28 @@ GetBits(u8 Input, u8 Position, u8 Count)
     return Result;
 }
 
-inline u8
+internal u8
 PackU8(u8 HighPart, u8 LowPart)
 {
     u8 Result = ((HighPart & 0xF) << 4) | (LowPart & 0xF);
     return Result;
 }
 
-inline u8
+internal u8
 UnpackU8High(u8 Value)
 {
     u8 Result = GetBits(Value, 7, 4);
     return Result;
 }
 
-inline u8
+internal u8
 UnpackU8Low(u8 Value)
 {
     u8 Result = GetBits(Value, 3, 4);
     return Result;
 }
 
-inline u8
+internal u8
 UnpackU16High(u16 Value)
 {
     u8 *LowByte = (u8 *)&Value;
@@ -43,7 +43,7 @@ UnpackU16High(u16 Value)
     return Result;
 }
 
-inline u8
+internal u8
 UnpackU16Low(u16 Value)
 {
     u8 *LowByte = (u8 *)&Value;
@@ -53,14 +53,14 @@ UnpackU16Low(u16 Value)
     return Result;
 }
 
-inline u16
+internal u16
 PackU16(u8 HighPart, u8 LowPart)
 {
     u16 Result = ((HighPart & 0xFF) << 8) | (LowPart & 0xFF);
     return Result;
 }
 
-inline u32
+internal u32
 F32ToRadixValue(f32 Value)
 {
     u32 Result = *(u32 *)&Value;
@@ -75,7 +75,7 @@ F32ToRadixValue(f32 Value)
     return(Result);
 }
 
-inline f32
+internal f32
 SafeRatioN(f32 Numerator, f32 Divisor, f32 N)
 {
     f32 Result = N;
@@ -88,20 +88,20 @@ SafeRatioN(f32 Numerator, f32 Divisor, f32 N)
     return Result;
 }
 
-inline f32
+internal f32
 SafeRatio0(f32 Numerator, f32 Divisor)
 {
     f32 Result = SafeRatioN(Numerator, Divisor, 0.0f);
     return Result;
 }
 
-inline f32
+internal f32
 SafeRatio1(f32 Numerator, f32 Divisor)
 {
     f32 Result = SafeRatioN(Numerator, Divisor, 1.0f);
     return Result;
 }
-inline u32
+internal u32
 SafeTruncateU64ToU32(u64 Value)
 {
     Assert(Value <= U32Max);
@@ -109,7 +109,7 @@ SafeTruncateU64ToU32(u64 Value)
     return(Result);
 }
 
-inline u16
+internal u16
 SafeTruncateU32ToU16(u32 Value)
 {
     Assert(Value <= U16Max);
@@ -117,14 +117,14 @@ SafeTruncateU32ToU16(u32 Value)
     return(Result);
 }
 
-inline f32
+internal f32
 Square(f32 A)
 {
     f32 Result = A*A;
     return Result;
 }
 
-inline f32
+internal f32
 LerpF32(f32 A, f32 t, f32 B)
 {
     f32 Result = (1.0f - t)*A + t*B;
@@ -148,35 +148,35 @@ V2MultiplyScalar(v2 A, f32 B)
     return Result;
 }
 
-inline f32
+internal f32
 Inner(v2 A, v2 B)
 {
     f32 Result = A.X*B.X + A.Y*B.Y;
     return Result;
 }
 
-inline f32
+internal f32
 LengthSq(v2 A)
 {
     f32 Result = Inner(A, A);
     return Result;
 }
 
-inline f32
+internal f32
 LengthV2(v2 A)
 {
     f32 Result = SquareRoot(LengthSq(A));
     return Result;
 }
 
-inline v2
+internal v2
 Hadamard(v2 A, v2 B)
 {
     v2 Result = V2(A.X*B.X, A.Y*B.Y);
     return Result;
 }
 
-inline f32
+internal f32
 V2DistanceBetween(v2 A, v2 B)
 {
     f32 Result = SquareRoot((A.X - B.X)*(A.X - B.X) + (A.Y - B.Y)*(A.Y - B.Y));
@@ -187,7 +187,7 @@ V2DistanceBetween(v2 A, v2 B)
 // NOTE(kstandbridge): v2i operations
 //
 
-inline f32
+internal f32
 V2iDistanceBetween(v2i A, v2i B)
 {
     f32 Result = V2DistanceBetween(V2((f32)A.X, (f32)A.Y), V2((f32)B.X, (f32)B.Y));
@@ -198,7 +198,7 @@ V2iDistanceBetween(v2i A, v2i B)
 // NOTE(kstandbridge): v4 operations
 //
 
-inline v4
+internal v4
 RGBColor(f32 R, f32 G, f32 B, f32 A)
 {
     v4 Result;
@@ -245,7 +245,7 @@ Linear1ToSRGB255(v4 C)
 // NOTE(kstandbridge): rectangle2 operations
 //
 
-inline s32
+internal s32
 GetWidth(rectangle2i A)
 {
     s32 Result = A.MaxX - A.MinX;
@@ -253,7 +253,7 @@ GetWidth(rectangle2i A)
     return Result;
 }
 
-inline s32
+internal s32
 GetHeight(rectangle2i A)
 {
     s32 Result = A.MaxY - A.MinY;
@@ -261,7 +261,7 @@ GetHeight(rectangle2i A)
     return Result;
 }
 
-inline rectangle2
+internal rectangle2
 Rectangle2AddRadiusTo(rectangle2 Rectangle, f32 Radius)
 {
     rectangle2 Result;
@@ -272,7 +272,7 @@ Rectangle2AddRadiusTo(rectangle2 Rectangle, f32 Radius)
     return Result;
 }
 
-inline rectangle2
+internal rectangle2
 Rectangle2InvertedInfinity()
 {
     rectangle2 Result;
@@ -283,7 +283,7 @@ Rectangle2InvertedInfinity()
     return Result;
 }
 
-inline rectangle2
+internal rectangle2
 Rectangle2MinDim(v2 Min, v2 Dim)
 {
     rectangle2 Result;
@@ -295,7 +295,7 @@ Rectangle2MinDim(v2 Min, v2 Dim)
 }
 
 
-inline rectangle2
+internal rectangle2
 Rectangle2Union(rectangle2 A, rectangle2 B)
 {
     rectangle2 Result;
@@ -308,7 +308,7 @@ Rectangle2Union(rectangle2 A, rectangle2 B)
     return Result;
 }
 
-inline b32
+internal b32
 Rectangle2IsIn(rectangle2 Rectangle, v2 Test)
 {
     b32 Result = ((Test.X >= Rectangle.Min.X) &&
@@ -319,7 +319,7 @@ Rectangle2IsIn(rectangle2 Rectangle, v2 Test)
     return Result;
 }
 
-inline v2
+internal v2
 Rectangle2GetDim(rectangle2 Rectangle)
 {
     v2 Result = V2Subtract(Rectangle.Max, Rectangle.Min);
@@ -330,7 +330,7 @@ Rectangle2GetDim(rectangle2 Rectangle)
 // NOTE(kstandbridge): rectangle2i operations
 //
 
-inline rectangle2i
+internal rectangle2i
 InvertedInfinityRectangle2i()
 {
     rectangle2i Result;
@@ -341,7 +341,7 @@ InvertedInfinityRectangle2i()
     return Result;
 }
 
-inline rectangle2i
+internal rectangle2i
 Intersect(rectangle2i A, rectangle2i B)
 {
     rectangle2i Result;
@@ -355,7 +355,7 @@ Intersect(rectangle2i A, rectangle2i B)
 }
 
 
-inline b32
+internal b32
 HasArea(rectangle2i A)
 {
     b32 Result = ((A.MinX < A.MaxX) && (A.MinY < A.MaxY));
@@ -368,7 +368,7 @@ HasArea(rectangle2i A)
 //
 
 
-inline m4x4
+internal m4x4
 M4x4RotationZ(f32 Angle)
 {
     f32 CosAngle = Cos(Angle);
@@ -399,7 +399,7 @@ M4x4RotationZ(f32 Angle)
     return Result;
 }
 
-inline m4x4
+internal m4x4
 M4x4RotationX(f32 Angle)
 {
     f32 SinAngle = Sin(Angle);
@@ -430,7 +430,7 @@ M4x4RotationX(f32 Angle)
     return Result;
 }
 
-inline m4x4
+internal m4x4
 M4x4Multiply(m4x4 M1, m4x4 M2)
 {
 #if 0
@@ -493,7 +493,7 @@ M4x4Multiply(m4x4 M1, m4x4 M2)
 
 
 
-inline m4x4
+internal m4x4
 M4x4Scale(v3 A)
 {
     m4x4 Result = 
@@ -507,7 +507,7 @@ M4x4Scale(v3 A)
     return Result;
 }
 
-inline m4x4
+internal m4x4
 M4x4Translation(v3 A)
 {
 #if 0
@@ -544,7 +544,7 @@ M4x4Translation(v3 A)
     return Result;
 }
 
-inline m4x4
+internal m4x4
 M4x4Identity()
 {
     m4x4 Result = 
@@ -558,7 +558,7 @@ M4x4Identity()
     return Result;
 }
 
-inline m4x4
+internal m4x4
 M4x4Transpose(m4x4 A)
 {
 #if 0
@@ -584,7 +584,7 @@ M4x4Transpose(m4x4 A)
     return Result;
 }
 
-inline m4x4
+internal m4x4
 M4x4PerspectiveLH(f32 ViewWidth, f32 ViewHeight, f32 NearZ, f32 FarZ)
 {
     f32 TwoNearZ = NearZ + NearZ;
