@@ -137,6 +137,18 @@ LerpF32(f32 A, f32 t, f32 B)
 //
 
 internal v2
+V2Invert(v2 A)
+{
+    v2 Result =
+    {
+        .X = -A.X,
+        .Y = -A.Y,
+    };
+
+    return Result;
+}
+
+internal v2
 V2MultiplyScalar(v2 A, f32 B)
 {
     v2 Result =
@@ -323,6 +335,26 @@ internal v2
 Rectangle2GetDim(rectangle2 Rectangle)
 {
     v2 Result = V2Subtract(Rectangle.Max, Rectangle.Min);
+    return Result;
+}
+
+internal rectangle2
+Rectangle2CenterHalfDim(v2 Center, v2 HalfDim)
+{
+    rectangle2 Result =
+    {
+        .Min = V2Subtract(Center, HalfDim),
+        .Max = V2Add(Center, HalfDim),
+    };
+
+    return Result;
+}
+
+internal rectangle2
+Rectangle2CenterDim(v2 Center, v2 Dim)
+{
+    rectangle2 Result = Rectangle2CenterHalfDim(Center, V2MultiplyScalar(Dim, 0.5f));
+
     return Result;
 }
 
