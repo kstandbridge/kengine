@@ -149,6 +149,30 @@ V2Invert(v2 A)
 }
 
 internal v2
+V2AddScalar(v2 A, f32 B)
+{
+    v2 Result =
+    {
+        .X = A.X+B,
+        .Y = A.Y+B,
+    };
+
+    return Result;
+}
+
+internal v2
+V2SubtractScalar(v2 A, f32 B)
+{
+    v2 Result =
+    {
+        .X = A.X-B,
+        .Y = A.Y-B,
+    };
+
+    return Result;
+}
+
+internal v2
 V2MultiplyScalar(v2 A, f32 B)
 {
     v2 Result =
