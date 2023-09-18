@@ -425,6 +425,11 @@ F32FromString(string Text)
             }
             DecimalFound = true;
         }
+        else if(At == 'E')
+        {
+            // TODO(kstandbridge): Handle number notations
+            break;
+        }
         else
         {
             Assert(!"None float character");
@@ -483,6 +488,11 @@ F64FromString(string Text)
             }
             DecimalFound = true;
         }
+        else if(At == 'E')
+        {
+            // TODO(kstandbridge): Handle number notations
+            break;
+        }
         else
         {
             Assert(!"None float character");
@@ -493,7 +503,7 @@ F64FromString(string Text)
     {
         Result *= -1.0f;
     }
-    
+
     return Result;
 }
 
