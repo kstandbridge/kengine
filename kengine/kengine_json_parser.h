@@ -104,6 +104,15 @@ ParseJsonElement(memory_arena *Arena, json_element *Element, tokenizer *Tokenize
             }
             
             CurrentChild->Value = ValueToken.Text;
+
+            if((ValueToken.Type == Token_Dash) &&
+               PeekTokenType(Tokenizer, Token_Number))
+            {
+                // NOTE(kstandbridge): Negative number
+                CurrentChild->Type = JsonElement_Number;
+                ValueToken = GetToken(Tokenizer);
+                CurrentChild->Value = String_(ValueToken.Text.Size + 1, ValueToken.Text.Data - 1);
+            }
         }
         else if(Token.Type == Token_CloseCurlyBracket)
         {
