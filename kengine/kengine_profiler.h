@@ -116,7 +116,7 @@ EndAndPrintProfile()
 
     if(CPUFrequency)
     {
-        PlatformConsoleOut("\nTotal time: %.4fms (CPU freq %lu)\n", (f64)TotalCPUElapsed / (f64)CPUFrequency, CPUFrequency);
+        PlatformConsoleOut("\nTotal time: %.4fms (CPU freq %lu)\n", 1000.0f * (f64)TotalCPUElapsed / (f64)CPUFrequency, CPUFrequency);
     }
 
     for(u32 AnchorIndex = 0;
@@ -183,7 +183,7 @@ EndAndPrintProfile()
 
     if(CPUFrequency)
     {
-        PlatformConsoleOut("\nTotal time: %.4fms (CPU freq %lu)\n\n", (f64)TotalCPUElapsed / (f64)CPUFrequency, CPUFrequency);
+        PlatformConsoleOut("\nTotal time: %.4fms (CPU freq %lu)\n\n", 1000.0f * (f64)TotalCPUElapsed / (f64)CPUFrequency, CPUFrequency);
     }
 }
 
