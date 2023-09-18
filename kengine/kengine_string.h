@@ -388,6 +388,15 @@ F32FromString(string Text)
     b32 DecimalFound = false;
     f32 CurrentDecimal = 1;
 
+    b32 IsNegative = false;
+    if((Text.Size > 0) && 
+       (Text.Data[0] == '-'))
+    {
+        ++Text.Data;
+        --Text.Size;
+        IsNegative = true;
+    }
+
     for(u32 Index = 0;
         Index < Text.Size;
         ++Index)
@@ -420,6 +429,11 @@ F32FromString(string Text)
         {
             Assert(!"None float character");
         }
+    }
+
+    if(IsNegative)
+    {
+        Result *= -1.0f;
     }
 
     return Result;
@@ -432,6 +446,15 @@ F64FromString(string Text)
     b32 DecimalFound = false;
     f64 CurrentDecimal = 1;
 
+    b32 IsNegative = false;
+    if((Text.Size > 0) && 
+       (Text.Data[0] == '-'))
+    {
+        ++Text.Data;
+        --Text.Size;
+        IsNegative = true;
+    }
+    
     for(u32 Index = 0;
         Index < Text.Size;
         ++Index)
@@ -466,6 +489,11 @@ F64FromString(string Text)
         }
     }
 
+    if(IsNegative)
+    {
+        Result *= -1.0f;
+    }
+    
     return Result;
 }
 
