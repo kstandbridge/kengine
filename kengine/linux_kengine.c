@@ -516,3 +516,13 @@ LinuxReadOSTimer()
     u64 Result = LinuxGetOSTimerFrequency()*(u64)Value.tv_sec + (u64)Value.tv_usec;
     return Result;
 }
+
+u64
+LinuxReadOSPageFaultCount()
+{
+    struct rusage Usage;
+    getrusage(RUSAGE_SELF, &Usage);
+
+    u64 Result = Usage.ru_minflt + Usage.ru_majflt;
+    return Result;
+}

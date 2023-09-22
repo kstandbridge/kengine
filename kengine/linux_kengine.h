@@ -1,9 +1,10 @@
 #ifndef LINUX_KENGINE_H
 
 #include <sys/mman.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <sys/stat.h>
 #include <dlfcn.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -61,6 +62,10 @@ LinuxGetOSTimerFrequency();
 #define PlatformReadOSTimer() LinuxReadOSTimer()
 u64
 LinuxReadOSTimer();
+
+#define PlatformReadOSPageFaultCount() LinuxReadOSPageFaultCount()
+u64
+LinuxReadOSPageFaultCount();
 
 #define PlatformReadCPUTimer() __rdtsc()
 
