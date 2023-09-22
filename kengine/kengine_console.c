@@ -43,8 +43,7 @@ main(int ArgCount, char *Args[])
     GlobalAppMemory.ArgCount = ArgCount - 1;
     GlobalAppMemory.Args = Args + 1;
 
-    GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
-    GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
+    InitGlobalMemory();
 
     Result = MainLoop(&GlobalAppMemory);
 

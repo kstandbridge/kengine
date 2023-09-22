@@ -93,4 +93,16 @@ Copy(umm Size, void *SourceInit, void *DestInit);
 void
 ClearArena(memory_arena *Arena);
 
+#define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
+#define ZeroArray(Count, Pointer) ZeroSize((Count)*sizeof((Pointer)[0]), Pointer)
+internal void
+ZeroSize(u64 Size, void *Ptr)
+{
+    u8 *Byte = (u8 *)Ptr;
+    while(Size--)
+    {
+        *Byte++ = 0;
+    }
+}
+
 #endif //KENGINE_MEMORY_H

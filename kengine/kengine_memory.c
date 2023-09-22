@@ -1,15 +1,3 @@
-
-#define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
-#define ZeroArray(Count, Pointer) ZeroSize((Count)*sizeof((Pointer)[0]), Pointer)
-internal void
-ZeroSize(u64 Size, void *Ptr)
-{
-    u8 *Byte = (u8 *)Ptr;
-    while(Size--)
-    {
-        *Byte++ = 0;
-    }
-}
 arena_push_params
 DefaultArenaPushParams()
 {

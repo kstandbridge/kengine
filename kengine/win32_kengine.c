@@ -1,4 +1,5 @@
 #include <Windows.h>
+#include <Psapi.h>
 
 internal void
 Win32ConsoleOut_(char *Format, va_list ArgList)
@@ -60,6 +61,8 @@ typedef struct win32_saved_memory_block
 
 typedef struct win32_global_memory
 {
+    HANDLE ProcessHandle;
+
     ticket_mutex MemoryMutex;
     win32_memory_block MemorySentinel;
 
@@ -80,6 +83,7 @@ global win32_global_memory GlobalMemory;
 internal void
 InitGlobalMemory()
 {
+    GlobalMemory.ProcessHandle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, GetCurrentProcessId());
     GlobalMemory.MemorySentinel.Prev = &GlobalMemory.MemorySentinel;
     GlobalMemory.MemorySentinel.Next = &GlobalMemory.MemorySentinel;
     
@@ -523,5 +527,18 @@ Win32ReadOSTimer()
     QueryPerformanceCounter(&PerformanceCount);
 
     u64 Result = PerformanceCount.QuadPart;
+    return Result;
+}
+
+u64
+Win32ReadOSPageFaultCount()
+{
+    PROCESS_MEMORY_COUNTERS_EX MemoryCounters = 
+    {
+        .cb = sizeof(PROCESS_MEMORY_COUNTERS_EX),
+    };
+    GetProcessMemoryInfo(GlobalMemory.ProcessHandle, (PROCESS_MEMORY_COUNTERS *)&MemoryCounters, sizeof(MemoryCounters));
+
+    u64 Result = MemoryCounters.PageFaultCount;
     return Result;
 }

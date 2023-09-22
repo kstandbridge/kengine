@@ -7,12 +7,27 @@ typedef enum test_mode_type
     TestMode_Error,
 } test_mode_type;
 
+typedef enum repetition_value_type
+{
+    RepValue_TestCount,
+
+    RepValue_CPUTimer,
+    RepValue_MemPageFaults,
+    RepValue_ByteCount,
+
+    RepValue_Count,
+} repetition_value_type;
+
+typedef struct repetition_value
+{
+    u64 E[RepValue_Count];
+} repetition_value;
+
 typedef struct repetition_test_results
 {
-    u64 TestCount;
-    u64 TotalTime;
-    u64 MaxTime;
-    u64 MinTime;
+    repetition_value Total;
+    repetition_value Min;
+    repetition_value Max;
 } repetition_test_results;
 
 typedef struct repetition_tester
@@ -26,9 +41,8 @@ typedef struct repetition_tester
     b32 PrintNewMinimums;
     u32 OpenBlockCount;
     u32 CloseBlockCount;
-    u64 TimeAccumlatedOnThisTest;
-    u64 BytesAccumulatedOnThisTest;
 
+    repetition_value AccumlatedOnThisTest;
     repetition_test_results Results;
 } repetition_tester;
 
@@ -46,37 +60,47 @@ SecondsFromCPUTime(f64 CPUTime, u64 CPUTimerFreq)
 }
 
 internal void
-PrintTime(char *Label, u64 CPUTime, u64 CPUTimerFreq, u64 ByteCount)
+RepetitionTestPrintValue(char *Label, repetition_value Value, u64 CPUTimerFreq)
 {
-    PlatformConsoleOut("%s: %u", Label, CPUTime);
+    u64 TestCount = Value.E[RepValue_TestCount];
+    f64 Divisor = TestCount ? (f64)TestCount : 1;
 
+    f64 E[RepValue_Count];
+    for(u32 EIndex = 0;
+        EIndex < ArrayCount(E);
+        ++EIndex)
+    {
+        E[EIndex] = (f64)Value.E[EIndex] / Divisor;
+    }
+
+    PlatformConsoleOut("%s: %.0f", Label, E[RepValue_CPUTimer]);
     if(CPUTimerFreq)
     {
-        f64 Seconds = SecondsFromCPUTime(CPUTime, CPUTimerFreq);
+        f64 Seconds = SecondsFromCPUTime(E[RepValue_CPUTimer], CPUTimerFreq);
         PlatformConsoleOut(" (%fms)", 1000.0f*Seconds);
 
-        if(ByteCount)
+        if(E[RepValue_ByteCount] > 0)
         {
-            f64 BestBandwidth = ByteCount / (Gigabytes(1)*Seconds);
-            PlatformConsoleOut(" %fgb/s", BestBandwidth);
+            f64 Bandwidth = E[RepValue_ByteCount] / (Gigabytes(1) * Seconds);
+            PlatformConsoleOut(" %fgb/s", Bandwidth);
         }
+    }
+
+    if(E[RepValue_MemPageFaults] > 0)
+    {
+        PlatformConsoleOut(" PF: %0.4f (%0.4fk/fault)", E[RepValue_MemPageFaults], E[RepValue_ByteCount] / (E[RepValue_MemPageFaults] * 1024.0));
     }
 }
 
 internal void
-RepetitionTestPrintResults(repetition_test_results Results, u64 CPUTimerFreq, u64 ByteCount)
+RepetitionTestPrintResults(repetition_test_results Results, u64 CPUTimerFreq)
 {
-    PrintTime("Min", (f64)Results.MinTime, CPUTimerFreq, ByteCount);
+    RepetitionTestPrintValue("Min", Results.Min, CPUTimerFreq);
     PlatformConsoleOut("\n", 0);
-
-    PrintTime("Max", (f64)Results.MaxTime, CPUTimerFreq, ByteCount);
+    RepetitionTestPrintValue("Max", Results.Max, CPUTimerFreq);
     PlatformConsoleOut("\n", 0);
-
-    if(Results.TestCount)
-    {
-        PrintTime("Avg", (f64)Results.TotalTime / (f64)Results.TestCount, CPUTimerFreq, ByteCount);
-        PlatformConsoleOut("\n", 0);
-    }
+    RepetitionTestPrintValue("Avg", Results.Total, CPUTimerFreq);
+    PlatformConsoleOut("\n", 0);
 }
 
 internal void
@@ -95,7 +119,7 @@ RepetitionTestNewTestWave(repetition_tester *Tester, u64 TargetProcessedByteCoun
         Tester->TargetProcessedByteCount = TargetProcessedByteCount;
         Tester->CPUTimerFreq = CPUTimerFreq;
         Tester->PrintNewMinimums = true;
-        Tester->Results.MinTime = (u64)-1;
+        Tester->Results.Min.E[RepValue_CPUTimer] = (u64)-1;
     }
     else if(Tester->Mode == TestMode_Completed)
     {
@@ -120,20 +144,28 @@ internal void
 RepetitionTestBeginTime(repetition_tester *Tester)
 {
     ++Tester->OpenBlockCount;
-    Tester->TimeAccumlatedOnThisTest -= PlatformReadCPUTimer();
+
+    repetition_value *Accum = &Tester->AccumlatedOnThisTest;
+    Accum->E[RepValue_MemPageFaults] -= PlatformReadOSPageFaultCount();
+    Accum->E[RepValue_CPUTimer] -= PlatformReadCPUTimer();
 }
 
 internal void
 RepetitionTestEndTime(repetition_tester *Tester)
 {
+    repetition_value *Accum = &Tester->AccumlatedOnThisTest;
+    Accum->E[RepValue_CPUTimer] += PlatformReadCPUTimer();
+    Accum->E[RepValue_MemPageFaults] += PlatformReadOSPageFaultCount();
+
     ++Tester->CloseBlockCount;
-    Tester->TimeAccumlatedOnThisTest += PlatformReadCPUTimer();
 }
 
 internal void
 RepetitionTestCountBytes(repetition_tester *Tester, u64 ByteCount)
 {
-    Tester->BytesAccumulatedOnThisTest += ByteCount;
+    repetition_value *Accum = &Tester->AccumlatedOnThisTest;
+    Accum->E[RepValue_ByteCount] += ByteCount;
+
 }
 
 internal b32
@@ -141,6 +173,7 @@ RepetitionTestIsTesting(repetition_tester *Tester)
 {
     if(Tester->Mode == TestMode_Testing)
     {
+        repetition_value Accum = Tester->AccumlatedOnThisTest;
         u64 CurrentTime = PlatformReadCPUTimer();
 
         // NOTE(kstandbridge): We don't that hads no timing blocks, we assume they took some other path
@@ -151,7 +184,7 @@ RepetitionTestIsTesting(repetition_tester *Tester)
                 RepetitionTestError(Tester, "Unbalanced BeginTime/EndTime");
             }
 
-            if(Tester->BytesAccumulatedOnThisTest != Tester->TargetProcessedByteCount)
+            if(Accum.E[RepValue_ByteCount] != Tester->TargetProcessedByteCount)
             {
                 RepetitionTestError(Tester, "Processed byte count mismatch");
             }
@@ -159,32 +192,37 @@ RepetitionTestIsTesting(repetition_tester *Tester)
             if(Tester->Mode == TestMode_Testing)
             {
                 repetition_test_results *Results = &Tester->Results;
-                u64 ElapsedTime = Tester->TimeAccumlatedOnThisTest;
-                Results->TestCount += 1;
-                Results->TotalTime += ElapsedTime;
-                if(Results->MaxTime < ElapsedTime)
+
+                Accum.E[RepValue_TestCount] = 1;
+                for(u32 EIndex = 0;
+                    EIndex < ArrayCount(Accum.E);
+                    ++EIndex)
                 {
-                    Results->MaxTime = ElapsedTime;
+                    Results->Total.E[EIndex] += Accum.E[EIndex];
+            
+                }
+                if(Results->Max.E[RepValue_CPUTimer] < Accum.E[RepValue_CPUTimer])
+                {
+                    Results->Max = Accum;
                 }
 
-                if(Results->MinTime > ElapsedTime)
+                if(Results->Min.E[RepValue_CPUTimer] > Accum.E[RepValue_CPUTimer])
                 {
-                    Results->MinTime = ElapsedTime;
+                    Results->Min = Accum;
 
                     // NOTE(kstandbridge): Whenever we get a new minimum time, we reset the clock to the full trial time
                     Tester->TestsStartedAt = CurrentTime;
 
                     if(Tester->PrintNewMinimums)
                     {
-                        PrintTime("Min", Results->MinTime, Tester->CPUTimerFreq, Tester->BytesAccumulatedOnThisTest);
-                        PlatformConsoleOut("              \r", 0);
+                        RepetitionTestPrintValue("Min", Results->Min, Tester->CPUTimerFreq);
+                        PlatformConsoleOut("                                   \r", 0);
                     }
                 }
 
                 Tester->OpenBlockCount = 0;
                 Tester->CloseBlockCount = 0;
-                Tester->TimeAccumlatedOnThisTest = 0;
-                Tester->BytesAccumulatedOnThisTest = 0;
+                ZeroStruct(Tester->AccumlatedOnThisTest);
             }
         }
 
@@ -193,7 +231,7 @@ RepetitionTestIsTesting(repetition_tester *Tester)
             Tester->Mode = TestMode_Completed;
 
             PlatformConsoleOut("                                                          \r", 0);
-            RepetitionTestPrintResults(Tester->Results, Tester->CPUTimerFreq, Tester->TargetProcessedByteCount);
+            RepetitionTestPrintResults(Tester->Results, Tester->CPUTimerFreq);
         }
     }
 

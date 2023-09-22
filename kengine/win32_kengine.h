@@ -48,6 +48,10 @@ Win32GetOSTimerFrequency();
 u64
 Win32ReadOSTimer();
 
+#define PlatformReadOSPageFaultCount() Win32ReadOSPageFaultCount()
+u64
+Win32ReadOSPageFaultCount();
+
 #define PlatformReadCPUTimer() __rdtsc()
 
 #define WIN32_KENGINE_H
