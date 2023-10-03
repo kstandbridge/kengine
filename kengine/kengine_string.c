@@ -279,17 +279,26 @@ GetNextFormatStringToken(format_string_state *State)
 internal void
 FormatStringParseU64(format_string_state *State, u64 Value, u32 Width, b32 PadWithZeros)
 {
-    b32 PrintValue = (Width == 0 || Value > 0);
+    b32 PrintValue = ((Width == 0) || 
+                      (Value > 0));
     
     u32 Base = 10;
     
     u64 ValueLeft = Value;
     while((ValueLeft > 0) && 
-          (Width > 0))
+        (Width > 0))
     {
         ValueLeft /= Base;
         --Width;
     }
+
+    if((Value == 0) &&
+       (Width > 0))
+    {
+        --Width;
+        PrintValue = true;
+    }
+
     while(Width > 0)
     {
         *State->Tail++ = PadWithZeros ? '0' : ' ';
