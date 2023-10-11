@@ -9,7 +9,8 @@ LinuxConsoleOut_(char *Format, va_list ArgList)
     
     string Text = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
 
-    write(1, Text.Data, Text.Size);
+    ssize_t BytesWritten = write(1, Text.Data, Text.Size);
+    Assert(BytesWritten == Text.Size);
 }
 
 void
