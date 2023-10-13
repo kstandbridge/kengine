@@ -19,7 +19,6 @@
     #define KENGINE_TEST 1
 #endif
 
-
 #ifdef KENGINE_PREPROCESSOR
     #undef KENGINE_PREPROCESSOR
     #define KENGINE_PREPROCESSOR 1

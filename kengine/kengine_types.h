@@ -159,8 +159,6 @@ typedef struct string
 #define NullString() String_(0, 0)
 #define IsNullString(Text) ((Text.Data == 0) || (Text.Size == 0))
 
-#define introspect(...)
-
 introspect(linked_list)
 typedef struct string_list
 {
