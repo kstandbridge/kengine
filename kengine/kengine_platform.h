@@ -11,6 +11,7 @@ typedef platform_file platform_open_file(string FilePath, platform_file_access_f
 typedef void platform_write_file(platform_file *File, string Text);
 typedef void platform_close_file(platform_file *File);
 typedef u64 platform_get_os_timer_frequency();
+typedef u64 platform_read_os_page_fault_count();
 typedef u64 platform_read_os_timer();
 
 typedef struct platform_api
@@ -26,6 +27,7 @@ typedef struct platform_api
     platform_write_file *WriteFile;
     platform_close_file *CloseFile;
     platform_get_os_timer_frequency *GetOSTimerFrequency;
+    platform_read_os_page_fault_count *ReadOSPageFaultCount;
     platform_read_os_timer *ReadOSTimer;
 } platform_api;
 

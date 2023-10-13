@@ -830,6 +830,7 @@ WinMain(HINSTANCE hInstance,
                 .PlatformAPI.WriteFile = Win32WriteFile,
                 .PlatformAPI.CloseFile = Win32CloseFile,
                 .PlatformAPI.GetOSTimerFrequency = Win32GetOSTimerFrequency,
+                .PlatformAPI.ReadOSPageFaultCount = Win32ReadOSPageFaultCount,
                 .PlatformAPI.ReadOSTimer = Win32ReadOSTimer,
             };
 

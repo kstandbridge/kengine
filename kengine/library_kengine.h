@@ -11,4 +11,5 @@
 #define PlatformCloseFile(File) Platform.CloseFile(File)
 #define PlatformGetOSTimerFrequency() Platform.GetOSTimerFrequency()
 #define PlatformReadOSTimer() Platform.ReadOSTimer()
+#define PlatformReadOSPageFaultCount() Platform.ReadOSPageFaultCount()
 #define PlatformReadCPUTimer() __rdtsc()

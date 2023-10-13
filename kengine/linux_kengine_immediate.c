@@ -1112,7 +1112,7 @@ main(int argc, char **argv)
     s32 Screen = DefaultScreen(Display);
     
     Window Window = XCreateSimpleWindow(Display, RootWindow(Display, Screen),
-                                        0, 0, 100, 100, 1,
+                                        0, 0, 980, 560, 1,
                                         BlackPixel(Display, Screen), WhitePixel(Display, Screen));
 
     XSizeHints *SizeHints = XAllocSizeHints();
@@ -1166,6 +1166,7 @@ main(int argc, char **argv)
         .PlatformAPI.WriteFile = LinuxWriteFile,
         .PlatformAPI.CloseFile = LinuxCloseFile,
         .PlatformAPI.GetOSTimerFrequency = LinuxGetOSTimerFrequency,
+        .PlatformAPI.ReadOSPageFaultCount = LinuxReadOSPageFaultCount,
         .PlatformAPI.ReadOSTimer = LinuxReadOSTimer,
     };
 
