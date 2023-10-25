@@ -277,7 +277,7 @@ GetNextFormatStringToken(format_string_state *State)
 #define ReadVarArgByte(ArgList) va_arg(ArgList, u8)
 
 internal void
-FormatStringParseU64(format_string_state *State, u64 Value, u32 Width, b32 PadWithZeros)
+FormatStringParseU64(format_string_state *State, u64 Value, u32 Width, b32 PadWithZeros, b32 IsNegative)
 {
     b32 PrintValue = ((Width == 0) || 
                       (Value > 0));
@@ -299,10 +299,23 @@ FormatStringParseU64(format_string_state *State, u64 Value, u32 Width, b32 PadWi
         PrintValue = true;
     }
 
+    if(IsNegative)
+    {
+        if(Width > 0)
+        {
+            --Width;
+        }
+    }
+
     while(Width > 0)
     {
         *State->Tail++ = PadWithZeros ? '0' : ' ';
         --Width;
+    }
+
+    if(IsNegative)
+    {
+        *State->Tail++ = '-';
     }
     
     char Digits[] = "0123456789";
@@ -331,7 +344,7 @@ FormatStringParseU64(format_string_state *State, u64 Value, u32 Width, b32 PadWi
 }
 
 internal void
-FormatStringParseF64(format_string_state *State, f64 Value, u32 Width, u32 Precision, b32 PadWithZeros)
+FormatStringParseF64(format_string_state *State, f64 Value, u32 Width, u32 Precision, b32 PadWithZeros, b32 IsNegative)
 {
     f64 ValueLeft = Value;
     while((ValueLeft > 1) && 
@@ -340,21 +353,35 @@ FormatStringParseF64(format_string_state *State, f64 Value, u32 Width, u32 Preci
         ValueLeft /= 10;
         --Width;
     }
+
+    if((Value == 0) &&
+       (Width > 0))
+    {
+        --Width;
+    }
+
+    if(IsNegative)
+    {
+        if(Width > 0)
+        {
+            --Width;
+        }
+    }
+
     while(Width > 0)
     {
         *State->Tail++ = ' ';
         --Width;
     }
     
-    if(Value < 0)
+    if(IsNegative)
     {
         *State->Tail++ = '-';
-        Value = -Value;;
     }
     
     u64 IntegerPart = (u64)Value;
     Value -= (f64)IntegerPart;
-    FormatStringParseU64(State, IntegerPart, 0, PadWithZeros);
+    FormatStringParseU64(State, IntegerPart, 0, PadWithZeros, false);
     
     *State->Tail++ = '.';
     
@@ -521,9 +548,8 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                 if(IsNegative)
                                 {
                                     Value = -Value;
-                                    *State->Tail++ = '-';
                                 }
-                                FormatStringParseU64(State, Value, Width, PadWithZeros);
+                                FormatStringParseU64(State, Value, Width, PadWithZeros, IsNegative);
                             } break;
                             
                             case FormatStringToken_UnsignedDecimalInteger:
@@ -531,14 +557,20 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
                                 ParsingParam = false;
                                 
                                 u64 Value = ReadVarArgUnsignedInteger(IntegerLength, ArgList);
-                                FormatStringParseU64(State, Value, Width, PadWithZeros);
+                                b32 IsNegative = false;
+                                FormatStringParseU64(State, Value, Width, PadWithZeros, IsNegative);
                             } break;
                             
                             case FormatStringToken_DecimalFloatingPoint:
                             {
                                 ParsingParam = false;
                                 f64 Value = ReadVarArgFloat(FloatLength, ArgList);
-                                FormatStringParseF64(State, Value, Width, Precision, PadWithZeros);
+                                b32 IsNegative = (Value < 0);
+                                if(IsNegative)
+                                {
+                                    Value = -Value;
+                                }
+                                FormatStringParseF64(State, Value, Width, Precision, PadWithZeros, IsNegative);
                             } break;
                             
                             case FormatStringToken_StringOfCharacters:
