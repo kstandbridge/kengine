@@ -160,6 +160,9 @@ EndAndPrintProfile()
 #define BEGIN_TIMED_BLOCK(...)
 #define BEGIN_TIMED_FUNCTION(...)
 
+#define BEGIN_TIMED_BANDWIDTH(...)
+#define END_TIMED_BANDWIDTH(...)
+
 typedef struct profiler
 {
     u64 StartTSC;

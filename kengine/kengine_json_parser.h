@@ -22,6 +22,8 @@ typedef struct json_element
 internal json_element *
 GetJsonElement(json_element *Parent, string Name)
 {
+    BEGIN_TIMED_BLOCK(GetJsonElement);
+
     json_element *Result = 0;
     for(Result = Parent->Children;
         Result;
@@ -32,6 +34,9 @@ GetJsonElement(json_element *Parent, string Name)
             break;
         }
     }
+
+    END_TIMED_BLOCK(GetJsonElement);
+
     return Result;
 }
 
@@ -124,6 +129,8 @@ ParseJsonElement(memory_arena *Arena, json_element *Element, tokenizer *Tokenize
 internal json_element *
 ParseJsonDocument(memory_arena *Arena, string FileData, string FileName)
 {
+    BEGIN_TIMED_BANDWIDTH(ParseJsonDocument);
+
     json_element *Result = PushStruct(Arena, json_element);
     Result->Name = String("root");
     Result->Type = JsonElement_Object;
@@ -131,6 +138,8 @@ ParseJsonDocument(memory_arena *Arena, string FileData, string FileName)
     tokenizer Tokenizer = Tokenize(FileData, FileName);
     RequireToken(&Tokenizer, Token_OpenCurlyBracket);
     ParseJsonElement(Arena, Result, &Tokenizer);
+
+    END_TIMED_BANDWIDTH(ParseJsonDocument, FileData.Size);
 
     return Result;
 }
