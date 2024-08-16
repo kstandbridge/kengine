@@ -716,20 +716,6 @@ AppendFormatString_(format_string_state *State, char *Format, va_list ArgList)
 }
 
 string
-FormatStringToBuffer(u8 *Buffer, umm BufferSize, char *Format, ...)
-{
-    format_string_state StringState = BeginFormatString();
-    
-    va_list ArgList;
-    va_start(ArgList, Format);
-    AppendFormatString_(&StringState, Format, ArgList);
-    va_end(ArgList);
-    
-    string Result = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
-    return Result;
-}
-
-string
 EndFormatStringToBuffer(format_string_state *State, u8 *Buffer, umm BufferSize)
 {
     string Result;
@@ -745,6 +731,27 @@ EndFormatStringToBuffer(format_string_state *State, u8 *Buffer, umm BufferSize)
     }
     
     Result.Data[Result.Size] = '\0';
+    
+    return Result;
+}
+
+string
+FormatStringToBuffer_(u8 *Buffer, umm BufferSize, char *Format, va_list ArgList)
+{
+    format_string_state StringState = BeginFormatString();
+    AppendFormatString_(&StringState, Format, ArgList);
+    string Result = EndFormatStringToBuffer(&StringState, Buffer, BufferSize);
+
+    return Result;
+}
+
+string
+FormatStringToBuffer(u8 *Buffer, umm BufferSize, char *Format, ...)
+{
+    va_list ArgList;
+    va_start(ArgList, Format);
+    string Result = FormatStringToBuffer_(Buffer, BufferSize, Format, ArgList);
+    va_end(ArgList);
     
     return Result;
 }

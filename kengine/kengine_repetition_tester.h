@@ -15,12 +15,19 @@ typedef enum repetition_value_type
     RepValue_MemPageFaults,
     RepValue_ByteCount,
 
+    StatValue_Seconds,
+    StatValue_GBPerSecond,
+    StatValue_KBPerPageFault,
+
     RepValue_Count,
 } repetition_value_type;
 
 typedef struct repetition_value
 {
     u64 E[RepValue_Count];
+
+    // NOTE(kstandbridge): These values are computed fropm the E[] array and the CPUTimerFrequency
+    f64 PerCount[RepValue_Count];
 } repetition_value;
 
 typedef struct repetition_test_results
@@ -46,6 +53,28 @@ typedef struct repetition_tester
     repetition_test_results Results;
 } repetition_tester;
 
+typedef struct repetition_series_label
+{
+    char Chars[64];
+} repetition_series_label;
+
+typedef struct repetition_test_series
+{
+    string Buffer;
+
+    u32 MaxRowCount;
+    u32 ColumnCount;
+
+    u32 RowIndex;
+    u32 ColumnIndex;
+
+    repetition_test_results *TestResults;    // NOTE(kstandbridge): [RowCount][ColumnCount]
+    repetition_series_label *RowLabels;     // NOTE(kstandbridge): [RowCount]
+    repetition_series_label *ColumnLabels;  // NOTE(kstandbridge): [ColumnCount]
+
+    repetition_series_label RowLabelLabel;
+} repetition_test_series;
+
 internal f64
 SecondsFromCPUTime(f64 CPUTime, u64 CPUTimerFreq)
 {
@@ -60,47 +89,59 @@ SecondsFromCPUTime(f64 CPUTime, u64 CPUTimerFreq)
 }
 
 internal void
-RepetitionTestPrintValue(char *Label, repetition_value Value, u64 CPUTimerFreq)
+ComputeDerivedValues(repetition_value *Value, u64 CPUTimerFrequency)
 {
-    u64 TestCount = Value.E[RepValue_TestCount];
+    u64 TestCount = Value->E[RepValue_TestCount];
     f64 Divisor = TestCount ? (f64)TestCount : 1;
 
-    f64 E[RepValue_Count];
-    for(u32 EIndex = 0;
-        EIndex < ArrayCount(E);
-        ++EIndex)
+    f64 *PerCount = Value->PerCount;
+    for(u32 EIndex = 0; EIndex < ArrayCount(Value->PerCount); ++EIndex)
     {
-        E[EIndex] = (f64)Value.E[EIndex] / Divisor;
+        PerCount[EIndex] = (f64)Value->E[EIndex] / Divisor;
     }
 
-    PlatformConsoleOut("%s: %.0f", Label, E[RepValue_CPUTimer]);
-    if(CPUTimerFreq)
+    if(CPUTimerFrequency)
     {
-        f64 Seconds = SecondsFromCPUTime(E[RepValue_CPUTimer], CPUTimerFreq);
-        PlatformConsoleOut(" (%fms)", 1000.0f*Seconds);
+        f64 Seconds = SecondsFromCPUTime(PerCount[RepValue_CPUTimer], CPUTimerFrequency);
+        PerCount[StatValue_Seconds] = Seconds;
 
-        if(E[RepValue_ByteCount] > 0)
+        if(PerCount[RepValue_ByteCount] > 0)
         {
-            f64 Bandwidth = E[RepValue_ByteCount] / (Gigabytes(1) * Seconds);
-            PlatformConsoleOut(" %fgb/s", Bandwidth);
+            PerCount[StatValue_GBPerSecond] = PerCount[RepValue_ByteCount] / (Gigabytes(1) * Seconds);
         }
     }
 
-    if(E[RepValue_MemPageFaults] > 0)
+    if(PerCount[RepValue_MemPageFaults] > 0)
     {
-        PlatformConsoleOut(" PF: %0.4f (%0.4fk/fault)", E[RepValue_MemPageFaults], E[RepValue_ByteCount] / (E[RepValue_MemPageFaults] * 1024.0));
+        PerCount[StatValue_KBPerPageFault] = PerCount[RepValue_ByteCount] / (PerCount[RepValue_MemPageFaults] * 1024.0f);
     }
 }
 
 internal void
-RepetitionTestPrintResults(repetition_test_results Results, u64 CPUTimerFreq)
+RepetitionTestPrintValue(char *Label, repetition_value Value)
 {
-    RepetitionTestPrintValue("Min", Results.Min, CPUTimerFreq);
-    PlatformConsoleOut("\n", 0);
-    RepetitionTestPrintValue("Max", Results.Max, CPUTimerFreq);
-    PlatformConsoleOut("\n", 0);
-    RepetitionTestPrintValue("Avg", Results.Total, CPUTimerFreq);
-    PlatformConsoleOut("\n", 0);
+    PlatformConsoleOut("%s: %.0f", Label, Value.PerCount[RepValue_CPUTimer]);
+    PlatformConsoleOut(" (%fms)", 1000.0f*Value.PerCount[StatValue_Seconds]);
+    if(Value.PerCount[RepValue_ByteCount] > 0)
+    {
+        PlatformConsoleOut(" %fgb/s", Value.PerCount[StatValue_GBPerSecond]);
+    }
+
+    if(Value.PerCount[RepValue_MemPageFaults] > 0)
+    {
+        PlatformConsoleOut(" PF: %0.4f (%0.4fk/fault)", Value.PerCount[RepValue_MemPageFaults], Value.PerCount[StatValue_KBPerPageFault]);
+    }
+}
+
+internal void
+RepetitionTestPrintResults(repetition_test_results Results)
+{
+    RepetitionTestPrintValue("Min", Results.Min);
+    PlatformConsoleOut("\n");
+    RepetitionTestPrintValue("Max", Results.Max);
+    PlatformConsoleOut("\n");
+    RepetitionTestPrintValue("Avg", Results.Total);
+    PlatformConsoleOut("\n");
 }
 
 internal void
@@ -111,7 +152,7 @@ RepetitionTestError(repetition_tester *Tester, char *Message)
 }
 
 internal void
-RepetitionTestNewTestWave(repetition_tester *Tester, u64 TargetProcessedByteCount, u64 CPUTimerFreq, u32 SecondsToType)
+RepetitionTestNewTestWave_(repetition_tester *Tester, u64 TargetProcessedByteCount, u64 CPUTimerFreq, u32 SecondsToTry)
 {
     if(Tester->Mode == TestMode_Unitialized)
     {
@@ -136,8 +177,21 @@ RepetitionTestNewTestWave(repetition_tester *Tester, u64 TargetProcessedByteCoun
         }
     }
 
-    Tester->TryForTime = SecondsToType*CPUTimerFreq;
+    Tester->TryForTime = SecondsToTry*CPUTimerFreq;
     Tester->TestsStartedAt = PlatformReadCPUTimer();
+}
+
+internal void
+RepetitionTestNewTestWave(repetition_test_series *Series, repetition_tester *Tester, u64 TargetProcessedByteCount, u64 CPUTimerFreq, u32 SecondsToTry)
+{
+    if(RepetitionTestIsInBounds(Series))
+    {
+        PlatformConsoleOut("\n--- %s %s ---]\n",
+                           Series->ColumnLabels[Series->ColumnIndex].Chars,
+                           Series->RowLabels[Series->RowIndex].Chars);
+    }
+
+    RepetitionTestNewTestWave_(Tester, TargetProcessedByteCount, CPUTimerFreq, SecondsToTry);
 }
 
 internal void
@@ -168,8 +222,21 @@ RepetitionTestCountBytes(repetition_tester *Tester, u64 ByteCount)
 
 }
 
+internal repetition_test_results *
+RepetitionTestGetTestResults(repetition_test_series *Series, u32 ColumnIndex, u32 RowIndex)
+{
+    repetition_test_results *Result = 0;
+
+    if((ColumnIndex < Series->ColumnCount) && (RowIndex < Series->MaxRowCount))
+    {
+        Result = Series->TestResults + (RowIndex*Series->ColumnCount + ColumnIndex);
+    }
+
+    return Result;
+}
+
 internal b32
-RepetitionTestIsTesting(repetition_tester *Tester)
+RepetitionTestIsTesting_(repetition_tester *Tester)
 {
     if(Tester->Mode == TestMode_Testing)
     {
@@ -215,8 +282,9 @@ RepetitionTestIsTesting(repetition_tester *Tester)
 
                     if(Tester->PrintNewMinimums)
                     {
-                        RepetitionTestPrintValue("Min", Results->Min, Tester->CPUTimerFreq);
-                        PlatformConsoleOut("                                   \r", 0);
+                        ComputeDerivedValues(&Results->Min, Tester->CPUTimerFreq);
+                        RepetitionTestPrintValue("Min", Results->Min);
+                        PlatformConsoleOut("                                   \r");
                     }
                 }
 
@@ -230,11 +298,129 @@ RepetitionTestIsTesting(repetition_tester *Tester)
         {
             Tester->Mode = TestMode_Completed;
 
-            PlatformConsoleOut("                                                          \r", 0);
-            RepetitionTestPrintResults(Tester->Results, Tester->CPUTimerFreq);
+            ComputeDerivedValues(&Tester->Results.Total, Tester->CPUTimerFreq);
+            ComputeDerivedValues(&Tester->Results.Min, Tester->CPUTimerFreq);
+            ComputeDerivedValues(&Tester->Results.Max, Tester->CPUTimerFreq);
+
+            PlatformConsoleOut("                                                          \r");
+            RepetitionTestPrintResults(Tester->Results);
         }
     }
 
     b32 Result = (Tester->Mode == TestMode_Testing);
     return Result;
+}
+
+internal b32
+RepetitionTestIsTesting(repetition_test_series *Series, repetition_tester *Tester)
+{
+    b32 Result = RepetitionTestIsTesting_(Tester);
+
+    if(!Result)
+    {
+        if(RepetitionTestIsInBounds(Series))
+        {
+            *RepetitionTestGetTestResults(Series, Series->ColumnIndex, Series->RowIndex) = Tester->Results;
+
+            if(++Series->ColumnIndex >= Series->ColumnCount)
+            {
+                Series->ColumnIndex = 0;
+                ++Series->RowIndex;
+            }
+
+        }
+    }
+
+    return Result;
+}
+
+internal repetition_test_series
+RepetitionTestAllocateTestSeries(memory_arena *Arena, u32 ColumnCount, u32 MaxRowCount)
+{
+    u64 TestResultsSize = (ColumnCount*MaxRowCount)*sizeof(repetition_test_results);
+    u64 RowLabelsSize = (MaxRowCount)*sizeof(repetition_series_label);
+    u64 ColumnLabelsSize = (ColumnCount)*sizeof(repetition_series_label);
+
+    umm TotalSize = (TestResultsSize + RowLabelsSize + ColumnLabelsSize);
+    string Buffer = String_(TotalSize, PushSize(Arena, TotalSize));
+
+    repetition_test_series Result = 
+    {
+        .Buffer = Buffer,
+        .MaxRowCount = MaxRowCount,
+        .ColumnCount = ColumnCount,
+
+        .TestResults = (repetition_test_results *)Result.Buffer.Data,
+        .RowLabels = (repetition_series_label *)((u8 *)Result.TestResults + TestResultsSize),
+        .ColumnLabels = (repetition_series_label *)((u8 *)Result.RowLabels + RowLabelsSize),
+    };
+
+    return Result;
+}
+
+internal b32
+RepetitionTestIsInBounds(repetition_test_series *Series)
+{
+    b32 Result = ((Series->ColumnIndex < Series->ColumnCount) &&
+                  (Series->RowIndex < Series->MaxRowCount));
+
+    return Result;
+}
+
+internal void
+RepetitionTestSetRowLabelLabel(repetition_test_series *Series, char *Format, ...)
+{
+    repetition_series_label *Label = &Series->RowLabelLabel;
+    va_list Args;
+    va_start(Args, Format);
+    FormatStringToBuffer_(Label->Chars, sizeof(Label->Chars), Format, Args);
+    va_end(Args);
+}
+
+internal void
+RepetitionTestSetRowLabel(repetition_test_series *Series, char *Format, ...)
+{
+    if(RepetitionTestIsInBounds(Series))
+    {
+        repetition_series_label *Label = Series->RowLabels + Series->RowIndex;
+        va_list Args;
+        va_start(Args, Format);
+        FormatStringToBuffer_(Label->Chars, sizeof(Label->Chars), Format, Args);
+        va_end(Args);
+    }
+}
+
+internal void
+RepetitionTestSetColumnLabel(repetition_test_series *Series, char *Format, ...)
+{
+    if(RepetitionTestIsInBounds(Series))
+    {
+        repetition_series_label *Label = Series->ColumnLabels + Series->ColumnIndex;
+        va_list Args;
+        va_start(Args, Format);
+        FormatStringToBuffer_(Label->Chars, sizeof(Label->Chars), Format, Args);
+        va_end(Args);
+    }
+}
+
+internal void
+ReptitionTestPrintCSV(repetition_test_series *Series, repetition_value_type ValueType, f64 Coefficient)
+{
+    PlatformConsoleOut("%s", Series->RowLabelLabel.Chars);
+    for(u32 ColumnIndex = 0; ColumnIndex < Series->ColumnCount; ++ColumnIndex)
+    {
+        PlatformConsoleOut(",%s", Series->ColumnLabels[ColumnIndex].Chars);
+    }
+    PlatformConsoleOut("\n");
+
+    for(u32 RowIndex = 0; RowIndex < Series->RowIndex; ++RowIndex)
+    {
+        PlatformConsoleOut("%s", Series->RowLabels[RowIndex].Chars);
+        for(u32 ColumnIndex = 0; ColumnIndex < Series->ColumnCount; ++ColumnIndex)
+        {
+            repetition_test_results *TestResults = RepetitionTestGetTestResults(Series, ColumnIndex, RowIndex);
+            PlatformConsoleOut(",%f", Coefficient*TestResults->Min.PerCount[ValueType]);
+        }
+        PlatformConsoleOut("\n");
+    }
 }

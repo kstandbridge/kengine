@@ -94,6 +94,9 @@ EndFormatStringToBuffer(format_string_state *State, u8 *Buffer, umm BufferSize);
 string
 FormatStringToBuffer(u8 *Buffer, umm BufferSize, char *Format, ...);
 
+string
+FormatStringToBuffer_(u8 *Buffer, umm BufferSize, char *Format, va_list ArgList);
+
 void
 StringToCString(string Text, u32 BufferSize, char *Buffer)
 {
