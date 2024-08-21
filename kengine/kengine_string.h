@@ -7,7 +7,7 @@ b32 IsEndOfLine(char C);
 b32 StringsAreEqual(string A, string B);
 
 #define String(Str) String_(sizeof(Str) - 1, (u8 *)Str)
-inline string
+internal string
 String_(umm Length, u8 *Data)
 {
     string Result;
@@ -73,20 +73,27 @@ AppendFormatString(format_string_state *State, char *Format, ...)
 }
 
 internal string
-FormatString(memory_arena *Arena, char *Format, ...)
+FormatString_(memory_arena *Arena, char *Format, va_list ArgList)
 {
     format_string_state StringState = BeginFormatString();
     
-    va_list ArgList;
-    va_start(ArgList, Format);
     AppendFormatString_(&StringState, Format, ArgList);
-    va_end(ArgList);
     
     string Result = EndFormatString(&StringState, Arena);
     
     return Result;
 }
 
+internal string
+FormatString(memory_arena *Arena, char *Format, ...)
+{
+    va_list ArgList;
+    va_start(ArgList, Format);
+    string Result = FormatString_(Arena, Format, ArgList);
+    va_end(ArgList);
+    
+    return Result;
+}
 
 string
 EndFormatStringToBuffer(format_string_state *State, u8 *Buffer, umm BufferSize);
@@ -122,7 +129,7 @@ CStringToString(char *NullTerminatedString)
     return Result;
 }
 
-inline char
+internal char
 CToUppercase(char Char)
 {
     char Result = Char;
@@ -175,7 +182,7 @@ StringToHashValue(string Text)
     return Result;
 }
 
-inline char
+internal char
 CToLowercase(char Char)
 {
     char Result = Char;
@@ -554,7 +561,7 @@ FindFirstOccurrenceLowercase(char *HayStack, char *Needle)
     return Result;
 }
 
-inline b32
+internal b32
 StringsAreEqualLowercase(string A, string B)
 {
     b32 Result = (A.Size == B.Size);
@@ -626,7 +633,7 @@ GetStringFromStringListByIndex(string_list *Head, s32 Index)
     return Result;
 }
 
-inline void
+internal void
 StringToLowercase(string Text)
 {
     for(u32 Index = 0;
@@ -657,7 +664,7 @@ StringAdvance(string *Text, umm Count)
     return Result;
 }
 
-inline b32
+internal b32
 IsAlpha(char C)
 {
     b32 Result = (((C >= 'a') && (C <= 'z')) ||
@@ -666,7 +673,7 @@ IsAlpha(char C)
     return Result;
 }
 
-inline b32
+internal b32
 StringEndsWith(string Needle, string HayStack)
 {
     string Suffix = String_(Needle.Size, HayStack.Data + HayStack.Size - Needle.Size);
@@ -675,7 +682,7 @@ StringEndsWith(string Needle, string HayStack)
     return Result;
 }
 
-inline void
+internal void
 StringToUppercase(string Text)
 {
     for(u32 Index = 0;

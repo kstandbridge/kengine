@@ -55,12 +55,12 @@ typedef struct repetition_tester
 
 typedef struct repetition_series_label
 {
-    char Chars[64];
+    string Value;
 } repetition_series_label;
 
 typedef struct repetition_test_series
 {
-    string Buffer;
+    memory_arena *Arena;
 
     u32 MaxRowCount;
     u32 ColumnCount;
@@ -68,7 +68,7 @@ typedef struct repetition_test_series
     u32 RowIndex;
     u32 ColumnIndex;
 
-    repetition_test_results *TestResults;    // NOTE(kstandbridge): [RowCount][ColumnCount]
+    repetition_test_results *TestResults;   // NOTE(kstandbridge): [RowCount][ColumnCount]
     repetition_series_label *RowLabels;     // NOTE(kstandbridge): [RowCount]
     repetition_series_label *ColumnLabels;  // NOTE(kstandbridge): [ColumnCount]
 
@@ -195,9 +195,9 @@ RepetitionTestNewTestWave(repetition_test_series *Series, repetition_tester *Tes
 {
     if(RepetitionTestIsInBounds(Series))
     {
-        PlatformConsoleOut("\n--- %s %s ---]\n",
-                           Series->ColumnLabels[Series->ColumnIndex].Chars,
-                           Series->RowLabels[Series->RowIndex].Chars);
+        PlatformConsoleOut("\n--- %S %S ---]\n",
+                           Series->ColumnLabels[Series->ColumnIndex].Value,
+                           Series->RowLabels[Series->RowIndex].Value);
     }
 
     RepetitionTestNewTestWave_(Tester, TargetProcessedByteCount, CPUTimerFreq, SecondsToTry);
@@ -346,22 +346,15 @@ RepetitionTestIsTesting(repetition_test_series *Series, repetition_tester *Teste
 internal repetition_test_series
 RepetitionTestAllocateTestSeries(memory_arena *Arena, u32 ColumnCount, u32 MaxRowCount)
 {
-    u64 TestResultsSize = (ColumnCount*MaxRowCount)*sizeof(repetition_test_results);
-    u64 RowLabelsSize = (MaxRowCount)*sizeof(repetition_series_label);
-    u64 ColumnLabelsSize = (ColumnCount)*sizeof(repetition_series_label);
-
-    umm TotalSize = (TestResultsSize + RowLabelsSize + ColumnLabelsSize);
-    string Buffer = String_(TotalSize, PushSize(Arena, TotalSize));
-
     repetition_test_series Result = 
     {
-        .Buffer = Buffer,
+        .Arena = Arena,
         .MaxRowCount = MaxRowCount,
         .ColumnCount = ColumnCount,
 
-        .TestResults = (repetition_test_results *)Result.Buffer.Data,
-        .RowLabels = (repetition_series_label *)((u8 *)Result.TestResults + TestResultsSize),
-        .ColumnLabels = (repetition_series_label *)((u8 *)Result.RowLabels + RowLabelsSize),
+        .TestResults = PushArray(Arena, (MaxRowCount * ColumnCount), repetition_test_results),
+        .RowLabels = PushArray(Arena, MaxRowCount, repetition_series_label),
+        .ColumnLabels = PushArray(Arena, ColumnCount, repetition_series_label),
     };
 
     return Result;
@@ -373,7 +366,7 @@ RepetitionTestSetRowLabelLabel(repetition_test_series *Series, char *Format, ...
     repetition_series_label *Label = &Series->RowLabelLabel;
     va_list Args;
     va_start(Args, Format);
-    FormatStringToBuffer_((u8 *)Label->Chars, sizeof(Label->Chars), Format, Args);
+    Label->Value = FormatString_(Series->Arena, Format, Args);
     va_end(Args);
 }
 
@@ -385,7 +378,7 @@ RepetitionTestSetRowLabel(repetition_test_series *Series, char *Format, ...)
         repetition_series_label *Label = Series->RowLabels + Series->RowIndex;
         va_list Args;
         va_start(Args, Format);
-        FormatStringToBuffer_((u8 *)Label->Chars, sizeof(Label->Chars), Format, Args);
+        Label->Value = FormatString_(Series->Arena, Format, Args);
         va_end(Args);
     }
 }
@@ -398,7 +391,7 @@ RepetitionTestSetColumnLabel(repetition_test_series *Series, char *Format, ...)
         repetition_series_label *Label = Series->ColumnLabels + Series->ColumnIndex;
         va_list Args;
         va_start(Args, Format);
-        FormatStringToBuffer_((u8 *)Label->Chars, sizeof(Label->Chars), Format, Args);
+        Label->Value = FormatString_(Series->Arena, Format, Args);
         va_end(Args);
     }
 }
@@ -406,16 +399,16 @@ RepetitionTestSetColumnLabel(repetition_test_series *Series, char *Format, ...)
 internal void
 ReptitionTestPrintCSV(repetition_test_series *Series, repetition_value_type ValueType, f64 Coefficient)
 {
-    PlatformConsoleOut("%s", Series->RowLabelLabel.Chars);
+    PlatformConsoleOut("%S", Series->RowLabelLabel.Value);
     for(u32 ColumnIndex = 0; ColumnIndex < Series->ColumnCount; ++ColumnIndex)
     {
-        PlatformConsoleOut(",%s", Series->ColumnLabels[ColumnIndex].Chars);
+        PlatformConsoleOut(",%S", Series->ColumnLabels[ColumnIndex].Value);
     }
     PlatformConsoleOut("\n");
 
     for(u32 RowIndex = 0; RowIndex < Series->RowIndex; ++RowIndex)
     {
-        PlatformConsoleOut("%s", Series->RowLabels[RowIndex].Chars);
+        PlatformConsoleOut("%S", Series->RowLabels[RowIndex].Value);
         for(u32 ColumnIndex = 0; ColumnIndex < Series->ColumnCount; ++ColumnIndex)
         {
             repetition_test_results *TestResults = RepetitionTestGetTestResults(Series, ColumnIndex, RowIndex);
