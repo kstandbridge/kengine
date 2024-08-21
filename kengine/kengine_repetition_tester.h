@@ -181,6 +181,15 @@ RepetitionTestNewTestWave_(repetition_tester *Tester, u64 TargetProcessedByteCou
     Tester->TestsStartedAt = PlatformReadCPUTimer();
 }
 
+internal b32
+RepetitionTestIsInBounds(repetition_test_series *Series)
+{
+    b32 Result = ((Series->ColumnIndex < Series->ColumnCount) &&
+                  (Series->RowIndex < Series->MaxRowCount));
+
+    return Result;
+}
+
 internal void
 RepetitionTestNewTestWave(repetition_test_series *Series, repetition_tester *Tester, u64 TargetProcessedByteCount, u64 CPUTimerFreq, u32 SecondsToTry)
 {
@@ -358,22 +367,13 @@ RepetitionTestAllocateTestSeries(memory_arena *Arena, u32 ColumnCount, u32 MaxRo
     return Result;
 }
 
-internal b32
-RepetitionTestIsInBounds(repetition_test_series *Series)
-{
-    b32 Result = ((Series->ColumnIndex < Series->ColumnCount) &&
-                  (Series->RowIndex < Series->MaxRowCount));
-
-    return Result;
-}
-
 internal void
 RepetitionTestSetRowLabelLabel(repetition_test_series *Series, char *Format, ...)
 {
     repetition_series_label *Label = &Series->RowLabelLabel;
     va_list Args;
     va_start(Args, Format);
-    FormatStringToBuffer_(Label->Chars, sizeof(Label->Chars), Format, Args);
+    FormatStringToBuffer_((u8 *)Label->Chars, sizeof(Label->Chars), Format, Args);
     va_end(Args);
 }
 
@@ -385,7 +385,7 @@ RepetitionTestSetRowLabel(repetition_test_series *Series, char *Format, ...)
         repetition_series_label *Label = Series->RowLabels + Series->RowIndex;
         va_list Args;
         va_start(Args, Format);
-        FormatStringToBuffer_(Label->Chars, sizeof(Label->Chars), Format, Args);
+        FormatStringToBuffer_((u8 *)Label->Chars, sizeof(Label->Chars), Format, Args);
         va_end(Args);
     }
 }
@@ -398,7 +398,7 @@ RepetitionTestSetColumnLabel(repetition_test_series *Series, char *Format, ...)
         repetition_series_label *Label = Series->ColumnLabels + Series->ColumnIndex;
         va_list Args;
         va_start(Args, Format);
-        FormatStringToBuffer_(Label->Chars, sizeof(Label->Chars), Format, Args);
+        FormatStringToBuffer_((u8 *)Label->Chars, sizeof(Label->Chars), Format, Args);
         va_end(Args);
     }
 }
