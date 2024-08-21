@@ -158,6 +158,11 @@ typedef struct string
 } string;
 #define NullString() String_(0, 0)
 #define IsNullString(Text) ((Text.Data == 0) || (Text.Size == 0))
+inline b32 StringIsValid(string String)
+{
+    b32 Result = (String.Data != 0);
+    return Result;
+}
 
 introspect(linked_list)
 typedef struct string_list
